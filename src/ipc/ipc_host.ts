@@ -1,0 +1,102 @@
+import { registerAppHandlers } from "./handlers/app_handlers";
+import { registerChatHandlers } from "./handlers/chat_handlers";
+import { registerChatStreamHandlers } from "./handlers/chat_stream_handlers";
+import { registerSettingsHandlers } from "./handlers/settings_handlers";
+import { registerShellHandlers } from "./handlers/shell_handler";
+import { registerDependencyHandlers } from "./handlers/dependency_handlers";
+import { registerGithubHandlers } from "./handlers/github_handlers";
+import { registerVercelHandlers } from "./handlers/vercel_handlers";
+import { registerNodeHandlers } from "./handlers/node_handlers";
+import { registerProposalHandlers } from "./handlers/proposal_handlers";
+import { registerDebugHandlers } from "./handlers/debug_handlers";
+// Advanced features temporarily disabled for core stability
+// import { registerSupabaseHandlers } from "./handlers/supabase_handlers";
+// import { registerSupabaseAuthHandlers } from "./handlers/supabase_auth_handlers";
+// import { registerR2StorageHandlers } from "./handlers/r2_storage_handlers";
+// import { registerAnalyticsHandlers } from "./handlers/analytics_handlers";
+
+import { registerNeonHandlers } from "./handlers/neon_handlers";
+import { registerLocalModelHandlers } from "./handlers/local_model_handlers";
+import { registerTokenCountHandlers } from "./handlers/token_count_handlers";
+import { registerWindowHandlers } from "./handlers/window_handlers";
+import { registerUploadHandlers } from "./handlers/upload_handlers";
+import { registerVersionHandlers } from "./handlers/version_handlers";
+import { registerLanguageModelHandlers } from "./handlers/language_model_handlers";
+import { registerReleaseNoteHandlers } from "./handlers/release_note_handlers";
+import { registerImportHandlers } from "./handlers/import_handlers";
+import { registerSessionHandlers } from "./handlers/session_handlers";
+import { registerProHandlers } from "./handlers/pro_handlers";
+import { registerContextPathsHandlers } from "./handlers/context_paths_handlers";
+import { registerAppUpgradeHandlers } from "./handlers/app_upgrade_handlers";
+import { registerCapacitorHandlers } from "./handlers/capacitor_handlers";
+import { registerProblemsHandlers } from "./handlers/problems_handlers";
+import { registerAppEnvVarsHandlers } from "./handlers/app_env_vars_handlers";
+import { registerTemplateHandlers } from "./handlers/template_handlers";
+import { registerPortalHandlers } from "./handlers/portal_handlers";
+import { registerExpoHandlers } from "./handlers/expo_handlers";
+import { registerDualExpoHandlers } from "./handlers/expo_dual_handlers";
+import { registerSimpleExpoHandlers } from "./handlers/simple_expo_handlers";
+import { registerTerminalHandlers } from "./handlers/terminal_handlers";
+import { registerPromptOptimizationHandlers } from "./handlers/prompt_optimization_handlers";
+import { registerPromptHandlers } from "./handlers/prompt_handlers";
+import { registerFlutterMobileHandlers } from "./handlers/flutter_mobile_handlers";
+import { registerMobileHandlers } from "./handlers/mobile";
+import { registerSemanticContextHandlers } from "./handlers/semantic_context_handlers";
+import { registerAIInstallHandlers } from "./handlers/ai_install_handlers";
+import { registerPlaywrightMCPHandlers } from "./handlers/playwright_mcp_handlers";
+import { registerGeminiAuthHandlers } from "./handlers/gemini_auth_handlers";
+import { registerGeminiHandlers } from "./handlers/gemini_handlers";
+import { registerBackgroundTaskHandlers } from "./handlers/background_task_manager";
+
+export function registerIpcHandlers() {
+  // Register all IPC handlers by category
+  registerAppHandlers();
+  registerChatHandlers();
+  registerChatStreamHandlers();
+  registerSettingsHandlers();
+  registerShellHandlers();
+  registerDependencyHandlers();
+  registerGithubHandlers();
+  registerVercelHandlers();
+  registerNodeHandlers();
+  registerProblemsHandlers();
+  registerProposalHandlers();
+  registerDebugHandlers();
+  // Advanced features temporarily disabled for core stability
+  // registerSupabaseHandlers();
+  // registerSupabaseAuthHandlers();
+  // registerR2StorageHandlers();
+  // registerAnalyticsHandlers();
+
+  registerNeonHandlers();
+  registerLocalModelHandlers();
+  registerTokenCountHandlers();
+  registerWindowHandlers();
+  registerUploadHandlers();
+  registerVersionHandlers();
+  registerLanguageModelHandlers();
+  registerReleaseNoteHandlers();
+  registerImportHandlers();
+  registerSessionHandlers();
+  registerProHandlers();
+  registerContextPathsHandlers();
+  registerAppUpgradeHandlers();
+  registerCapacitorHandlers();
+  registerAppEnvVarsHandlers();
+  registerTemplateHandlers();
+  registerPortalHandlers();
+  registerExpoHandlers();
+  registerDualExpoHandlers();
+  registerSimpleExpoHandlers();
+  // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
+  registerPromptOptimizationHandlers();
+  registerPromptHandlers();
+  registerFlutterMobileHandlers();
+  registerMobileHandlers();
+  registerSemanticContextHandlers();
+  registerAIInstallHandlers();
+  registerPlaywrightMCPHandlers();
+  registerGeminiAuthHandlers();
+  registerGeminiHandlers();
+  registerBackgroundTaskHandlers();
+}

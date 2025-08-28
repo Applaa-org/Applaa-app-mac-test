@@ -1,0 +1,1 @@
+ALTER TABLE `prompts` ADD `category` text DEFAULT 'General';
