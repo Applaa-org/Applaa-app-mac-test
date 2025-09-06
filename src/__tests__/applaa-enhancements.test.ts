@@ -251,8 +251,8 @@ describe("🚀 APPLAA ENHANCEMENTS", () => {
       const testConfig = await fs.readFile(testConfigPath, "utf-8");
       
       const testFeatures = [
-        "Core Features Protection",
-        "APPLAA CORE FEATURES PROTECTION SUITE",
+        "Core Features Test Runner",
+        "APPLAA CORE FEATURES TEST SUITE",
         "test:core"
       ];
 
