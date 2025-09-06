@@ -9,9 +9,10 @@ import { registerVercelHandlers } from "./handlers/vercel_handlers";
 import { registerNodeHandlers } from "./handlers/node_handlers";
 import { registerProposalHandlers } from "./handlers/proposal_handlers";
 import { registerDebugHandlers } from "./handlers/debug_handlers";
-// Advanced features temporarily disabled for core stability
-// import { registerSupabaseHandlers } from "./handlers/supabase_handlers";
-// import { registerSupabaseAuthHandlers } from "./handlers/supabase_auth_handlers";
+// Container handlers removed for MVP
+// Supabase integration for database and auth
+import { registerSupabaseHandlers } from "./handlers/supabase_handlers";
+import { registerSupabaseAuthHandlers } from "./handlers/supabase_auth_handlers";
 // import { registerR2StorageHandlers } from "./handlers/r2_storage_handlers";
 // import { registerAnalyticsHandlers } from "./handlers/analytics_handlers";
 
@@ -27,6 +28,7 @@ import { registerImportHandlers } from "./handlers/import_handlers";
 import { registerSessionHandlers } from "./handlers/session_handlers";
 import { registerProHandlers } from "./handlers/pro_handlers";
 import { registerContextPathsHandlers } from "./handlers/context_paths_handlers";
+import { registerNativeSpeechHandlers } from "./handlers/native_speech_handlers";
 import { registerAppUpgradeHandlers } from "./handlers/app_upgrade_handlers";
 import { registerCapacitorHandlers } from "./handlers/capacitor_handlers";
 import { registerProblemsHandlers } from "./handlers/problems_handlers";
@@ -36,17 +38,26 @@ import { registerPortalHandlers } from "./handlers/portal_handlers";
 import { registerExpoHandlers } from "./handlers/expo_handlers";
 import { registerDualExpoHandlers } from "./handlers/expo_dual_handlers";
 import { registerSimpleExpoHandlers } from "./handlers/simple_expo_handlers";
+import { registerUnifiedExpoPreview } from "./handlers/unified_expo_preview";
+import { registerIntelligentPreviewSystem } from "./handlers/intelligent_preview_system";
+import { registerExpoPerformanceMonitor } from "./handlers/expo_performance_monitor";
 import { registerTerminalHandlers } from "./handlers/terminal_handlers";
 import { registerPromptOptimizationHandlers } from "./handlers/prompt_optimization_handlers";
 import { registerPromptHandlers } from "./handlers/prompt_handlers";
 import { registerFlutterMobileHandlers } from "./handlers/flutter_mobile_handlers";
 import { registerMobileHandlers } from "./handlers/mobile";
-import { registerSemanticContextHandlers } from "./handlers/semantic_context_handlers";
-import { registerAIInstallHandlers } from "./handlers/ai_install_handlers";
+// Semantic context and AI install handlers removed for MVP
 import { registerPlaywrightMCPHandlers } from "./handlers/playwright_mcp_handlers";
-import { registerGeminiAuthHandlers } from "./handlers/gemini_auth_handlers";
-import { registerGeminiHandlers } from "./handlers/gemini_handlers";
+// Gemini handlers removed for MVP
 import { registerBackgroundTaskHandlers } from "./handlers/background_task_manager";
+import { registerHermeticRuntimeHandlers } from "./handlers/hermetic_runtime_handlers";
+import { registerParallelAppCreationHandlers } from "./handlers/parallel_app_creation";
+// Design generation handlers removed for MVP
+import { registerAssetStorageHandlers } from "./handlers/asset_storage_handlers";
+import { registerBackgroundDependencyInstaller } from "./handlers/background_dependency_installer";
+import { registerFeatureInstaller } from "./handlers/feature_installer";
+import { registerParallelPrebuildSystem } from "./handlers/parallel_prebuild_system";
+
 
 export function registerIpcHandlers() {
   // Register all IPC handlers by category
@@ -62,9 +73,9 @@ export function registerIpcHandlers() {
   registerProblemsHandlers();
   registerProposalHandlers();
   registerDebugHandlers();
-  // Advanced features temporarily disabled for core stability
-  // registerSupabaseHandlers();
-  // registerSupabaseAuthHandlers();
+  // Supabase integration for database and auth
+  registerSupabaseHandlers();
+  registerSupabaseAuthHandlers();
   // registerR2StorageHandlers();
   // registerAnalyticsHandlers();
 
@@ -80,6 +91,7 @@ export function registerIpcHandlers() {
   registerSessionHandlers();
   registerProHandlers();
   registerContextPathsHandlers();
+  registerNativeSpeechHandlers();
   registerAppUpgradeHandlers();
   registerCapacitorHandlers();
   registerAppEnvVarsHandlers();
@@ -88,15 +100,27 @@ export function registerIpcHandlers() {
   registerExpoHandlers();
   registerDualExpoHandlers();
   registerSimpleExpoHandlers();
+  registerUnifiedExpoPreview();
+  registerIntelligentPreviewSystem();
+  registerExpoPerformanceMonitor();
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
   registerPromptOptimizationHandlers();
   registerPromptHandlers();
   registerFlutterMobileHandlers();
   registerMobileHandlers();
-  registerSemanticContextHandlers();
-  registerAIInstallHandlers();
+  // Semantic context and AI install handlers removed for MVP
   registerPlaywrightMCPHandlers();
-  registerGeminiAuthHandlers();
-  registerGeminiHandlers();
+  registerBackgroundDependencyInstaller();
+  registerFeatureInstaller();
+  registerParallelPrebuildSystem();
+  // Gemini handlers removed for MVP
   registerBackgroundTaskHandlers();
+  registerTerminalHandlers();
+  registerHermeticRuntimeHandlers();
+  registerParallelAppCreationHandlers();
+  // Design generation handlers removed for MVP
+  registerAssetStorageHandlers();
+  
+  // 🌍 Global Container System with Transformers.js integration
+  // Container handlers removed for MVP
 }

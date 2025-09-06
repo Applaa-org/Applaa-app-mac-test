@@ -322,6 +322,43 @@ export const FLUTTER_TEMPLATES: TemplateOption[] = [
     }
   },
 
+  // WebView Template
+  {
+    id: "webview-wrapper",
+    title: "WebView Mobile Wrapper",
+    description: "Native mobile wrapper for web apps with pull-to-refresh, offline support, and platform-specific UI",
+    framework: "flutter",
+    category: "feature",
+    tags: ["webview", "wrapper", "web-app", "hybrid", "pull-to-refresh", "offline", "connectivity"],
+    platforms: ["android", "ios"],
+    dependencies: ["flutter", "webview_flutter", "connectivity_plus", "shared_preferences"],
+    complexity: 3,
+    setupTime: 20,
+    preview_image: "/templates/flutter-webview.png",
+    defaults: {
+      stateMgmt: "none",
+      navigation: "drawer",
+      backend: "none",
+      auth: "none",
+      features: [
+        "webview", 
+        "connectivity", 
+        "pull-to-refresh", 
+        "dark-mode",
+        "search",
+        "offline-support",
+        "platform-ui"
+      ],
+      platforms: ["android", "ios"],
+      themeConfig: {
+        useMaterial3: true,
+        useCupertino: true,
+        darkMode: true,
+        primaryColor: "#2563eb"
+      }
+    }
+  },
+
   // Feature-Rich Templates
   {
     id: "flutter-ecommerce",

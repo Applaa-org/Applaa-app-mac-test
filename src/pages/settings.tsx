@@ -16,7 +16,7 @@ import { useRouter, Outlet, useLocation } from "@tanstack/react-router";
 import { GitHubIntegration } from "@/components/GitHubIntegration";
 import { VercelIntegration } from "@/components/VercelIntegration";
 import { SupabaseIntegration } from "@/components/SupabaseIntegration";
-import { SemanticContextSettings } from "@/components/settings/SemanticContextSettings";
+// Semantic context settings removed for MVP
 
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -110,7 +110,7 @@ export default function SettingsPage() {
 
         <div className="space-y-6">
           <GeneralSettings appVersion={appVersion} />
-          <AISettings />
+          {/* AI Settings removed for MVP */}
           
           <div
             id="provider-settings"
@@ -121,52 +121,11 @@ export default function SettingsPage() {
 
           <WorkflowSettings />
           
-          {/* Semantic Context Sections */}
-          <div
-            id="semantic-context-settings"
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"
-          >
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Smart Suggestions
-            </h2>
-            <SemanticContextSettingsSection />
-          </div>
+          {/* Smart Suggestions removed for MVP */}
 
-          <div
-            id="usage-analytics"
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"
-          >
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Usage Analytics
-            </h2>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              How smart suggestions are performing for you
-            </div>
-          </div>
+          {/* Usage Analytics removed for MVP */}
 
-          <div
-            id="privacy-processing"
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"
-          >
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Privacy & Local Processing
-            </h2>
-            <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <div className="text-blue-600 dark:text-blue-400">
-                <svg className="h-5 w-5 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="space-y-2">
-                <div className="font-medium text-blue-900 dark:text-blue-100">Privacy & Local Processing</div>
-                <div className="text-sm text-blue-800 dark:text-blue-200">
-                  All semantic analysis happens locally on your machine. Your code never leaves 
-                  your computer, and no data is sent to external services. The AI models run 
-                  entirely offline for complete privacy.
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Privacy & Local Processing removed for MVP */}
 
           {/* Cloud Services Sections */}
           <div
@@ -454,7 +413,9 @@ function SemanticContextSettingsSection() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
       <div className="p-6">
-        <SemanticContextSettings />
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          Semantic context features removed for MVP
+        </div>
       </div>
     </div>
   );

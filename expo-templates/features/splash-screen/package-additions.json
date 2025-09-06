@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "expo-splash-screen": "~0.30.10",
+    "expo-font": "~13.0.1"
+  },
+  "plugins": [
+    [
+      "expo-splash-screen",
+      {
+        "backgroundColor": "#ffffff",
+        "image": "./assets/splash-icon.png",
+        "imageWidth": 200,
+        "resizeMode": "contain",
+        "dark": {
+          "backgroundColor": "#000000",
+          "image": "./assets/splash-icon-dark.png"
+        }
+      }
+    ]
+  ]
+}

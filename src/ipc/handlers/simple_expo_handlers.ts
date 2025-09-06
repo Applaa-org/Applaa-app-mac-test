@@ -8,7 +8,9 @@ import { getDyadAppPath } from "../../paths/paths";
 import { db } from "../../db";
 import { apps } from "../../db/schema";
 import { eq } from "drizzle-orm";
+import { execAsync } from "../utils/runShellCommand";
 import log from "electron-log";
+import { unifiedInstallDependencies, areDependenciesInstalled } from "./unified_dependency_manager";
 
 interface SimpleExpoStatus {
   isRunning: boolean;
@@ -34,7 +36,7 @@ let expoStatus: SimpleExpoStatus = {
 let currentStartOptions: { useTunnel: boolean } = { useTunnel: true };
 
 export function registerSimpleExpoHandlers() {
-  log.log("🎯 Registering RORK-style Expo handlers with guaranteed port allocation");
+  log.log("🎯 Registering Expo handlers with guaranteed port allocation");
 
   // Kill any process using a specific port (Windows/Linux/Mac compatible)
   const killProcessOnPort = async (port: number): Promise<boolean> => {
@@ -104,7 +106,7 @@ export function registerSimpleExpoHandlers() {
     }
   };
 
-  // Enhanced port finder: RORK-style guaranteed port allocation
+  // Enhanced port finder: guaranteed port allocation
   const findAvailablePort = async (basePort: number = 8081, maxTries = 20): Promise<number> => {
     log.log(`🔍 Scanning for available port starting from ${basePort}...`);
     
@@ -265,6 +267,135 @@ export function registerSimpleExpoHandlers() {
     }
   };
 
+  // Package Update - Fix version mismatches
+  ipcMain.handle("simple-expo:update-packages", async (_, params: { appId: number }) => {
+    try {
+      const { appId } = params;
+      log.log(`📦 Updating packages for app ID: ${appId}`);
+      
+      // Get app data
+      const appData = await db.select().from(apps).where(eq(apps.id, appId)).limit(1);
+      if (!appData[0]) {
+        throw new Error("App not found");
+      }
+      
+      const appPath = getDyadAppPath(appData[0].path);
+      log.log(`Updating packages in: ${appPath}`);
+      
+      // Update to expected versions based on Expo SDK 53
+      const updateCommands = [
+        "npx expo install expo@53.0.22",
+        "npx expo install expo-router@~5.1.5", 
+        "npx expo install react-native@0.79.5",
+        "npx expo install typescript@~5.8.3",
+        "npm install" // Final install to resolve dependencies
+      ];
+      
+      let updateOutput = "";
+      
+      for (const command of updateCommands) {
+        try {
+          log.log(`Running: ${command}`);
+          updateOutput += `$ ${command}\n`;
+          
+          const result = await execAsync(command, { 
+            cwd: appPath,
+            timeout: 120000 // 2 minute timeout per command
+          });
+          
+          updateOutput += result.stdout + "\n";
+          if (result.stderr) {
+            updateOutput += `STDERR: ${result.stderr}\n`;
+          }
+          
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          updateOutput += `ERROR: ${errorMsg}\n`;
+          log.warn(`Package update command failed: ${command}`, error);
+        }
+      }
+      
+      return {
+        success: true,
+        output: updateOutput,
+        message: "Package versions updated to match Expo SDK 53"
+      };
+      
+    } catch (error) {
+      log.error("Package update failed:", error);
+      return {
+        success: false,
+        output: "",
+        message: `Package update failed: ${error.message}`
+      };
+    }
+  });
+
+  // Metro Recovery - Force kill all processes and clean port 8081
+  ipcMain.handle("simple-expo:metro-recovery", async () => {
+    try {
+      log.log("🚨 METRO RECOVERY: Starting aggressive cleanup...");
+      
+      // Kill all processes on port 8081
+      await killProcessOnPort(8081);
+      
+      // Kill expo/metro processes more selectively to avoid affecting main app
+      if (process.platform === "win32") {
+        try {
+          // Only kill expo processes, not all node processes
+          spawn("taskkill", ["/f", "/im", "expo.exe"], { shell: true });
+          
+          // Kill node processes that specifically have "expo" or "metro" in their command line
+          // This is much safer than killing all node processes
+          spawn("wmic", [
+            "process", "where", 
+            "name='node.exe' and (commandline like '%expo%' or commandline like '%metro%')", 
+            "delete"
+          ], { shell: true });
+        } catch (e) {
+          log.warn("Error killing expo/metro processes:", e);
+        }
+      } else {
+        try {
+          // Unix/Linux/Mac: Kill expo and metro processes specifically
+          spawn("pkill", ["-f", "expo"], { shell: true });
+          spawn("pkill", ["-f", "metro"], { shell: true });
+        } catch (e) {
+          log.warn("Error killing expo processes:", e);
+        }
+      }
+      
+      // Wait for processes to fully terminate
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Verify port 8081 is now free
+      const isPortFree = await new Promise<boolean>((resolve) => {
+        const testServer = require('net').createServer();
+        testServer.listen(8081, () => {
+          testServer.close();
+          resolve(true);
+        });
+        testServer.on('error', () => resolve(false));
+      });
+      
+      log.log(`🔍 Port 8081 status after cleanup: ${isPortFree ? 'FREE' : 'STILL OCCUPIED'}`);
+      
+      return {
+        success: true,
+        portFree: isPortFree,
+        message: isPortFree ? "Metro recovery successful - port 8081 is now free" : "Metro recovery partial - port may still be occupied"
+      };
+      
+    } catch (error) {
+      log.error("Metro recovery failed:", error);
+      return {
+        success: false,
+        portFree: false,
+        message: `Metro recovery failed: ${error.message}`
+      };
+    }
+  });
+
   // Simple Expo start - just run npx expo start and parse output
   ipcMain.handle("simple-expo:start", async (
     _,
@@ -290,7 +421,7 @@ export function registerSimpleExpoHandlers() {
         expoProcess = null;
       }
 
-      // ALWAYS kill any process using port 8081 before starting (RORK-style dedication)
+      // ALWAYS kill any process using port 8081 before starting
       log.log("🔫 Pre-cleaning port 8081 for Applaa dedication...");
       await killProcessOnPort(8081);
       
@@ -316,33 +447,172 @@ export function registerSimpleExpoHandlers() {
         terminalOutput: ""
       };
 
-      // RORK-style port pre-allocation with aggressive cleanup
-      log.log("🎯 Ensuring port 8081 is available for Applaa...");
-      const metroPort = await findAvailablePort(8081);
+      // Ensure expo module is installed first
+      log.log("📦 Checking expo module installation...");
+      const packageJsonPath = path.join(appPath, 'package.json');
+      const nodeModulesPath = path.join(appPath, 'node_modules');
+      const expoModulePath = path.join(nodeModulesPath, 'expo');
+      let needsExpoInstall = false;
       
-      // If port 8081 is not available, kill whatever is using it
-      if (metroPort !== 8081) {
-        log.log("🔫 Port 8081 occupied, killing process and reclaiming...");
-        await killProcessOnPort(8081);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Verify port 8081 is now free
-        const retryPort = await findAvailablePort(8081, 1);
-        if (retryPort === 8081) {
-          log.log("🎉 Successfully reclaimed port 8081 for Applaa!");
-        } else {
-          log.warn("⚠️ Could not reclaim port 8081, using alternative port");
-        }
+      // Check if node_modules exists and expo is actually installed
+      if (!fs.existsSync(nodeModulesPath)) {
+        needsExpoInstall = true;
+        log.log("⚠️ node_modules directory not found - need to install dependencies");
+      } else if (!fs.existsSync(expoModulePath)) {
+        needsExpoInstall = true;
+        log.log("⚠️ expo module not found in node_modules - need to install expo");
+      } else {
+        log.log("✅ expo module found in node_modules");
       }
       
-      const finalPort = 8081; // Always try to use 8081 for RORK-style consistency
-      log.log(`🎯 RORK-style port allocation: Metro will use port ${finalPort}`);
+      if (needsExpoInstall) {
+        log.log("📦 Fixing package.json and installing dependencies...");
+        expoStatus.terminalOutput += "📦 Fixing package.json and installing dependencies...\n";
+        
+        // Fix common invalid package versions before installing
+        try {
+          if (fs.existsSync(packageJsonPath)) {
+            const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+            let packageJson = JSON.parse(packageContent);
+            let needsFixing = false;
+            
+            // Fix common invalid versions
+            const fixes = {
+              "@react-native-async-storage/async-storage": {
+                invalid: ["1.25.0"],
+                fix: "^1.23.1"
+              },
+              "@types/react-native": {
+                invalid: ["~0.79.0"],
+                fix: "^0.73.0"
+              },
+              "expo-battery": {
+                invalid: ["~7.0.1"],
+                fix: "~6.0.1"
+              },
+              "typescript": {
+                invalid: ["~5.8.3"],
+                fix: "~5.3.3"
+              }
+            };
+            
+            // Check and fix dependencies
+            for (const [pkg, config] of Object.entries(fixes)) {
+              const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+              if (allDeps[pkg] && config.invalid.includes(allDeps[pkg])) {
+                if (packageJson.dependencies && packageJson.dependencies[pkg]) {
+                  packageJson.dependencies[pkg] = config.fix;
+                  needsFixing = true;
+                  log.log(`🔧 Fixed ${pkg}: ${allDeps[pkg]} -> ${config.fix}`);
+                }
+                if (packageJson.devDependencies && packageJson.devDependencies[pkg]) {
+                  packageJson.devDependencies[pkg] = config.fix;
+                  needsFixing = true;
+                  log.log(`🔧 Fixed ${pkg}: ${allDeps[pkg]} -> ${config.fix}`);
+                }
+              }
+            }
+            
+            // Write back the fixed package.json
+            if (needsFixing) {
+              fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8');
+              log.log("✅ package.json fixed");
+              expoStatus.terminalOutput += "✅ package.json fixed\n";
+            }
+          }
+        } catch (fixError) {
+          log.warn("⚠️ Could not fix package.json:", fixError);
+        }
+        
+        const installSuccess = await unifiedInstallDependencies(appPath, appId, 'expo-preview');
+        
+        if (!installSuccess) {
+          log.error("❌ Unified dependency installation failed");
+          expoStatus.terminalOutput += "❌ Unified dependency installation failed\n";
+          throw new Error("Failed to install dependencies with unified manager");
+        }
+        
+        log.log("✅ Dependencies installed successfully with unified manager");
+        expoStatus.terminalOutput += "✅ Dependencies installed successfully\n";
+      }
+
+      // Double-check that node_modules and expo are actually present after installation
+      if (!fs.existsSync(nodeModulesPath)) {
+        log.error("❌ node_modules still missing after npm install");
+        expoStatus.terminalOutput += "❌ node_modules still missing after npm install\n";
+        throw new Error("npm install failed to create node_modules directory");
+      }
+
+      if (!fs.existsSync(expoModulePath)) {
+        log.log("📦 Expo module missing, attempting specific installation...");
+        expoStatus.terminalOutput += "📦 Installing expo module specifically...\n";
+        
+        // Try multiple installation strategies
+        try {
+          // Strategy 1: Direct npm install of expo
+          log.log("📦 Strategy 1: Direct npm install expo");
+          await execAsync("npm install expo --save", {
+            cwd: appPath,
+            timeout: 180000 // 3 minutes
+          });
+          
+          if (!fs.existsSync(expoModulePath)) {
+            // Strategy 2: npm install with --legacy-peer-deps
+            log.log("📦 Strategy 2: npm install with --legacy-peer-deps");
+            await execAsync("npm install expo --save --legacy-peer-deps", {
+              cwd: appPath,
+              timeout: 180000
+            });
+          }
+          
+          if (!fs.existsSync(expoModulePath)) {
+            // Strategy 3: Try with force
+            log.log("📦 Strategy 3: npm install with --force");
+            await execAsync("npm install expo --save --force", {
+              cwd: appPath,
+              timeout: 180000
+            });
+          }
+
+          // Final verification
+          if (!fs.existsSync(expoModulePath)) {
+            log.error("❌ All installation strategies failed");
+            expoStatus.terminalOutput += "❌ Failed to install expo module with all strategies\n";
+            throw new Error("expo module installation failed with all strategies");
+          }
+          
+          log.log("✅ expo module successfully installed");
+          expoStatus.terminalOutput += "✅ expo module installed\n";
+          
+        } catch (installError) {
+          log.error("❌ Expo installation error:", installError);
+          expoStatus.terminalOutput += `❌ Installation error: ${installError}\n`;
+          throw new Error(`Failed to install expo module: ${installError}`);
+        }
+      } else {
+        log.log("✅ expo module already present");
+      }
+
+      // NON-INTERACTIVE PORT SELECTION: pick the first free port starting at 8081
+      log.log("🎯 Selecting a free Metro port starting at 8081 (non-interactive)...");
+      const net = require('net');
+      const isPortFree = (port: number) => new Promise<boolean>((resolve) => {
+        const s = net.createServer();
+        s.once('listening', () => s.close(() => resolve(true)));
+        s.once('error', () => resolve(false));
+        s.listen(port, '0.0.0.0');
+      });
+      let finalPort = 8081;
+      while (!(await isPortFree(finalPort)) && finalPort < 8100) {
+        finalPort += 1;
+      }
+      log.log(`✅ Using Metro port ${finalPort} (auto-selected)`);
       
-      const portMessage = `Using port ${finalPort} (RORK-style dedicated allocation)\n`;
+      const portMessage = `Using port ${finalPort}\n`;
       expoStatus.terminalOutput += portMessage;
       log.log(`✅ ${portMessage.trim()}`);
 
-      // Build command: RORK-style with SUPPORTED anti-interactive flags only
+      // Build command with SUPPORTED anti-interactive flags only
       const args = [
         "expo", "start", 
         "--clear",
@@ -352,16 +622,16 @@ export function registerSimpleExpoHandlers() {
         // Using environment variables instead (CI=1, etc.)
       ];
       
-      // RORK uses tunnel by default for consistent external access
+      // Use tunnel by default for consistent external access
       if (useTunnel) {
         args.push("--tunnel");
-        log.log("🚇 Using tunnel mode (RORK-style for consistent access)");
+        log.log("🚇 Using tunnel mode for consistent access");
       } else {
         args.push("--localhost");
         log.log("🏠 Using localhost mode");
       }
 
-      log.log(`🚀 RORK-style startup: npx ${args.join(" ")}`);
+      log.log(`🚀 Starting Expo: npx ${args.join(" ")}`);
 
     // Start Expo process with minimal environment to preserve default CLI behavior (prints QR)
   expoProcess = spawn("npx", args, {
@@ -381,7 +651,7 @@ export function registerSimpleExpoHandlers() {
       EXPO_NO_GIT_STATUS: '1',             // Skip git status checks
       EXPO_NO_CACHE: '1',                  // Prevent cache prompts
       EXPO_NO_UPDATE_CHECK: '1',           // Skip update checks
-          // Port allocation (RORK-style)
+          // Port allocation
           PORT: String(finalPort),             // Backup port env var
           EXPO_DEVTOOLS_LISTEN_ADDRESS: '0.0.0.0',
       // 🚀 Keep CLI mostly default so it prints QR (no CI / no EXPO_NO_INTERACTIVE)
@@ -424,7 +694,7 @@ export function registerSimpleExpoHandlers() {
   let tunnelReadyButNoUrl = false;
   let hasStartedWeb = true; // --web starts web server automatically
 
-      // RORK-style output parsing: prioritize tunnel URLs for consistent access
+      // Output parsing: prioritize tunnel URLs for consistent access
       expoProcess.stdout?.on("data", (data: Buffer) => {
         const output = data.toString();
   log.log("📺 Expo Output:", output);
@@ -449,13 +719,13 @@ export function registerSimpleExpoHandlers() {
           const newTunnelUrl = tunnelMatches[0][1];
           if (newTunnelUrl !== expoStatus.tunnelUrl) {
             expoStatus.tunnelUrl = newTunnelUrl;
-            // 🎯 RORK STRATEGY: Use tunnel URL for BOTH QR and web preview (consistent external access)
+            // 🎯 STRATEGY: Use tunnel URL for BOTH QR and web preview (consistent external access)
             expoStatus.qrUrl = newTunnelUrl;
             expoStatus.webUrl = newTunnelUrl;
             hasFoundQR = true;
       // Cancel LAN fallback timer if running
       if (lanFallbackTimer) { clearTimeout(lanFallbackTimer); lanFallbackTimer = null; }
-            log.log(`🚇 RORK-style tunnel URL (QR + Web + Universal): ${newTunnelUrl}`);
+            log.log(`🚇 Tunnel URL (QR + Web + Universal): ${newTunnelUrl}`);
           }
         }
 
@@ -573,7 +843,7 @@ export function registerSimpleExpoHandlers() {
 
         // Log current status for debugging
         if (expoStatus.tunnelUrl) {
-          log.log(`🎯 RORK-mode active: Using tunnel ${expoStatus.tunnelUrl} for all access`);
+          log.log(`🎯 Tunnel mode active: Using tunnel ${expoStatus.tunnelUrl} for all access`);
         }
       });
 

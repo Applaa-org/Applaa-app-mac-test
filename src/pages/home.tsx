@@ -9,6 +9,7 @@ import { useLoadApps } from "@/hooks/useLoadApps";
 import { useSettings } from "@/hooks/useSettings";
 import { SetupBanner } from "@/components/SetupBanner";
 import { isPreviewOpenAtom } from "@/atoms/viewAtoms";
+import { previewModeAtom } from "@/atoms/appAtoms";
 import { useState, useEffect, useCallback } from "react";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { HomeChatInput } from "@/components/chat/HomeChatInput";
@@ -22,16 +23,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
+import { useAppCreationStatus } from "@/hooks/useAppCreationStatus";
 
 import { showError } from "@/lib/toast";
 import { useApplaaPro } from "@/hooks/useApplaaPro";
 import { ProFeatureGate } from "@/components/ProFeatureGate";
 import { invalidateAppQuery } from "@/hooks/useLoadApp";
 import { useQueryClient } from "@tanstack/react-query";
+import { AppNamingDialog } from "@/components/AppNamingDialog";
 
 import type { FileAttachment } from "@/ipc/ipc_types";
 import { NEON_TEMPLATE_IDS } from "@/shared/templates";
@@ -51,8 +55,14 @@ export default function HomePage() {
   const { settings, updateSettings } = useSettings();
   const { isPro, canCreateMoreApps, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const setIsPreviewOpen = useSetAtom(isPreviewOpenAtom);
+  const setPreviewMode = useSetAtom(previewModeAtom);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [showNamingDialog, setShowNamingDialog] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<FileAttachment[]>([]);
   const { streamMessage } = useStreamChat({ hasChatId: false });
+  const { status: creationStatus, isMonitoring } = useAppCreationStatus(currentTaskId);
   const posthog = usePostHog();
   const appVersion = useAppVersion();
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
@@ -139,30 +149,32 @@ export default function HomePage() {
       return;
     }
 
+    // Show naming dialog first
+    setPendingPrompt(inputValue);
+    setPendingAttachments(attachments);
+    setShowNamingDialog(true);
+  };
+
+  const handleNameSelected = async (selectedName: string) => {
+    if (!pendingPrompt.trim()) return;
+
     try {
       setIsLoading(true);
+      const startTime = performance.now();
       
-      // Create the chat and navigate (platform/template already set by PlatformSelector)
-      // Try smart naming first using the user's prompt as concept
-      let displayName = "";
-      let packageId = "";
-      let slug = "";
-      try {
-        const ideas = await IpcClient.getInstance().generateAppNames({
-          concept: inputValue || "App",
-        });
-        if (ideas.length > 0) {
-          displayName = ideas[0].display_name;
-          packageId = ideas[0].package_id;
-          slug = ideas[0].slug;
-        }
-      } catch {}
+      // Use the selected name from the dialog
+      const finalName = selectedName.toLowerCase().replace(/\s+/g, '-');
+      const displayName = selectedName;
+      const packageId = `com.applaa.${finalName.replace(/-/g, "")}`;
+      const slug = finalName;
 
-      const fallback = generateCuteAppName();
-      const finalName = slug || fallback;
+      // Use the original prompt directly - no auto-enhancement for MVP
+      // Users can manually enhance prompts using the enhance button if needed
+      let finalPrompt = pendingPrompt;
 
-      // Use background app creation for non-blocking UI
-      const result = await IpcClient.getInstance().createAppBackground({
+      // 🚀 PARALLEL CREATION: Use instant app creation for immediate chat access
+      // Template creation and git operations run in background while user chats
+      const result = await IpcClient.getInstance().createAppInstant({
         name: finalName,
         displayName: displayName || finalName
           .split("-")
@@ -175,8 +187,11 @@ export default function HomePage() {
         framework: settings?.selectedPlatform === 'expo' ? 'expo' : settings?.selectedPlatform === 'flutter' ? 'flutter' : 'web',
         // Store the prompt and attachments for processing after app creation
         prompt: finalPrompt,
-        attachments: attachments
+        attachments: pendingAttachments
       });
+      
+      // Start monitoring background task
+      setCurrentTaskId(result.taskId);
       if (
         settings?.selectedTemplateId &&
         NEON_TEMPLATE_IDS.has(settings.selectedTemplateId)
@@ -187,52 +202,82 @@ export default function HomePage() {
         });
       }
 
-      // Automatically optimize the prompt for better UI/UX
-      let finalPrompt = inputValue;
-      try {
-        const appType = settings?.selectedPlatform === 'expo' || settings?.selectedPlatform === 'flutter' ? 'mobile' : 'web';
-        const optimizationResult = await IpcClient.getInstance().optimizePrompt({
-          originalPrompt: inputValue,
-          selectedModel: settings?.selectedModel || { name: "auto", provider: "auto" },
-          appType: appType
-        });
-        finalPrompt = optimizationResult.optimizedPrompt;
-        console.log(`[Home] Auto-enhanced prompt from "${inputValue}" to enhanced version`);
-      } catch (error) {
-        console.warn('[Home] Failed to auto-enhance prompt, using original:', error);
-        // Continue with original prompt if optimization fails
-      }
-
-      // For background tasks, don't stream immediately since we don't have a real chat ID yet
-      // The streaming will happen after the app and chat are actually created
+      // 🚀 INSTANT FEEDBACK: Stream the message and navigate immediately
+      // Chat is ready instantly while template creation runs in background
+      const instantCreationTime = performance.now() - startTime;
+      console.log(`[Home] App and chat created instantly in ${instantCreationTime.toFixed(2)}ms! App ID: ${result.app.id}, Chat ID: ${result.chatId}, Task ID: ${result.taskId}`);
       
-      // Show success message and continue without blocking
-      console.log(`[Home] App creation started in background (Task ID: ${result.taskId})`);
-      console.log(`[Home] Prompt will be processed once app creation completes: "${finalPrompt}"`);
+      // Track performance metrics
+      posthog.capture("home:instant-app-creation", { 
+        promptLength: finalPrompt.length,
+        appId: result.app.id,
+        chatId: result.chatId,
+        taskId: result.taskId,
+        instantCreationTime: instantCreationTime.toFixed(2),
+        framework: settings?.selectedPlatform || 'web',
+        readyForChat: result.readyForChat
+      });
+      
+      // Stream the message with attachments immediately - no waiting!
+      streamMessage({
+        prompt: finalPrompt,
+        chatId: result.chatId,
+        attachments: pendingAttachments
+      });
+      
+      // No waiting needed - chat is ready immediately!
       
       setInputValue("");
       setSelectedIdea(null); // Clear selected idea after submission
-      setIsLoading(false); // Allow user to continue using the app
-      setIsPreviewOpen(false);
+      setPendingPrompt('');
+      setPendingAttachments([]);
+      setSelectedAppId(result.app.id);
       
-      // Show notification that app is being created in background
-      // The background task notifications will handle showing progress
+      // 🚀 AUTO-OPEN PREVIEW: Show preview immediately for fast user experience
+      setPreviewMode("preview");
+      setIsPreviewOpen(true);
+      
+      // Refresh apps list and invalidate cache
+      await refreshApps();
+      await invalidateAppQuery(queryClient, { appId: result.app.id });
       
       posthog.capture("home:chat-submit", { 
-        backgroundTask: true, 
-        taskId: result.taskId,
-        promptLength: finalPrompt.length
+        promptLength: finalPrompt.length,
+        appId: result.app.id,
+        chatId: result.chatId
       });
       
-      // Store the prompt and attachments in the background task metadata
-      // so they can be processed once the app is ready
-      // This will be handled by the background task completion handler
+      // Reset loading state BEFORE navigation for instant UI response
+      setIsLoading(false);
+      
+      // Navigate to the chat - streaming is already in progress
+      navigate({ to: "/chat", search: { id: result.chatId } });
     } catch (error) {
       console.error("Failed to create chat:", error);
-      showError("Failed to create app. " + (error as any).toString());
+      
+      // 🚨 FIX: Handle duplicate app name with user-friendly suggestion
+      const errorMessage = (error as any).message || error?.toString();
+      if (errorMessage?.startsWith('DUPLICATE_APP_NAME:')) {
+        const [, originalName, suggestedName] = errorMessage.split(':');
+        showError(
+          `An app named "${originalName}" already exists. ` +
+          `Try "${suggestedName}" instead, or choose a different name.`,
+          {
+            action: {
+              label: `Use "${suggestedName}"`,
+              onClick: () => {
+                // Auto-fill the suggested name and retry
+                handleNameSelected(suggestedName);
+              }
+            }
+          }
+        );
+      } else {
+        showError("Failed to create app. " + errorMessage);
+      }
+      
       setIsLoading(false); // Ensure loading state is reset on error
     }
-    // No finally block needed for setIsLoading(false) here if navigation happens on success
   };
 
   // Loading overlay for app creation
@@ -252,6 +297,29 @@ export default function HomePage() {
             We're setting up your app with AI magic. <br />
             This might take a moment...
           </p>
+          
+          {/* Background Task Status */}
+          {creationStatus && isMonitoring && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 max-w-md">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  Background Setup
+                </span>
+                <span className="text-xs text-blue-600 dark:text-blue-300">
+                  {creationStatus.progress}%
+                </span>
+              </div>
+              <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mb-2">
+                <div 
+                  className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${creationStatus.progress}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                {creationStatus.message}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -274,6 +342,9 @@ export default function HomePage() {
         <DialogContent className="max-w-4xl bg-(--docs-bg) pr-0 pt-4 pl-4 gap-1">
           <DialogHeader>
             <DialogTitle>What's new in v{appVersion}?</DialogTitle>
+            <DialogDescription>
+              View the latest features, improvements, and bug fixes in this release.
+            </DialogDescription>
             <Button
               variant="ghost"
               size="sm"
@@ -301,6 +372,14 @@ export default function HomePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* App Naming Dialog */}
+      <AppNamingDialog
+        open={showNamingDialog}
+        onOpenChange={setShowNamingDialog}
+        userPrompt={pendingPrompt}
+        onNameSelected={handleNameSelected}
+      />
     </div>
   );
 }

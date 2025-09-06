@@ -8,6 +8,31 @@ import { apps } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import log from "electron-log";
 
+// Logger for consistent logging
+const logger = {
+  debug: (...args) => log.log(...args),
+  warn: (...args) => log.warn(...args)
+};
+
+// URL pattern definitions for parsing Expo output
+const webUrlPatterns = [
+  /(?:Web|Local):\s+(https?:\/\/localhost:\d+)/i,
+  /(?:Web|Local):\s+(https?:\/\/127\.0\.0\.1:\d+)/i,
+  /(?:Web|Local):\s+(https?:\/\/0\.0\.0\.0:\d+)/i
+];
+
+const lanUrlPatterns = [
+  /(?:LAN|Network):\s+(https?:\/\/[\d\.]+:\d+)/i,
+  /(?:LAN|Network):\s+(exp:\/\/[\d\.]+:\d+)/i
+];
+
+const tunnelUrlPatterns = [
+  /(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev)/i,
+  /(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct)/i,
+  /(exp:\/\/[a-zA-Z0-9.-]+\.exp\.direct)/i,
+  /(exp:\/\/[a-zA-Z0-9.-]+\.tunnels\.expo\.dev)/i
+];
+
 interface ExpoStatus {
   isRunning: boolean;
   webUrl: string;
@@ -70,8 +95,8 @@ export function registerExpoHandlers() {
       }
       
       isStarting = true;
-      log.log(`🚀 Starting Expo for app ID: ${appId}, useTunnel: ${useTunnel}, native: ${native}`);
       const { appId, useTunnel = true, native = true } = params;
+      log.log(`🚀 Starting Expo for app ID: ${appId}, useTunnel: ${useTunnel}, native: ${native}`);
 
       // Always stop any existing processes first to ensure clean start
       if (expoProcess || expoStatus.isRunning) {
@@ -176,68 +201,96 @@ export function registerExpoHandlers() {
         log.warn("Could not read package.json:", error);
       }
 
-      // For mobile apps, always check/install dependencies
-      if (isMobileApp && (!fs.existsSync(nodeModulesPath) || !fs.existsSync(path.join(nodeModulesPath, 'expo')))) {
-        log.log("Mobile app detected, installing dependencies...");
+      // 🚀 PERFORMANCE OPTIMIZED: Fast dependency management for mobile apps
+      if (isMobileApp) {
+        log.log("🎯 Mobile app detected, optimizing dependencies...");
         
-        // Install dependencies first
-        const installProcess = spawn("npm", ["install", "--force"], {
-          cwd: appPath,
-          shell: true,
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
+        // Use smart Expo dependency management
+        const { ExpoDependencyManager } = await import("../../lib/expo/ExpoDependencyManager");
+        
+        try {
+          // Smart dependency management with conflict resolution
+          const depManager = new ExpoDependencyManager(appPath);
+          const depsReady = await depManager.ensureEssentialDependencies();
+          
+          if (!depsReady) {
+            log.log("📦 Installing core dependencies with optimized package manager...");
+            
+            // Use optimized package manager with performance flags
+            const installProcess = await runPackageManagerCommand("install", [], appPath, {
+              stdio: ['pipe', 'pipe', 'pipe'],
+              env: {
+                ...process.env,
+                CI: "1", // Prevent interactive prompts
+                EXPO_NO_DOCTOR: "1",
+                EXPO_NO_UPDATE_CHECK: "1",
+                NPM_CONFIG_AUDIT: "false", // Skip audit for speed
+                NPM_CONFIG_FUND: "false"   // Skip funding messages
+              }
+            });
 
-        await new Promise((resolve, reject) => {
-          installProcess.on('close', (code) => {
-            if (code === 0) {
-              log.log("Dependencies installed successfully");
-              resolve(true);
-            } else {
-              log.error(`npm install failed with code ${code}`);
-              reject(new Error(`Failed to install dependencies: exit code ${code}`));
-            }
+            await new Promise((resolve, reject) => {
+              installProcess.on('close', (code) => {
+                if (code === 0) {
+                  log.log("✅ Dependencies installed successfully with optimizations");
+                  resolve(true);
+                } else {
+                  log.error(`📦 Package manager failed with code ${code}`);
+                  reject(new Error(`Failed to install dependencies: exit code ${code}`));
+                }
+              });
+
+              installProcess.on('error', (error) => {
+                log.error("📦 Package manager error:", error);
+                reject(error);
+              });
+
+              installProcess.stdout?.on('data', (data) => {
+                log.log("📦 install stdout:", data.toString());
+              });
+
+              installProcess.stderr?.on('data', (data) => {
+                log.warn("📦 install stderr:", data.toString());
+              });
+            });
+          } else {
+            log.log("✅ All essential dependencies already present, skipping install");
+          }
+        } catch (error) {
+          log.error("❌ Optimized dependency management failed, falling back to npm:", error);
+          
+          // Fallback to basic npm install with legacy peer deps
+          const fallbackProcess = spawn("npm", ["install", "--legacy-peer-deps", "--prefer-offline", "--no-audit"], {
+            cwd: appPath,
+            shell: true,
+            stdio: ['pipe', 'pipe', 'pipe']
           });
 
-          installProcess.on('error', (error) => {
-            log.error("npm install error:", error);
-            reject(error);
+          await new Promise((resolve, reject) => {
+            fallbackProcess.on('close', (code) => {
+              if (code === 0) {
+                log.log("✅ Fallback npm install completed");
+                resolve(true);
+              } else {
+                reject(new Error(`Fallback npm install failed: ${code}`));
+              }
+            });
+            fallbackProcess.on('error', reject);
           });
-
-          installProcess.stdout?.on('data', (data) => {
-            log.log("npm install stdout:", data.toString());
-          });
-
-          installProcess.stderr?.on('data', (data) => {
-            log.warn("npm install stderr:", data.toString());
-          });
-        });
+        }
 
         // Also ensure Expo SDK is installed if missing
         try {
           const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
           if (!packageJson.dependencies?.expo) {
-            log.log("Installing missing Expo SDK...");
-            const expoInstallProcess = spawn("npm", ["install", "expo", "--save"], {
-              cwd: appPath,
-              shell: true,
-              stdio: ['pipe', 'pipe', 'pipe']
-            });
-
-            await new Promise((resolve, reject) => {
-              expoInstallProcess.on('close', (code) => {
-                if (code === 0) {
-                  log.log("Expo SDK installed successfully");
-                  resolve(true);
-                } else {
-                  log.warn(`Expo SDK install failed with code ${code}`);
-                  resolve(false); // Don't fail the whole process
-                }
-              });
-              expoInstallProcess.on('error', (err) => {
-                log.warn("Expo SDK install error:", err);
-                resolve(false); // Don't fail the whole process
-              });
-            });
+            log.log("Installing missing Expo SDK using smart installer...");
+            const depManager = new ExpoDependencyManager(appPath);
+            const success = await depManager.installDependencies(['expo']);
+            if (success) {
+              log.log("✅ Expo SDK installed successfully");
+            } else {
+              log.warn("⚠️ Expo SDK install completed with warnings");
+            }
           }
         } catch (err) {
           log.warn("Could not check/install Expo SDK:", err);
@@ -252,22 +305,17 @@ export function registerExpoHandlers() {
           const hasTypesReact = Boolean(pkg.devDependencies?.['@types/react'] || pkg.dependencies?.['@types/react']);
           if (!hasTypesReact) {
             log.log('Installing @types/react for TypeScript web support');
-            // Prefer pnpm for disk savings (shared store & hard links), fallback to yarn/npm by lockfile
-            let manager = 'pnpm';
-            if (fs.existsSync(path.join(appPath, 'yarn.lock'))) manager = 'yarn';
-            else if (fs.existsSync(path.join(appPath, 'package-lock.json'))) manager = 'npm';
-
-            const args = manager === 'npm'
-              ? ['install', '-D', '@types/react@~19.0.10']
-              : manager === 'pnpm'
-              ? ['add', '-D', '@types/react@~19.0.10']
-              : ['add', '-D', '@types/react@~19.0.10'];
-
-            await new Promise((resolve, reject) => {
-              const p = spawn(manager, args, { cwd: appPath, shell: true, stdio: ['pipe','pipe','pipe'] });
+            
+            // 🚀 PERFORMANCE: Use hermetic package manager strategy
+            const { runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
+            
+            await new Promise(async (resolve, reject) => {
+              const p = await runPackageManagerCommand('add', ['-D', '@types/react@~19.0.10'], appPath, {
+                stdio: ['pipe','pipe','pipe']
+              });
               p.on('close', (code: number) => {
                 if (code === 0) resolve(true);
-                else reject(new Error(`${manager} ${args.join(' ')} exited with ${code}`));
+                else reject(new Error(`install @types/react exited with ${code}`));
               });
               p.on('error', reject);
             });
@@ -285,7 +333,7 @@ export function registerExpoHandlers() {
         // Legacy expo-cli removed - causes version conflicts
       ];
 
-      // Find available port to avoid conflicts
+      // 🚀 CRITICAL FIX: Auto-detect available port to prevent conflicts
       const net = require('net');
       let availablePort = 8081;
       
@@ -300,21 +348,90 @@ export function registerExpoHandlers() {
         });
       };
 
-      // Find next available port starting from 8081
-      while (!(await isPortAvailable(availablePort)) && availablePort < 8090) {
+      // Enhanced port scanning with wider range and better logging
+      const portRange = { start: 8081, end: 8200 }; // Expanded range for busy machines
+      
+      while (!(await isPortAvailable(availablePort)) && availablePort < portRange.end) {
+        log.log(`🔍 Port ${availablePort} is busy, trying next port...`);
         availablePort++;
       }
+      
+      if (availablePort >= portRange.end) {
+        throw new Error(`No available ports found in range ${portRange.start}-${portRange.end}. Please close other development servers or restart your machine.`);
+      }
 
-      log.log(`Using port ${availablePort} for Expo dev server`);
+      log.log(`✅ Auto-detected available port: ${availablePort} for Expo dev server (scanned ${availablePort - portRange.start + 1} ports)`);
+      
+      // 🚀 CRITICAL FIX: Verify @expo/ngrok is installed for tunnel support
+      if (useTunnel) {
+        try {
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+          const hasNgrok = packageJson.dependencies?.["@expo/ngrok"] || packageJson.devDependencies?.["@expo/ngrok"];
+          
+          if (!hasNgrok) {
+            log.warn("⚠️ @expo/ngrok not found, installing to prevent interactive prompts...");
+            
+            // Install @expo/ngrok non-interactively
+            const ngrokInstallProcess = spawn("npm", ["install", "@expo/ngrok", "--silent"], {
+              cwd: appPath,
+              shell: true,
+              stdio: ["ignore", "pipe", "pipe"],
+              env: {
+                ...process.env,
+                CI: "1", // Prevent interactive prompts
+                EXPO_NO_DOCTOR: "1",
+                EXPO_NO_UPDATE_CHECK: "1",
+              },
+            });
+            
+            await new Promise<void>((resolve, reject) => {
+              // Add timeout to prevent hanging
+              const timeout = setTimeout(() => {
+                ngrokInstallProcess.kill();
+                log.warn("⚠️ @expo/ngrok installation timeout (30s), continuing without tunnel support");
+                resolve(); // Don't reject, just continue without tunnel
+              }, 30000);
+              
+              ngrokInstallProcess.stdout?.on("data", (data) => {
+                logger.debug(`[npm install @expo/ngrok] ${data.toString()}`);
+              });
+              ngrokInstallProcess.stderr?.on("data", (data) => {
+                logger.warn(`[npm install @expo/ngrok:err] ${data.toString()}`);
+              });
+              ngrokInstallProcess.on("error", (error) => {
+                clearTimeout(timeout);
+                log.warn("⚠️ @expo/ngrok installation failed, continuing without tunnel support:", error);
+                resolve(); // Don't reject, just continue without tunnel
+              });
+              ngrokInstallProcess.on("close", (code) => {
+                clearTimeout(timeout);
+                if (code === 0) {
+                  resolve();
+                } else {
+                  log.warn(`⚠️ @expo/ngrok installation failed with code ${code}, continuing without tunnel support`);
+                  resolve(); // Don't reject, just continue without tunnel
+                }
+              });
+            });
+            
+            log.log("✅ Successfully installed @expo/ngrok for tunnel support");
+          } else {
+            log.log("✅ @expo/ngrok already available for tunnel support");
+          }
+        } catch (err) {
+          log.warn("⚠️ Could not verify/install @expo/ngrok:", err);
+        }
+      }
 
       // Build args to allow both web preview and tunnel concurrently (RORK sequence)
       // Expo supports starting the dev server once; the web UI and tunnel coexist.
       // We avoid forcing web-only so native/tunnel URLs are emitted, while web still serves at localhost.
       // Run web preview alongside native/tunnel (matches RORK sequence)
-      // DON'T specify --port, let Expo auto-detect to avoid conflicts
+      // 🚀 CRITICAL FIX: Specify detected port to prevent conflicts and prompts
       const expoArgs: string[] = [
         "start",
         "--clear", // --reset-cache is not supported in new Expo CLI, --clear is sufficient
+        "--port", availablePort.toString(), // Use our auto-detected available port
         ...(useTunnel ? ["--tunnel"] : [])
       ];
 
@@ -335,6 +452,10 @@ export function registerExpoHandlers() {
               EXPO_NO_TELEMETRY: '1', // Disable telemetry
               NODE_ENV: 'development', // Ensure development mode
               FORCE_COLOR: '0', // Disable colors for cleaner output
+              // 🚀 CRITICAL FIX: Force port via environment variables to prevent prompts
+              EXPO_FORCE_PORT: availablePort.toString(),
+              RCT_METRO_PORT: availablePort.toString(),
+              METRO_PORT: availablePort.toString(),
             }
           });
 

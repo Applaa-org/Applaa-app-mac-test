@@ -1,8 +1,9 @@
 import type React from "react";
 import type { Message } from "@/ipc/ipc_types";
-import { forwardRef, useState } from "react";
+import { forwardRef, useState, useMemo } from "react";
 import ChatMessage from "./ChatMessage";
 import { SetupBanner } from "../SetupBanner";
+import { ApplaaBuddyWidget } from "../buddy/ApplaaBuddyWidget";
 
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { selectedChatIdAtom } from "@/atoms/chatAtoms";
@@ -22,10 +23,42 @@ import { useUserBudgetInfo } from "@/hooks/useUserBudgetInfo";
 interface MessagesListProps {
   messages: Message[];
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  chatId?: number; // Add chatId prop to fix button functionality
+}
+
+// 🤖 Helper functions for Applaa Buddy
+function getLatestAppCode(messages: Message[]): string {
+  // Extract code from the latest assistant message
+  const latestAssistantMessage = [...messages]
+    .reverse()
+    .find((msg) => msg.role === 'assistant');
+  
+  if (!latestAssistantMessage) return '';
+  
+  // Look for code blocks in the content
+  const codeBlockRegex = /```(?:typescript|javascript|tsx|jsx)?\n([\s\S]*?)```/g;
+  const matches = latestAssistantMessage.content.match(codeBlockRegex);
+  
+  return matches ? matches.join('\n\n') : latestAssistantMessage.content;
+}
+
+function getLatestUserPrompt(messages: Message[]): string {
+  // Get the latest user message
+  const latestUserMessage = [...messages]
+    .reverse()
+    .find((msg) => msg.role === 'user');
+  
+  return latestUserMessage?.content || '';
+}
+
+function getAppType(appId: number | null): 'web' | 'mobile' {
+  // TODO: Determine app type based on appId or app structure
+  // For now, default to 'web' - this should be enhanced
+  return 'web';
 }
 
 export const MessagesList = forwardRef<HTMLDivElement, MessagesListProps>(
-  function MessagesList({ messages, messagesEndRef }, ref) {
+  function MessagesList({ messages, messagesEndRef, chatId }, ref) {
     const appId = useAtomValue(selectedAppIdAtom);
     const { versions, revertVersion } = useVersions(appId);
     const { streamMessage, isStreaming } = useStreamChat();
@@ -34,7 +67,8 @@ export const MessagesList = forwardRef<HTMLDivElement, MessagesListProps>(
     const setMessages = useSetAtom(chatMessagesAtom);
     const [isUndoLoading, setIsUndoLoading] = useState(false);
     const [isRetryLoading, setIsRetryLoading] = useState(false);
-    const selectedChatId = useAtomValue(selectedChatIdAtom);
+    // 🚨 CRITICAL FIX: Use chatId prop instead of global selectedChatIdAtom
+    const selectedChatId = chatId;
     const { userBudget } = useUserBudgetInfo();
 
     return (
@@ -140,17 +174,24 @@ export const MessagesList = forwardRef<HTMLDivElement, MessagesListProps>(
                 onClick={async () => {
                   if (!selectedChatId) {
                     console.error("No chat selected");
+                    showError("No chat selected for retry operation");
+                    return;
+                  }
+
+                  if (!messages.length) {
+                    console.error("No messages to retry");
+                    showError("No messages to retry");
                     return;
                   }
 
                   setIsRetryLoading(true);
                   try {
                     // The last message is usually an assistant, but it might not be.
-                    const lastVersion = versions[0];
+                    const lastVersion = versions?.[0];
                     const lastMessage = messages[messages.length - 1];
                     let shouldRedo = true;
                     if (
-                      lastVersion.oid === lastMessage.commitHash &&
+                      lastVersion?.oid === lastMessage.commitHash &&
                       lastMessage.role === "assistant"
                     ) {
                       const previousAssistantMessage =
@@ -190,7 +231,8 @@ export const MessagesList = forwardRef<HTMLDivElement, MessagesListProps>(
                       .reverse()
                       .find((message) => message.role === "user");
                     if (!lastUserMessage) {
-                      console.error("No user message found");
+                      console.error("No user message found to retry");
+                      showError("No user message found to retry");
                       return;
                     }
                     // Need to do a redo, if we didn't delete the message from a revert.
@@ -222,6 +264,23 @@ export const MessagesList = forwardRef<HTMLDivElement, MessagesListProps>(
         )}
 
         {/* PromoMessage temporarily disabled per branding request */}
+        
+        {/* 🤖 Applaa Buddy - Personal AI Robot Widget - DISABLED FOR TESTING */}
+        {/* {messages.length > 0 && (
+          <ApplaaBuddyWidget
+            appCode={getLatestAppCode(messages)}
+            appType={getAppType(appId)}
+            userPrompt={getLatestUserPrompt(messages)}
+            onSuggestionAccept={(suggestion) => {
+              console.log('🤖 Buddy suggestion accepted:', suggestion);
+              // TODO: Apply suggestion to the app
+            }}
+            onSuggestionReject={(suggestion) => {
+              console.log('🤖 Buddy suggestion rejected:', suggestion);
+            }}
+          />
+        )} */}
+        
         <div ref={messagesEndRef} />
       </div>
     );

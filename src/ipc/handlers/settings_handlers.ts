@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import type { UserSettings } from "../../lib/schemas";
-import { writeSettings } from "../../main/settings";
+import { writeSettings, invalidateSettingsCache } from "../../main/settings";
 import { readSettings } from "../../main/settings";
 
 export function registerSettingsHandlers() {
@@ -18,4 +18,10 @@ export function registerSettingsHandlers() {
       return readSettings();
     },
   );
+
+  // 🚀 SMART CACHE: Manual cache invalidation for external changes
+  ipcMain.handle("invalidate-settings-cache", async () => {
+    invalidateSettingsCache();
+    return { success: true };
+  });
 }

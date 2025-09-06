@@ -129,6 +129,7 @@ export function ChatPanel({
               messages={messages}
               messagesEndRef={messagesEndRef}
               ref={messagesContainerRef}
+              chatId={chatId}
             />
             <ChatError error={error} onDismiss={() => setError(null)} />
             <ChatInput chatId={chatId} />

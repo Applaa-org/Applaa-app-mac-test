@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, session } from "electron";
 import * as path from "node:path";
 import { registerIpcHandlers } from "./ipc/ipc_host";
 import dotenv from "dotenv";
@@ -18,10 +18,33 @@ import { BackupManager } from "./backup_manager";
 import { getDatabasePath, initializeDatabase } from "./db";
 import { UserSettings } from "./lib/schemas";
 import { handleNeonOAuthReturn } from "./neon_admin/neon_return_handler";
+import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 
-log.errorHandler.startCatching();
-log.eventLogger.startLogging();
-log.scope.labelPadding = false;
+// 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
+try {
+  // Initialize electron-log properly to avoid "logger isn't initialized" warnings
+  log.initialize();
+  
+  // Configure transports with EPIPE error handling
+  log.transports.file.level = 'info';
+  log.transports.console.level = 'info';
+  log.transports.ipc.level = false; // Disable IPC transport to prevent EPIPE errors
+  
+  // Add custom error handling for broken pipe errors
+  log.errorHandler.startCatching({
+    showDialog: false, // Don't show error dialogs for EPIPE errors
+    onError: (error: any) => {
+      // Ignore EPIPE errors in logging - these are not critical
+      if (error?.code === 'EPIPE' || error?.message?.includes('broken pipe')) {
+        return false; // Don't handle this error
+      }
+      return true; // Handle other errors normally
+    }
+  });
+  
+} catch (error) {
+  console.warn('Failed to initialize electron-log, using console fallback:', error);
+}
 
 const logger = log.scope("main");
 
@@ -39,15 +62,25 @@ if (started) {
 // https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app#main-process-mainjs
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient("dyad", process.execPath, [
+    app.setAsDefaultProtocolClient("applaa", process.execPath, [
       path.resolve(process.argv[1]),
     ]);
   }
 } else {
-  app.setAsDefaultProtocolClient("dyad");
+  app.setAsDefaultProtocolClient("applaa");
 }
 
 export async function onReady() {
+  // ✅ Enable Web Speech API features in Electron with comprehensive flags
+  app.commandLine.appendSwitch('enable-features', 'WebSpeechAPI,SpeechRecognition,SpeechSynthesis');
+  app.commandLine.appendSwitch('enable-speech-input');
+  app.commandLine.appendSwitch('enable-web-speech-api');
+  // ✅ Enable media stream for microphone access
+  app.commandLine.appendSwitch('enable-media-stream');
+  app.commandLine.appendSwitch('use-fake-ui-for-media-stream'); // Auto-grant media permissions
+  // ✅ Disable web security only for media permissions (keep other security)
+  app.commandLine.appendSwitch('disable-features', 'VizDisplayCompositor');
+  
   try {
     const backupManager = new BackupManager({
       settingsFile: getSettingsFilePath(),
@@ -68,7 +101,7 @@ export async function onReady() {
     // but this is more explicit and falls back to stable if there's an unknown
     // release channel.
     const postfix = settings.releaseChannel === "beta" ? "beta" : "stable";
-    const host = `https://api.dyad.sh/v1/update/${postfix}`;
+    const host = `https://api.applaa.dev/v1/update/${postfix}`;
     logger.info("Auto-update release channel=", postfix);
     updateElectronApp({
       logger,
@@ -145,6 +178,12 @@ const createWindow = () => {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, "preload.js"),
+      spellcheck: true, // ✅ Enable Electron's built-in spell checker
+      // ✅ Security settings
+      allowRunningInsecureContent: false,
+      webSecurity: true,
+      // ✅ Remove experimentalFeatures to fix security warning
+      // experimentalFeatures: true, // Not needed for voice input
       // transparent: true,
     },
     // backgroundColor: "#00000001",
@@ -153,6 +192,125 @@ const createWindow = () => {
   
   // Make mainWindow available globally for IPC handlers
   global.mainWindow = mainWindow;
+  
+  // ✅ Handle media permissions for Web Speech API
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    // Allow media permissions for speech recognition
+    if (permission === 'media') {
+      console.log('🎵 Media permission requested - granting access for voice input');
+      callback(true);
+      return;
+    }
+    
+    // Deny other permissions by default for security
+    console.log(`🚫 Permission denied: ${permission}`);
+    callback(false);
+  });
+
+  // ✅ Handle permission checks for Web Speech API
+  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    // Allow media permissions for speech recognition
+    if (permission === 'media') {
+      console.log('🎵 Media permission check - allowing for voice input');
+      return true;
+    }
+    
+    // Allow media permissions
+    if (permission === 'media') {
+      console.log('🎵 Media permission check - allowing');
+      return true;
+    }
+    
+    // Deny other permissions by default
+    return false;
+  });
+
+  // 🚀 COOP/COEP headers for WASM threads/WebGPU support (Whisper optimization)
+  // Only apply in production to avoid blob URL issues in development
+  if (process.env.NODE_ENV === 'production') {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Cross-Origin-Opener-Policy': ['same-origin'],
+          'Cross-Origin-Embedder-Policy': ['require-corp'],
+        },
+      });
+    });
+  } else {
+    console.log('🔧 COOP/COEP headers disabled in development to allow blob URLs for WASM');
+  }
+  
+  // Bind terminal window for terminal handlers
+  bindTerminalWindow(mainWindow);
+  
+  // ✅ Set spell checker language to English US
+  mainWindow.webContents.session.setSpellCheckerLanguages(['en-US']);
+  
+  // ✅ Register global keyboard shortcut for voice input (Ctrl+Shift+V)
+  const { globalShortcut } = require('electron');
+  globalShortcut.register('CommandOrControl+Shift+V', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // Send event to renderer to trigger voice input
+      mainWindow.webContents.send('trigger-voice-input');
+    }
+  });
+  
+  // ✅ Handle spell check context menu (per Electron docs)
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    const { Menu, MenuItem } = require('electron');
+    const menu = new Menu();
+
+    // Add each spelling suggestion
+    for (const suggestion of params.dictionarySuggestions) {
+      menu.append(new MenuItem({
+        label: suggestion,
+        click: () => mainWindow?.webContents.replaceMisspelling(suggestion)
+      }));
+    }
+
+    // Allow users to add the misspelled word to the dictionary
+    if (params.misspelledWord) {
+      menu.append(
+        new MenuItem({
+          label: 'Add to dictionary',
+          click: () => mainWindow?.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+        })
+      );
+    }
+
+    // Add separator and standard context menu items if there are suggestions
+    if (params.dictionarySuggestions.length > 0 || params.misspelledWord) {
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // Add standard editing options
+    if (params.isEditable) {
+      if (params.selectionText) {
+        menu.append(new MenuItem({
+          label: 'Cut',
+          role: 'cut'
+        }));
+        menu.append(new MenuItem({
+          label: 'Copy',
+          role: 'copy'
+        }));
+      }
+      menu.append(new MenuItem({
+        label: 'Paste',
+        role: 'paste'
+      }));
+      menu.append(new MenuItem({
+        label: 'Select All',
+        role: 'selectall'
+      }));
+    }
+
+    // Only show the menu if there are items
+    if (menu.items.length > 0) {
+      menu.popup();
+    }
+  });
   
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -274,6 +432,10 @@ function handleDeepLinkReturn(url: string) {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on("window-all-closed", () => {
+  // ✅ Cleanup global shortcuts
+  const { globalShortcut } = require('electron');
+  globalShortcut.unregisterAll();
+  
   if (process.platform !== "darwin") {
     app.quit();
   }

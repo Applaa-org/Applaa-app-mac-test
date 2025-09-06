@@ -1,7 +1,7 @@
 import { createRoute } from "@tanstack/react-router";
 import { settingsRoute } from "@/routes/settings";
 import { ProviderSettingsPage } from "@/components/settings/ProviderSettingsPage";
-import { GeminiSettings } from "@/components/settings/GeminiSettings";
+// Gemini settings removed for MVP
 
 interface ProviderSettingsParams {
   provider: string;
@@ -20,7 +20,7 @@ export const providerSettingsRoute = createRoute({
 
     // Use specialized Gemini settings component for OAuth-based authentication
     if (provider === "gemini") {
-      return <GeminiSettings />;
+      return <div>Gemini settings removed for MVP</div>;
     }
 
     return <ProviderSettingsPage provider={provider} />;

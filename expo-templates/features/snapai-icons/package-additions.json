@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "openai": "^4.67.3",
+    "expo-file-system": "~18.0.4",
+    "expo-image": "~2.0.0"
+  }
+}

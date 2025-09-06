@@ -26,7 +26,7 @@ export async function extractMentionedAppsCodebases(
     );
     const rows = db.$client
       .prepare(
-        "SELECT id, name, path, created_at as createdAt, " +
+        "SELECT id, name, display_name as displayName, path, created_at as createdAt, " +
           "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
           "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
           "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
@@ -40,9 +40,7 @@ export async function extractMentionedAppsCodebases(
       }
       // Set missing column to undefined for compatibility
       row.updatedAt = undefined;
-      row.displayName = undefined;
-      row.packageId = undefined;
-      row.slug = undefined;
+      // displayName is now properly retrieved from database
       return row;
     });
   }

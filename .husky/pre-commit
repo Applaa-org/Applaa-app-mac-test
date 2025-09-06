@@ -1,4 +1,16 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
 
-npx lint-staged
+echo "🛡️  Running pre-commit tests..."
+
+# Run core tests (fast)
+npm run test:core
+
+# Check if tests passed
+if [ $? -ne 0 ]; then
+  echo "💥 Core tests failed! Commit blocked."
+  echo "🔧 Please fix the issues and try again."
+  exit 1
+fi
+
+echo "✅ Pre-commit tests passed!"

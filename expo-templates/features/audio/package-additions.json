@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "expo-av": "~15.0.1",
+    "expo-file-system": "~18.0.4"
+  },
+  "description": "Audio and video playback, recording, and management utilities",
+  "features": [
+    "Audio playback and recording",
+    "Video playback with controls", 
+    "Sound effects and music",
+    "Audio streaming",
+    "Recording with quality settings"
+  ]
+}
+
+

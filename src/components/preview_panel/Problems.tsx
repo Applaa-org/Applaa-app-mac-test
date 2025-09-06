@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { selectedChatIdAtom } from "@/atoms/chatAtoms";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
+import { IpcClient } from "@/ipc/ipc_client";
+import { detectAppCategory, type AppCategory } from "@/utils/appTypeDetection";
 import {
   AlertTriangle,
   XCircle,
@@ -9,12 +11,14 @@ import {
   Wrench,
   RefreshCw,
   Check,
+  Loader2,
 } from "lucide-react";
 import { Problem, ProblemReport } from "@/ipc/ipc_types";
 import { Button } from "@/components/ui/button";
 
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { useCheckProblems } from "@/hooks/useCheckProblems";
+import { useChats } from "@/hooks/useChats";
 import { createProblemFixPrompt } from "@/shared/problem_prompt";
 import { showError } from "@/lib/toast";
 
@@ -105,20 +109,98 @@ interface ProblemsSummaryProps {
 }
 
 const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
-  const { streamMessage } = useStreamChat();
+  const { streamMessage, isStreaming } = useStreamChat();
   const { problems } = problemReport;
   const totalErrors = problems.length;
-  const [selectedChatId] = useAtom(selectedChatIdAtom);
+  const [isFixingAll, setIsFixingAll] = useState(false);
+  const [appCategory, setAppCategory] = useState<AppCategory>('web');
 
-  const handleFixAll = () => {
-    if (!selectedChatId) {
+  // Detect app category for framework-aware prompts
+  useEffect(() => {
+    let isCancelled = false;
+    (async () => {
+      try {
+        if (!appId) return;
+        const ipc = IpcClient.getInstance();
+        const app = await ipc.getApp(appId);
+        // Try to enrich with file list for detection
+        try {
+          const files = await ipc.getAppFiles(appId);
+          (app as any).files = files;
+        } catch {}
+        const category = detectAppCategory(app as any);
+        if (!isCancelled) setAppCategory(category);
+      } catch {
+        if (!isCancelled) setAppCategory('web');
+      }
+    })();
+    return () => { isCancelled = true; };
+  }, [appId]);
+  
+  // 🚨 CRITICAL FIX: Get chatId from the current app's chat instead of global atom
+  const { chats } = useChats(appId);
+  const currentChat = chats?.[0]; // Get the first (main) chat for this app
+  const chatId = currentChat?.id;
+
+  const handleFixAll = useCallback(async () => {
+    if (!chatId) {
+      console.error("No chat found for Fix All - appId:", appId, "chats:", chats);
       return;
     }
-    streamMessage({
-      prompt: createProblemFixPrompt(problemReport),
-      chatId: selectedChatId,
-    });
-  };
+    if (isFixingAll || isStreaming) {
+      console.log("Fix All already in progress, ignoring duplicate click");
+      return;
+    }
+    
+    console.log(`Fix All clicked for appId: ${appId}, chatId: ${chatId}`);
+    setIsFixingAll(true);
+    
+    try {
+      // Use auto-fix streaming path (uses cheaper model if configured, otherwise falls back to main model)
+      const prompt = createProblemFixPrompt(problemReport, appCategory);
+      const IpcClient = (await import("@/ipc/ipc_client")).IpcClient;
+      await IpcClient.getInstance().streamAutoFix(prompt, {
+        selectedComponent: null,
+        chatId,
+        redo: false,
+        onUpdate: () => {
+          console.log("🔧 Fix All progress update");
+        },
+        onEnd: () => {
+          console.log("✅ Fix All completed successfully");
+        },
+        onError: (e) => {
+          console.error("❌ Fix All auto-fix error:", e);
+        },
+      });
+      
+      console.log("Fix All stream started successfully");
+      
+      // Wait a bit for the fix to complete, then re-check problems
+      setTimeout(async () => {
+        try {
+          console.log("Re-checking problems after Fix All...");
+          const { checkProblems } = await import("@/hooks/useCheckProblems");
+          // Force a fresh check of problems
+          if (window.location.pathname.includes('/chat')) {
+            // Trigger a problems recheck via IPC
+            const IpcClient = (await import("@/ipc/ipc_client")).IpcClient;
+            await IpcClient.getInstance().checkProblems(appId);
+          }
+        } catch (error) {
+          console.error("Failed to re-check problems:", error);
+        }
+        setIsFixingAll(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error("Fix All failed to start:", error);
+      setIsFixingAll(false);
+      // Show error to user
+      const { showError } = await import("@/lib/toast");
+      showError(`Failed to start Fix All: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, [chatId, appId, chats, isFixingAll, isStreaming, streamMessage, problemReport]);
 
   if (problems.length === 0) {
     return (
@@ -153,11 +235,16 @@ const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
           size="sm"
           variant="default"
           onClick={handleFixAll}
+          disabled={isFixingAll || isStreaming || !chatId}
           className="h-7 px-3 text-xs"
           data-testid="fix-all-button"
         >
-          <Wrench size={14} className="mr-1" />
-          Fix All
+          {isFixingAll || isStreaming ? (
+            <Loader2 size={14} className="mr-1 animate-spin" />
+          ) : (
+            <Wrench size={14} className="mr-1" />
+          )}
+          {isFixingAll || isStreaming ? "Fixing..." : "Fix All"}
         </Button>
       </div>
     </div>

@@ -31,11 +31,41 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
   }>;
   
   const hasAppType = tableInfo.some(col => col.name === 'app_type');
+  const hasStatus = tableInfo.some(col => col.name === 'status');
+  const hasDisplayName = tableInfo.some(col => col.name === 'display_name');
+  const hasPackageId = tableInfo.some(col => col.name === 'package_id');
+  const hasSlug = tableInfo.some(col => col.name === 'slug');
   
   if (!hasAppType) {
     logger.log("Adding missing app_type column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN app_type TEXT DEFAULT 'web'").run();
     logger.log("Successfully added app_type column");
+  }
+  
+  // 🚀 PERFORMANCE: Add status column for parallel app creation
+  if (!hasStatus) {
+    logger.log("Adding missing status column to apps table for parallel app creation");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN status TEXT DEFAULT 'ready'").run();
+    logger.log("Successfully added status column - parallel app creation enabled!");
+  }
+  
+  // 🏷️ USER EXPERIENCE: Add display name columns for better app naming
+  if (!hasDisplayName) {
+    logger.log("Adding missing display_name column to apps table for user-friendly names");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN display_name TEXT").run();
+    logger.log("Successfully added display_name column - user-friendly app names enabled!");
+  }
+  
+  if (!hasPackageId) {
+    logger.log("Adding missing package_id column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN package_id TEXT").run();
+    logger.log("Successfully added package_id column");
+  }
+  
+  if (!hasSlug) {
+    logger.log("Adding missing slug column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN slug TEXT").run();
+    logger.log("Successfully added slug column");
   }
 }
 

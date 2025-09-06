@@ -4,6 +4,7 @@ import path from "path";
 import { createLoggedHandler } from "./safe_handle";
 import log from "electron-log";
 import { getDyadAppPath } from "../../paths/paths";
+import { ensureWorkspaceInitialized, getAppRelativePath } from "../../paths/workspace";
 import { apps } from "@/db/schema";
 import { db } from "@/db";
 import { chats } from "@/db/schema";
@@ -63,7 +64,9 @@ export function registerImportHandlers() {
   // Handler for checking if an app name is already taken
   handle("check-app-name", async (_, { appName }: { appName: string }) => {
     // Check filesystem
-    const appPath = getDyadAppPath(appName);
+    await ensureWorkspaceInitialized();
+    const relPath = getAppRelativePath(appName, 'web');
+    const appPath = getDyadAppPath(relPath);
     try {
       await fs.access(appPath);
       return { exists: true };
@@ -93,7 +96,7 @@ export function registerImportHandlers() {
         throw new Error("Source folder does not exist");
       }
 
-      const destPath = getDyadAppPath(appName);
+      const destPath = appPath;
 
       // Check if the app already exists
       const errorMessage = "An app with this name already exists";
@@ -142,7 +145,7 @@ export function registerImportHandlers() {
         .values({
           name: appName,
           // Use the name as the path for now
-          path: appName,
+          path: relPath,
         })
         .returning();
 

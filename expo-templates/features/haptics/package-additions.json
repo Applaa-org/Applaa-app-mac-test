@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "expo-haptics": "~14.0.0"
+  },
+  "description": "Haptic feedback and vibration patterns",
+  "features": [
+    "Impact feedback",
+    "Notification feedback",
+    "Selection feedback",
+    "Custom vibration patterns"
+  ]
+}
+
+

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { selectedChatIdAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
+import { useChats } from "@/hooks/useChats";
 
 import { useParseRouter } from "@/hooks/useParseRouter";
 import {
@@ -32,6 +33,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { selectedComponentPreviewAtom } from "@/atoms/previewAtoms";
+import { AutoErrorFixBanner } from "./AutoErrorFixBanner";
+import { useAutoErrorFix } from "@/hooks/useAutoErrorFix";
 import { ComponentSelection } from "@/ipc/ipc_types";
 import {
   Tooltip,
@@ -123,13 +126,21 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const { appUrl, originalUrl } = useAtomValue(appUrlAtom);
   const setAppOutput = useSetAtom(appOutputAtom);
+  const appOutput = useAtomValue(appOutputAtom);
   // State to trigger iframe reload
   const [reloadKey, setReloadKey] = useState(0);
   const [errorMessage, setErrorMessage] = useAtom(previewErrorMessageAtom);
   const selectedChatId = useAtomValue(selectedChatIdAtom);
   const { streamMessage } = useStreamChat();
+  // 🚫 DISABLED: Auto-error detection to match Dyad's approach
+  // const { detectConsoleErrors } = useAutoErrorFix({ enabled: true });
   const { routes: availableRoutes } = useParseRouter(selectedAppId);
   const { restartApp } = useRunApp();
+  
+  // 🚨 CRITICAL FIX: Get chatId from the current app's chat (same pattern as Problems.tsx)
+  const { chats } = useChats(selectedAppId);
+  const currentChat = chats?.[0]; // Get the first (main) chat for this app
+  const appChatId = currentChat?.id;
 
   // Navigation state
   const [isComponentSelectorInitialized, setIsComponentSelectorInitialized] =
@@ -157,7 +168,12 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
     }
   }, [selectedComponentPreview]);
 
+  // 🚫 DISABLED: Console error monitoring to match Dyad's approach
   // Add message listener for iframe errors and navigation events
+  // useEffect(() => {
+  //   detectConsoleErrors(appOutput);
+  // }, [appOutput, detectConsoleErrors]);
+
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Only handle messages from our iframe
@@ -517,16 +533,24 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
       </div>
 
       <div className="relative flex-grow ">
+        <AutoErrorFixBanner />
         <ErrorBanner
           error={errorMessage}
           onDismiss={() => setErrorMessage(undefined)}
           onAIFix={() => {
-            if (selectedChatId) {
-              streamMessage({
-                prompt: `Fix error: ${errorMessage}`,
-                chatId: selectedChatId,
-              });
+            // 🚀 IMPROVED: Use proper chat lookup - selectedChatId first, then app's main chat
+            let chatIdToUse = selectedChatId || appChatId;
+            
+            if (!chatIdToUse) {
+              console.error("Cannot fix error: No chat ID available - selectedChatId:", selectedChatId, "appChatId:", appChatId, "selectedAppId:", selectedAppId);
+              return;
             }
+            
+            console.log("Fixing error with chat ID:", chatIdToUse, "(source:", selectedChatId ? "selectedChat" : "appChat", ")");
+            streamMessage({
+              prompt: `Fix this error: ${errorMessage}. Please analyze the error and provide the corrected code.`,
+              chatId: chatIdToUse,
+            });
           }}
         />
 
@@ -540,8 +564,13 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
         ) : (
           <iframe
             data-testid="preview-iframe-element"
-            onLoad={() => {
+            onLoad={(e) => {
+              console.log(`✅ Preview iframe loaded successfully: ${appUrl}`);
               setErrorMessage(undefined);
+            }}
+            onError={(e) => {
+              console.error(`❌ Preview iframe failed to load: ${appUrl}`, e);
+              setErrorMessage(`Failed to load preview: ${appUrl}. The app server might not be running or there could be a CORS issue.`);
             }}
             ref={iframeRef}
             key={reloadKey}

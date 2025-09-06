@@ -9,6 +9,7 @@ import { providerSettingsRoute } from "./routes/settings/providers/$provider";
 import { appDetailsRoute } from "./routes/app-details";
 import { hubRoute } from "./routes/hub";
 
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   hubRoute,
@@ -39,10 +40,18 @@ export function NotFoundRedirect() {
   // Or: return <div>Redirecting...</div>;
 }
 
+// 🚀 PERFORMANCE: Optimized TanStack Router configuration
 export const router = createRouter({
   routeTree,
   defaultNotFoundComponent: NotFoundRedirect,
   defaultErrorComponent: ErrorBoundary,
+  // 🚀 PERFORMANCE: Enable route preloading for faster navigation
+  defaultPreload: 'intent', // Preload routes on hover/focus
+  defaultPreloadStaleTime: 1000 * 60 * 5, // Cache preloaded routes for 5 minutes
+  // 🚀 PERFORMANCE: Optimize route matching
+  caseSensitive: false, // Faster route matching
+  // 🚀 PERFORMANCE: Enable route caching
+  defaultGcTime: 1000 * 60 * 5, // Keep route data cached for 5 minutes
 });
 
 declare module "@tanstack/react-router" {

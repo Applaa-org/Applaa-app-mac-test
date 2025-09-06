@@ -16,6 +16,7 @@ import {
   ChevronsDownUp,
   ChartColumnIncreasing,
   SendHorizontalIcon,
+  Zap,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -66,6 +67,7 @@ import { SelectedComponentDisplay } from "./SelectedComponentDisplay";
 // Prompt optimization imports removed for app-specific chat
 import { useCheckProblems } from "@/hooks/useCheckProblems";
 import { LexicalChatInput } from "./LexicalChatInput";
+// Voice input removed for MVP performance optimization
 
 const showTokenBarAtom = atom(false);
 
@@ -88,10 +90,14 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   );
   const { checkProblems } = useCheckProblems(appId);
   
+  // Input history for error recovery
+  const [inputHistory, setInputHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  
   // Prompt optimization disabled for app-specific chat
   // Only available in main home chat input
 
-  // Voice input disabled for MVP
+  // Voice input removed for MVP performance optimization
   
   // Use the attachments hook
   const {
@@ -115,20 +121,55 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   } = useProposal(chatId);
   const { proposal, messageId } = proposalResult ?? {};
 
+  // Handle keyboard navigation for input history
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (event.key === 'ArrowUp' && !event.shiftKey && inputHistory.length > 0) {
+      event.preventDefault();
+      const newIndex = Math.min(historyIndex + 1, inputHistory.length - 1);
+      setHistoryIndex(newIndex);
+      setInputValue(inputHistory[newIndex] || '');
+    } else if (event.key === 'ArrowDown' && !event.shiftKey) {
+      event.preventDefault();
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setInputValue(inputHistory[newIndex] || '');
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1);
+        setInputValue('');
+      }
+    }
+  }, [inputHistory, historyIndex, setInputValue]);
+
+  // 🚀 PERFORMANCE: Memoize fetchChatMessages to prevent unnecessary re-renders
+  const fetchChatMessages = useCallback(async () => {
+    if (!chatId) {
+      setMessages([]);
+      return;
+    }
+    try {
+      const chat = await IpcClient.getInstance().getChat(chatId);
+      console.log(`Fetched ${chat.messages.length} messages for chatId: ${chatId}`);
+      setMessages(chat.messages);
+    } catch (error) {
+      console.error(`Failed to fetch messages for chatId ${chatId}:`, error);
+      setMessages([]);
+    }
+  }, [chatId, setMessages]);
+
   useEffect(() => {
     if (error) {
       setShowError(true);
     }
   }, [error]);
 
-  const fetchChatMessages = useCallback(async () => {
-    if (!chatId) {
-      setMessages([]);
-      return;
+  // 🔧 FIX: Fetch messages when chatId changes to prevent cross-contamination
+  useEffect(() => {
+    if (chatId) {
+      console.log(`ChatInput: Loading messages for chatId: ${chatId}`);
+      fetchChatMessages();
     }
-    const chat = await IpcClient.getInstance().getChat(chatId);
-    setMessages(chat.messages);
-  }, [chatId, setMessages]);
+  }, [chatId, fetchChatMessages]);
 
   // Prompt optimization handlers removed for app-specific chat
 
@@ -144,19 +185,37 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     }
 
     const currentInput = inputValue;
-    setInputValue("");
+    // Don't clear input immediately - wait for stream to start successfully
     setSelectedComponent(null);
 
-    // Send message with attachments and clear them after sending
-    await streamMessage({
-      prompt: currentInput,
-      chatId,
-      attachments,
-      redo: false,
-      selectedComponent,
-    });
-    clearAttachments();
-    posthog.capture("chat:submit");
+    try {
+      // Send message with attachments and clear them after sending
+      await streamMessage({
+        prompt: currentInput,
+        chatId,
+        attachments,
+        redo: false,
+        selectedComponent,
+      });
+      
+      // Only clear input and attachments if stream started successfully
+      // Add to history before clearing
+      if (currentInput.trim()) {
+        setInputHistory(prev => {
+          const newHistory = [currentInput, ...prev.filter(item => item !== currentInput)];
+          return newHistory.slice(0, 50); // Keep last 50 messages
+        });
+        setHistoryIndex(-1);
+      }
+      
+      setInputValue("");
+      clearAttachments();
+      posthog.capture("chat:submit");
+    } catch (error) {
+      console.error("Failed to start chat stream:", error);
+      // Don't clear input on error - user can retry
+      showError(`Failed to send message: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   const handleCancel = () => {
@@ -273,6 +332,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
                 proposal={proposal}
                 onApprove={handleApprove}
                 onReject={handleReject}
+                chatId={chatId}
                 isApprovable={
                   !isProposalLoading &&
                   !!proposal &&
@@ -303,11 +363,13 @@ export function ChatInput({ chatId }: { chatId?: number }) {
               onChange={setInputValue}
               onSubmit={handleSubmit}
               onPaste={handlePaste}
+              onKeyDown={handleKeyDown}
               placeholder="Ask Applaa to build..."
               excludeCurrentApp={false}
             />
 
             <div className="flex items-center gap-1">
+              {/* 🎤 Voice Input - COMPLETELY REMOVED for MVP performance optimization - Cache refresh v2 */}
 
               {/* Send/Cancel button */}
               {isStreaming ? (
@@ -469,7 +531,7 @@ function WriteCodeProperlyButton() {
       return;
     }
     streamMessage({
-      prompt: `Write the code in the previous message in the correct format using \`<dyad-write>\` tags!`,
+      prompt: `Write the code in the previous message in the correct format using \`<applaa-write>\` tags!`,
       chatId,
       redo: false,
     });
@@ -544,27 +606,91 @@ function RefreshButton() {
   );
 }
 
-function KeepGoingButton() {
+function BoostMyAppButton({ chatId }: { chatId?: number }) {
   const { streamMessage } = useStreamChat();
-  const chatId = useAtomValue(selectedChatIdAtom);
-  const onClick = () => {
+  const posthog = usePostHog();
+  
+  const onClick = useCallback(async () => {
     if (!chatId) {
-      console.error("No chat id found");
+      console.error("No chat id found for Boost My App");
       return;
     }
-    streamMessage({
-      prompt: "Keep going",
-      chatId,
-    });
-  };
+    
+    console.log(`🚀 Boost My App clicked for chatId: ${chatId}`);
+    posthog.capture("action:boost-my-app");
+    
+    // Enhanced prompt with UI improvement focus
+    const boostPrompt = `🚀 BOOST MY APP: Apply premium design enhancements to this application:
+
+🎨 **VISUAL ENHANCEMENTS:**
+- Add modern gradients and premium color schemes
+- Implement glassmorphism effects and subtle shadows
+- Enhance typography with proper font weights and hierarchy
+- Add micro-animations and smooth transitions
+- Improve card designs with rounded corners and better spacing
+
+💎 **INTERACTIVE IMPROVEMENTS:**
+- Add hover effects and touch feedback
+- Implement loading states and skeleton screens
+- Enhance navigation with badges and meaningful icons
+- Add pull-to-refresh and smooth page transitions
+- Improve form interactions with real-time validation
+
+📱 **USER EXPERIENCE:**
+- Optimize for mobile-first responsive design
+- Add engaging empty states and error handling
+- Implement search functionality with live filtering
+- Add more realistic mock data (8-12 items per section)
+- Enhance accessibility with proper contrast and ARIA labels
+
+Continue building on what's already there while applying these premium design patterns.`;
+
+    try {
+      await streamMessage({
+        prompt: boostPrompt,
+        chatId,
+        redo: false,
+      });
+    } catch (error) {
+      console.error("Failed to boost app:", error);
+    }
+  }, [chatId, streamMessage, posthog]);
+  
   return (
-    <SuggestionButton onClick={onClick} tooltipText="Keep going">
-      Keep going
+    <SuggestionButton
+      onClick={onClick}
+      tooltipText="Continue improving your app with more features"
+    >
+      <Zap size={16} className="mr-1" />
+      Boost My App
     </SuggestionButton>
   );
 }
 
-function mapActionToButton(action: SuggestedAction) {
+function RetryButton({ chatId }: { chatId?: number }) {
+  const { streamMessage } = useStreamChat();
+  
+  const onClick = () => {
+    if (!chatId) {
+      console.error("No chat id found for Retry");
+      return;
+    }
+    console.log(`Retry clicked for chatId: ${chatId}`);
+    streamMessage({
+      prompt: "", // Empty prompt for retry - will use last message
+      chatId,
+      redo: true, // This is the key for retry functionality
+    });
+  };
+  
+  return (
+    <SuggestionButton onClick={onClick} tooltipText="Retry the last message">
+      Retry
+    </SuggestionButton>
+  );
+}
+
+function mapActionToButton(action: SuggestedAction, chatId?: number) {
   switch (action.id) {
     case "summarize-in-new-chat":
       return <SummarizeInNewChatButton />;
@@ -579,7 +705,9 @@ function mapActionToButton(action: SuggestedAction) {
     case "refresh":
       return <RefreshButton />;
     case "keep-going":
-      return <KeepGoingButton />;
+      return <BoostMyAppButton chatId={chatId} />;
+    case "retry":
+      return <RetryButton chatId={chatId} />;
     default:
       console.error(`Unsupported action: ${action.id}`);
       return (
@@ -590,12 +718,12 @@ function mapActionToButton(action: SuggestedAction) {
   }
 }
 
-function ActionProposalActions({ proposal }: { proposal: ActionProposal }) {
+function ActionProposalActions({ proposal, chatId }: { proposal: ActionProposal; chatId?: number }) {
   return (
     <div className="border-b border-border p-2 pb-0 flex items-center justify-between">
       <div className="flex items-center space-x-2 overflow-x-auto pb-2">
         {proposal.actions.map((action) => (
-          <span key={action.id}>{mapActionToButton(action)}</span>
+          <span key={action.id}>{mapActionToButton(action, chatId)}</span>
         ))}
       </div>
     </div>
@@ -609,6 +737,7 @@ interface ChatInputActionsProps {
   isApprovable: boolean; // Can be used to enable/disable buttons
   isApproving: boolean; // State for approving
   isRejecting: boolean; // State for rejecting
+  chatId?: number; // Chat ID for proper isolation
 }
 
 // Update ChatInputActions to accept props
@@ -619,6 +748,7 @@ function ChatInputActions({
   isApprovable,
   isApproving,
   isRejecting,
+  chatId,
 }: ChatInputActionsProps) {
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
 
@@ -626,7 +756,7 @@ function ChatInputActions({
     return <div>Tip proposal</div>;
   }
   if (proposal.type === "action-proposal") {
-    return <ActionProposalActions proposal={proposal}></ActionProposalActions>;
+    return <ActionProposalActions proposal={proposal} chatId={chatId}></ActionProposalActions>;
   }
 
   // Split files into server functions and other files - only for CodeProposal

@@ -11,8 +11,7 @@ import { DyadEdit } from "./DyadEdit";
 import { DyadCodebaseContext } from "./DyadCodebaseContext";
 import { DyadThink } from "./DyadThink";
 import { CodeHighlight } from "./CodeHighlight";
-import { useAtomValue } from "jotai";
-import { isStreamingAtom } from "@/atoms/chatAtoms";
+// Removed global atom imports to prevent stream hijacking
 import { CustomTagState } from "./stateTypes";
 import { DyadOutput } from "./DyadOutput";
 import { DyadProblemSummary } from "./DyadProblemSummary";
@@ -20,6 +19,7 @@ import { IpcClient } from "@/ipc/ipc_client";
 
 interface DyadMarkdownParserProps {
   content: string;
+  isStreaming?: boolean; // Add isStreaming prop to avoid global atom dependency
 }
 
 type CustomTagInfo = {
@@ -71,9 +71,9 @@ export const VanillaMarkdownParser = ({ content }: { content: string }) => {
  */
 export const DyadMarkdownParser: React.FC<DyadMarkdownParserProps> = ({
   content,
+  isStreaming = false, // Accept isStreaming as prop instead of using global atom
 }) => {
-  const isStreaming = useAtomValue(isStreamingAtom);
-  // Extract content pieces (markdown and custom tags)
+  // 🚀 PERFORMANCE: Memoize content parsing to prevent unnecessary re-renders
   const contentPieces = useMemo(() => {
     return parseCustomTags(content);
   }, [content]);
@@ -111,6 +111,7 @@ function preprocessUnclosedTags(content: string): {
   inProgressTags: Map<string, Set<number>>;
 } {
   const customTagNames = [
+    // Legacy dyad-* tags (kept for backward compatibility - DO NOT REMOVE)
     "dyad-write",
     "dyad-rename",
     "dyad-delete",
@@ -126,6 +127,11 @@ function preprocessUnclosedTags(content: string): {
     "think",
     // Accept Applaa-branded tags (rendered the same) so users never see Dyad wording
     "applaa-write",
+    "applaa-file", // Support for applaa-file tags (alias for applaa-write)
+    "applaa-create-file", // Support for applaa-create-file tags (alias for applaa-write)
+    "applaa-update-file", // Support for applaa-update-file tags (alias for applaa-write)
+    "applaa-file-delete", // Support for applaa-file-delete tags (alias for applaa-delete)
+    "applaa-file-removal", // Support for applaa-file-removal tags (alias for applaa-delete)
     "applaa-rename",
     "applaa-delete",
     "applaa-add-dependency",
@@ -206,6 +212,11 @@ function parseCustomTags(content: string): ContentPiece[] {
     "think",
     // Applaa-branded tags for UI rendering
     "applaa-write",
+    "applaa-file", // Support for applaa-file tags (alias for applaa-write)
+    "applaa-create-file", // Support for applaa-create-file tags (alias for applaa-write)
+    "applaa-update-file", // Support for applaa-update-file tags (alias for applaa-write)
+    "applaa-file-delete", // Support for applaa-file-delete tags (alias for applaa-delete)
+    "applaa-file-removal", // Support for applaa-file-removal tags (alias for applaa-delete)
     "applaa-rename",
     "applaa-delete",
     "applaa-add-dependency",
@@ -317,12 +328,15 @@ function renderCustomTag(
         </DyadThink>
       );
     case "dyad-write":
+    case "dyad-file": // Support for applaa-file tags (alias for dyad-write)
+    case "applaa-create-file": // Support for applaa-create-file tags (alias for dyad-write)
+    case "applaa-update-file": // Support for applaa-update-file tags (alias for dyad-write)
       return (
         <DyadWrite
           node={{
             properties: {
               path: attributes.path || "",
-              description: attributes.description || "",
+              description: attributes.description || attributes.instruction || "",
               state: getState({ isStreaming, inProgress }),
             },
           }}
@@ -346,6 +360,8 @@ function renderCustomTag(
       );
 
     case "dyad-delete":
+    case "applaa-file-delete": // Support for applaa-file-delete tags (alias for dyad-delete)
+    case "applaa-file-removal": // Support for applaa-file-removal tags (alias for dyad-delete)
       return (
         <DyadDelete
           node={{

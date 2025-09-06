@@ -160,7 +160,7 @@ export function registerPortalHandlers() {
 
         const commitHash = await gitCommit({
           path: appPath,
-          message: "[dyad] Generate database migration file",
+          message: "[applaa] Generate database migration file",
         });
 
         logger.info(`Successfully committed migration changes: ${commitHash}`);

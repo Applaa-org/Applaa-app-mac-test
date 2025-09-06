@@ -5,6 +5,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOllama } from "ollama-ai-provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createAzure } from "@ai-sdk/azure";
 import type { LargeLanguageModel, UserSettings } from "../../lib/schemas";
 import { getEnvVar } from "./read_env";
 import log from "electron-log";
@@ -51,9 +52,21 @@ export async function getModelClient(
   modelClient: ModelClient;
   isEngineEnabled?: boolean;
 }> {
+  logger.info(`🚨🚨🚨 getModelClient CALLED - Provider: ${model.provider}, Model: ${model.name}`);
+  
   const allProviders = await getLanguageModelProviders();
 
   const dyadApiKey = settings.providerSettings?.auto?.apiKey?.value;
+  
+  // 🔧 DEBUG: Log API key availability for debugging
+  logger.info(`🔍 API Key Debug - Provider: ${model.provider}`);
+  logger.info(`🔍 Applaa Pro enabled: ${settings.enableApplaaPro}`);
+  logger.info(`🔍 Auto API key present: ${!!dyadApiKey}`);
+  if (settings.providerSettings?.[model.provider]?.apiKey?.value) {
+    logger.info(`🔍 Direct provider API key present: YES`);
+  } else {
+    logger.info(`🔍 Direct provider API key present: NO`);
+  }
 
   // --- Handle specific provider ---
   const providerConfig = allProviders.find((p) => p.id === model.provider);
@@ -62,13 +75,19 @@ export async function getModelClient(
     throw new Error(`Configuration not found for provider: ${model.provider}`);
   }
 
-  // Handle Dyad Pro override
-  if (dyadApiKey && settings.enableApplaaPro) {
-    // Check if the selected provider supports Dyad Pro (has a gateway prefix) OR
-    // we're using local engine.
-    // IMPORTANT: some providers like OpenAI have an empty string gateway prefix,
-    // so we do a nullish and not a truthy check here.
-    if (providerConfig.gatewayPrefix != null || dyadEngineUrl) {
+  // 🔧 APPLAA PRO: Handle Applaa Pro override with proper fallback
+  if (settings.enableApplaaPro) {
+    if (!dyadApiKey) {
+      logger.warn(
+        `🚨 Applaa Pro is enabled but no 'auto' provider API key found. Falling back to direct provider: ${model.provider}`
+      );
+      logger.info(`🔧 FALLBACK: Using direct provider API key for ${model.provider}`);
+      // Fall through to regular provider logic - this should work
+    } else if (providerConfig.gatewayPrefix != null || dyadEngineUrl) {
+      // Check if the selected provider supports Applaa Pro (has a gateway prefix) OR
+      // we're using local engine.
+      // IMPORTANT: some providers like OpenAI have an empty string gateway prefix,
+      // so we do a nullish and not a truthy check here.
       // Spark features require Applaa Pro to be enabled
       const hasApplaaPro = settings.enableApplaaPro === true;
       const isEngineEnabled = hasApplaaPro && (
@@ -78,7 +97,7 @@ export async function getModelClient(
       const provider = isEngineEnabled
         ? createDyadEngine({
             apiKey: dyadApiKey,
-            baseURL: dyadEngineUrl ?? "https://engine.dyad.sh/v1",
+            baseURL: dyadEngineUrl ?? "https://engine.applaa.dev/v1",
             originalProviderId: model.provider,
             dyadOptions: {
               enableLazyEdits:
@@ -92,19 +111,19 @@ export async function getModelClient(
         : createOpenAICompatible({
             name: "dyad-gateway",
             apiKey: dyadApiKey,
-            baseURL: dyadGatewayUrl ?? "https://llm-gateway.dyad.sh/v1",
+            baseURL: dyadGatewayUrl ?? "https://llm-gateway.applaa.dev/v1",
           });
 
       logger.info(
-        `\x1b[1;97;44m Using Dyad Pro API key for model: ${model.name}. engine_enabled=${isEngineEnabled} \x1b[0m`,
+        `\x1b[1;97;44m Using Applaa Pro API key for model: ${model.name}. engine_enabled=${isEngineEnabled} \x1b[0m`,
       );
       if (isEngineEnabled) {
         logger.info(
-          `\x1b[1;30;42m Using Dyad Pro engine: ${dyadEngineUrl ?? "<prod>"} \x1b[0m`,
+          `\x1b[1;30;42m Using Applaa Pro engine: ${dyadEngineUrl ?? "<prod>"} \x1b[0m`,
         );
       } else {
         logger.info(
-          `\x1b[1;30;43m Using Dyad Pro gateway: ${dyadGatewayUrl ?? "<prod>"} \x1b[0m`,
+          `\x1b[1;30;43m Using Applaa Pro gateway: ${dyadGatewayUrl ?? "<prod>"} \x1b[0m`,
         );
       }
       // Do not use free variant (for openrouter).
@@ -127,7 +146,7 @@ export async function getModelClient(
       };
     } else {
       logger.warn(
-        `Dyad Pro enabled, but provider ${model.provider} does not have a gateway prefix defined. Falling back to direct provider connection.`,
+        `Applaa Pro enabled, but provider ${model.provider} does not have a gateway prefix defined. Falling back to direct provider connection.`,
       );
       // Fall through to regular provider logic if gateway prefix is missing
     }
@@ -180,6 +199,14 @@ function getRegularModelClient(
     (providerConfig.envVarName && process.env.NODE_ENV === 'development' && !process.resourcesPath && !process.defaultApp
       ? getEnvVar(providerConfig.envVarName)
       : undefined);
+
+  // 🔧 DEBUG: Log what API key we're actually using
+  logger.info(`🔑 Regular provider ${model.provider} - API key present: ${!!apiKey}`);
+  if (apiKey) {
+    logger.info(`🔑 API key length: ${apiKey.length} chars, starts with: ${apiKey.substring(0, 8)}...`);
+  } else {
+    logger.error(`❌ NO API KEY found for provider: ${model.provider}`);
+  }
 
   const providerId = providerConfig.id;
   // Create client based on provider ID or type
@@ -246,6 +273,54 @@ function getRegularModelClient(
       return {
         modelClient: {
           model: provider(model.name),
+        },
+        backupModelClients: [],
+      };
+    }
+    case "azure-openai": {
+      // Enhanced Azure OpenAI support with comprehensive environment variable support
+      // Support both environment variables and user settings
+      const azureApiKey = apiKey || getEnvVar("AZURE_API_KEY");
+      const azureResourceName = settings.providerSettings?.[providerId]?.resourceName?.value || getEnvVar("AZURE_RESOURCE_NAME");
+      const azureDeploymentName = settings.providerSettings?.[providerId]?.deploymentName?.value || getEnvVar("AZURE_DEPLOYMENT_NAME");
+      const azureApiVersion = settings.providerSettings?.[providerId]?.apiVersion?.value || getEnvVar("AZURE_API_VERSION") || "2024-02-01";
+      const azureEndpoint = settings.providerSettings?.[providerId]?.endpoint?.value || getEnvVar("AZURE_ENDPOINT");
+      
+      if (!azureApiKey) {
+        throw new Error(
+          `Azure OpenAI provider is missing the API key. Please set AZURE_API_KEY environment variable or configure it in provider settings.`,
+        );
+      }
+      
+      if (!azureResourceName) {
+        throw new Error(
+          `Azure OpenAI provider is missing the resource name. Please set AZURE_RESOURCE_NAME environment variable or configure it in provider settings.`,
+        );
+      }
+      
+      // Use official Azure SDK with comprehensive configuration
+      const azureConfig: any = {
+        apiKey: azureApiKey,
+        resourceName: azureResourceName,
+        apiVersion: azureApiVersion,
+      };
+      
+      // Add endpoint if provided (for custom Azure endpoints)
+      if (azureEndpoint) {
+        azureConfig.baseURL = azureEndpoint;
+      }
+      
+      const provider = createAzure(azureConfig);
+      
+      // Use deployment name if provided, otherwise use model name
+      const modelName = azureDeploymentName || model.name;
+      
+      logger.info(`🔵 Azure OpenAI configured with resource: ${azureResourceName}, deployment: ${modelName}, API version: ${azureApiVersion}`);
+      
+      return {
+        modelClient: {
+          model: provider(modelName),
+          builtinProviderId: providerId,
         },
         backupModelClients: [],
       };

@@ -36,6 +36,7 @@ export function useSettings() {
         ipcClient.getEnvVars(),
       ]);
       processSettingsForTelemetry(userSettings);
+      // FIXED: Use appVersion directly instead of as dependency to prevent infinite loop
       if (!isInitialLoad && appVersion) {
         posthog.capture("app:initial-load", {
           isPro: Boolean(userSettings.providerSettings?.auto?.apiKey?.value),
@@ -52,7 +53,7 @@ export function useSettings() {
     } finally {
       setLoading(false);
     }
-  }, [setSettingsAtom, setEnvVarsAtom, appVersion]);
+  }, [setSettingsAtom, setEnvVarsAtom]); // CRITICAL: Removed appVersion dependency
 
   useEffect(() => {
     // Only run once on mount, dependencies are stable getters/setters

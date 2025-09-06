@@ -1,4 +1,4 @@
-import { SendIcon, StopCircleIcon, Zap, Undo2, Loader2 } from "lucide-react";
+import { SendIcon, StopCircleIcon } from "lucide-react";
 import { useCallback } from "react";
 
 import { useSettings } from "@/hooks/useSettings";
@@ -13,8 +13,8 @@ import { usePostHog } from "posthog-js/react";
 import { HomeSubmitOptions } from "@/pages/home";
 import { ChatInputControls } from "../ChatInputControls";
 import { LexicalChatInput } from "./LexicalChatInput";
-import { usePromptOptimization } from "@/hooks/usePromptOptimization";
-import { shouldShowPromptOptimization } from "@/utils/promptOptimizationCompatibility";
+// Voice input removed for MVP performance optimization
+// Prompt optimization removed for MVP simplicity
 import {
   Tooltip,
   TooltipContent,
@@ -42,13 +42,7 @@ export function HomeChatInput({
   }); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   // Use the prompt optimization hook
-  const {
-    optimizePrompt,
-    undoOptimization,
-    resetOptimization,
-    isOptimizing,
-    isOptimized,
-  } = usePromptOptimization(appType);
+  // Prompt optimization removed for MVP simplicity
 
   // Voice input disabled for MVP
 
@@ -66,22 +60,7 @@ export function HomeChatInput({
   } = useAttachments();
 
   // Handler for optimizing the prompt
-  const handleOptimizePrompt = async () => {
-    if (!inputValue.trim() || isOptimizing) {
-      return;
-    }
-
-    const optimizedText = await optimizePrompt(inputValue);
-    if (optimizedText) {
-      setInputValue(optimizedText);
-    }
-  };
-
-  // Handler for undoing optimization
-  const handleUndoOptimization = () => {
-    const originalText = undoOptimization();
-    setInputValue(originalText);
-  };
+  // Optimization handlers removed for MVP simplicity
 
   // Voice input disabled for MVP
 
@@ -96,7 +75,7 @@ export function HomeChatInput({
 
     // Clear attachments as part of submission process
     clearAttachments();
-    resetOptimization(); // Reset optimization state when submitting
+    // resetOptimization removed for MVP simplicity
     posthog.capture("chat:home_submit");
   };
 
@@ -143,36 +122,9 @@ export function HomeChatInput({
             />
 
             <div className="flex items-center gap-1">
-              
+              {/* 🎤 Voice Input - REMOVED for MVP performance optimization */}
 
-              {/* Prompt optimization button */}
-              {!isStreaming && inputValue.trim() && shouldShowPromptOptimization(settings?.selectedModel, settings) && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={isOptimized ? handleUndoOptimization : handleOptimizePrompt}
-                        disabled={isOptimizing}
-                        className={`px-2 py-2 mt-1 hover:bg-(--background-darkest) text-(--sidebar-accent-fg) rounded-lg disabled:opacity-50 ${
-                          isOptimized ? 'bg-purple-100 text-purple-600' : ''
-                        }`}
-                        title={isOptimized ? "Undo optimization" : "Optimize your input"}
-                      >
-                        {isOptimizing ? (
-                          <Loader2 size={18} className="animate-spin" />
-                        ) : isOptimized ? (
-                          <Undo2 size={18} />
-                        ) : (
-                          <Zap size={18} />
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isOptimized ? "Undo optimization" : "Boost Prompt (Turbo Prompt)"}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              {/* Boost feature removed - reverted to simple Keep Going functionality */}
 
               {/* Send/Cancel button */}
               {isStreaming ? (
@@ -201,7 +153,7 @@ export function HomeChatInput({
           </div>
         </div>
 
-        {/* Voice input disabled for MVP */}
+        {/* Voice input now enabled with browser-based Web Speech API */}
       </div>
     </>
   );

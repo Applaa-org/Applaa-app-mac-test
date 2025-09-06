@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { promises as fsPromises } from "node:fs";
+const fsPromises = fs.promises;
 import path from "node:path";
 import fsExtra from "fs-extra";
 import { generateCuteAppName } from "../../lib/utils";

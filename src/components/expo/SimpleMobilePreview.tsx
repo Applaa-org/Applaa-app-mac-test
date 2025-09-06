@@ -6,7 +6,9 @@ import { Smartphone, Tablet, ExternalLink, RefreshCw, QrCode as QrCodeIcon, Sear
 import QRCode from "qrcode";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useAtomValue } from "jotai";
-import { selectedAppIdAtom } from "@/atoms/appAtoms";
+import { selectedAppIdAtom, appOutputAtom } from "@/atoms/appAtoms";
+import { AutoErrorFixBanner } from "../preview_panel/AutoErrorFixBanner";
+import { useAutoErrorFix } from "@/hooks/useAutoErrorFix";
 import { 
   DEVICE_PRESETS, 
   DEVICE_CATEGORIES, 
@@ -21,6 +23,8 @@ type ExpoStatus = Awaited<ReturnType<IpcClient['expoStatus']>>;
 
 export function SimpleMobilePreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  const appOutput = useAtomValue(appOutputAtom);
+  const { detectConsoleErrors } = useAutoErrorFix({ enabled: true });
   const [expoStatus, setExpoStatus] = useState<ExpoStatus>({ isRunning: false });
   const [selectedDevice, setSelectedDevice] = useState<string>('iphone-15-pro'); // Default to iPhone 15 Pro
   const [isLandscape, setIsLandscape] = useState<boolean>(false);
@@ -36,6 +40,14 @@ export function SimpleMobilePreview() {
 
   // Tunnel toggle - default to LAN for reliability
   const [useTunnel, setUseTunnel] = useState<boolean>(false);
+
+  // Monitor console errors for auto-fix (especially Expo-specific errors)
+  useEffect(() => {
+    if (appOutput && appOutput.length > 0) {
+      console.log('🔍 Monitoring Expo console output for auto-fix:', appOutput.length, 'messages');
+      detectConsoleErrors(appOutput);
+    }
+  }, [appOutput, detectConsoleErrors]);
 
   // Get current device preset
   const currentDevice = getDevicePreset(selectedDevice) || DEVICE_PRESETS['iphone-15-pro'];
@@ -323,6 +335,7 @@ export function SimpleMobilePreview() {
 
   return (
     <div className="flex h-full">
+      <AutoErrorFixBanner />
       {/* Main Preview Area */}
       <div className="flex-1 flex flex-col">
         {/* Top Controls */}

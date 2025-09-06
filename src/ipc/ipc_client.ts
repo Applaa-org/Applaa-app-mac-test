@@ -176,6 +176,7 @@ export class IpcClient {
   private chatStreams: Map<number, ChatStreamCallbacks>;
   private appStreams: Map<number, AppStreamCallbacks>;
   private isElectron: boolean;
+  private loggedMissingCallbacks?: Set<number>;
   
   private constructor() {
     // Check if we're in an Electron environment
@@ -218,10 +219,14 @@ export class IpcClient {
         if (callbacks) {
           callbacks.onUpdate(messages);
         } else {
-          console.warn(
-            `[IPC] No callbacks found for chat ${chatId}`,
-            this.chatStreams,
-          );
+          // 🚨 FIX: Reduce callback error spam - only log once per chat
+          if (!this.loggedMissingCallbacks) {
+            this.loggedMissingCallbacks = new Set();
+          }
+          if (!this.loggedMissingCallbacks.has(chatId)) {
+            console.warn(`[IPC] No callbacks found for chat ${chatId} - this will only be logged once`);
+            this.loggedMissingCallbacks.add(chatId);
+          }
         }
       } else {
         showError(new Error(`[IPC] Invalid chunk data received: ${data}`));
@@ -251,8 +256,12 @@ export class IpcClient {
       const callbacks = this.chatStreams.get(chatId);
       if (callbacks) {
         callbacks.onEnd(payload as unknown as ChatResponseEnd);
-        console.debug("chat:response:end");
+        console.log(`[IPC] ✅ Stream ended for chat ${chatId}, cleaning up callbacks`);
         this.chatStreams.delete(chatId);
+        // Also clear from logged missing callbacks
+        if (this.loggedMissingCallbacks) {
+          this.loggedMissingCallbacks.delete(chatId);
+        }
       } else {
         console.error(
           new Error(
@@ -392,9 +401,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("semantic-context:get-file-count", params);
   }
 
-  public async initializeSemanticContext(): Promise<{ success: boolean; error?: string }> {
-    return this.ipcRenderer.invoke("semantic-context:initialize");
-  }
+  // Semantic context methods removed for MVP
 
   // AI Features Installation
   public async installAITransformers(): Promise<{
@@ -492,6 +499,63 @@ export class IpcClient {
       onProblems?: (problems: ChatProblemsEvent) => void;
     },
   ): void {
+    this.streamMessageInternal("chat:stream", prompt, options);
+  }
+
+  // Auto-fix streaming with cheaper models
+  public streamAutoFix(
+    prompt: string,
+    options: {
+      selectedComponent: ComponentSelection | null;
+      chatId: number;
+      redo?: boolean;
+      attachments?: FileAttachment[];
+      onUpdate: (messages: Message[]) => void;
+      onEnd: (response: ChatResponseEnd) => void;
+      onError: (error: string) => void;
+      onProblems?: (problems: ChatProblemsEvent) => void;
+    },
+  ): void {
+    // Use the standard chat stream channel to avoid handler divergence.
+    // Auto-fix now reuses the main handler (model selection may still choose a cheaper model via settings).
+    this.streamMessageInternal("chat:stream", prompt, options);
+  }
+
+  // Performance monitoring methods
+  public async getPerformanceReport(): Promise<string> {
+    return this.ipcRenderer.invoke("performance:get-report");
+  }
+
+  public async getPerformanceMetrics(): Promise<{
+    completed: any[];
+    active: any[];
+  }> {
+    return this.ipcRenderer.invoke("performance:get-metrics");
+  }
+
+  public async clearPerformanceMetrics(): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("performance:clear");
+  }
+
+  public async logPerformanceReport(): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("performance:log-report");
+  }
+
+  // Internal method for streaming (shared between regular and auto-fix)
+  private streamMessageInternal(
+    channel: string,
+    prompt: string,
+    options: {
+      selectedComponent: ComponentSelection | null;
+      chatId: number;
+      redo?: boolean;
+      attachments?: FileAttachment[];
+      onUpdate: (messages: Message[]) => void;
+      onEnd: (response: ChatResponseEnd) => void;
+      onError: (error: string) => void;
+      onProblems?: (problems: ChatProblemsEvent) => void;
+    },
+  ): void {
     const {
       chatId,
       redo,
@@ -501,7 +565,21 @@ export class IpcClient {
       onEnd,
       onError,
     } = options;
+    
+    // 🚨 FIX: Clear any existing callbacks for this chat to prevent stale references
+    if (this.chatStreams.has(chatId)) {
+      console.log(`[IPC] Clearing existing callbacks for chat ${chatId}`);
+      this.chatStreams.delete(chatId);
+    }
+    
+    // Clear from logged missing callbacks if it exists
+    if (this.loggedMissingCallbacks) {
+      this.loggedMissingCallbacks.delete(chatId);
+    }
+
+    // Store new callbacks for this chat
     this.chatStreams.set(chatId, { onUpdate, onEnd, onError });
+    console.log(`[IPC] Registered callbacks for chat ${chatId}`);
 
     // Handle file attachments if provided
     if (attachments && attachments.length > 0) {
@@ -532,7 +610,7 @@ export class IpcClient {
         .then((fileDataArray) => {
           // Use invoke to start the stream and pass the chatId and attachments
           this.ipcRenderer
-            .invoke("chat:stream", {
+            .invoke(channel, {
               prompt,
               chatId,
               redo,
@@ -553,7 +631,7 @@ export class IpcClient {
     } else {
       // No attachments, proceed normally
       this.ipcRenderer
-        .invoke("chat:stream", {
+        .invoke(channel, {
           prompt,
           chatId,
           redo,
@@ -576,6 +654,25 @@ export class IpcClient {
     } else {
       console.error("Tried canceling chat that doesn't exist");
     }
+  }
+
+  // 🚀 NEW: Detect interrupted streams
+  async detectInterruptedStream(chatId: number): Promise<{
+    interrupted: boolean;
+    messageId?: number;
+    partialContent?: string;
+    canResume: boolean;
+  }> {
+    return this.invoke("chat:detect-interrupted", chatId);
+  }
+
+  // 🚀 NEW: Resume interrupted streams
+  async resumeInterruptedStream(params: {
+    chatId: number;
+    messageId: number;
+    continuePrompt?: string;
+  }): Promise<{ success: boolean; resumePrompt: string }> {
+    return this.invoke("chat:resume-interrupted", params);
   }
 
   // Create a new chat for an app
@@ -602,6 +699,19 @@ export class IpcClient {
 
   public async showItemInFolder(fullPath: string): Promise<void> {
     await this.ipcRenderer.invoke("show-item-in-folder", fullPath);
+  }
+
+  // Background dependency installation methods
+  public async checkDependenciesNeeded(params: { appId: number }): Promise<{ needed: boolean; reason: string }> {
+    return await this.ipcRenderer.invoke("check-dependencies-needed", params);
+  }
+
+  public async installDependenciesBackground(params: { appId: number }): Promise<void> {
+    return await this.ipcRenderer.invoke("install-dependencies-background", params);
+  }
+
+  public async getDependencyInstallationStatus(params: { appId: number }): Promise<{ status: string; timestamp?: number; ageMinutes?: number }> {
+    return await this.ipcRenderer.invoke("get-dependency-installation-status", params);
   }
 
   // Run an app
@@ -722,6 +832,16 @@ export class IpcClient {
         settings,
       );
       return updatedSettings;
+    } catch (error) {
+      showError(error);
+      throw error;
+    }
+  }
+
+  // 🚀 SMART CACHE: Manual cache invalidation
+  public async invalidateSettingsCache(): Promise<{ success: boolean }> {
+    try {
+      return await this.ipcRenderer.invoke("invalidate-settings-cache");
     } catch (error) {
       showError(error);
       throw error;
@@ -2023,6 +2143,105 @@ export class IpcClient {
     return this.ipcRenderer.invoke("simple-expo:stop");
   }
 
+  public async simpleExpoMetroRecovery(): Promise<{ success: boolean; portFree: boolean; message: string }> {
+    return this.ipcRenderer.invoke("simple-expo:metro-recovery");
+  }
+
+  public async simpleExpoUpdatePackages(params: { appId: number }): Promise<{ success: boolean; output: string; message: string }> {
+    return this.ipcRenderer.invoke("simple-expo:update-packages", params);
+  }
+
+  // Parallel App Creation Methods
+  public async createAppInstant(params: {
+    name: string;
+    displayName?: string;
+    packageId?: string;
+    slug?: string;
+    appType: 'web' | 'mobile';
+    framework: 'web' | 'expo' | 'flutter';
+    prompt?: string;
+    attachments?: any[];
+  }): Promise<{
+    app: any;
+    chatId: number;
+    taskId: string;
+    readyForChat: boolean;
+  }> {
+    return this.ipcRenderer.invoke("create-app-instant", params);
+  }
+
+  public async getAppCreationStatus(taskId: string): Promise<{
+    status: 'running' | 'completed' | 'error';
+    progress: number;
+    message: string;
+    error?: any;
+    appId?: number;
+  }> {
+    return this.ipcRenderer.invoke("get-app-creation-status", taskId);
+  }
+
+  public async cleanupAppCreationTask(taskId: string): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("cleanup-app-creation-task", taskId);
+  }
+
+  // Design Generation Methods
+  public async generateAppIcons(options: {
+    prompt: string;
+    model?: 'gpt-image-1' | 'dall-e-3' | 'dall-e-2';
+    size?: string;
+    quality?: string;
+    numImages?: number;
+    style?: 'vivid' | 'natural';
+  }): Promise<any[]> {
+    return this.ipcRenderer.invoke("generate-app-icons", options);
+  }
+
+  public async generateGeminiIcons(options: {
+    prompt: string;
+    model?: 'gemini-2.5-flash-image';
+    size?: string;
+    numImages?: number;
+  }): Promise<any[]> {
+    return this.ipcRenderer.invoke("generate-gemini-icons", options);
+  }
+
+  public async generatePlatformIcons(appDescription: string): Promise<{
+    ios: any[];
+    android: any[];
+    universal: any[];
+  }> {
+    return this.ipcRenderer.invoke("generate-platform-icons", appDescription);
+  }
+
+  public async generateUIDesigns(options: {
+    appDescription: string;
+    style?: string;
+    platform?: string;
+    inspiration?: string;
+  }): Promise<any[]> {
+    return this.ipcRenderer.invoke("generate-ui-designs", options);
+  }
+
+  public async generateAppTypeDesigns(appType: string, appDescription: string): Promise<any[]> {
+    return this.ipcRenderer.invoke("generate-app-type-designs", appType, appDescription);
+  }
+
+  // Auto-generate icons and UI designs based on app prompt
+  public async autoGenerateAppAssets(appPrompt: string, appId: number): Promise<{
+    icons: any[];
+    uiDesigns: any[];
+  }> {
+    return this.ipcRenderer.invoke("auto-generate-app-assets", appPrompt, appId);
+  }
+
+  public async applyIconToApp(params: { appId: number; iconPath: string }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("apply-icon-to-app", params);
+  }
+
+  public async applyUIDesignToApp(params: { appId: number; design: any }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("apply-ui-design-to-app", params);
+  }
+
   public async simpleExpoStatus(): Promise<{
     isRunning: boolean;
     webUrl: string;
@@ -2061,111 +2280,9 @@ export class IpcClient {
     return this.ipcRenderer.invoke("playwright-mcp:status");
   }
 
-  // Gemini Authentication Methods
-  public async geminiAuthLogin(): Promise<{ authUrl: string; codeVerifier: string }> {
-    return this.ipcRenderer.invoke("gemini-auth-login");
-  }
+  // Gemini methods removed for MVP
 
-  public async geminiAuthCallback(params: {
-    code: string;
-    codeVerifier: string;
-  }): Promise<{
-    isAuthenticated: boolean;
-    authMode?: "oauth" | "adc";
-    projectId?: string;
-    region?: string;
-    email?: string;
-    expiresAt?: number;
-    error?: string;
-  }> {
-    return this.ipcRenderer.invoke("gemini-auth-callback", params);
-  }
 
-  public async geminiAuthStatus(): Promise<{
-    isAuthenticated: boolean;
-    authMode?: "oauth" | "adc";
-    projectId?: string;
-    region?: string;
-    email?: string;
-    expiresAt?: number;
-    error?: string;
-  }> {
-    return this.ipcRenderer.invoke("gemini-auth-status");
-  }
-
-  public async geminiAuthRefresh(): Promise<{
-    isAuthenticated: boolean;
-    authMode?: "oauth" | "adc";
-  }> {
-    return this.ipcRenderer.invoke("gemini-auth-refresh");
-  }
-
-  public async geminiAuthLogout(): Promise<void> {
-    return this.ipcRenderer.invoke("gemini-auth-logout");
-  }
-
-  public async geminiAuthRevoke(): Promise<void> {
-    return this.ipcRenderer.invoke("gemini-auth-revoke");
-  }
-
-  public async geminiAuthUpdateVertexConfig(params: {
-    projectId: string;
-    region: string;
-  }): Promise<void> {
-    return this.ipcRenderer.invoke("gemini-auth-update-vertex-config", params);
-  }
-
-  // Gemini API Methods
-  public async geminiListModels(): Promise<Array<{
-    name: string;
-    displayName: string;
-    description: string;
-    maxOutputTokens?: number;
-    contextWindow?: number;
-    temperature?: number;
-  }>> {
-    return this.ipcRenderer.invoke("gemini-list-models");
-  }
-
-  public async geminiComplete(params: {
-    messages: Array<{
-      role: "user" | "assistant" | "system";
-      content: string;
-    }>;
-    model: string;
-    temperature?: number;
-    maxTokens?: number;
-  }): Promise<{
-    content: string;
-    usage?: {
-      promptTokens: number;
-      completionTokens: number;
-      totalTokens: number;
-    };
-  }> {
-    return this.ipcRenderer.invoke("gemini-complete", params);
-  }
-
-  public async geminiCompleteStream(params: {
-    messages: Array<{
-      role: "user" | "assistant" | "system";
-      content: string;
-    }>;
-    model: string;
-    temperature?: number;
-    maxTokens?: number;
-  }): Promise<void> {
-    return this.ipcRenderer.invoke("gemini-complete-stream", params);
-  }
-
-  public async geminiHealthCheck(): Promise<{
-    status: "healthy" | "unhealthy";
-    error?: string;
-    authMode?: string;
-    models?: number;
-  }> {
-    return this.ipcRenderer.invoke("gemini-health-check");
-  }
 
   // Background Task Management
   public async createAppBackground(params: any): Promise<{ taskId: string; app: any; chatId: number }> {
@@ -2188,9 +2305,174 @@ export class IpcClient {
     return this.ipcRenderer.invoke("background-tasks:cleanup", maxAge);
   }
 
+  // 🌍 Global Container Management with Transformers.js
+  public async createContainer(params: {
+    appId: string;
+    appType: 'web' | 'mobile' | 'flutter';
+    region?: string;
+    config?: any;
+  }): Promise<{
+    success: boolean;
+    containerId?: string;
+    region?: any;
+    config?: any;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:create", params);
+  }
+
+  public async getContainerStatus(containerId: string): Promise<{
+    success: boolean;
+    status?: any;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:status", { containerId });
+  }
+
+  public async stopContainer(containerId: string): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:stop", { containerId });
+  }
+
+  public async restartContainer(containerId: string): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:restart", { containerId });
+  }
+
+  public async listContainers(): Promise<{
+    success: boolean;
+    containers?: any[];
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:list", {});
+  }
+
+  public async deployGlobally(params: {
+    appId: string;
+    appType: 'web' | 'mobile' | 'flutter';
+  }): Promise<{
+    success: boolean;
+    deployments?: any[];
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:deploy-global", params);
+  }
+
+  public async getAvailableRegions(): Promise<{
+    success: boolean;
+    regions?: any[];
+    currentRegion?: any;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:regions", {});
+  }
+
+  public async switchRegion(regionId: string): Promise<{
+    success: boolean;
+    currentRegion?: any;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:switch-region", { regionId });
+  }
+
+  public async getGlobalHealthStatus(): Promise<{
+    success: boolean;
+    healthStatus?: any[];
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:health-global", {});
+  }
+
+  public async getBuddyStatus(containerId: string): Promise<{
+    success: boolean;
+    buddyStatus?: any;
+    containerStatus?: any;
+    integration?: any;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:buddy-status", { containerId });
+  }
+
+  public async updateContainerConfig(params: {
+    containerId: string;
+    config: any;
+  }): Promise<{
+    success: boolean;
+    oldContainerId?: string;
+    newContainerId?: string;
+    config?: any;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:update-config", params);
+  }
+
+  // 🎤 Native Speech Recognition Methods
+  public async startNativeSpeechRecognition(options: {
+    language?: string;
+    continuous?: boolean;
+    timeout?: number;
+  } = {}): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("speech:start-native", options);
+  }
+
+  public async stopNativeSpeechRecognition(): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("speech:stop-native");
+  }
+
+  public async checkNativeSpeechSupport(): Promise<{
+    supported: boolean;
+    platform: string;
+    reason: string;
+  }> {
+    return this.ipcRenderer.invoke("speech:check-native-support");
+  }
+
+  public async getContainerMetrics(params: {
+    containerId: string;
+    timeRange?: string;
+  }): Promise<{
+    success: boolean;
+    metrics?: any;
+    timeRange?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("container:metrics", params);
+  }
+
   public async getRunningTasksCount(): Promise<number> {
     return this.ipcRenderer.invoke("background-tasks:running-count");
   }
+
+  // Hermetic Runtime Management
+  public async verifyHermeticRuntime(): Promise<{
+    node20: boolean;
+    pnpm: boolean;
+    npm: boolean;
+    yarn: boolean;
+  }> {
+    return this.ipcRenderer.invoke("hermetic-runtime:verify");
+  }
+
+  public async getBestPackageManager(cwd?: string): Promise<"pnpm" | "yarn" | "npm"> {
+    return this.ipcRenderer.invoke("hermetic-runtime:get-package-manager", cwd);
+  }
+
+  public async ensurePnpmAvailable(): Promise<boolean> {
+    return this.ipcRenderer.invoke("hermetic-runtime:ensure-pnpm");
+  }
+
+
+
+
 
 }
 

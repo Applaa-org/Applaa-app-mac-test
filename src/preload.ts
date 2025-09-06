@@ -17,7 +17,15 @@ const validInvokeChannels = [
   "chat:message",
   "chat:cancel",
   "chat:stream",
+  "chat:stream-autofix",
+  "performance:get-report",
+  "performance:get-metrics", 
+  "performance:clear",
+  "performance:log-report",
   "chat:count-tokens",
+  "speech:start-native",
+  "speech:stop-native", 
+  "speech:check-native-support",
   "create-chat",
   "create-app",
   "copy-app",
@@ -123,7 +131,22 @@ const validInvokeChannels = [
   "simple-expo:start",
   "simple-expo:status",
   "simple-expo:stop",
+  "simple-expo:metro-recovery",
+  "simple-expo:update-packages",
+  
+  // Design Generation
+    "generate-app-icons",
+  "generate-gemini-icons",
+  "generate-platform-icons",
+  "generate-ui-designs",
+  "generate-app-type-designs",
+  "apply-icon-to-app",
+  "apply-ui-design-to-app",
   "simple-expo:input",
+  // Parallel App Creation channels
+  "create-app-instant",
+  "get-app-creation-status", 
+  "cleanup-app-creation-task",
   "prompt:optimize",
   "prompts:list",
   "prompts:create",
@@ -171,20 +194,22 @@ const validInvokeChannels = [
   "playwright-mcp:run-test",
   "playwright-mcp:status",
   
-  // Gemini Authentication channels
-  "gemini-auth-login",
-  "gemini-auth-callback",
+  // Gemini CLI Authentication channels
+  "gemini-oauth-login",
   "gemini-auth-status",
   "gemini-auth-refresh",
   "gemini-auth-logout",
-  "gemini-auth-revoke",
-  "gemini-auth-update-vertex-config",
+  "gemini-run-prompt",
   
   // Gemini API channels
   "gemini-list-models",
   "gemini-complete",
   "gemini-complete-stream",
   "gemini-health-check",
+  // Hermetic Runtime Management
+  "hermetic-runtime:verify",
+  "hermetic-runtime:get-package-manager",
+  "hermetic-runtime:ensure-pnpm",
   // Background task channels
   "background-tasks:list",
   "background-tasks:get",
@@ -192,6 +217,9 @@ const validInvokeChannels = [
   "background-tasks:cleanup",
   "background-tasks:running-count",
   "create-app-background",
+  
+  // Terminal channels
+  "terminal:create",
   
   // Test-only channels
   // These should ALWAYS be guarded with IS_TEST_BUILD in the main process.
@@ -216,6 +244,12 @@ const validReceiveChannels = [
   "gemini-stream-error",
   // Background task updates
   "background-task:update",
+  // Terminal updates
+  "terminal:data",
+  "terminal:exit",
+  "terminal:error",
+  // Voice input trigger
+  "trigger-voice-input",
 ] as const;
 
 type ValidInvokeChannel = (typeof validInvokeChannels)[number];
@@ -261,4 +295,18 @@ contextBridge.exposeInMainWorld("electron", {
       }
     },
   },
+});
+
+// Expose terminal API
+contextBridge.exposeInMainWorld("applaaTerminal", {
+  create: (opts?: { cwd?: string }) => ipcRenderer.invoke("terminal:create", opts),
+  write: (payload: { id: string; data: string }) => ipcRenderer.invoke("terminal:write", payload),
+  resize: (payload: { id: string; cols: number; rows: number }) => ipcRenderer.invoke("terminal:resize", payload),
+  kill: (payload: { id: string }) => ipcRenderer.invoke("terminal:kill", payload),
+  onData: (cb: (e: { id: string; data: string }) => void) =>
+    ipcRenderer.on("terminal:data", (_e, d) => cb(d)),
+  onExit: (cb: (e: { id: string; code?: number }) => void) =>
+    ipcRenderer.on("terminal:exit", (_e, d) => cb(d)),
+  onError: (cb: (e: { id: string; error: string }) => void) =>
+    ipcRenderer.on("terminal:error", (_e, d) => cb(d)),
 });

@@ -34,18 +34,12 @@ export function SparkModeSelector() {
     });
   };
 
-  const toggleSemanticContext = () => {
-    if (!isPro) return; // Block if not Pro - this is a unique world-first feature!
-    updateSettings({
-      semanticContextEnabled: !settings?.semanticContextEnabled,
-    });
-  };
+  // Semantic context removed for MVP
 
-  // Check if any Pro features are enabled (including our unique SQLite Vector + AI Context!)
+  // Check if any Pro features are enabled
   const isAnyProFeatureEnabled = isPro && (
     settings?.enableProLazyEditsMode || 
-    settings?.enableProSmartFilesContextMode ||
-    settings?.semanticContextEnabled
+    settings?.enableProSmartFilesContextMode
   );
 
   return (
@@ -113,7 +107,7 @@ export function SparkModeSelector() {
                 <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Upgrade to Applaa Pro</span>
               </div>
               <p className="text-xs text-purple-600 dark:text-purple-400 mb-3">
-                Unlock Spark Edits, Smart Context, SQLite Vector AI, and premium models
+                Unlock Spark Edits, Smart Context, and premium models
               </p>
               <Button 
                 size="sm" 
@@ -190,27 +184,7 @@ export function SparkModeSelector() {
               />
             </div>
 
-            <div className="flex items-start justify-between space-x-3">
-              <div className="grid gap-1.5 leading-none">
-                <Label
-                  htmlFor="semantic-context"
-                  className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1 ${!isPro ? 'text-gray-400' : ''}`}
-                >
-                  <Brain className="h-3 w-3 text-purple-500" />
-                  SQLite Vector AI
-                  {!isPro && <Lock className="h-3 w-3 text-gray-400" />}
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  World-first: Local AI transformers + SQLite vectors
-                </p>
-              </div>
-              <Switch
-                id="semantic-context"
-                checked={isPro && (settings?.semanticContextEnabled ?? false)}
-                onCheckedChange={toggleSemanticContext}
-                disabled={!isPro}
-              />
-            </div>
+            {/* SQLite Vector AI removed for MVP */}
           </div>
 
           <div className="text-xs text-muted-foreground border-t pt-3">
@@ -221,9 +195,7 @@ export function SparkModeSelector() {
                 <>🔒 <strong>Upgrade:</strong> Unlock advanced AI capabilities</>
               )}
             </p>
-            <p className="text-purple-600">
-              🌟 <strong>World-First:</strong> SQLite Vector + Local AI Transformers technology
-            </p>
+            {/* SQLite Vector technology description removed for MVP */}
           </div>
         </div>
       </PopoverContent>

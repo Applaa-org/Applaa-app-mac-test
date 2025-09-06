@@ -1,0 +1,29 @@
+{
+  "timestamp": "2025-09-06T08:25:13.961Z",
+  "system": "Intelligent Preview System",
+  "version": "1.0.0",
+  "tests": {
+    "unit": {
+      "passed": 0,
+      "failed": 0,
+      "total": 0
+    },
+    "integration": {
+      "passed": 0,
+      "failed": 0,
+      "total": 0
+    },
+    "performance": {
+      "passed": 0,
+      "failed": 0,
+      "total": 0
+    }
+  },
+  "coverage": {
+    "statements": 0,
+    "branches": 0,
+    "functions": 0,
+    "lines": 0
+  },
+  "readyForManualTesting": false
+}

@@ -31,6 +31,9 @@ import {
 import { storeDbTimestampAtCurrentVersion } from "../utils/neon_timestamp_utils";
 
 import { FileUploadsState } from "../utils/file_uploads_state";
+// CLEANED: Removed aggressive healing imports that corrupted template files
+// Original Dyad approach was simpler and more reliable
+// Transformers local code checks removed for MVP
 
 const readFile = fs.promises.readFile;
 const logger = log.scope("response_processor");
@@ -419,8 +422,12 @@ export async function processFullResponseActions(
       const dirPath = path.dirname(fullFilePath);
       fs.mkdirSync(dirPath, { recursive: true });
 
+      // 🎯 RESTORED: Sept 1st working behavior - no syntax preprocessing
+      // The working version had no syntax validation and worked perfectly
+      let finalContent = content;
+
       // Write file content
-      fs.writeFileSync(fullFilePath, content);
+      fs.writeFileSync(fullFilePath, finalContent);
       logger.log(`Successfully wrote file: ${fullFilePath}`);
       writtenFiles.push(filePath);
       if (isServerFunction(filePath) && typeof content === "string") {
@@ -591,8 +598,8 @@ export async function processFullResponseActions(
         changes.push(`executed ${dyadExecuteSqlQueries.length} SQL queries`);
 
       let message = chatSummary
-        ? `[dyad] ${chatSummary} - ${changes.join(", ")}`
-        : `[dyad] ${changes.join(", ")}`;
+        ? `[applaa] ${chatSummary} - ${changes.join(", ")}`
+        : `[applaa] ${changes.join(", ")}`;
       // Use chat summary, if provided, or default for commit message
       let commitHash = await gitCommit({
         path: appPath,

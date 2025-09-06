@@ -368,10 +368,10 @@ Session ID: ${sessionId}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Need help with Applaa?</DialogTitle>
+          <DialogDescription>
+            If you need help or want to report an issue, here are some options:
+          </DialogDescription>
         </DialogHeader>
-        <DialogDescription className="">
-          If you need help or want to report an issue, here are some options:
-        </DialogDescription>
         <div className="flex flex-col space-y-4 w-full">
           <div className="flex flex-col space-y-2">
             <Button

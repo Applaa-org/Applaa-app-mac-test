@@ -17,13 +17,19 @@ export async function executeAddDependency({
   appPath: string;
 }) {
   const packageStr = packages.join(" ");
+  // Prefer Expo-aware install, then npm, finally pnpm
+  // - expo install picks compatible versions for the SDK (prevents ETARGET)
+  // - npm --legacy-peer-deps avoids peer dependency prompts
+  // - pnpm may not be present on user machines; use it as last resort
+  const installCmd = [
+    `npx expo install ${packageStr}`,
+    `npm install --legacy-peer-deps ${packageStr}`,
+    `pnpm add ${packageStr}`,
+  ].join(" || ");
 
-  const { stdout, stderr } = await execPromise(
-    `(pnpm add ${packageStr}) || (npm install --legacy-peer-deps ${packageStr})`,
-    {
-      cwd: appPath,
-    },
-  );
+  const { stdout, stderr } = await execPromise(installCmd, {
+    cwd: appPath,
+  });
   const installResults = stdout + (stderr ? `\n${stderr}` : "");
 
   // Update the message content with the installation results

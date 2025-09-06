@@ -102,14 +102,19 @@ export function MobileUpgradeComparison({
   };
 
   const handleFrameworkSelect = (frameworkId: string) => {
+    console.log(`🔧 [DEBUG] Framework selected: ${frameworkId}`);
+    console.log(`🔧 [DEBUG] onSelectFramework function:`, onSelectFramework);
+    
     // For Capacitor, no URL needed (it modifies the existing app)
     if (frameworkId === 'capacitor') {
+      console.log(`🔧 [DEBUG] Calling onSelectFramework for Capacitor`);
       onSelectFramework(frameworkId);
       return;
     }
 
     // For mobile apps, automatically use the current web app URL
     const webUrl = appUrl || 'http://localhost:5173'; // Fallback to default Vite port
+    console.log(`🔧 [DEBUG] Calling onSelectFramework for ${frameworkId} with URL: ${webUrl}`);
     onSelectFramework(frameworkId, webUrl);
   };
 
@@ -217,7 +222,10 @@ export function MobileUpgradeComparison({
 
               {/* Action Button */}
               <button
-                onClick={() => handleFrameworkSelect(framework.id)}
+                onClick={() => {
+                  console.log(`🔧 [DEBUG] Button clicked for framework: ${framework.id}`);
+                  handleFrameworkSelect(framework.id);
+                }}
                 disabled={isUpgrading}
                 className={getFrameworkButtonStyle(
                   framework.id, 

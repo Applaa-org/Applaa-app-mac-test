@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "expo-sharing": "~13.0.2"
+  },
+  "description": "Share content to other apps and social platforms",
+  "features": [
+    "Share text",
+    "Share images",
+    "Share files",
+    "Social sharing",
+    "Native share dialog"
+  ]
+}
+
+

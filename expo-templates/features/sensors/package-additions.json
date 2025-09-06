@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "expo-sensors": "~14.0.1"
+  },
+  "description": "Device sensors including accelerometer, gyroscope, and magnetometer",
+  "features": [
+    "Accelerometer",
+    "Gyroscope", 
+    "Magnetometer",
+    "Device motion",
+    "Sensor data streaming"
+  ]
+}
+
+

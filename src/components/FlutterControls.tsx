@@ -64,11 +64,11 @@ export function FlutterControls({ appId }: FlutterControlsProps) {
     },
     onSuccess: () => {
       setIosStatus("idle");
-      showSuccess("Synced and opened Flutter iOS project in Xcode");
+      showSuccess("Opened Flutter iOS project directory");
     },
     onError: (error) => {
       setIosStatus("idle");
-      showErrorDialog("Failed to sync and open Flutter iOS project", error);
+      showErrorDialog("Failed to open Flutter iOS project", error);
     },
   });
 
@@ -84,24 +84,24 @@ export function FlutterControls({ appId }: FlutterControlsProps) {
     },
     onSuccess: () => {
       setAndroidStatus("idle");
-      showSuccess("Synced and opened Flutter Android project in Android Studio");
+      showSuccess("Opened Flutter Android project directory");
     },
     onError: (error) => {
       setAndroidStatus("idle");
-      showErrorDialog("Failed to sync and open Flutter Android project", error);
+      showErrorDialog("Failed to open Flutter Android project", error);
     },
   });
 
   const getIosButtonText = () => {
-    if (iosStatus === "syncing") return "Syncing...";
+    if (iosStatus === "syncing") return "Preparing...";
     if (iosStatus === "opening") return "Opening...";
-    return "Sync & Open iOS";
+    return "Open iOS Project";
   };
 
   const getAndroidButtonText = () => {
-    if (androidStatus === "syncing") return "Syncing...";
+    if (androidStatus === "syncing") return "Preparing...";
     if (androidStatus === "opening") return "Opening...";
-    return "Sync & Open Android";
+    return "Open Android Project";
   };
 
   const iosButtonText = getIosButtonText();
@@ -133,7 +133,7 @@ export function FlutterControls({ appId }: FlutterControlsProps) {
             </Button>
           </CardTitle>
           <CardDescription>
-            Sync and open your Flutter mobile projects. Update the web URL in main.dart if you publish your web app.
+            Open your Flutter mobile project directories. The webview URL is set to localhost - update main.dart when you deploy your web app.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -97,13 +97,22 @@ export function registerTokenCountHandlers() {
       }
 
       if (!chat) {
-        throw new Error(`Chat not found: ${req.chatId}`);
+        // Graceful fallback: return zeros instead of throwing to avoid noisy UX
+        return {
+          totalTokens: 0,
+          messageHistoryTokens: 0,
+          codebaseTokens: 0,
+          mentionedAppsTokens: 0,
+          inputTokens: estimateTokens(req.input),
+          systemPromptTokens: 0,
+          contextWindow: await getContextWindow(),
+        };
       }
 
       // Prepare message history for token counting
-      const messageHistory = chat.messages
-        .map((message) => message.content)
-        .join("");
+      const messageHistory = Array.isArray(chat.messages)
+        ? chat.messages.map((message: any) => message.content || "").join("")
+        : "";
       const messageHistoryTokens = estimateTokens(messageHistory);
 
       // Count input tokens
@@ -115,8 +124,8 @@ export function registerTokenCountHandlers() {
       const mentionedAppNames = parseAppMentions(req.input);
 
       // Count system prompt tokens
-      const appPath = getDyadAppPath(chat.app.path);
-      let systemPrompt = constructSystemPrompt({
+      const appPath = chat.app?.path ? getDyadAppPath(chat.app.path) : "";
+      let systemPrompt = await constructSystemPrompt({
         aiRules: await readAiRules(appPath),
         chatMode: settings.selectedChatMode,
         appPath: appPath,
@@ -135,13 +144,13 @@ export function registerTokenCountHandlers() {
         systemPrompt += "\n\n" + SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT;
       }
 
-      const systemPromptTokens = estimateTokens(systemPrompt + supabaseContext);
+      const systemPromptTokens = estimateTokens(systemPrompt + (supabaseContext || ""));
 
       // Extract codebase information if app is associated with the chat
       let codebaseInfo = "";
       let codebaseTokens = 0;
 
-      if (chat.app) {
+      if (chat.app?.path) {
         const appPath = getDyadAppPath(chat.app.path);
         codebaseInfo = (
           await extractCodebase({

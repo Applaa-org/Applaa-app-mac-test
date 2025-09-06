@@ -29,8 +29,8 @@ function getKeyButtonText({
 }) {
   if (isApplaa) {
     return isConfigured
-      ? "Manage Dyad Pro Subscription"
-      : "Setup Dyad Pro Subscription";
+      ? "Manage Applaa Pro Subscription"
+      : "Setup Applaa Pro Subscription";
   }
   return isConfigured ? "Manage API Keys" : "Setup API Key";
 }

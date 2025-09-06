@@ -15,11 +15,16 @@ export function useLanguageModelProviders() {
     },
   });
 
+  // Gemini OAuth removed for MVP
+
   const isProviderSetup = (provider: string) => {
     const providerSettings = settings?.providerSettings[provider];
     if (queryResult.isLoading) {
       return false;
     }
+    
+    // Gemini OAuth removed for MVP - use standard API key check for Google
+    
     if (providerSettings?.apiKey?.value) {
       return true;
     }

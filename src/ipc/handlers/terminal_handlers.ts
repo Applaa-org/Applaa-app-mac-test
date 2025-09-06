@@ -1,330 +1,192 @@
-import { ipcMain } from "electron";
+import { ipcMain, BrowserWindow } from "electron";
 import { spawn, ChildProcess } from "child_process";
-import { getDyadAppPath } from "../../paths/paths";
-import { db } from "../../db";
-import { apps } from "../../db/schema";
-import { eq } from "drizzle-orm";
+import os from "os";
 import log from "electron-log";
 
-interface TerminalProcess {
-  process: ChildProcess;
-  appId: number;
-  command: string;
+const logger = log.scope("terminal");
+
+// Wrap logger methods to handle broken pipe errors
+const safeLogger = {
+  info: (message: string, ...args: any[]) => {
+    try {
+      logger.info(message, ...args);
+    } catch (error: any) {
+      if (error.code !== 'EPIPE') console.log('[terminal]', message, ...args);
+    }
+  },
+  error: (message: string, ...args: any[]) => {
+    try {
+      logger.error(message, ...args);
+    } catch (error: any) {
+      if (error.code !== 'EPIPE') console.error('[terminal]', message, ...args);
+    }
+  },
+  warn: (message: string, ...args: any[]) => {
+    try {
+      logger.warn(message, ...args);
+    } catch (error: any) {
+      if (error.code !== 'EPIPE') console.warn('[terminal]', message, ...args);
+    }
+  }
+};
+
+const sessions = new Map<string, ChildProcess>();
+let mainWindow: BrowserWindow | null = null;
+
+export function bindTerminalWindow(window: BrowserWindow) {
+  mainWindow = window;
 }
 
-// Store running terminal processes
-const runningTerminals = new Map<number, TerminalProcess>();
-
-// Helper function for legacy-safe app queries
-async function getAppSafe(appId: number): Promise<any> {
-  try {
-    const result = await db.select().from(apps).where(eq(apps.id, appId)).limit(1);
-    return result[0] as any;
-  } catch (err) {
-    log.warn("terminal_handlers.getAppSafe: falling back to legacy SELECT due to:", err);
-    const row = db.$client
-      .prepare(
-        "SELECT id, name, path, created_at as createdAt, updated_at as updatedAt, " +
-          "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-          "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-          "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-          "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-          "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ? LIMIT 1"
-      )
-      .get(appId) as any;
-
-    if (!row) return undefined;
-
-    // Convert legacy timestamps
-    if (row.createdAt && typeof row.createdAt === "number") {
-      row.createdAt = new Date(row.createdAt * 1000);
-    }
-    if (row.updatedAt && typeof row.updatedAt === "number") {
-      row.updatedAt = new Date(row.updatedAt * 1000);
-    }
-
-    // New fields absent in legacy DBs
-    row.displayName = undefined;
-    row.packageId = undefined;
-    row.slug = undefined;
-
-    return row;
+function pickShell(): { shell: string; args: string[] } {
+  if (process.platform === "win32") {
+    // Use cmd.exe on Windows - it should work with proper stdin handling
+    return {
+      shell: process.env.COMSPEC || "C:\\WINDOWS\\system32\\cmd.exe",
+      args: []
+    };
+  } else if (process.platform === "darwin") {
+    return {
+      shell: process.env.SHELL || "/bin/zsh",
+      args: []
+    };
+  } else {
+    return {
+      shell: process.env.SHELL || "/bin/bash",
+      args: []
+    };
   }
 }
 
-export function registerTerminalHandlers() {
-  // Execute command in app directory
-  ipcMain.handle("terminal:execute", async (
-    event,
-    params: { appId: number; command: string }
-  ) => {
-    const { appId, command } = params;
-
-    try {
-      // Get app data
-      const appData = await getAppSafe(appId);
-      if (!appData) {
-        throw new Error("App not found");
-      }
-
-      const appPath = getDyadAppPath(appData.path);
-      log.log(`Executing terminal command in ${appPath}: ${command}`);
-
-      // Stop any existing terminal process for this app
-      if (runningTerminals.has(appId)) {
-        const existing = runningTerminals.get(appId);
-        if (existing?.process && !existing.process.killed) {
-          log.log(`Stopping existing terminal process for app ${appId}`);
-          try {
-            // Close stdin first to prevent EPIPE errors
-            if (existing.process.stdin && !existing.process.stdin.destroyed) {
-              existing.process.stdin.end();
-            }
-            
-            if (process.platform === "win32") {
-              spawn("taskkill", ["/pid", existing.process.pid!.toString(), "/f", "/t"]);
-            } else {
-              existing.process.kill("SIGTERM");
-            }
-            
-            // Wait a moment for cleanup
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } catch (error) {
-            log.warn(`Error stopping existing process for app ${appId}:`, error);
-          }
-        }
-        runningTerminals.delete(appId);
-      }
-
-      // Parse command for proper execution
-      let shellCommand: string;
-      let args: string[] = [];
-
-      if (command.includes('npm run web') || command.includes('expo start')) {
-        // For Expo commands, use the proper expo start command
-        if (command.includes('expo start')) {
-          shellCommand = 'npx';
-          args = ['expo', 'start', '--clear', '--non-interactive']; // Removed --reset-cache as it's not supported in new CLI
-          if (command.includes('--tunnel')) {
-            args.push('--tunnel');
-          }
-        } else {
-          shellCommand = 'npm';
-          args = ['run', 'web'];
-        }
-      } else if (command.includes('npm install')) {
-        shellCommand = 'npm';
-        args = ['install'];
-      } else {
-        // For other commands, split by spaces
-        const parts = command.trim().split(/\s+/);
-        shellCommand = parts[0];
-        args = parts.slice(1);
-      }
-
-      // Spawn the process
-      const terminalProcess = spawn(shellCommand, args, {
-        cwd: appPath,
-        shell: true,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          EXPO_NO_DOCTOR: '1',
-          EXPO_NO_UPDATE_CHECK: '1',
-          CI: '1',
-          EXPO_NO_TELEMETRY: '1',
-          EXPO_NO_INTERACTIVE: '1', // Force non-interactive mode
-          EXPO_USE_DEV_SERVER: 'true',
-          EXPO_AUTO_PORT: '1', // Let Expo automatically find available port
-          FORCE_COLOR: '0', // Disable colors for cleaner output
-        }
-      });
-
-      if (!terminalProcess.pid) {
-        throw new Error(`Failed to spawn terminal process: ${command}`);
-      }
-
-      // Store the process
-      runningTerminals.set(appId, {
-        process: terminalProcess,
-        appId,
-        command
-      });
-
-      // Send initial command echo
-      event.sender.send('terminal:output', {
-        appId,
-        type: 'command',
-        content: `$ ${command}`,
-        timestamp: new Date().toISOString()
-      });
-
-      // Handle stdout
-      terminalProcess.stdout?.on('data', (data: Buffer) => {
-        const output = data.toString();
-        log.log(`Terminal stdout (${appId}):`, output);
-        
-        event.sender.send('terminal:output', {
-          appId,
-          type: 'stdout',
-          content: output,
-          timestamp: new Date().toISOString()
-        });
-      });
-
-      // Handle stderr
-      terminalProcess.stderr?.on('data', (data: Buffer) => {
-        const output = data.toString();
-        log.warn(`Terminal stderr (${appId}):`, output);
-        
-        // Check for port conflict and auto-respond with "Y" to use alternative port
-        if (output.includes('Use port') && output.includes('instead?') && 
-            terminalProcess.stdin && !terminalProcess.stdin.destroyed && !terminalProcess.killed) {
-          log.log(`Auto-accepting alternative port for app ${appId}`);
-          
-          try {
-            terminalProcess.stdin.write('Y\n');
-            
-            // Send a system message about the auto-acceptance
-            event.sender.send('terminal:output', {
-              appId,
-              type: 'system',
-              content: '✓ Automatically accepted alternative port',
-              timestamp: new Date().toISOString()
-            });
-          } catch (writeError) {
-            log.warn(`Failed to write to stdin for app ${appId}:`, writeError);
-            // Process might have already closed, just log and continue
-          }
-        }
-        
-        event.sender.send('terminal:output', {
-          appId,
-          type: 'stderr',
-          content: output,
-          timestamp: new Date().toISOString()
-        });
-      });
-
-      // Handle process close
-      terminalProcess.on('close', (code) => {
-        log.log(`Terminal process for app ${appId} exited with code ${code}`);
-        
-        // Clean up stdin to prevent future EPIPE errors
-        try {
-          if (terminalProcess.stdin && !terminalProcess.stdin.destroyed) {
-            terminalProcess.stdin.end();
-          }
-        } catch (error) {
-          // Ignore cleanup errors
-        }
-        
-        event.sender.send('terminal:output', {
-          appId,
-          type: 'system',
-          content: `Process exited with code ${code}`,
-          timestamp: new Date().toISOString()
-        });
-
-        runningTerminals.delete(appId);
-      });
-
-      // Handle process error
-      terminalProcess.on('error', (error) => {
-        log.error(`Terminal process error for app ${appId}:`, error);
-        
-        event.sender.send('terminal:output', {
-          appId,
-          type: 'stderr',
-          content: `Process error: ${error.message}`,
-          timestamp: new Date().toISOString()
-        });
-
-        runningTerminals.delete(appId);
-      });
-
-      return { success: true, pid: terminalProcess.pid };
-
-    } catch (error) {
-      log.error(`Failed to execute terminal command:`, error);
-      throw error;
-    }
-  });
-
-  // Stop terminal process
-  ipcMain.handle("terminal:stop", async (
-    event,
-    params: { appId: number }
-  ) => {
-    const { appId } = params;
-
-    try {
-      if (runningTerminals.has(appId)) {
-        const terminal = runningTerminals.get(appId);
-        if (terminal?.process && !terminal.process.killed) {
-          log.log(`Stopping terminal process for app ${appId}`);
-          
-          try {
-            // Close stdin first to prevent EPIPE errors
-            if (terminal.process.stdin && !terminal.process.stdin.destroyed) {
-              terminal.process.stdin.end();
-            }
-            
-            if (process.platform === "win32") {
-              spawn("taskkill", ["/pid", terminal.process.pid!.toString(), "/f", "/t"]);
-            } else {
-              terminal.process.kill("SIGTERM");
-            }
-
-            event.sender.send('terminal:output', {
-              appId,
-              type: 'system',
-              content: 'Process stopped by user',
-              timestamp: new Date().toISOString()
-            });
-          } catch (error) {
-            log.warn(`Error stopping terminal process for app ${appId}:`, error);
-          }
-        }
-        runningTerminals.delete(appId);
-      }
-
-      return { success: true };
-    } catch (error) {
-      log.error(`Failed to stop terminal process:`, error);
-      throw error;
-    }
-  });
-
-  // Get terminal status
-  ipcMain.handle("terminal:status", async (
-    _,
-    params: { appId: number }
-  ) => {
-    const { appId } = params;
+/**
+ * Create a new terminal session
+ */
+const handleTerminalCreate = async (
+  _event: any,
+  { cwd }: { cwd?: string }
+): Promise<{ id: string }> => {
+  try {
+    const { shell, args } = pickShell();
+    const id = Math.random().toString(36).slice(2);
     
-    const terminal = runningTerminals.get(appId);
-    return {
-      isRunning: terminal ? !terminal.process.killed : false,
-      command: terminal?.command || null,
-      pid: terminal?.process.pid || null
-    };
-  });
-
-  // Clear terminal (just sends a clear message)
-  ipcMain.handle("terminal:clear", async (
-    event,
-    params: { appId: number }
-  ) => {
-    const { appId } = params;
+    safeLogger.info(`Creating terminal session ${id} with shell: ${shell}`);
     
-    event.sender.send('terminal:output', {
-      appId,
-      type: 'system',
-      content: 'Terminal cleared',
-      timestamp: new Date().toISOString()
+    const child = spawn(shell, args, {
+      cwd: cwd || process.cwd(),
+      stdio: ["pipe", "pipe", "pipe"],
+      shell: false,
+      env: {
+        ...process.env,
+        TERM: "xterm-256color",
+        FORCE_COLOR: "1",
+        // Ensure proper terminal behavior
+        COLUMNS: "120",
+        LINES: "30",
+        // Windows-specific: Enable command echoing
+        PROMPT: "$P$G",
+        PATHEXT: process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC"
+      },
+      windowsHide: false,
+      // Windows-specific: Enable proper console mode
+      detached: false,
     });
 
-    return { success: true };
-  });
+    sessions.set(id, child);
+
+    // Handle stdout data
+    child.stdout?.on("data", (data) => {
+      const output = data.toString();
+      mainWindow?.webContents.send("terminal:data", { id, data: output });
+    });
+
+    // Handle stderr data
+    child.stderr?.on("data", (data) => {
+      const output = data.toString();
+      mainWindow?.webContents.send("terminal:data", { id, data: output });
+    });
+
+    // Handle process exit
+    child.on("exit", (code) => {
+      safeLogger.info(`Terminal session ${id} exited with code: ${code}`);
+      mainWindow?.webContents.send("terminal:exit", { id, code });
+      sessions.delete(id);
+    });
+
+    child.on("error", (error) => {
+      safeLogger.error(`Terminal session ${id} error:`, error);
+      mainWindow?.webContents.send("terminal:error", { id, error: error.message });
+      sessions.delete(id);
+    });
+
+    return { id };
+  } catch (error) {
+    safeLogger.error("Failed to create terminal session:", error);
+    throw new Error(`Failed to create terminal: ${error}`);
+  }
+};
+
+/**
+ * Write data to terminal session
+ */
+const handleTerminalWrite = (
+  _event: any,
+  { id, data }: { id: string; data: string }
+): void => {
+  const session = sessions.get(id);
+  if (session && session.stdin) {
+    safeLogger.info(`Writing to terminal ${id}: ${JSON.stringify(data)}`);
+    session.stdin.write(data);
+  } else {
+    safeLogger.warn(`Terminal session ${id} not found or stdin not available`);
+    safeLogger.warn(`Available sessions: ${Array.from(sessions.keys()).join(', ')}`);
+  }
+};
+
+/**
+ * Resize terminal session (placeholder - child_process doesn't support resize)
+ */
+const handleTerminalResize = (
+  _event: any,
+  { id, cols, rows }: { id: string; cols: number; rows: number }
+): void => {
+  // Note: Basic child_process doesn't support resize, but we can log it
+  safeLogger.info(`Terminal resize requested for ${id}: ${cols}x${rows}`);
+  // In a real implementation with node-pty, this would call session.resize(cols, rows)
+};
+
+/**
+ * Kill terminal session
+ */
+const handleTerminalKill = (
+  _event: any,
+  { id }: { id: string }
+): void => {
+  const session = sessions.get(id);
+  if (session) {
+    safeLogger.info(`Killing terminal session ${id}`);
+    session.kill();
+    sessions.delete(id);
+  }
+};
+
+/**
+ * Register all terminal IPC handlers
+ */
+export function registerTerminalHandlers() {
+  ipcMain.handle("terminal:create", handleTerminalCreate);
+  ipcMain.handle("terminal:write", handleTerminalWrite);
+  ipcMain.handle("terminal:resize", handleTerminalResize);
+  ipcMain.handle("terminal:kill", handleTerminalKill);
+  
+  safeLogger.info("Terminal handlers registered (basic child_process mode)");
+}
+
+/**
+ * Clean up all terminal sessions
+ */
+export function cleanupTerminalSessions() {
+  for (const [id, session] of sessions) {
+    safeLogger.info(`Cleaning up terminal session ${id}`);
+    session.kill();
+  }
+  sessions.clear();
 }

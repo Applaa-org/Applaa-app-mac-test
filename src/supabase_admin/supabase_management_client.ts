@@ -187,6 +187,9 @@ export async function deploySupabaseFunctions({
     JSON.stringify({
       entrypoint_path: "index.ts",
       name: functionName,
+      // Fixed: Disable JWT verification per Dyad commit #72be54e
+      // See: https://github.com/dyad-sh/dyad/issues/1010
+      verify_jwt: false,
     }),
   );
   formData.append("file", new Blob([content]), "index.ts");

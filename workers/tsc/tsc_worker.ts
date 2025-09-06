@@ -318,3 +318,6 @@ parentPort?.on("message", async (input: WorkerInput) => {
 function normalizePath(path: string): string {
   return path.replace(/\\/g, "/");
 }
+
+// Export the main function for direct use by IPC handlers
+export { runTypeScriptCheck, loadLocalTypeScript, findTypeScriptConfig };

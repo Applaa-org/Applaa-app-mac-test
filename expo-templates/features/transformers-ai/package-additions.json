@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "react-native-transformers": "^1.0.0",
+    "onnxruntime-react-native": "^1.19.2",
+    "expo-file-system": "~18.0.4"
+  },
+  "plugins": [
+    "onnxruntime-react-native"
+  ],
+  "babel": {
+    "plugins": [
+      "babel-plugin-transform-import-meta"
+    ]
+  }
+}

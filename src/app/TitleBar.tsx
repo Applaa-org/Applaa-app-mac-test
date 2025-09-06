@@ -62,10 +62,11 @@ export const TitleBar = () => {
     handleDeepLink();
   }, [lastDeepLink]);
 
-  // Get selected app name
+  // Get selected app name - use displayName if available, fallback to name
   const selectedApp = apps.find((app) => app.id === selectedAppId);
+  const appDisplayName = selectedApp?.displayName || selectedApp?.name;
   const displayText = selectedApp
-    ? `App: ${selectedApp.name}`
+    ? `App: ${appDisplayName}`
     : "(no app selected)";
 
   // Detect if this is an Expo app based on files (same logic as PreviewPanel)
@@ -119,6 +120,8 @@ export const TitleBar = () => {
           {displayText}
         </Button>
         {hasApplaaProKey && <ApplaaProButton isApplaaProEnabled={isApplaaProEnabled} />}
+
+
 
         {/* Preview Header */}
         {location.pathname === "/chat" && (

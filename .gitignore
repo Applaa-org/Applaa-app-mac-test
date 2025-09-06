@@ -101,3 +101,79 @@ out/
 sqlite.db
 userData/
 .env.local
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Build artifacts
+build/
+dist/
+out/
+.webpack/
+.vite/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+logs/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Electron specific
+app/dist/
+release/
+
+# Package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Local environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

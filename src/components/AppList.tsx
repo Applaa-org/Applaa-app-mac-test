@@ -16,6 +16,7 @@ import { selectedChatIdAtom } from "@/atoms/chatAtoms";
 import { useLoadApps } from "@/hooks/useLoadApps";
 import type { App } from "@/lib/schemas";
 import { detectAppCategory, getCategoryLabel, getCategoryIcon, type AppCategory } from "@/utils/appTypeDetection";
+import { AppTypeFilter, type AppFilterType } from "@/components/AppTypeFilter";
 // Advanced features temporarily disabled for core stability
 // import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 // import { CloudSyncPanel } from "@/components/cloud/CloudSyncPanel";
@@ -78,17 +79,26 @@ export function AppList({ show }: { show?: boolean }) {
   // Advanced features temporarily disabled for core stability
   // const { isAuthenticated } = useSupabaseAuth();
   const [showCloudSync, setShowCloudSync] = useState(false);
+  const [appFilter, setAppFilter] = useState<AppFilterType>("all");
   
   // Temporary fallback values
   const isAuthenticated = false;
   
   // Ensure apps is always an array to prevent hook inconsistencies
   const stableApps = React.useMemo(() => apps || [], [apps]);
+  
+  // Filter apps based on selected filter type
+  const filteredApps = React.useMemo(() => {
+    return stableApps.filter(app => {
+      const category = detectAppCategory(app);
+      return category === appFilter; // Only show apps matching the selected filter
+    });
+  }, [stableApps, appFilter]);
 
   // Group apps by category using simple file-based detection
   // IMPORTANT: Hooks must be called unconditionally before any early returns
   const groupedApps = React.useMemo(() => {
-    if (!stableApps.length) return {} as Record<AppCategory, App[]>;
+    if (!filteredApps.length) return {} as Record<AppCategory, App[]>;
     
     const groups: Record<AppCategory, App[]> = {
       web: [],
@@ -97,7 +107,7 @@ export function AppList({ show }: { show?: boolean }) {
       capacitor: []
     };
     
-    stableApps.forEach(app => {
+    filteredApps.forEach(app => {
       const category = detectAppCategory(app);
       groups[category].push(app);
     });
@@ -108,7 +118,7 @@ export function AppList({ show }: { show?: boolean }) {
       }
       return acc;
     }, {} as Record<AppCategory, App[]>);
-  }, [stableApps]);
+  }, [filteredApps]);
 
   // After all hooks, we can early-return based on visibility
   if (!show) {
@@ -118,10 +128,36 @@ export function AppList({ show }: { show?: boolean }) {
   const handleAppClick = (id: number) => {
     setSelectedAppId(id);
     setSelectedChatId(null);
+    
+    // 🚀 OPTIMIZATION: Trigger background dependency check for existing apps
+    // This ensures dependencies are ready when user clicks preview
+    triggerBackgroundDependencyCheck(id);
+    
     navigate({
       to: "/",
       search: { appId: id },
     });
+  };
+
+  // Background dependency check function
+  const triggerBackgroundDependencyCheck = async (appId: number) => {
+    try {
+      const { IpcClient } = await import("@/ipc/ipc_client");
+      const ipcClient = IpcClient.getInstance();
+      
+      // Check if dependencies are needed (non-blocking)
+      const { needed } = await ipcClient.checkDependenciesNeeded({ appId });
+      
+      if (needed) {
+        console.log(`📦 [BACKGROUND] Starting dependency installation for app ${appId}`);
+        // Install in background (fire and forget)
+        ipcClient.installDependenciesBackground({ appId }).catch(error => {
+          console.warn(`⚠️ Background dependency installation failed for app ${appId}:`, error);
+        });
+      }
+    } catch (error) {
+      console.warn(`⚠️ Background dependency check failed for app ${appId}:`, error);
+    }
   };
 
   const handleNewApp = () => {
@@ -196,6 +232,12 @@ export function AppList({ show }: { show?: boolean }) {
             </div>
             <span className="font-medium">New App</span>
           </Button>
+          
+          {/* App Type Filter */}
+          <AppTypeFilter 
+            onChange={setAppFilter} 
+            defaultValue={appFilter} 
+          />
 
           {/* Cloud Sync Button - Only show when authenticated */}
           {isAuthenticated && (
@@ -219,7 +261,7 @@ export function AppList({ show }: { show?: boolean }) {
             <div className="py-2 px-4 text-sm text-red-500">
               Error loading apps
             </div>
-          ) : stableApps.length === 0 ? (
+          ) : filteredApps.length === 0 ? (
             <div className="py-2 px-4 text-sm text-gray-500">No apps found</div>
           ) : (
             <div className="space-y-4">

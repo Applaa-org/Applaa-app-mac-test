@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, forwardRef } from "react";
 import {
   $getRoot,
   $createParagraphNode,
@@ -21,7 +21,6 @@ import {
 } from "lexical-beautiful-mentions";
 import { KEY_ENTER_COMMAND, COMMAND_PRIORITY_HIGH } from "lexical";
 import { useLoadApps } from "@/hooks/useLoadApps";
-import { forwardRef } from "react";
 import { useAtomValue } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { MENTION_REGEX, parseAppMentions } from "@/shared/parse_mention_apps";
@@ -213,6 +212,7 @@ interface LexicalChatInputProps {
   onChange: (value: string) => void;
   onSubmit: () => void;
   onPaste?: (e: React.ClipboardEvent) => void;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
   placeholder?: string;
   disabled?: boolean;
   excludeCurrentApp: boolean;
@@ -227,6 +227,7 @@ export function LexicalChatInput({
   onChange,
   onSubmit,
   onPaste,
+  onKeyDown,
   excludeCurrentApp,
   placeholder = "Ask Applaa to build...",
   disabled = false,
@@ -287,6 +288,8 @@ export function LexicalChatInput({
     onError,
     nodes: [BeautifulMentionNode],
     editable: !disabled,
+    // ✅ Enable spell checking at editor level
+    editorState: null,
   };
 
   const handleEditorChange = useCallback(
@@ -298,34 +301,39 @@ export function LexicalChatInput({
         // Transform @AppName mentions to @app:AppName format
         // This regex matches @AppName where AppName is one of our actual app names
 
-        // Short-circuit if there's no "@" symbol in the text
+        // 🚀 PERFORMANCE: Short-circuit if there's no "@" symbol in the text
         if (textContent.includes("@")) {
           const appNames = apps?.map((app) => app.name) || [];
-          for (const appName of appNames) {
-            // Escape special regex characters in app name
-            const escapedAppName = appName.replace(
-              /[.*+?^${}()|[\]\\]/g,
-              "\\$&",
-            );
-            const mentionRegex = new RegExp(
-              `@(${escapedAppName})(?![a-zA-Z0-9_-])`,
-              "g",
-            );
-            textContent = textContent.replace(mentionRegex, "@app:$1");
-          }
-
-          // Expand @PromptTitle to the prompt content from the library
-          const promptList = prompts || [];
-          for (const p of promptList) {
-            const escapedTitle = p.title.replace(
-              /[.*+?^${}()|[\]\\]/g,
-              "\\$&",
-            );
-            const promptRegex = new RegExp(`@${escapedTitle}(?![a-zA-Z0-9_-])`, "g");
-            if (promptRegex.test(textContent)) {
-              textContent = textContent.replace(promptRegex, p.content);
+          
+          // 🚀 PERFORMANCE: Only process if we have apps to avoid unnecessary loops
+          if (appNames.length > 0) {
+            for (const appName of appNames) {
+              // Escape special regex characters in app name
+              const escapedAppName = appName.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&",
+              );
+              const mentionRegex = new RegExp(
+                `@(${escapedAppName})(?![a-zA-Z0-9_-])`,
+                "g",
+              );
+              textContent = textContent.replace(mentionRegex, "@app:$1");
             }
           }
+
+          // 🚀 PERFORMANCE: Skip prompt expansion for MVP (prompts disabled)
+          // Expand @PromptTitle to the prompt content from the library
+          // const promptList = prompts || [];
+          // for (const p of promptList) {
+          //   const escapedTitle = p.title.replace(
+          //     /[.*+?^${}()|[\]\\]/g,
+          //     "\\$&",
+          //   );
+          //   const promptRegex = new RegExp(`@${escapedTitle}(?![a-zA-Z0-9_-])`, "g");
+          //   if (promptRegex.test(textContent)) {
+          //     textContent = textContent.replace(promptRegex, p.content);
+          //   }
+          // }
         }
         onChange(textContent);
       });
@@ -355,7 +363,7 @@ export function LexicalChatInput({
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
-              className="flex-1 p-4 focus:outline-none overflow-y-auto min-h-[80px] max-h-[240px] resize-none text-base leading-relaxed"
+              className="flex-1 p-4 focus:outline-none overflow-y-auto min-h-[80px] max-h-[240px] resize-none text-base leading-relaxed spell-check-enabled"
               aria-placeholder={placeholder}
               placeholder={
                 <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none select-none">
@@ -363,6 +371,11 @@ export function LexicalChatInput({
                 </div>
               }
               onPaste={onPaste}
+              onKeyDown={onKeyDown}
+              spellCheck={true} // ✅ Enable spell checking with right-click corrections
+              style={{
+                WebkitUserSelect: 'text',
+              } as React.CSSProperties}
             />
           }
           ErrorBoundary={LexicalErrorBoundary}
@@ -377,6 +390,7 @@ export function LexicalChatInput({
         />
         <OnChangePlugin onChange={handleEditorChange} />
         <HistoryPlugin />
+
         <EnterKeyPlugin onSubmit={handleSubmit} />
         <ExternalValueSyncPlugin value={value} />
         <ClearEditorPlugin

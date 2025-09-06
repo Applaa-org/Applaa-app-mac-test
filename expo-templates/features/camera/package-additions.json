@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "expo-camera": "~16.0.8",
+    "expo-media-library": "~17.0.3",
+    "expo-image-picker": "~16.0.2"
+  },
+  "description": "Camera functionality with photo/video capture and media library access",
+  "features": [
+    "Camera photo capture",
+    "Video recording",
+    "Media library integration",
+    "Image picker",
+    "Camera permissions"
+  ]
+}

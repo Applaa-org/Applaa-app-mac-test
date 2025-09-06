@@ -2,6 +2,7 @@ import path from "node:path";
 import os from "node:os";
 import { IS_TEST_BUILD } from "../ipc/utils/test_utils";
 import { readSettings } from "../main/settings";
+import { getWorkspaceRoot } from "./workspace";
 
 export function getDyadAppPath(appPath: string): string {
   if (IS_TEST_BUILD) {
@@ -9,11 +10,13 @@ export function getDyadAppPath(appPath: string): string {
     return path.join(electron!.app.getPath("userData"), "applaa-apps", appPath);
   }
   
-  // Get custom apps directory from settings or use default
+  // Workspace-aware base: prefer workspace root; fallback to legacy customAppsDirectory
   const settings = readSettings();
-  const customAppsDirectory = settings.customAppsDirectory || path.join(os.homedir(), "applaa-apps");
-  
-  return path.join(customAppsDirectory, appPath);
+  const workspaceRoot = getWorkspaceRoot();
+  const legacyBase = settings.customAppsDirectory || path.join(os.homedir(), "applaa-apps");
+  // appPath is expected to be a relative subpath like "apps/web/my-app" in workspace mode
+  const base = workspaceRoot || legacyBase;
+  return path.join(base, appPath);
 }
 
 export function getTypeScriptCachePath(): string {

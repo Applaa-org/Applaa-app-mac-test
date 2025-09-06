@@ -83,6 +83,11 @@ export type LargeLanguageModel = z.infer<typeof LargeLanguageModelSchema>;
  */
 export const ProviderSettingSchema = z.object({
   apiKey: SecretSchema.optional(),
+  apiBaseUrl: SecretSchema.optional(), // For Azure OpenAI and other providers that need custom endpoints
+  resourceName: SecretSchema.optional(), // For Azure OpenAI resource name
+  deploymentName: SecretSchema.optional(), // For Azure OpenAI deployment name
+  apiVersion: SecretSchema.optional(), // For Azure OpenAI API version
+  endpoint: SecretSchema.optional(), // For Azure OpenAI custom endpoint
 });
 
 /**
@@ -207,6 +212,7 @@ export const UserSettingsSchema = z.object({
   acceptedCommunityCode: z.boolean().optional(),
 
   enableAutoFixProblems: z.boolean().optional(),
+  autoFixModel: LargeLanguageModelSchema.optional(), // Separate model for auto-fix operations
   enableNativeGit: z.boolean().optional(),
   enableAutoUpdate: z.boolean(),
   releaseChannel: ReleaseChannelSchema,
@@ -282,7 +288,7 @@ export type SuggestedAction =
   | RebuildAction
   | RestartAction
   | RefreshAction
-  | KeepGoingAction;
+  | BoostMyAppAction;
 
 export interface RestartAppAction {
   id: "restart-app";
@@ -313,8 +319,8 @@ export interface RefreshAction {
   id: "refresh";
 }
 
-export interface KeepGoingAction {
-  id: "keep-going";
+export interface BoostMyAppAction {
+  id: "keep-going"; // Keep same ID for backward compatibility, but represents "Boost My App"
 }
 
 export interface ActionProposal {

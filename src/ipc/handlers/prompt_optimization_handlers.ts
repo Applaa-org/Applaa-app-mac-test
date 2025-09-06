@@ -18,7 +18,7 @@ export interface OptimizePromptResponse {
   originalPrompt: string;
 }
 
-const WEBAPP_ENHANCEMENT_TEMPLATE = `Create a [USER_CONCEPT] web application with ultra-modern, dynamic design inspired by trending Dribbble UI patterns and contemporary web design aesthetics. The color scheme should intelligently adapt based on the concept theme:
+const WEBAPP_ENHANCEMENT_TEMPLATE = `Create a [USER_CONCEPT] web application with ultra-modern, dynamic design inspired by contemporary web design aesthetics and premium UI patterns. The color scheme should intelligently adapt based on the concept theme:
 
 DYNAMIC COLOR SCHEMES BY CONCEPT:
 
@@ -33,7 +33,7 @@ Gen Z/Youth: Bold trending colors (neon gradients, electric pink-cyan, vibrant p
 Tech/SaaS: Modern tech aesthetics (dark mode ready, electric blue-purple, sleek gray-cyan)
 Finance/Investment: Professional trust colors (deep blue-gold, forest green-silver, navy-platinum)
 
-MODERN DESIGN INSPIRATION (Dribbble-style):
+MODERN DESIGN INSPIRATION (Premium-style):
 
 Contemporary card layouts with asymmetric grids and creative spacing
 Trending micro-interactions and delightful hover animations
@@ -89,102 +89,30 @@ For EVERY list item, create both:
 
 **🎯 CONTENT QUALITY:** NO Lorem Ipsum - Use realistic, industry-specific, engaging content with professional tone and clear call-to-actions`;
 
-const MOBILE_ENHANCEMENT_TEMPLATE = `Create a [USER_CONCEPT] mobile app with ultra-modern, dynamic design inspired by trending Dribbble mobile UI patterns (https://dribbble.com/shots/popular/mobile) and award-winning mobile app aesthetics. The color scheme and interface should intelligently adapt based on the concept theme:
+const MOBILE_ENHANCEMENT_TEMPLATE = `Create a [USER_CONCEPT] mobile app with ultra-modern design inspired by premium mobile UI patterns. Apply smart color schemes and contemporary mobile design:
 
-DYNAMIC COLOR SCHEMES BY CONCEPT:
+🎨 **SMART COLOR SCHEMES:** Food (warm oranges), Fitness (energetic blues), Shopping (premium purples), Finance (professional blues), Social (vibrant gradients)
 
-Food/Recipes: Warm appetite-stimulating gradients (orange-red, golden-yellow, coral-pink)
-Health/Fitness/Workouts: Energetic vibrant colors (electric blue-green, lime-orange, purple-cyan)
-Meditation/Wellness/Spirituality: Calming earth tones (sage-lavender, teal-mint, soft purple-pink)
-E-commerce/Shopping: Premium sophisticated gradients (navy-gold, charcoal-blue, emerald-teal)
-Kids/Children: Playful bright colors (rainbow gradients, bubblegum pink-blue, sunny yellow-orange)
-Women's Fashion/Beauty: Elegant feminine tones (rose gold-blush, champagne-lavender, coral-peach)
-Senior/Mature Audience: Refined muted gradients (sage-cream, dusty blue-gold, warm gray-teal)
-Gen Z/Youth: Bold trending colors (neon gradients, electric pink-cyan, vibrant purple-lime)
-Tech/Productivity: Modern sleek aesthetics (dark mode ready, electric blue-purple, sleek gray-cyan)
-Finance/Investment: Professional trust colors (deep blue-gold, forest green-silver, navy-platinum)
+💎 **PREMIUM MOBILE PATTERNS:**
+- Modern card layouts with gradients and shadows
+- Smooth navigation with gesture support
+- Beautiful typography hierarchy (mix of bold/elegant fonts)
+- Creative micro-interactions and loading animations
+- Professional iconography with app-specific styling
 
-DRIBBBLE-INSPIRED MOBILE DESIGN PATTERNS:
+🚀 **MOBILE-FIRST FEATURES:**
+- 4-6 main screens with intuitive navigation
+- Rich mock data (15-20 items) with realistic content
+- Search/filter interfaces with smooth animations
+- Touch-friendly design with proper accessibility
+- Beautiful empty states and error handling
 
-Creative card compositions with asymmetric layouts and artistic spacing
-Innovative navigation concepts (morphing tab bars, floating menus, gesture-driven interfaces)
-Award-winning onboarding flows with creative illustrations and animations
-Artistic use of white space and visual hierarchy inspired by top Dribbble shots
-Creative button designs with unique shapes, gradients, and hover states
-Innovative data visualization with custom charts and interactive elements
-Modern typography combinations mixing bold headers with elegant body fonts
-Creative use of shadows, depth, and layering effects
-Trending mobile interactions (swipe patterns, drag gestures, pinch-to-zoom)
-Artistic color blocking and gradient transitions between screens
-Custom illustration styles and icon systems matching the app theme
-Creative loading animations and micro-interactions that delight users
-
-CUTTING-EDGE MOBILE UX PATTERNS:
-
-Bottom sheet designs with creative handles and peek behaviors
-Floating elements that respond to scroll and gesture interactions
-Creative search interfaces with animated suggestions and filters
-Innovative profile and settings screens with personality
-Modern list designs with creative separators and grouping
-Artistic empty states and error screens with custom illustrations
-Creative notification designs and alert patterns
-Innovative modal and overlay designs with artistic backdrops
-
-MANDATORY TEXT VISIBILITY & MOBILE ACCESSIBILITY:
-
-ALL text MUST have perfect readability with mobile-optimized contrast ratios
-Smart text color adaptation with artistic flair while maintaining accessibility
-Creative text treatments (outlined text, gradient text, shadowed text) that remain readable
-Touch-friendly text sizes (minimum 16px) with artistic typography hierarchy
-High contrast mode compatibility and dynamic text sizing support
-Form inputs with creative styling while maintaining clear readability
-Dynamic overlay systems ensuring 4.5:1+ contrast across all artistic color combinations
-Creative but readable placeholder text and labels
-
-DRIBBBLE-LEVEL VISUAL EXCELLENCE:
-
-Award-worthy animations with creative transitions and delightful micro-interactions
-Custom iconography with artistic styling that matches the app's visual identity
-Creative use of gradients, shadows, and visual effects inspired by top mobile designs
-Artistic composition with creative use of negative space and visual balance
-Innovative color application with artistic gradients and color transitions
-Custom illustration integration that enhances the user experience
-Creative photography integration and image treatment styles
-Artistic dark/light mode implementations with smooth, creative transitions
-
-ADVANCED FEATURES:
-
-4-6 main screens with creative navigation patterns inspired by award-winning apps
-Rich, contextually relevant mock data (15-25 items) with creative presentation
-Innovative search and filter interfaces with artistic animations
-Creative gesture-based interactions and haptic feedback integration
-Artistic loading states and skeleton screens with brand personality
-Creative responsive layouts optimized for various screen sizes
-Innovative sharing and social features with artistic presentation
-
-🖼️ **CRITICAL: Image Sources & Mock Data Guidelines**
-
-**✅ APPROVED FREE IMAGE SOURCES (NO LICENSE ISSUES):**
-- **Unsplash**: https://images.unsplash.com/photo-[id]?w=400&h=300&fit=crop
-- **Pixabay**: https://cdn.pixabay.com/photo/[year]/[month]/[day]/[id]_640.jpg
-- **Pexels**: https://images.pexels.com/photos/[id]/pexels-photo-[id].jpeg?w=400&h=300&fit=crop
-- **Picsum**: https://picsum.photos/400/300?random=[number] (for generic placeholders)
-
-**🚫 NEVER USE:** Getty Images, Shutterstock, copyrighted images, or broken URLs
-
-**📝 DETAILED MOCK DATA REQUIREMENTS:**
-For EVERY list item, create both:
-1. **Main List View**: 15-25 items with thumbnails, titles, brief descriptions
-2. **Detailed Single Screens**: For EACH item, create comprehensive detail screens with:
-   - Hero image (high-quality from approved sources)
-   - Full description (3-4 paragraphs of realistic content)
-   - Specifications/Details relevant to the item type
-   - Related items or recommendations
-   - Action buttons (Buy, Contact, Save, Share, etc.)
-   - Reviews/Ratings with realistic user feedback
-   - Image gallery (3-5 additional images with swipe navigation)
-
-**🎯 CONTENT QUALITY:** NO Lorem Ipsum - Use realistic, industry-specific, engaging content with professional tone and clear call-to-actions`;
+📱 **MOBILE ESSENTIALS:**
+- Use Unsplash/Pexels for free images (never Getty/Shutterstock)
+- Create 15-20 realistic list items with thumbnails and descriptions
+- Include detailed screens with hero images, full descriptions, and action buttons
+- NO Lorem Ipsum - use realistic, engaging content
+- Ensure proper text contrast and mobile accessibility`;
 
 export function registerPromptOptimizationHandlers() {
   ipcMain.handle(
@@ -202,7 +130,7 @@ export function registerPromptOptimizationHandlers() {
         
         if (params.appType === "mobile" || params.appType === "expo") {
           enhancementTemplate = MOBILE_ENHANCEMENT_TEMPLATE;
-          systemPrompt = `You are a prompt optimization expert specializing in creating stunning mobile applications with ultra-modern, Dribbble-inspired mobile design.
+          systemPrompt = `You are a prompt optimization expert specializing in creating stunning mobile applications with ultra-modern, premium mobile design.
 
 CRITICAL MISSION: Transform EVERY user request into a beautiful, modern mobile application with world-class UI/UX design.
 
@@ -225,7 +153,7 @@ EXAMPLES:
 Return ONLY the enhanced prompt without any explanations, meta-commentary, or formatting markers. The enhanced prompt should be ready to use directly.`;
         } else {
           enhancementTemplate = WEBAPP_ENHANCEMENT_TEMPLATE;
-          systemPrompt = `You are a prompt optimization expert specializing in creating stunning web applications with ultra-modern, Dribbble-inspired design.
+          systemPrompt = `You are a prompt optimization expert specializing in creating stunning web applications with ultra-modern, premium design.
 
 CRITICAL MISSION: Transform EVERY user request into a beautiful, modern web application with world-class UI/UX design.
 

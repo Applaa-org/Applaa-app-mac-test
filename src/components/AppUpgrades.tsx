@@ -34,15 +34,19 @@ export function AppUpgrades({ appId }: { appId: number | null }) {
     variables: upgradingVariables,
   } = useMutation({
     mutationFn: (upgradeId: string) => {
+      console.log(`🚀 [DEBUG] Mutation function called with upgradeId: ${upgradeId}`);
       if (!appId) {
         throw new Error("appId is not set");
       }
+      console.log(`🚀 [DEBUG] Calling IPC executeAppUpgrade with appId: ${appId}, upgradeId: ${upgradeId}`);
       return IpcClient.getInstance().executeAppUpgrade({
         appId,
         upgradeId,
       });
     },
-    onSuccess: (_, upgradeId) => {
+    onSuccess: (result, upgradeId) => {
+      console.log(`🎉 [DEBUG] Upgrade successful for ${upgradeId}:`, result);
+      
       // Force refresh all upgrade-related queries
       queryClient.invalidateQueries({ queryKey: ["app-upgrades", appId] });
       
@@ -63,6 +67,29 @@ export function AppUpgrades({ appId }: { appId: number | null }) {
           queryClient.invalidateQueries({ queryKey: ["app-upgrades", appId] });
         }, 1000);
       }
+      
+      // Show success message
+      const frameworkName = upgradeId === 'capacitor' ? 'Capacitor' : 'Flutter';
+      alert(`✅ ${frameworkName} upgrade completed successfully!`);
+    },
+    onError: (error, upgradeId) => {
+      console.error(`❌ [DEBUG] Upgrade failed for ${upgradeId}:`, error);
+      const frameworkName = upgradeId === 'capacitor' ? 'Capacitor' : 'Flutter';
+      
+      let userFriendlyMessage = error.message;
+      
+      // Provide specific guidance for common errors
+      if (error.message.includes("Flutter CLI is not installed")) {
+        userFriendlyMessage = "Flutter CLI is not installed. Please install Flutter from https://flutter.dev/docs/get-started/install and restart the app.";
+      } else if (error.message.includes("child.on is not a function")) {
+        userFriendlyMessage = "There was an issue with the package manager. Please try again or restart the app.";
+      } else if (error.message.includes("Capacitor is already installed")) {
+        userFriendlyMessage = "Capacitor is already installed in this project. No upgrade needed.";
+      } else if (error.message.includes("Flutter app is already installed")) {
+        userFriendlyMessage = "Flutter app is already created for this project. No upgrade needed.";
+      }
+      
+      alert(`❌ Failed to upgrade ${frameworkName}:\n\n${userFriendlyMessage}`);
     },
   });
 
@@ -114,10 +141,20 @@ export function AppUpgrades({ appId }: { appId: number | null }) {
   );
 
   const handleSelectFramework = (frameworkId: string, webUrl?: string) => {
+    console.log(`🚀 [DEBUG] AppUpgrades handleSelectFramework called with:`, { frameworkId, webUrl });
+    console.log(`🚀 [DEBUG] executeUpgrade function:`, executeUpgrade);
+    console.log(`🚀 [DEBUG] appId:`, appId);
+    
     if (webUrl) {
       (window as any).__webUrl = webUrl;
     }
-    executeUpgrade(frameworkId);
+    
+    try {
+      console.log(`🚀 [DEBUG] Calling executeUpgrade with frameworkId: ${frameworkId}`);
+      executeUpgrade(frameworkId);
+    } catch (error) {
+      console.error(`🚀 [DEBUG] Error calling executeUpgrade:`, error);
+    }
   };
 
   const handleRefresh = () => {

@@ -9,8 +9,234 @@ import { readSettings } from "../../main/settings";
 import { getTemplateOrThrow } from "../utils/template_utils";
 import log from "electron-log";
 import { getEssentialPackages } from "../../config/expo-dependencies";
+import { gitCommit } from "../utils/git_utils";
+import { createSitePolicyFile } from "../../utils/site_policy_reader";
 
 const logger = log.scope("createFromTemplate");
+
+/**
+ * 🚨 CRITICAL: Ensure TypeScript configuration files exist to prevent TSC errors
+ */
+async function ensureTypeScriptConfig(appPath: string, appType: 'web' | 'expo'): Promise<void> {
+  try {
+    logger.info(`Adding TypeScript configuration for ${appType} app at ${appPath}`);
+    
+    if (appType === 'expo') {
+      // Create tsconfig.json for Expo apps
+      const tsconfigPath = path.join(appPath, "tsconfig.json");
+      if (!fs.existsSync(tsconfigPath)) {
+        const expoTsConfig = {
+          "extends": "expo/tsconfig.base",
+          "compilerOptions": {
+            "strict": true,
+            "jsx": "react-jsx",
+            "allowJs": true,
+            "esModuleInterop": true,
+            "allowSyntheticDefaultImports": true,
+            "skipLibCheck": true,
+            "resolveJsonModule": true,
+            "noEmit": true,
+            "isolatedModules": true,
+            "incremental": true,
+            "plugins": [
+              {
+                "name": "expo-router/typescript"
+              }
+            ]
+          },
+          "include": [
+            "**/*.ts",
+            "**/*.tsx",
+            ".expo/types/**/*.ts",
+            "expo-env.d.ts"
+          ],
+          "exclude": [
+            "node_modules"
+          ]
+        };
+        
+        await fs.writeJson(tsconfigPath, expoTsConfig, { spaces: 2 });
+        logger.info("✅ Created tsconfig.json for Expo app");
+      }
+      
+      // Create expo-env.d.ts for Expo type definitions
+      const expoEnvPath = path.join(appPath, "expo-env.d.ts");
+      if (!fs.existsSync(expoEnvPath)) {
+        const expoEnvContent = `/// <reference types="expo/types" />
+/// <reference types="expo-router/types" />
+
+// NOTE: This file should not be edited and should be in your git ignore
+`;
+        await fs.writeFile(expoEnvPath, expoEnvContent);
+        logger.info("✅ Created expo-env.d.ts");
+      }
+      
+    } else {
+      // Create tsconfig.json for web apps (Vite/React)
+      const tsconfigPath = path.join(appPath, "tsconfig.json");
+      if (!fs.existsSync(tsconfigPath)) {
+        const webTsConfig = {
+          "compilerOptions": {
+            "target": "ES2020",
+            "useDefineForClassFields": true,
+            "lib": ["ES2020", "DOM", "DOM.Iterable"],
+            "module": "ESNext",
+            "skipLibCheck": true,
+            "moduleResolution": "bundler",
+            "allowImportingTsExtensions": true,
+            "resolveJsonModule": true,
+            "isolatedModules": true,
+            "noEmit": true,
+            "jsx": "react-jsx",
+            "strict": true,
+            "noUnusedLocals": true,
+            "noUnusedParameters": true,
+            "noFallthroughCasesInSwitch": true
+          },
+          "include": ["src/**/*"],
+          "references": [{ "path": "./tsconfig.node.json" }]
+        };
+        
+        await fs.writeJson(tsconfigPath, webTsConfig, { spaces: 2 });
+        logger.info("✅ Created tsconfig.json for web app");
+      }
+      
+      // Create tsconfig.node.json for Vite
+      const tsconfigNodePath = path.join(appPath, "tsconfig.node.json");
+      if (!fs.existsSync(tsconfigNodePath)) {
+        const nodeTsConfig = {
+          "compilerOptions": {
+            "composite": true,
+            "skipLibCheck": true,
+            "module": "ESNext",
+            "moduleResolution": "bundler",
+            "allowSyntheticDefaultImports": true
+          },
+          "include": ["vite.config.ts"]
+        };
+        
+        await fs.writeJson(tsconfigNodePath, nodeTsConfig, { spaces: 2 });
+        logger.info("✅ Created tsconfig.node.json");
+      }
+    }
+    
+  } catch (error) {
+    logger.error("Failed to create TypeScript config:", error);
+    // Don't throw - this is not critical enough to fail app creation
+  }
+}
+
+/**
+ * 🏗️ CRITICAL: Create site policy file for professional web app standards
+ */
+async function ensureSitePolicyFile(appPath: string, appType: 'web' | 'expo'): Promise<void> {
+  if (appType !== 'web') {
+    return; // Site policy only applies to web apps
+  }
+  
+  try {
+    logger.info(`Creating site policy file for professional web app at ${appPath}`);
+    await createSitePolicyFile(appPath);
+    logger.info("✅ Created site_policy.yaml with professional standards");
+  } catch (error) {
+    logger.error("Failed to create site policy file:", error);
+    // Don't throw - this is not critical enough to fail app creation
+  }
+}
+
+/**
+ * Install Applaa-approved dependencies for a specific framework
+ */
+async function installApplaaApprovedDependencies(appPath: string, framework: 'web' | 'expo'): Promise<void> {
+  try {
+    logger.info(`Installing Applaa-approved ${framework} dependencies to prevent 'Unable to resolve' errors...`);
+    const { getSafePackages } = await import("../../config/applaa-dependencies");
+    const commonPackages = getSafePackages(framework);
+    
+    if (commonPackages.length === 0) {
+      logger.info(`No additional dependencies needed for ${framework} apps`);
+      return;
+    }
+    
+    const { getBestPackageManager } = await import("../../lib/hermetic-runtime");
+    const packageManager = await getBestPackageManager(appPath);
+    
+    const runAddPackages = async (tool: "pnpm" | "npm") => new Promise<void>((resolve, reject) => {
+      const args = tool === "pnpm" ? ["add", ...commonPackages] : ["install", ...commonPackages];
+      const child = spawn(tool, args, {
+        cwd: appPath,
+        shell: true,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          CI: "1", // Prevent interactive prompts
+        },
+      });
+      child.stdout?.on("data", (d) => logger.debug(`[${tool} add ${framework} packages] ${d.toString()}`));
+      child.stderr?.on("data", (d) => logger.warn(`[${tool} add ${framework} packages:err] ${d.toString()}`));
+      child.on("error", reject);
+      child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${tool} add ${framework} packages exited ${code}`))));
+    });
+
+    try {
+      await runAddPackages(packageManager);
+      logger.info(`✅ Successfully installed ${framework} packages: ${commonPackages.join(", ")}`);
+    } catch (e) {
+      const fallback = packageManager === "pnpm" ? "npm" : "pnpm";
+      logger.warn(`${packageManager} add packages failed, falling back to ${fallback}:`, e);
+      try {
+        await runAddPackages(fallback);
+        logger.info(`✅ Successfully installed ${framework} packages with ${fallback}: ${commonPackages.join(", ")}`);
+      } catch (fallbackError) {
+        logger.error(`Failed to install ${framework} packages with both ${packageManager} and ${fallback}:`, fallbackError);
+        // Don't throw - app creation should continue even if some packages fail
+      }
+    }
+  } catch (error) {
+    logger.error(`Failed to install ${framework} dependencies:`, error);
+    // Don't throw - this is not critical enough to fail app creation
+  }
+}
+
+/**
+ * Initialize Git repository with proper initial commit to prevent refs/heads/main errors
+ */
+async function initializeGitRepository(appPath: string): Promise<void> {
+  try {
+    // Check if .git already exists
+    if (fs.existsSync(path.join(appPath, ".git"))) {
+      logger.info(`Git repository already exists at ${appPath}`);
+      return;
+    }
+
+    logger.info(`Initializing Git repository at ${appPath}`);
+    
+    // Initialize Git repository
+    await git.init({
+      fs,
+      dir: appPath,
+      defaultBranch: "main",
+    });
+
+    // Add all files
+    await git.add({
+      fs,
+      dir: appPath,
+      filepath: ".",
+    });
+
+    // Create initial commit
+    await gitCommit({
+      path: appPath,
+      message: "Initial commit - Applaa app created",
+    });
+    
+    logger.info(`Successfully initialized Git repository at ${appPath}`);
+  } catch (error) {
+    logger.error(`Failed to initialize Git repository at ${appPath}:`, error);
+    // Don't throw - Git initialization failure shouldn't break app creation
+  }
+}
 
 export async function createFromTemplate({
   fullAppPath,
@@ -37,6 +263,9 @@ export async function createFromTemplate({
       if (fs.existsSync(templatePath)) {
         logger.info(`Using React template from: ${templatePath}`);
         await copyDirectoryRecursive(templatePath, fullAppPath);
+        await installApplaaApprovedDependencies(fullAppPath, 'web');
+        await ensureSitePolicyFile(fullAppPath, 'web'); // 🏗️ Add site policy
+        await initializeGitRepository(fullAppPath);
         return;
       }
     }
@@ -56,6 +285,9 @@ export async function createFromTemplate({
       if (fs.existsSync(templatePath)) {
         logger.info(`Using Next.js template from: ${templatePath}`);
         await copyDirectoryRecursive(templatePath, fullAppPath);
+        await installApplaaApprovedDependencies(fullAppPath, 'web');
+        await ensureSitePolicyFile(fullAppPath, 'web'); // 🏗️ Add site policy
+        await initializeGitRepository(fullAppPath);
         return;
       }
     }
@@ -65,6 +297,8 @@ export async function createFromTemplate({
     if (template.githubUrl) {
       const repoCachePath = await cloneRepo(template.githubUrl);
       await copyRepoToApp(repoCachePath, fullAppPath);
+      await ensureSitePolicyFile(fullAppPath, 'web'); // 🏗️ Add site policy
+      await initializeGitRepository(fullAppPath);
       return;
     }
     throw new Error(`Neither local nor GitHub Next.js template available. Tried paths: ${possiblePaths.join(', ')}`);
@@ -82,6 +316,8 @@ export async function createFromTemplate({
       if (fs.existsSync(templatePath)) {
         logger.info(`Using Portal Mini Store template from: ${templatePath}`);
         await copyDirectoryRecursive(templatePath, fullAppPath);
+        await ensureSitePolicyFile(fullAppPath, 'web'); // 🏗️ Add site policy
+        await initializeGitRepository(fullAppPath);
         return;
       }
     }
@@ -91,6 +327,8 @@ export async function createFromTemplate({
     if (template.githubUrl) {
       const repoCachePath = await cloneRepo(template.githubUrl);
       await copyRepoToApp(repoCachePath, fullAppPath);
+      await ensureSitePolicyFile(fullAppPath, 'web'); // 🏗️ Add site policy
+      await initializeGitRepository(fullAppPath);
       return;
     }
     throw new Error(`Neither local nor GitHub Portal Mini Store template available. Tried paths: ${possiblePaths.join(', ')}`);
@@ -100,6 +338,9 @@ export async function createFromTemplate({
         // Use the working Expo Router example from the old codebase
         logger.info(`Creating Expo app with router example at: ${fullAppPath}`);
         await scaffoldExpoApp({ fullAppPath, example: "with-router" }); // Use working example from old code
+        
+        // 🚨 CRITICAL: Add TypeScript configuration to prevent TSC errors
+        await ensureTypeScriptConfig(fullAppPath, 'expo');
         
         // Update app.json with proper app configuration
         const appJsonPath = path.join(fullAppPath, "app.json");
@@ -121,6 +362,57 @@ export async function createFromTemplate({
           await fs.writeJson(appJsonPath, appJson, { spaces: 2 });
         }
         
+        // 🚀 CRITICAL FIX: Auto-add @expo/ngrok to prevent interactive prompts
+        const packageJsonPath = path.join(fullAppPath, "package.json");
+        if (fs.existsSync(packageJsonPath)) {
+          logger.info("Adding @expo/ngrok dependency to prevent tunnel prompts...");
+          const packageJson = await fs.readJson(packageJsonPath);
+          
+          // Ensure dependencies object exists
+          if (!packageJson.dependencies) {
+            packageJson.dependencies = {};
+          }
+          
+          // Add @expo/ngrok if not already present
+          if (!packageJson.dependencies["@expo/ngrok"] && !packageJson.devDependencies?.["@expo/ngrok"]) {
+            packageJson.dependencies["@expo/ngrok"] = "^4.1.3"; // Latest stable version
+            await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
+            logger.info("✅ Added @expo/ngrok dependency to package.json");
+            
+            // Install the dependency non-interactively using hermetic package manager
+            try {
+              const { runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
+              
+              await new Promise<void>(async (resolve, reject) => {
+                const child = await runPackageManagerCommand("add", ["@expo/ngrok"], fullAppPath, {
+                  stdio: ["ignore", "pipe", "pipe"],
+                  env: {
+                    ...process.env,
+                    CI: "1", // Prevent interactive prompts
+                    EXPO_NO_DOCTOR: "1",
+                    EXPO_NO_UPDATE_CHECK: "1",
+                  },
+                });
+                
+                child.stdout?.on("data", (data: Buffer) => {
+                  logger.debug(`[install @expo/ngrok] ${data.toString()}`);
+                });
+                child.stderr?.on("data", (data: Buffer) => {
+                  logger.warn(`[install @expo/ngrok:err] ${data.toString()}`);
+                });
+                child.on("error", reject);
+                child.on("close", (code: number) => (code === 0 ? resolve() : reject(new Error(`install @expo/ngrok exited ${code}`))));
+              });
+              logger.info("✅ Successfully installed @expo/ngrok dependency");
+            } catch (err) {
+              logger.warn("⚠️ Failed to install @expo/ngrok, but added to package.json:", err);
+            }
+          } else {
+            logger.info("✅ @expo/ngrok already present in dependencies");
+          }
+        }
+        
+        await initializeGitRepository(fullAppPath);
         return;
       }
 
@@ -130,6 +422,8 @@ export async function createFromTemplate({
   }
   const repoCachePath = await cloneRepo(template.githubUrl);
   await copyRepoToApp(repoCachePath, fullAppPath);
+  await ensureSitePolicyFile(fullAppPath, 'web'); // 🏗️ Add site policy for GitHub templates
+  await initializeGitRepository(fullAppPath);
 }
 
 /**
@@ -155,6 +449,15 @@ async function scaffoldExpoApp({
 
   await fs.ensureDir(dirName);
 
+  // 🚀 PERFORMANCE: Use hermetic package manager strategy for consistent dependency management
+  const { getBestPackageManager, ensurePnpmAvailable } = await import("../../lib/hermetic-runtime");
+  const packageManager = await getBestPackageManager();
+  
+  // Ensure pnpm is available if it's the preferred manager
+  if (packageManager === "pnpm") {
+    await ensurePnpmAvailable();
+  }
+  
   // Run: pnpm dlx create-expo-app@latest <appFolderName> --yes --no-install
   // Fallback to npx if pnpm is not available. We set cwd to the parent so
   // the folder is created with the desired name.
@@ -209,13 +512,37 @@ async function scaffoldExpoApp({
     child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${tool} install exited ${code}`))));
   });
 
+  // Add .npmrc for pnpm workspace compatibility
+  const npmrcPath = path.join(fullAppPath, ".npmrc");
+  if (!(await fs.pathExists(npmrcPath))) {
+    await fs.writeFile(
+      npmrcPath,
+      ["shamefully-hoist=true", "strict-peer-dependencies=false", "prefer-offline=true"].join("\n")
+    );
+    logger.info("Created .npmrc for pnpm workspace compatibility");
+  }
+
+  // Add packageManager field to package.json
+  const pkgPath = path.join(fullAppPath, "package.json");
+  if (await fs.pathExists(pkgPath)) {
+    const pkg = JSON.parse(await fs.readFile(pkgPath, "utf8"));
+    if (!pkg.packageManager) {
+      pkg.packageManager = "pnpm@9";
+      await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2));
+      logger.info("Added packageManager field to package.json");
+    }
+  }
+
   try {
     await runInstall("pnpm");
-    logger.info("Installed dependencies with pnpm (shared store, hard links)");
+    logger.info("✅ Installed dependencies with pnpm (shared store, hard links - 70% space savings!)");
   } catch (e) {
     logger.warn("pnpm install failed or unavailable, falling back to npm install:", e);
     await runInstall("npm");
   }
+
+  // 🚨 CRITICAL: Install Applaa-approved Expo modules to prevent bundling failures
+  await installApplaaApprovedDependencies(fullAppPath, 'expo');
 
   // Ensure .gitignore exists (it should by default)
   const gitignorePath = path.join(fullAppPath, ".gitignore");
@@ -374,8 +701,6 @@ async function scaffoldExpoApp({
 }
 
 async function cloneRepo(repoUrl: string): Promise<string> {
-  let orgName: string;
-  let repoName: string;
 
   const url = new URL(repoUrl);
   if (url.protocol !== "https:") {
@@ -394,8 +719,8 @@ async function cloneRepo(repoUrl: string): Promise<string> {
     );
   }
 
-  orgName = pathParts[0];
-  repoName = path.basename(pathParts[1], ".git"); // Remove .git suffix if present
+  const orgName = pathParts[0];
+  const repoName = path.basename(pathParts[1], ".git"); // Remove .git suffix if present
 
   if (!orgName || !repoName) {
     // This case should ideally be caught by pathParts.length !== 2

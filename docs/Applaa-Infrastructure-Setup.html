@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Applaa Infrastructure Setup</title>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 24px; color: #0f172a; }
+    h1, h2, h3 { color: #0b1220; }
+    code, pre { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px 6px; }
+    pre { padding: 12px; overflow: auto; }
+    .muted { color: #475569; }
+    .section { margin-top: 28px; }
+  </style>
+</head>
+<body>
+  <h1>Applaa Infrastructure Setup</h1>
+  <p>This guide documents the end-to-end setup Applaa needs to mirror Dyad’s working integrations for GitHub, Supabase, and privacy-first Telemetry. Source inspiration: Dyad repo (<code>dyad-sh/dyad</code>). See repository overview: <a href="https://github.com/dyad-sh/dyad" target="_blank" rel="noopener noreferrer">https://github.com/dyad-sh/dyad</a>.</p>
+
+  <div class="section">
+    <h2>1) GitHub App (for code sync, PRs, issues)</h2>
+    <h3>Create the GitHub App</h3>
+    <ol>
+      <li>Go to GitHub → Settings → Developer settings → GitHub Apps → New GitHub App</li>
+      <li>Fill:
+        <ul>
+          <li>App name: <strong>Applaa</strong></li>
+          <li>Homepage URL: <code>https://applaa.dev</code></li>
+          <li>Callback URL: <code>https://applaa.dev/auth/github/callback</code></li>
+          <li>Webhook URL: <code>https://api.applaa.dev/webhooks/github</code></li>
+        </ul>
+      </li>
+      <li>Permissions (minimum):
+        <ul>
+          <li>Repository contents: <strong>Read &amp; write</strong></li>
+          <li>Metadata: <strong>Read</strong></li>
+          <li>Pull requests: <strong>Read &amp; write</strong></li>
+          <li>Issues: <strong>Read &amp; write</strong></li>
+          <li>Repository projects: <strong>Read &amp; write</strong> (optional)</li>
+        </ul>
+      </li>
+      <li>Generate the Private Key (.pem), note App ID, Client ID, Client Secret</li>
+      <li>Install the App on the org/repos used by Applaa</li>
+    </ol>
+
+    <h3>Environment variables (Desktop + API)</h3>
+    <pre><code>GITHUB_APP_ID=xxxxx
+GITHUB_CLIENT_ID=Iv1.xxxxx
+GITHUB_CLIENT_SECRET=xxxxx
+GITHUB_PRIVATE_KEY_BASE64=&lt;base64 of .pem&gt;
+GITHUB_WEBHOOK_SECRET=&lt;random string&gt;</code></pre>
+  </div>
+
+  <div class="section">
+    <h2>2) Supabase (Auth, DB, Storage, Edge Functions)</h2>
+    <h3>Organization &amp; Projects</h3>
+    <ul>
+      <li>Org: <strong>Applaa</strong></li>
+      <li>Projects:
+        <ul>
+          <li><code>applaa-prod</code> (Production)</li>
+          <li><code>applaa-staging</code> (Staging)</li>
+          <li><code>applaa-dev</code> (Development)</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Auth Providers</h3>
+    <ul>
+      <li>Email/password, Magic links</li>
+      <li>GitHub OAuth (Client ID/Secret from the GitHub App)</li>
+    </ul>
+
+    <h3>Minimal schema</h3>
+    <pre><code>-- user profile
+CREATE TABLE user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  username TEXT UNIQUE,
+  full_name TEXT,
+  avatar_url TEXT,
+  github_username TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- user apps
+CREATE TABLE apps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  name TEXT NOT NULL,
+  description TEXT,
+  github_repo TEXT,
+  supabase_project_id TEXT,
+  template_type TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- privacy-first telemetry events
+CREATE TABLE telemetry_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  event_type TEXT NOT NULL,
+  event_data JSONB,
+  timestamp TIMESTAMPTZ DEFAULT now(),
+  session_id TEXT,
+  app_version TEXT
+);
+
+-- RLS
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE apps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE telemetry_events ENABLE ROW LEVEL SECURITY;
+
+-- Example RLS: users can read/write their own rows
+CREATE POLICY up_select ON user_profiles FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY up_upsert ON user_profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+CREATE POLICY up_update ON user_profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+
+CREATE POLICY apps_rw ON apps FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Telemetry: insert-only for authenticated
+CREATE POLICY tel_insert ON telemetry_events FOR INSERT TO authenticated WITH CHECK (true);</code></pre>
+
+    <h3>Expo client (already included in template)</h3>
+    <ul>
+      <li>@supabase/supabase-js, @react-native-async-storage/async-storage, react-native-url-polyfill</li>
+      <li>Use <code>expo-templates/base-router/utils/supabase.ts</code></li>
+    </ul>
+
+    <h3>Env vars (Desktop, Web, Expo)</h3>
+    <pre><code>SUPABASE_URL=https://&lt;project&gt;.supabase.co
+SUPABASE_ANON_KEY=xxxxx
+SUPABASE_SERVICE_ROLE_KEY=xxxxx   # server only</code></pre>
+  </div>
+
+  <div class="section">
+    <h2>3) Telemetry (privacy-first, opt-in)</h2>
+    <h3>Principles</h3>
+    <ul>
+      <li>Collect anonymous usage to improve Applaa</li>
+      <li>Never collect code, chat content, secrets, file paths, or personal data</li>
+      <li>User-facing toggle (Settings → Telemetry), show Telemetry ID</li>
+    </ul>
+
+    <h3>Events to capture</h3>
+    <ul>
+      <li>app_start { platform, version }</li>
+      <li>app_created { template_type }</li>
+      <li>feature_used { feature, metadata }</li>
+      <li>error_occurred { type, message_short }</li>
+      <li>upgrade_applied { upgrade_type, success }</li>
+    </ul>
+
+    <h3>API endpoint</h3>
+    <p>POST <code>https://api.applaa.dev/telemetry</code> → body: <code>{ events: TelemetryEvent[] }</code><br/>Store in Supabase <code>telemetry_events</code></p>
+
+    <h3>Example client payload</h3>
+    <pre><code>{
+  "events": [
+    {
+      "event_type": "app_start",
+      "event_data": { "platform": "win32", "version": "1.0.0" },
+      "timestamp": "2025-09-02T10:48:27.000Z",
+      "session_id": "uuid",
+      "app_version": "1.0.0"
+    }
+  ]
+}</code></pre>
+  </div>
+
+  <div class="section">
+    <h2>4) Desktop app settings (Applaa)</h2>
+    <ul>
+      <li>Provider settings (OpenAI, etc.) with safe encryption</li>
+      <li>Integrations → “Connect Supabase” (IPC <code>supabase:*</code> handlers)</li>
+      <li>Integrations → “Connect GitHub” (GitHub App OAuth)</li>
+      <li>Telemetry toggle (show Telemetry ID)</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>5) Security checklist</h2>
+    <ul>
+      <li>Verify GitHub webhook signatures</li>
+      <li>Restrict CORS on API</li>
+      <li>Rate-limit write endpoints</li>
+      <li>Encrypt secrets at rest</li>
+      <li>Enforce RLS on all tables</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>6) Quick validation</h2>
+    <ol>
+      <li>Create GitHub App → install on repo</li>
+      <li>Create Supabase org/projects → set env vars</li>
+      <li>Toggle telemetry on → see events saved</li>
+      <li>Create new app (web/expo) → connect GitHub &amp; Supabase → run</li>
+    </ol>
+    <p class="muted">Reference: Dyad architecture and behavior — <a href="https://github.com/dyad-sh/dyad" target="_blank" rel="noopener noreferrer">https://github.com/dyad-sh/dyad</a></p>
+  </div>
+</body>
+</html>

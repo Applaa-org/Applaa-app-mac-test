@@ -15,6 +15,7 @@ import { UserSettings } from "@/lib/schemas";
 
 import { ProviderSettingsHeader } from "./ProviderSettingsHeader";
 import { ApiKeyConfiguration } from "./ApiKeyConfiguration";
+import { AzureConfiguration } from "./AzureConfiguration";
 import { ModelsSection } from "./ModelsSection";
 
 interface ProviderSettingsPageProps {
@@ -45,6 +46,7 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
   const isApplaa = provider === "auto";
 
   const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiBaseUrlInput, setApiBaseUrlInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const router = useRouter();
@@ -61,6 +63,10 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
 
   // Use provider ID (which is the 'provider' prop)
   const userApiKey = settings?.providerSettings?.[provider]?.apiKey?.value;
+  const userApiBaseUrl = settings?.providerSettings?.[provider]?.apiBaseUrl?.value;
+  
+  // Check if this provider needs API Base URL (Azure OpenAI)
+  const needsApiBaseUrl = provider === "azure-openai";
 
   // --- Configuration Logic --- Updated Priority ---
   const isValidUserKey =
@@ -68,8 +74,18 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
     !userApiKey.startsWith("Invalid Key") &&
     userApiKey !== "Not Set";
   const hasEnvKey = !!(envVarName && envVars[envVarName]);
+  const hasValidApiBaseUrl = needsApiBaseUrl ? !!userApiBaseUrl : true; // Only required for Azure OpenAI
 
-  const isConfigured = isValidUserKey || hasEnvKey; // Configured if either is set
+  // Special handling for Azure OpenAI configuration per Dyad commit #2ffbbbc
+  const isAzureConfigured = 
+    provider === "azure-openai" 
+      ? !!(envVars["AZURE_API_KEY"] && envVars["AZURE_RESOURCE_NAME"])
+      : false;
+
+  const isConfigured = 
+    provider === "azure-openai" 
+      ? isAzureConfigured 
+      : (isValidUserKey || hasEnvKey) && hasValidApiBaseUrl;
 
   // --- Save Handler ---
   const handleSaveKey = async () => {
@@ -77,18 +93,31 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
       setSaveError("API Key cannot be empty.");
       return;
     }
+    if (needsApiBaseUrl && !apiBaseUrlInput) {
+      setSaveError("API Base URL is required for Azure OpenAI.");
+      return;
+    }
     setIsSaving(true);
     setSaveError(null);
     try {
+      const providerSettings = {
+        ...settings?.providerSettings?.[provider],
+        apiKey: {
+          value: apiKeyInput,
+        },
+      };
+      
+      // Add API Base URL if needed
+      if (needsApiBaseUrl && apiBaseUrlInput) {
+        providerSettings.apiBaseUrl = {
+          value: apiBaseUrlInput,
+        };
+      }
+      
       const settingsUpdate: Partial<UserSettings> = {
         providerSettings: {
           ...settings?.providerSettings,
-          [provider]: {
-            ...settings?.providerSettings?.[provider],
-            apiKey: {
-              value: apiKeyInput,
-            },
-          },
+          [provider]: providerSettings,
         },
       };
       if (isApplaa) {
@@ -96,10 +125,11 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
       }
       await updateSettings(settingsUpdate);
       setApiKeyInput(""); // Clear input on success
+      setApiBaseUrlInput(""); // Clear API Base URL input on success
       // Optionally show a success message
     } catch (error: any) {
-      console.error("Error saving API key:", error);
-      setSaveError(error.message || "Failed to save API key.");
+      console.error("Error saving settings:", error);
+      setSaveError(error.message || "Failed to save settings.");
     } finally {
       setIsSaving(false);
     }
@@ -137,6 +167,61 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
       });
     } catch (error: any) {
       showError(`Error toggling Applaa Pro: ${error}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // --- Azure-specific handlers ---
+  const handleSaveAzureConfig = async (apiKey: string, resourceName: string) => {
+    if (!apiKey || !resourceName) {
+      setSaveError("API Key and Resource Name are both required.");
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const providerSettings = {
+        ...settings?.providerSettings?.[provider],
+        apiKey: {
+          value: apiKey,
+        },
+        resourceName: {
+          value: resourceName,
+        },
+      };
+      
+      const settingsUpdate: Partial<UserSettings> = {
+        providerSettings: {
+          ...settings?.providerSettings,
+          [provider]: providerSettings,
+        },
+      };
+      
+      await updateSettings(settingsUpdate);
+      // Clear inputs on success - handled by parent component state
+    } catch (error: any) {
+      console.error("Error saving Azure settings:", error);
+      setSaveError(error.message || "Failed to save Azure settings.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAzureConfig = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const settingsUpdate: Partial<UserSettings> = {
+        providerSettings: {
+          ...settings?.providerSettings,
+          [provider]: undefined, // Remove the Azure provider settings
+        },
+      };
+      await updateSettings(settingsUpdate);
+    } catch (error: any) {
+      console.error("Error deleting Azure settings:", error);
+      setSaveError(error.message || "Failed to delete Azure settings.");
     } finally {
       setIsSaving(false);
     }
@@ -247,6 +332,15 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
               Could not load configuration data: {settingsError.message}
             </AlertDescription>
           </Alert>
+        ) : provider === "azure-openai" ? (
+          <AzureConfiguration 
+            envVars={envVars}
+            settings={settings}
+            isSaving={isSaving}
+            saveError={saveError}
+            onSaveAzureConfig={handleSaveAzureConfig}
+            onDeleteAzureConfig={handleDeleteAzureConfig}
+          />
         ) : (
           <ApiKeyConfiguration
             provider={provider}
@@ -260,7 +354,10 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
             onApiKeyInputChange={setApiKeyInput}
             onSaveKey={handleSaveKey}
             onDeleteKey={handleDeleteKey}
-            isApplaa={isApplaa}
+            isDyad={isApplaa}
+            needsApiBaseUrl={needsApiBaseUrl}
+            apiBaseUrlInput={apiBaseUrlInput}
+            onApiBaseUrlInputChange={setApiBaseUrlInput}
           />
         )}
 

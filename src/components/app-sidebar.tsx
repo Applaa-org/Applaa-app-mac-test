@@ -6,7 +6,8 @@ import {
   Zap,
   BookOpenText,
   User,
-  LogIn
+  LogIn,
+  Target
 } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
@@ -43,17 +44,19 @@ const items = [
     icon: Sparkles, // AI magic for app creation
     gradient: "from-purple-500 to-pink-500",
   },
-  {
-    title: "Chat",
-    to: "/chat", 
-    icon: MessageSquareCode, // Code-focused chat
-    gradient: "from-blue-500 to-cyan-500",
-  },
+  // 🚀 MVP: Chat tab removed - chat is integrated within each app context
+  // {
+  //   title: "Chat",
+  //   to: "/chat", 
+  //   icon: MessageSquareCode, // Code-focused chat
+  //   gradient: "from-blue-500 to-cyan-500",
+  // },
   // {
   //   title: "Library",
   //   to: "/library",
   //   icon: BookOpen,
   // }, // Disabled for MVP
+
   {
     title: "Settings",
     to: "/settings",
@@ -164,7 +167,8 @@ export function AppSidebar() {
           {/* Right Column: Chat List Section */}
           <div className="w-[240px] flex flex-col min-h-0 flex-1">
             <AppList show={selectedItem === "Apps"} />
-            <ChatList show={selectedItem === "Chat"} />
+            {/* 🚀 MVP: ChatList removed - chat integrated within apps */}
+            {/* <ChatList show={selectedItem === "Chat"} /> */}
             <SettingsList show={selectedItem === "Settings"} />
           </div>
         </div>

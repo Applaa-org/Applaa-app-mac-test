@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Sparkles, Infinity, Zap } from 'lucide-react';
 import { UniversalAppBuilder } from './UniversalAppBuilder';
 import { homeChatInputValueAtom } from '@/atoms/chatAtoms';
@@ -51,6 +51,12 @@ export function UniversalCreator({ onProjectCreated }: UniversalCreatorProps) {
       </DialogTrigger>
       
       <DialogContent className="max-w-7xl max-h-[90vh] overflow-auto">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Universal App Builder</DialogTitle>
+          <DialogDescription>
+            Create any type of application using our universal framework selector and AI-powered builder.
+          </DialogDescription>
+        </DialogHeader>
         <UniversalAppBuilder 
           onCreateProject={handleCreateProject}
           initialPrompt={inputValue}

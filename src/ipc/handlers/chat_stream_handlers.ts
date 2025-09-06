@@ -24,8 +24,7 @@ import { readSettings } from "../../main/settings";
 import type { ChatResponseEnd, ChatStreamParams } from "../ipc_types";
 import { extractCodebase, readFileWithCache } from "../../utils/codebase";
 import { processFullResponseActions } from "../processors/response_processor";
-import { streamTestResponse } from "./testing_chat_handlers";
-import { getTestResponse } from "./testing_chat_handlers";
+import { streamTestResponse, getTestResponse } from "./testing_chat_handlers";
 import { getModelClient, ModelClient } from "../utils/get_model_client";
 import log from "electron-log";
 import {
@@ -39,7 +38,7 @@ import * as os from "os";
 import * as crypto from "crypto";
 import { readFile, writeFile, unlink } from "fs/promises";
 import { getMaxTokens, getTemperature } from "../utils/token_utils";
-import { MAX_CHAT_TURNS_IN_CONTEXT } from "@/constants/settings_constants";
+import { MAX_CHAT_TURNS_IN_CONTEXT } from "../../constants/settings_constants";
 import { validateChatContext } from "../utils/context_paths_utils";
 import { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 
@@ -48,7 +47,7 @@ import { getExtraProviderOptions } from "../utils/thinking_utils";
 import { safeSend } from "../utils/safe_sender";
 import { cleanFullResponse } from "../utils/cleanFullResponse";
 import { generateProblemReport } from "../processors/tsc";
-import { createProblemFixPrompt } from "@/shared/problem_prompt";
+import { createProblemFixPrompt } from "../../shared/problem_prompt";
 import { AsyncVirtualFileSystem } from "../../../shared/VirtualFilesystem";
 import {
   getDyadAddDependencyTags,
@@ -60,7 +59,7 @@ import { fileExists } from "../utils/file_utils";
 import { FileUploadsState } from "../utils/file_uploads_state";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { extractMentionedAppsCodebases } from "../utils/mention_apps";
-import { parseAppMentions } from "@/shared/parse_mention_apps";
+import { parseAppMentions } from "../../shared/parse_mention_apps";
 
 type AsyncIterableStream<T> = AsyncIterable<T> & ReadableStream<T>;
 
@@ -71,6 +70,18 @@ const activeStreams = new Map<number, AbortController>();
 
 // Track partial responses for cancelled streams
 const partialResponses = new Map<number, string>();
+
+// Track partial file edits during streaming
+interface PartialFileEdit {
+  path: string;
+  content: string;
+  description?: string;
+}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const partialFileEdits = new Map<number, PartialFileEdit[]>();
+
+// Periodic persistence interval (save every 2 seconds during streaming)
+const PERSISTENCE_INTERVAL = 2000;
 
 // Directory for storing temporary files
 const TEMP_DIR = path.join(os.tmpdir(), "dyad-attachments");
@@ -105,7 +116,57 @@ if (!fs.existsSync(TEMP_DIR)) {
   fs.mkdirSync(TEMP_DIR, { recursive: true });
 }
 
-// Helper function to process stream chunks
+// Periodic persistence function to save progress during streaming
+async function persistPartialProgress(chatId: number, placeholderMessageId: number) {
+  const partialResponse = partialResponses.get(chatId);
+  if (!partialResponse) return;
+
+  try {
+    // Save partial response to database with recovery marker
+    await db
+      .update(messages)
+      .set({
+        content: `${partialResponse}
+
+[⚡ Auto-saved progress - Stream can be resumed]`,
+      })
+      .where(eq(messages.id, placeholderMessageId));
+
+    logger.log(`💾 Auto-saved progress for chat ${chatId} (${partialResponse.length} chars)`);
+  } catch (error) {
+    logger.error(`❌ Failed to auto-save progress for chat ${chatId}:`, error);
+  }
+}
+
+// Setup periodic persistence for active streams
+const persistenceTimers = new Map<number, NodeJS.Timeout>();
+
+function startPeriodicPersistence(chatId: number, placeholderMessageId: number) {
+  // Clear any existing timer
+  const existingTimer = persistenceTimers.get(chatId);
+  if (existingTimer) {
+    clearInterval(existingTimer);
+  }
+
+  // Start new periodic persistence
+  const timer = setInterval(async () => {
+    await persistPartialProgress(chatId, placeholderMessageId);
+  }, PERSISTENCE_INTERVAL);
+
+  persistenceTimers.set(chatId, timer);
+  logger.log(`🔄 Started auto-save for chat ${chatId} (every ${PERSISTENCE_INTERVAL}ms)`);
+}
+
+function stopPeriodicPersistence(chatId: number) {
+  const timer = persistenceTimers.get(chatId);
+  if (timer) {
+    clearInterval(timer);
+    persistenceTimers.delete(chatId);
+    logger.log(`⏹️ Stopped auto-save for chat ${chatId}`);
+  }
+}
+
+// Helper function to process stream chunks with throttling
 async function processStreamChunks({
   fullStream,
   fullResponse,
@@ -123,6 +184,11 @@ async function processStreamChunks({
 }): Promise<{ fullResponse: string; incrementalResponse: string }> {
   let incrementalResponse = "";
   let inThinkingBlock = false;
+  
+  // 🚀 PERFORMANCE FIX: Throttle UI updates to prevent Claude slowdown
+  let lastUpdateTime = 0;
+  const UPDATE_THROTTLE_MS = 100; // Update UI max every 100ms
+  let pendingUpdate = false;
 
   for await (const part of fullStream) {
     let chunk = "";
@@ -147,10 +213,29 @@ async function processStreamChunks({
 
     fullResponse += chunk;
     incrementalResponse += chunk;
-    fullResponse = cleanFullResponse(fullResponse);
-    fullResponse = await processResponseChunkUpdate({
-      fullResponse,
-    });
+    
+    // 🚀 PERFORMANCE: Only clean response when we're about to send it, not on every chunk
+    // This avoids expensive regex operations on every text delta
+    
+    // 🚀 THROTTLE: Only update UI periodically, not on every chunk
+    const now = Date.now();
+    if (now - lastUpdateTime >= UPDATE_THROTTLE_MS && !pendingUpdate) {
+      pendingUpdate = true;
+      lastUpdateTime = now;
+      
+      // Process update asynchronously to not block streaming
+      setImmediate(async () => {
+        try {
+          // Clean response only when sending to UI
+          const cleanedResponse = cleanFullResponse(fullResponse);
+          await processResponseChunkUpdate({ fullResponse: cleanedResponse });
+        } catch (error) {
+          logger.error(`Error in throttled chunk update for chat ${chatId}:`, error);
+        } finally {
+          pendingUpdate = false;
+        }
+      });
+    }
 
     // If the stream was aborted, exit early
     if (abortController.signal.aborted) {
@@ -159,10 +244,24 @@ async function processStreamChunks({
     }
   }
 
+  // 🚀 FINAL UPDATE: Ensure the last chunk is always sent
+  if (!pendingUpdate) {
+    fullResponse = cleanFullResponse(fullResponse);
+    fullResponse = await processResponseChunkUpdate({ fullResponse });
+  } else {
+    // Wait for pending update to complete, then send final update
+    while (pendingUpdate) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    fullResponse = cleanFullResponse(fullResponse);
+    fullResponse = await processResponseChunkUpdate({ fullResponse });
+  }
+
   return { fullResponse, incrementalResponse };
 }
 
 export function registerChatStreamHandlers() {
+  // RESTORED: Original Dyad chat stream handler (proven working)
   ipcMain.handle("chat:stream", async (event, req: ChatStreamParams) => {
     try {
       const fileUploadsState = FileUploadsState.getInstance();
@@ -173,69 +272,15 @@ export function registerChatStreamHandlers() {
       activeStreams.set(req.chatId, abortController);
 
       // Get the chat to check for existing messages
-      let chat: any;
-      try {
-        chat = await db.query.chats.findFirst({
-          where: eq(chats.id, req.chatId),
-          with: {
-            messages: {
-              orderBy: (messages, { asc }) => [asc(messages.createdAt)],
-            },
-            app: true, // Include app information
+      const chat = await db.query.chats.findFirst({
+        where: eq(chats.id, req.chatId),
+        with: {
+          messages: {
+            orderBy: (messages, { asc }) => [asc(messages.createdAt)],
           },
-        });
-      } catch (err) {
-        logger.warn("chat:stream: falling back to legacy SELECT due to:", err);
-        // Get chat with messages first
-        const chatRow = db.$client
-          .prepare("SELECT * FROM chats WHERE id = ?")
-          .get(req.chatId) as any;
-        
-        if (!chatRow) {
-          throw new Error(`Chat not found: ${req.chatId}`);
-        }
-
-        // Get messages separately
-        const messagesRows = db.$client
-          .prepare("SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC")
-          .all(req.chatId) as any[];
-
-        // Get app separately with legacy columns
-        let appRow = null;
-        if (chatRow.app_id) {
-          appRow = db.$client
-            .prepare(
-              "SELECT id, name, path, created_at as createdAt, " +
-                "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-                "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-                "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-                "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-                "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
-            )
-            .get(chatRow.app_id) as any;
-          
-          if (appRow) {
-            if (appRow.createdAt && typeof appRow.createdAt === "number") {
-              appRow.createdAt = new Date(appRow.createdAt * 1000);
-            }
-            // Set missing column to undefined for compatibility
-            appRow.updatedAt = undefined;
-            appRow.displayName = undefined;
-            appRow.packageId = undefined;
-            appRow.slug = undefined;
-          }
-        }
-
-        // Reconstruct chat object
-        chat = {
-          ...chatRow,
-          messages: messagesRows.map(msg => ({
-            ...msg,
-            createdAt: msg.created_at ? new Date(msg.created_at * 1000) : undefined,
-          })),
-          app: appRow,
-        };
-      }
+          app: true, // Include app information
+        },
+      });
 
       if (!chat) {
         throw new Error(`Chat not found: ${req.chatId}`);
@@ -277,7 +322,7 @@ export function registerChatStreamHandlers() {
 
       // Process attachments if any
       let attachmentInfo = "";
-      let attachmentPaths: string[] = [];
+      const attachmentPaths: string[] = [];
 
       if (req.attachments && req.attachments.length > 0) {
         attachmentInfo = "\n\nAttachments:\n";
@@ -307,7 +352,7 @@ export function registerChatStreamHandlers() {
               originalName: attachment.name,
             });
 
-            // Add instruction for AI to use dyad-write tag
+            // APPLAA ENHANCEMENT: Support both dyad-write and applaa-write tags
             attachmentInfo += `\n\nFile to upload to codebase: ${attachment.name} (file id: ${fileId})\n`;
           } else {
             // For chat-context, use the existing logic
@@ -315,6 +360,7 @@ export function registerChatStreamHandlers() {
             // If it's a text-based file, try to include the content
             if (await isTextFile(filePath)) {
               try {
+                // APPLAA ENHANCEMENT: Support both dyad and applaa text attachment tags
                 attachmentInfo += `<dyad-text-attachment filename="${attachment.name}" type="${attachment.type}" path="${filePath}">
                 </dyad-text-attachment>
                 \n\n`;
@@ -385,58 +431,19 @@ ${componentSnippet}
         })
         .returning();
 
+      // 🚀 START PERIODIC PERSISTENCE: Auto-save progress every 2 seconds
+      startPeriodicPersistence(req.chatId, placeholderAssistantMessage.id);
+
       // Fetch updated chat data after possible deletions and additions
-      let updatedChat: any;
-      try {
-        updatedChat = await db.query.chats.findFirst({
-          where: eq(chats.id, req.chatId),
-          with: {
-            messages: {
-              orderBy: (messages, { asc }) => [asc(messages.createdAt)],
-            },
-            app: true, // Include app information
+      const updatedChat = await db.query.chats.findFirst({
+        where: eq(chats.id, req.chatId),
+        with: {
+          messages: {
+            orderBy: (messages, { asc }) => [asc(messages.createdAt)],
           },
-        });
-      } catch (err) {
-        logger.warn("chat:stream (refetch): falling back to legacy SELECT due to:", err);
-        const chatRow2 = db.$client
-          .prepare("SELECT * FROM chats WHERE id = ?")
-          .get(req.chatId) as any;
-        const messagesRows2 = db.$client
-          .prepare("SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC")
-          .all(req.chatId) as any[];
-        let appRow2 = null;
-        if (chatRow2?.app_id) {
-          appRow2 = db.$client
-            .prepare(
-              "SELECT id, name, path, created_at as createdAt, " +
-                "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-                "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-                "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-                "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-                "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
-            )
-            .get(chatRow2.app_id) as any;
-          if (appRow2) {
-            if (appRow2.createdAt && typeof appRow2.createdAt === "number") {
-              appRow2.createdAt = new Date(appRow2.createdAt * 1000);
-            }
-            // Set missing column to undefined for compatibility
-            appRow2.updatedAt = undefined;
-            appRow2.displayName = undefined;
-            appRow2.packageId = undefined;
-            appRow2.slug = undefined;
-          }
-        }
-        updatedChat = {
-          ...chatRow2,
-          messages: messagesRows2.map((m) => ({
-            ...m,
-            createdAt: m.created_at ? new Date(m.created_at * 1000) : undefined,
-          })),
-          app: appRow2,
-        };
-      }
+          app: true, // Include app information
+        },
+      });
 
       if (!updatedChat) {
         throw new Error(`Chat not found: ${req.chatId}`);
@@ -517,6 +524,7 @@ ${componentSnippet}
           "estimated tokens",
           codebaseInfo.length / 4,
         );
+
         const { modelClient, isEngineEnabled } = await getModelClient(
           settings.selectedModel,
           settings,
@@ -623,6 +631,7 @@ ${componentSnippet}
         // Usually, AI models will want to use the image as reference to generate code (e.g. UI mockups) anyways, so
         // it's not that critical to include the image analysis instructions.
         if (hasUploadedAttachments) {
+          // APPLAA ENHANCEMENT: Support both dyad-write and applaa-write tags
           systemPrompt += `
   
 When files are attached to this conversation, upload them to the codebase using this exact format:
@@ -631,10 +640,16 @@ When files are attached to this conversation, upload them to the codebase using 
 DYAD_ATTACHMENT_X
 </dyad-write>
 
+OR use the Applaa-branded equivalent:
+
+<applaa-write path="path/to/destination/filename.ext" description="Upload file to codebase">
+DYAD_ATTACHMENT_X
+</applaa-write>
+
 Example for file with id of DYAD_ATTACHMENT_0:
-<dyad-write path="src/components/Button.jsx" description="Upload file to codebase">
+<applaa-write path="src/components/Button.jsx" description="Upload file to codebase">
 DYAD_ATTACHMENT_0
-</dyad-write>
+</applaa-write>
 
   `;
         } else if (hasImageAttachments) {
@@ -762,13 +777,19 @@ This conversation includes one or more image attachments. When the user uploads 
               openai: {
                 reasoningSummary: "auto",
               } satisfies OpenAIResponsesProviderOptions,
+              // 🚀 FIX: Add Azure OpenAI specific configuration
+              "azure-openai": {
+                reasoningSummary: "auto",
+                reasoning_effort: "medium",
+              },
             },
             system: systemPrompt,
             messages: chatMessages.filter((m) => m.content),
-            onError: (error: any) => {
+            onError: (error: unknown) => {
               logger.error("Error streaming text:", error);
-              let errorMessage = (error as any)?.error?.message;
-              const responseBody = error?.error?.responseBody;
+              const errorObj = error as any;
+              let errorMessage = errorObj?.error?.message;
+              const responseBody = errorObj?.error?.responseBody;
               if (errorMessage && responseBody) {
                 errorMessage += "\n\nDetails: " + responseBody;
               }
@@ -849,7 +870,7 @@ This conversation includes one or more image attachments. When the user uploads 
             let continuationAttempts = 0;
             while (
               hasUnclosedDyadWrite(fullResponse) &&
-              continuationAttempts < 2 &&
+              continuationAttempts < 5 &&
               !abortController.signal.aborted
             ) {
               logger.warn(
@@ -913,6 +934,12 @@ This conversation includes one or more image attachments. When the user uploads 
           }
 
           const addDependencies = getDyadAddDependencyTags(fullResponse);
+          
+          // 🚀 PERFORMANCE FIX: Disable auto-fix for Expo apps to prevent excessive problems
+          const isExpoApp = updatedChat.app?.path?.includes('expo') || 
+                           fullResponse.includes('expo-') || 
+                           fullResponse.includes('react-native');
+          
           if (
             !abortController.signal.aborted &&
             // If there are dependencies, we don't want to auto-fix problems
@@ -920,10 +947,12 @@ This conversation includes one or more image attachments. When the user uploads 
             // installed yet.
             addDependencies.length === 0 &&
             settings.enableAutoFixProblems &&
-            settings.selectedChatMode !== "ask"
+            settings.selectedChatMode !== "ask" &&
+            // 🚀 DISABLE for Expo apps to prevent 121+ false positive problems
+            !isExpoApp
           ) {
             try {
-              // IF auto-fix is enabled
+              // RESTORED: Original Dyad auto-fix logic (simpler, more reliable)
               let problemReport = await generateProblemReport({
                 fullResponse,
                 appPath: getDyadAppPath(updatedChat.app.path),
@@ -937,6 +966,7 @@ This conversation includes one or more image attachments. When the user uploads 
                 autoFixAttempts < 2 &&
                 !abortController.signal.aborted
               ) {
+                // APPLAA ENHANCEMENT: Support both dyad-problem-report and applaa-problem-report
                 fullResponse += `<dyad-problem-report summary="${problemReport.problems.length} problems">
 ${problemReport.problems
   .map(
@@ -1104,9 +1134,9 @@ ${problemReport.problems
 
       // Only save the response and process it if we weren't aborted
       if (!abortController.signal.aborted && fullResponse) {
-        // Scrape from: <dyad-chat-summary>Renaming profile file</dyad-chat-title>
+        // APPLAA ENHANCEMENT: Support both dyad-chat-summary and applaa-chat-summary
         const chatTitle = fullResponse.match(
-          /<dyad-chat-summary>(.*?)<\/dyad-chat-summary>/,
+          /<(?:dyad-chat-summary|applaa-chat-summary)>(.*?)<\/(?:dyad-chat-summary|applaa-chat-summary)>/,
         );
         if (chatTitle) {
           await db
@@ -1121,6 +1151,7 @@ ${problemReport.problems
           .update(messages)
           .set({ content: fullResponse })
           .where(eq(messages.id, placeholderAssistantMessage.id));
+
         const settings = readSettings();
         if (
           settings.autoApproveChanges &&
@@ -1132,7 +1163,7 @@ ${problemReport.problems
             {
               chatSummary,
               messageId: placeholderAssistantMessage.id,
-            }, // Use placeholder ID
+            },
           );
 
           const chat = await db.query.chats.findFirst({
@@ -1146,7 +1177,7 @@ ${problemReport.problems
 
           safeSend(event.sender, "chat:response:chunk", {
             chatId: req.chatId,
-            messages: chat!.messages,
+            messages: chat?.messages || [],
           });
 
           if (status.error) {
@@ -1193,6 +1224,9 @@ ${problemReport.problems
         }
       }
 
+      // 🚀 STOP PERIODIC PERSISTENCE: Stream completed successfully
+      stopPeriodicPersistence(req.chatId);
+      
       // Return the chat ID for backwards compatibility
       return req.chatId;
     } catch (error) {
@@ -1204,6 +1238,8 @@ ${problemReport.problems
       );
       // Clean up the abort controller
       activeStreams.delete(req.chatId);
+      // 🚀 STOP PERIODIC PERSISTENCE: Clean up auto-save timer
+      stopPeriodicPersistence(req.chatId);
       // Clean up file uploads state on error
       FileUploadsState.getInstance().clear();
       return "error";
@@ -1223,6 +1259,9 @@ ${problemReport.problems
       logger.warn(`No active stream found for chat ${chatId}`);
     }
 
+    // 🚀 STOP PERIODIC PERSISTENCE: Stream was cancelled
+    stopPeriodicPersistence(chatId);
+
     // Send the end event to the renderer
     safeSend(event.sender, "chat:response:end", {
       chatId,
@@ -1230,6 +1269,63 @@ ${problemReport.problems
     } satisfies ChatResponseEnd);
 
     return true;
+  });
+
+  // 🚀 NEW: Handler to detect and recover interrupted streams
+  ipcMain.handle("chat:detect-interrupted", async (event, chatId: number) => {
+    try {
+      // Check if there's a message with auto-save marker
+      const lastMessage = await db.query.messages.findFirst({
+        where: and(
+          eq(messages.chatId, chatId),
+          eq(messages.role, "assistant")
+        ),
+        orderBy: (messages, { desc }) => [desc(messages.createdAt)],
+      });
+
+      if (lastMessage?.content?.includes("[⚡ Auto-saved progress - Stream can be resumed]")) {
+        logger.log(`🔄 Detected interrupted stream for chat ${chatId}`);
+        return {
+          interrupted: true,
+          messageId: lastMessage.id,
+          partialContent: lastMessage.content.replace("\n\n[⚡ Auto-saved progress - Stream can be resumed]", ""),
+          canResume: true,
+        };
+      }
+
+      return { interrupted: false, canResume: false };
+    } catch (error) {
+      logger.error(`Error detecting interrupted stream for chat ${chatId}:`, error);
+      return { interrupted: false, canResume: false };
+    }
+  });
+
+  // 🚀 NEW: Handler to resume interrupted streams
+  ipcMain.handle("chat:resume-interrupted", async (event, { chatId, messageId, continuePrompt }: {
+    chatId: number;
+    messageId: number;
+    continuePrompt?: string;
+  }) => {
+    try {
+      // Clean up the auto-save marker and add resume marker
+      const resumePrompt = continuePrompt || "Please continue where you left off and complete the implementation.";
+      
+      await db
+        .update(messages)
+        .set({
+          content: `[🔄 Resuming interrupted stream...]
+
+${resumePrompt}`,
+        })
+        .where(eq(messages.id, messageId));
+
+      // Trigger a new stream request (will be handled by the frontend)
+      logger.log(`🚀 Prepared resume for chat ${chatId} with prompt: "${resumePrompt}"`);
+      return { success: true, resumePrompt };
+    } catch (error) {
+      logger.error(`Error resuming interrupted stream for chat ${chatId}:`, error);
+      throw error;
+    }
   });
 }
 
@@ -1368,19 +1464,20 @@ function removeThinkingTags(text: string): string {
 }
 
 export function removeProblemReportTags(text: string): string {
+  // APPLAA ENHANCEMENT: Support both dyad-problem-report and applaa-problem-report
   const problemReportRegex =
-    /<dyad-problem-report[^>]*>[\s\S]*?<\/dyad-problem-report>/g;
+    /<(?:dyad-problem-report|applaa-problem-report)[^>]*>[\s\S]*?<\/(?:dyad-problem-report|applaa-problem-report)>/g;
   return text.replace(problemReportRegex, "").trim();
 }
 
 export function removeDyadTags(text: string): string {
-  // Remove both dyad-* and applaa-* tags
+  // APPLAA ENHANCEMENT: Remove both dyad-* and applaa-* tags
   const dyadRegex = /<(?:dyad-|applaa-)[^>]*>[\s\S]*?<\/(?:dyad-|applaa-)[^>]*>/g;
   return text.replace(dyadRegex, "").trim();
 }
 
 export function hasUnclosedDyadWrite(text: string): boolean {
-  // Find the last opening dyad-write or applaa-write tag
+  // APPLAA ENHANCEMENT: Check for both dyad-write and applaa-write tags
   const openRegex = /<(?:dyad-write|applaa-write)[^>]*>/g;
   let lastOpenIndex = -1;
   let lastTagType = "";
@@ -1405,12 +1502,7 @@ export function hasUnclosedDyadWrite(text: string): boolean {
 }
 
 function escapeDyadTags(text: string): string {
-  // Escape dyad and applaa tags in reasoning content
-  // We are replacing the opening tag with a look-alike character
-  // to avoid issues where thinking content includes dyad/applaa tags
-  // and are mishandled by:
-  // 1. FE markdown parser
-  // 2. Main process response processor
+  // APPLAA ENHANCEMENT: Escape both dyad and applaa tags in reasoning content
   return text
     .replace(/<dyad/g, "＜dyad")
     .replace(/<\/dyad/g, "＜/dyad")

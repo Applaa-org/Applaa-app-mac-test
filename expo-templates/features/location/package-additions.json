@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "expo-location": "~18.0.2"
+  },
+  "description": "Location services with GPS, geocoding, and geofencing",
+  "features": [
+    "Current location",
+    "Location tracking",
+    "Geocoding",
+    "Reverse geocoding",
+    "Location permissions"
+  ]
+}
+
+

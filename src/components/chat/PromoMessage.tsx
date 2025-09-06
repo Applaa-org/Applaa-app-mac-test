@@ -56,7 +56,7 @@ export function Message({ spans }: MessageConfig) {
 export const TURBO_EDITS_PROMO_MESSAGE: MessageConfig = {
   spans: [
     { type: "text", content: "Tired of waiting on AI?" },
-    { type: "link", content: " Get Applaa Pro", url: "https://dyad.sh/pro#ai" },
+    { type: "link", content: " Get Applaa Pro", url: "https://applaa.dev/pro#ai" },
     { type: "text", content: " for faster edits with Spark Edits." },
   ],
 };
@@ -67,7 +67,7 @@ export const SMART_CONTEXT_PROMO_MESSAGE: MessageConfig = {
     {
       type: "link",
       content: "Applaa Pro's Spark Context",
-      url: "https://dyad.sh/pro#ai",
+      url: "https://applaa.dev/pro#ai",
     },
   ],
 };
@@ -90,7 +90,7 @@ export const REDDIT_TIP: MessageConfig = {
     },
     {
       type: "link",
-      content: "Dyad subreddit",
+      content: "Applaa subreddit",
       url: "https://www.reddit.com/r/dyadbuilders/",
     },
   ],
@@ -124,7 +124,7 @@ export const BUILD_A_BIBLE_APP_TIP: MessageConfig = {
     },
     {
       type: "text",
-      content: " the creator of Dyad build a Bible app step-by-step",
+      content: " the creator of Applaa build a Bible app step-by-step",
     },
   ],
 };
@@ -187,7 +187,7 @@ export const GITHUB_TIP: MessageConfig = {
   spans: [
     {
       type: "text",
-      content: "Like Dyad? Star it on ",
+      content: "Like Applaa? Star it on ",
     },
     {
       type: "link",

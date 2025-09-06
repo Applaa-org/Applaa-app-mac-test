@@ -1,6 +1,7 @@
 import { useAtom, useAtomValue } from "jotai";
 import { previewModeAtom, selectedAppIdAtom } from "../../atoms/appAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
+import { useCheckProblems } from "@/hooks/useCheckProblems";
 
 import {
   Eye,
@@ -12,6 +13,7 @@ import {
   Wrench,
   Globe,
   TestTube,
+  Palette,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -31,7 +33,7 @@ import {
 } from "@/components/ui/tooltip";
 import { showError, showSuccess } from "@/lib/toast";
 import { useMutation } from "@tanstack/react-query";
-import { useCheckProblems } from "@/hooks/useCheckProblems";
+
 import { isPreviewOpenAtom } from "@/atoms/viewAtoms";
 
 export type PreviewMode =
@@ -50,16 +52,18 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
   const [previewMode, setPreviewMode] = useAtom(previewModeAtom);
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  const { problemReport } = useCheckProblems(selectedAppId);
   const previewRef = useRef<HTMLButtonElement>(null);
   const codeRef = useRef<HTMLButtonElement>(null);
   const problemsRef = useRef<HTMLButtonElement>(null);
   const configureRef = useRef<HTMLButtonElement>(null);
   const publishRef = useRef<HTMLButtonElement>(null);
   const testingRef = useRef<HTMLButtonElement>(null);
+  const designRef = useRef<HTMLButtonElement>(null);
 
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const { problemReport } = useCheckProblems(selectedAppId);
+
   const { restartApp, refreshAppIframe } = useRunApp();
 
   const isCompact = windowWidth < 860;
@@ -109,17 +113,7 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
     clearSessionData();
   }, [clearSessionData]);
 
-  // Get the problem count for the selected app
-  const problemCount = problemReport ? problemReport.problems.length : 0;
 
-  // Format the problem count for display
-  const formatProblemCount = (count: number): string => {
-    if (count === 0) return "";
-    if (count > 100) return "100+";
-    return count.toString();
-  };
-
-  const displayCount = formatProblemCount(problemCount);
 
   // Update indicator position when mode changes
   useEffect(() => {
@@ -145,6 +139,7 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
         case "testing":
           targetRef = testingRef;
           break;
+        // Design case removed for MVP
         default:
           return;
       }
@@ -169,7 +164,7 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
     // Small delay to ensure DOM is updated
     const timeoutId = setTimeout(updateIndicator, 10);
     return () => clearTimeout(timeoutId);
-  }, [previewMode, displayCount, isPreviewOpen, isCompact]);
+  }, [previewMode, isPreviewOpen, isCompact]);
 
   const renderButton = (
     mode: PreviewMode,
@@ -236,11 +231,11 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
             <AlertTriangle size={14} />,
             "Problems",
             "problems-mode-button",
-            displayCount && (
-              <span className="ml-0.5 px-1 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full min-w-[16px] text-center">
-                {displayCount}
+            problemReport?.problems?.length ? (
+              <span className="ml-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                {problemReport.problems.length}
               </span>
-            ),
+            ) : undefined,
           )}
           {renderButton(
             "code",
@@ -271,6 +266,7 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
             "Testing",
             "testing-mode-button",
           )}
+          {/* Design button removed for MVP */}
         </div>
         <div className="flex items-center">
           <DropdownMenu>

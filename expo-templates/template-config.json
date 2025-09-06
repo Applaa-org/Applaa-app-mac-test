@@ -1,0 +1,280 @@
+{
+  "templates": {
+    "base-router": {
+      "name": "Basic Expo Router App",
+      "description": "Clean Expo app with router navigation",
+      "path": "base-router",
+      "features": [],
+      "plugins": {
+        "core": ["expo-router"],
+        "applaa": ["./plugins/applaa-config-plugin"]
+      }
+    },
+    "ai-powered": {
+      "name": "AI-Powered App",
+      "description": "Expo app with Transformers.js for on-device AI",
+      "path": "base-router",
+      "features": ["transformers-ai", "offline-storage"],
+      "plugins": {
+        "core": ["expo-router", "expo-splash-screen"],
+        "ai": ["onnxruntime-react-native"],
+        "applaa": ["./plugins/applaa-config-plugin"]
+      }
+    },
+    "full-stack": {
+      "name": "Full-Stack App",
+      "description": "Complete app with database, auth, and notifications",
+      "path": "base-router",
+      "features": ["supabase", "notifications", "offline-storage", "camera"],
+      "plugins": {
+        "core": ["expo-router", "expo-splash-screen"],
+        "features": ["expo-camera", "expo-notifications", "expo-sqlite"],
+        "applaa": ["./plugins/applaa-config-plugin"]
+      }
+    },
+    "ai-assistant": {
+      "name": "AI Assistant App",
+      "description": "Personal AI assistant with all features",
+      "path": "base-router",
+      "features": ["transformers-ai", "supabase", "notifications", "offline-storage", "camera", "snapai-icons", "superdesign-ui", "splash-screen"],
+      "plugins": {
+        "core": ["expo-router", "expo-splash-screen", "expo-font"],
+        "ai": ["onnxruntime-react-native"],
+        "features": ["expo-camera", "expo-notifications", "expo-sqlite", "expo-location"],
+        "applaa": ["./plugins/applaa-config-plugin"]
+      }
+    },
+    "productivity": {
+      "name": "Productivity App",
+      "description": "Complete productivity suite with all device features",
+      "path": "base-router",
+      "features": ["camera", "location", "audio", "contacts", "sharing", "sensors", "haptics"],
+      "plugins": {
+        "core": ["expo-router", "expo-splash-screen", "expo-font"],
+        "features": [
+          "expo-camera", "expo-location", "expo-av", "expo-contacts", 
+          "expo-sharing", "expo-sensors", "expo-haptics", "expo-device"
+        ],
+        "applaa": ["./plugins/applaa-config-plugin"]
+      }
+    },
+    "social-media": {
+      "name": "Social Media App",
+      "description": "Social networking app with media sharing and real-time features",
+      "path": "base-router",
+      "features": ["camera", "sharing", "notifications", "supabase", "haptics"],
+      "plugins": {
+        "core": ["expo-router", "expo-splash-screen", "expo-font"],
+        "features": ["expo-camera", "expo-sharing", "expo-notifications", "expo-haptics"],
+        "applaa": ["./plugins/applaa-config-plugin"]
+      }
+    }
+  },
+  "features": {
+    "offline-storage": {
+      "name": "Offline Storage",
+      "description": "AsyncStorage and SQLite for local data storage",
+      "dependencies": ["@react-native-async-storage/async-storage", "expo-sqlite"],
+      "plugins": ["expo-sqlite"],
+      "utils": ["storage"],
+      "permissions": {
+        "android": ["android.permission.WRITE_EXTERNAL_STORAGE"],
+        "ios": []
+      }
+    },
+    "notifications": {
+      "name": "Push Notifications",
+      "description": "Local and push notifications",
+      "dependencies": ["expo-notifications", "expo-device", "expo-constants"],
+      "plugins": ["expo-notifications"],
+      "utils": ["notifications"],
+      "permissions": {
+        "android": ["android.permission.RECEIVE_BOOT_COMPLETED", "android.permission.VIBRATE"],
+        "ios": ["NSUserNotificationsUsageDescription"]
+      }
+    },
+    "camera": {
+      "name": "Camera & Media",
+      "description": "Camera, image picker, and media library",
+      "dependencies": ["expo-camera", "expo-media-library", "expo-image-picker"],
+      "plugins": ["expo-camera", "expo-image-picker"],
+      "utils": ["camera"],
+      "permissions": {
+        "android": ["android.permission.CAMERA", "android.permission.RECORD_AUDIO", "android.permission.WRITE_EXTERNAL_STORAGE"],
+        "ios": ["NSCameraUsageDescription", "NSMicrophoneUsageDescription", "NSPhotoLibraryUsageDescription"]
+      }
+    },
+    "location": {
+      "name": "Location Services",
+      "description": "GPS location, geocoding, and geofencing",
+      "dependencies": ["expo-location"],
+      "plugins": ["expo-location"],
+      "utils": ["location"],
+      "permissions": {
+        "android": ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_BACKGROUND_LOCATION"],
+        "ios": ["NSLocationWhenInUseUsageDescription", "NSLocationAlwaysAndWhenInUseUsageDescription"]
+      }
+    },
+    "audio": {
+      "name": "Audio & Video",
+      "description": "Audio recording, playback, and video support",
+      "dependencies": ["expo-av"],
+      "plugins": ["expo-av"],
+      "utils": ["audio"],
+      "permissions": {
+        "android": ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"],
+        "ios": ["NSMicrophoneUsageDescription"]
+      }
+    },
+    "haptics": {
+      "name": "Haptic Feedback",
+      "description": "Tactile feedback for enhanced user experience",
+      "dependencies": ["expo-haptics"],
+      "plugins": [],
+      "utils": ["haptics"],
+      "permissions": {
+        "android": ["android.permission.VIBRATE"],
+        "ios": []
+      }
+    },
+    "sharing": {
+      "name": "Social Sharing",
+      "description": "Share content to social media and other apps",
+      "dependencies": ["expo-sharing", "expo-intent-launcher"],
+      "plugins": ["expo-sharing"],
+      "utils": ["sharing"],
+      "permissions": {
+        "android": ["android.permission.INTERNET"],
+        "ios": []
+      }
+    },
+    "contacts": {
+      "name": "Contacts Access",
+      "description": "Access and manage device contacts",
+      "dependencies": ["expo-contacts"],
+      "plugins": ["expo-contacts"],
+      "utils": ["contacts"],
+      "permissions": {
+        "android": ["android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"],
+        "ios": ["NSContactsUsageDescription"]
+      }
+    },
+    "sensors": {
+      "name": "Device Sensors",
+      "description": "Accelerometer, gyroscope, magnetometer, and more",
+      "dependencies": ["expo-sensors"],
+      "plugins": [],
+      "utils": ["sensors"],
+      "permissions": {
+        "android": ["android.permission.HIGH_SAMPLING_RATE_SENSORS"],
+        "ios": ["NSMotionUsageDescription"]
+      }
+    },
+    "device": {
+      "name": "Device Information",
+      "description": "Device specs, battery, network, and system info",
+      "dependencies": ["expo-device", "expo-application", "expo-constants", "expo-network", "expo-battery"],
+      "plugins": [],
+      "utils": ["device"],
+      "permissions": {
+        "android": ["android.permission.ACCESS_NETWORK_STATE", "android.permission.BATTERY_STATS"],
+        "ios": []
+      }
+    },
+    "supabase": {
+      "name": "Applaa Supabase Integration",
+      "description": "Automatic Supabase integration using your connected Applaa project",
+      "dependencies": ["@supabase/supabase-js", "react-native-url-polyfill"],
+      "plugins": [],
+      "utils": ["supabase"],
+      "permissions": {
+        "android": ["android.permission.INTERNET"],
+        "ios": []
+      },
+      "applaaIntegration": {
+        "type": "supabase",
+        "autoConnect": true,
+        "systemPrompt": "SUPABASE_AVAILABLE_SYSTEM_PROMPT",
+        "clientPath": "utils/supabase.ts",
+        "replaceToken": "$$SUPABASE_CLIENT_CODE$$"
+      }
+    },
+    "admob": {
+      "name": "AdMob Monetization",
+      "description": "Google AdMob for app monetization",
+      "dependencies": ["expo-ads-admob"],
+      "plugins": ["expo-ads-admob"],
+      "utils": [],
+      "permissions": {
+        "android": ["android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE"],
+        "ios": []
+      }
+    },
+    "snapai-icons": {
+      "name": "SnapAI Icon Generation",
+      "description": "AI-powered app icon generation using OpenAI",
+      "dependencies": ["openai", "expo-file-system", "expo-image"],
+      "plugins": [],
+      "utils": ["iconGenerator"],
+      "permissions": {
+        "android": ["android.permission.INTERNET"],
+        "ios": []
+      }
+    },
+    "superdesign-ui": {
+      "name": "SuperDesign UI Generation",
+      "description": "Dribbble-inspired UI design generation",
+      "dependencies": ["openai", "react-native-svg", "expo-linear-gradient"],
+      "plugins": [],
+      "utils": ["uiGenerator"],
+      "permissions": {
+        "android": ["android.permission.INTERNET"],
+        "ios": []
+      }
+    },
+    "splash-screen": {
+      "name": "Enhanced Splash Screen",
+      "description": "Professional splash screen with custom animations",
+      "dependencies": ["expo-splash-screen", "expo-font"],
+      "plugins": ["expo-splash-screen"],
+      "utils": ["splashScreenManager"],
+      "permissions": {
+        "android": [],
+        "ios": []
+      }
+    }
+  },
+  "pluginConfigurations": {
+    "expo-camera": {
+      "cameraPermission": "This app uses the camera to capture photos and videos for your projects.",
+      "microphonePermission": "This app uses the microphone to record audio for your projects."
+    },
+    "expo-location": {
+      "locationAlwaysAndWhenInUsePermission": "This app uses your location to provide location-based features.",
+      "locationWhenInUsePermission": "This app uses your location to provide location-based features."
+    },
+    "expo-notifications": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#4F46E5",
+      "sounds": ["./assets/notification.wav"]
+    },
+    "expo-contacts": {
+      "contactsPermission": "This app accesses your contacts to help you connect with friends."
+    },
+    "expo-av": {
+      "microphonePermission": "This app uses the microphone to record audio for your projects."
+    },
+    "expo-sharing": {
+      "mimeTypes": ["image/*", "video/*", "audio/*", "text/*"]
+    },
+    "expo-sqlite": {
+      "enableFTS": true,
+      "enableRTree": true
+    },
+    "onnxruntime-react-native": {
+      "enableGPU": false,
+      "enableCoreML": true,
+      "enableDirectML": false
+    }
+  }
+}

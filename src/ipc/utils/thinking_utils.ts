@@ -23,7 +23,7 @@ export function getExtraProviderOptions(
   if (!providerId) {
     return {};
   }
-  if (providerId === "openai") {
+  if (providerId === "openai" || providerId === "azure-openai") {
     return {
       reasoning_effort: "medium",
     };

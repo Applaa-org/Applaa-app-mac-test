@@ -4,15 +4,16 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { DeepLinkProvider } from "../contexts/DeepLinkContext";
 import { Toaster } from "sonner";
 import { TitleBar } from "./TitleBar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRunApp } from "@/hooks/useRunApp";
 import { useAtomValue } from "jotai";
 import { previewModeAtom } from "@/atoms/appAtoms";
-import { SemanticContextInitializer } from "@/components/context/SemanticContextInitializer";
+// SemanticContextInitializer removed for MVP
 import { AIOnboardingManager } from "@/components/onboarding/AIOnboardingManager";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BackgroundTaskStatusBar } from "@/components/BackgroundTaskNotifications";
 import { BackgroundTaskCompletionHandler } from "@/components/BackgroundTaskCompletionHandler";
+import { useBackgroundDependencyInstaller } from "@/hooks/useBackgroundDependencyInstaller";
 
 export default function RootLayout({
   children,
@@ -20,7 +21,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const { refreshAppIframe } = useRunApp();
+  
+  // 🚀 OPTIMIZATION: Background dependency installation for opened apps
+  useBackgroundDependencyInstaller();
   const previewMode = useAtomValue(previewModeAtom);
+  
+  // 🚀 PERFORMANCE: Delay non-essential features to improve startup time
+  // Semantic context removed for MVP
+  
+  // Semantic context initialization removed for MVP
+  
   // Global keyboard listener for refresh events
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -47,10 +57,8 @@ export default function RootLayout({
       <ThemeProvider>
         <DeepLinkProvider>
           <SidebarProvider>
-            {/* Spark AI Context Engine - Re-enabled */}
-            <ErrorBoundary>
-              <SemanticContextInitializer />
-            </ErrorBoundary>
+            {/* 🚀 PERFORMANCE: Semantic Context DISABLED for testing - will re-enable after core fixes */}
+            {/* Semantic context UI removed for MVP */}
             {/* AIOnboardingManager temporarily disabled for core stability */}
             {/* 
             <ErrorBoundary>

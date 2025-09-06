@@ -1,0 +1,10 @@
+{
+  "description": "Charts via react-native-chart-kit",
+  "features": ["charts"],
+  "dependencies": {
+    "react-native-chart-kit": "^6.12.0",
+    "react-native-svg": "15.8.0"
+  },
+  "configUpdates": {}
+}
+

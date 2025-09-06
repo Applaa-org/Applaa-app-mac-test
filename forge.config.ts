@@ -64,10 +64,26 @@ const config: ForgeConfig = {
     ],
     icon: "./assets/icon/logo.ico",
     asar: true,
+    asarUnpack: [
+      "node_modules/@google/gemini-cli/**",
+      "node_modules/onnxruntime-react-native/**",
+      "node_modules/react-native-transformers/**",
+      "node_modules/better-sqlite3/**"
+    ],
+    extraResource: [
+      "vendor/node20"
+    ],
     ignore,
   },
   rebuildConfig: {
-    extraModules: ["better-sqlite3"],
+    extraModules: [
+      "better-sqlite3",
+      "onnxruntime-react-native", 
+      "react-native-transformers",
+      "@react-native-async-storage/async-storage",
+      "expo-sqlite",
+      "react-native-svg"
+    ],
     force: true,
   },
   // Makers for creating distributable packages

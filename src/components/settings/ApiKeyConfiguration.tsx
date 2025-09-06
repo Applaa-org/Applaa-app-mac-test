@@ -30,6 +30,10 @@ interface ApiKeyConfigurationProps {
   onSaveKey: () => Promise<void>;
   onDeleteKey: () => Promise<void>;
   isDyad: boolean;
+  // API Base URL support for Azure OpenAI
+  needsApiBaseUrl?: boolean;
+  apiBaseUrlInput?: string;
+  onApiBaseUrlInputChange?: (value: string) => void;
 }
 
 export function ApiKeyConfiguration({
@@ -45,12 +49,16 @@ export function ApiKeyConfiguration({
   onSaveKey,
   onDeleteKey,
   isDyad,
+  needsApiBaseUrl = false,
+  apiBaseUrlInput = "",
+  onApiBaseUrlInputChange,
 }: ApiKeyConfigurationProps) {
   // Only check environment variables in development, never in packaged apps
   const envApiKey = (envVarName && envVars[envVarName] && 
     process.env.NODE_ENV === 'development' && !process.resourcesPath && !process.defaultApp) 
     ? envVars[envVarName] : undefined;
   const userApiKey = settings?.providerSettings?.[provider]?.apiKey?.value;
+  const userApiBaseUrl = settings?.providerSettings?.[provider]?.apiBaseUrl?.value;
 
   const isValidUserKey =
     !!userApiKey &&
@@ -104,6 +112,12 @@ export function ApiKeyConfiguration({
               </AlertTitle>
               <AlertDescription>
                 <p className="font-mono text-sm">{userApiKey}</p>
+                {needsApiBaseUrl && userApiBaseUrl && (
+                  <p className="font-mono text-sm mt-2">
+                    <span className="text-gray-600 dark:text-gray-400">API Base URL:</span><br />
+                    {userApiBaseUrl}
+                  </p>
+                )}
                 {activeKeySource === "settings" && (
                   <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                     This key is currently active.
@@ -120,15 +134,39 @@ export function ApiKeyConfiguration({
             >
               {isValidUserKey ? "Update" : "Set"} {providerDisplayName} API Key
             </label>
-            <div className="flex items-start space-x-2">
+            <div className="space-y-3">
               <Input
                 id="apiKeyInput"
                 value={apiKeyInput}
                 onChange={(e) => onApiKeyInputChange(e.target.value)}
                 placeholder={`Enter new ${providerDisplayName} API Key here`}
-                className={`flex-grow ${saveError ? "border-red-500" : ""}`}
+                className={`w-full ${saveError ? "border-red-500" : ""}`}
               />
-              <Button onClick={onSaveKey} disabled={isSaving || !apiKeyInput}>
+              {needsApiBaseUrl && (
+                <div className="space-y-2">
+                  <label
+                    htmlFor="apiBaseUrlInput"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    API Base URL
+                  </label>
+                  <Input
+                    id="apiBaseUrlInput"
+                    value={apiBaseUrlInput}
+                    onChange={(e) => onApiBaseUrlInputChange?.(e.target.value)}
+                    placeholder="https://your-resource.openai.azure.com/openai/deployments/your-deployment/chat/completions?api-version=2025-01-01-preview"
+                    className={`w-full ${saveError ? "border-red-500" : ""}`}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    The complete Azure OpenAI endpoint URL including deployment name and API version.
+                  </p>
+                </div>
+              )}
+              <Button 
+                onClick={onSaveKey} 
+                disabled={isSaving || !apiKeyInput || (needsApiBaseUrl && !apiBaseUrlInput)}
+                className="w-full"
+              >
                 {isSaving ? "Saving..." : "Save Key"}
               </Button>
             </div>

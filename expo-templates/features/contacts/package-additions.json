@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "expo-contacts": "~14.0.1"
+  },
+  "description": "Contact management with read/write access to device contacts",
+  "features": [
+    "Read contacts",
+    "Create contacts",
+    "Update contacts",
+    "Contact permissions"
+  ]
+}
+
+

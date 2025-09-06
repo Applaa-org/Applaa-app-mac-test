@@ -30,6 +30,8 @@ const ALLOWED_EXTENSIONS = [
   ".scss",
   ".sass",
   ".less",
+  // Configuration files - CRITICAL for LLM understanding
+  ".json",
   // GitHub Actions
   ".yml",
   ".yaml",
@@ -58,7 +60,24 @@ const EXCLUDED_DIRS = ["node_modules", ".git", "dist", "build", ".next"];
 const EXCLUDED_FILES = ["pnpm-lock.yaml", "package-lock.json"];
 
 // Files to always include, regardless of extension
-const ALWAYS_INCLUDE_FILES = ["package.json", "vercel.json", ".gitignore"];
+const ALWAYS_INCLUDE_FILES = [
+  "package.json", 
+  "vercel.json", 
+  ".gitignore",
+  // TypeScript configuration files - CRITICAL for understanding project setup
+  "tsconfig.json",
+  "tsconfig.app.json", 
+  "tsconfig.node.json",
+  // Next.js configuration
+  "next.config.js",
+  "next.config.mjs",
+  // Vite configuration  
+  "vite.config.js",
+  "vite.config.ts",
+  // Tailwind configuration
+  "tailwind.config.js",
+  "tailwind.config.ts",
+];
 
 // File patterns to always omit (contents will be replaced with a placeholder)
 // We don't want to send environment variables to the LLM because they
@@ -73,7 +92,7 @@ const OMITTED_FILES = [
   ...ALWAYS_OMITTED_FILES,
   "src/components/ui",
   "eslint.config",
-  "tsconfig.json",
+  // NOTE: Removed "tsconfig.json" - now included per Dyad commit #53bbfc9
 ];
 
 // Maximum file size to include (in bytes) - 1MB
@@ -178,7 +197,8 @@ export async function readFileWithCache(
     if (virtualFileSystem) {
       const virtualContent = await virtualFileSystem.readFile(filePath);
       if (virtualContent != null) {
-        return cleanContent({ content: virtualContent, filePath });
+        // Fixed: Return raw content without cleaning per Dyad commit #1dfa0d1
+        return virtualContent;
       }
     }
 
@@ -196,9 +216,9 @@ export async function readFileWithCache(
 
     // Read file and update cache
     const rawContent = await fsAsync.readFile(filePath, "utf-8");
-    const content = cleanContent({ content: rawContent, filePath });
+    // Fixed: Return raw content without cleaning per Dyad commit #1dfa0d1
     fileContentCache.set(filePath, {
-      content,
+      content: rawContent,
       mtime: currentMtime,
     });
 
@@ -214,38 +234,17 @@ export async function readFileWithCache(
       }
     }
 
-    return content;
+    return rawContent;
   } catch (error) {
     logger.error(`Error reading file: ${filePath}`, error);
     return undefined;
   }
 }
 
-function cleanContent({
-  content,
-  filePath,
-}: {
-  content: string;
-  filePath: string;
-}): string {
-  // Why are we cleaning package.json?
-  // 1. It contains unnecessary information for LLM context
-  // 2. Fields like packageManager cause diffs in e2e test snapshots.
-  if (path.basename(filePath) === "package.json") {
-    try {
-      const { dependencies, devDependencies } = JSON.parse(content);
-      const cleanPackageJson = {
-        dependencies,
-        devDependencies,
-      };
-      return JSON.stringify(cleanPackageJson, null, 2);
-    } catch (error) {
-      logger.error(`Error cleaning package.json: ${filePath}`, error);
-      return content;
-    }
-  }
-  return content;
-}
+// REMOVED: cleanContent function per Dyad commit #1dfa0d1
+// Fixed: Stop mutating package.json when reading files
+// Issue: Important fields like packageManager were being removed
+// Solution: Return raw, unmodified content to preserve all fields
 
 /**
  * Recursively walk a directory and collect all relevant files
@@ -381,9 +380,9 @@ async function formatFile({
   try {
     // Check if we should read file contents
     if (!shouldReadFileContents({ filePath, normalizedRelativePath })) {
-      return `<dyad-file path="${normalizedRelativePath}">
+      return `<applaa-file path="${normalizedRelativePath}">
 ${OMITTED_FILE_CONTENT}
-</dyad-file>
+</applaa-file>
 
 `;
     }
@@ -391,23 +390,23 @@ ${OMITTED_FILE_CONTENT}
     const content = await readFileWithCache(filePath, virtualFileSystem);
 
     if (content == null) {
-      return `<dyad-file path="${normalizedRelativePath}">
+      return `<applaa-file path="${normalizedRelativePath}">
 // Error reading file
-</dyad-file>
+</applaa-file>
 
 `;
     }
 
-    return `<dyad-file path="${normalizedRelativePath}">
+    return `<applaa-file path="${normalizedRelativePath}">
 ${content}
-</dyad-file>
+</applaa-file>
 
 `;
   } catch (error) {
     logger.error(`Error reading file: ${filePath}`, error);
-    return `<dyad-file path="${normalizedRelativePath}">
+    return `<applaa-file path="${normalizedRelativePath}">
 // Error reading file: ${error}
-</dyad-file>
+</applaa-file>
 
 `;
   }

@@ -17,15 +17,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: "general-settings", label: "General" },
   { id: "ai-settings", label: "AI" },
   { id: "provider-settings", label: "AI Providers" },
-  { 
-    id: "semantic-context", 
-    label: "Semantic Context", 
-    subSections: [
-      { id: "semantic-context-settings", label: "Smart Suggestions" },
-      { id: "usage-analytics", label: "Usage Analytics" },
-      { id: "privacy-processing", label: "Privacy & Local Processing" }
-    ]
-  },
+  // Semantic Context section removed for MVP
   { 
     id: "cloud-services", 
     label: "Cloud Services", 

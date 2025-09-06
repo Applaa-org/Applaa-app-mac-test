@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 
 export const PROVIDERS_THAT_SUPPORT_THINKING: (keyof typeof MODEL_OPTIONS)[] = [
   "google",
+  "azure-openai", // 🚀 FIX: Add Azure OpenAI to thinking providers
   "auto",
 ];
 
@@ -205,14 +206,15 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 128_000,
       temperature: 0,
     },
-    // https://openrouter.ai/moonshotai/kimi-k2
+    // https://openrouter.ai/moonshotai/kimi-k2-0905/api
     {
-      name: "moonshotai/kimi-k2",
-      displayName: "Kimi K2",
-      description: "Powerful cost-effective model",
+      name: "moonshotai/kimi-k2-0905",
+      displayName: "Kimi K2 0905",
+      description: "1T parameter MoE model with enhanced frontend coding and 256k context",
       maxOutputTokens: 32_000,
-      contextWindow: 131_000,
+      contextWindow: 256_000,
       temperature: 0,
+      tag: "New",
     },
     {
       name: "deepseek/deepseek-r1-0528",
@@ -246,6 +248,73 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       temperature: 0,
     },
   ],
+  "azure-openai": [
+    // Azure OpenAI models - using deployment names that users typically set up
+    {
+      name: "gpt-5-chat",
+      displayName: "GPT-5 (Azure)",
+      description: "Azure OpenAI GPT-5 deployment - flagship model",
+      maxOutputTokens: undefined,
+      contextWindow: 400_000,
+      temperature: 1,
+    },
+    {
+      name: "gpt-5-mini",
+      displayName: "GPT-5 Mini (Azure)",
+      description: "Azure OpenAI GPT-5 Mini deployment - lightweight but intelligent",
+      maxOutputTokens: undefined,
+      contextWindow: 400_000,
+      temperature: 1,
+    },
+    {
+      name: "gpt-5-nano",
+      displayName: "GPT-5 Nano (Azure)",
+      description: "Azure OpenAI GPT-5 Nano deployment - fastest, most cost-efficient",
+      maxOutputTokens: undefined,
+      contextWindow: 400_000,
+      temperature: 1,
+    },
+    {
+      name: "gpt-4",
+      displayName: "GPT-4 (Azure)",
+      description: "Azure OpenAI GPT-4 deployment",
+      maxOutputTokens: 8192,
+      contextWindow: 128_000,
+      temperature: 0,
+    },
+    {
+      name: "gpt-4-turbo",
+      displayName: "GPT-4 Turbo (Azure)", 
+      description: "Azure OpenAI GPT-4 Turbo deployment",
+      maxOutputTokens: 4096,
+      contextWindow: 128_000,
+      temperature: 0,
+    },
+    {
+      name: "gpt-35-turbo",
+      displayName: "GPT-3.5 Turbo (Azure)",
+      description: "Azure OpenAI GPT-3.5 Turbo deployment",
+      maxOutputTokens: 4096,
+      contextWindow: 16_385,
+      temperature: 0,
+    },
+    {
+      name: "gpt-4o",
+      displayName: "GPT-4o (Azure)",
+      description: "Azure OpenAI GPT-4o deployment",
+      maxOutputTokens: 16_384,
+      contextWindow: 128_000,
+      temperature: 0,
+    },
+    {
+      name: "gpt-4o-mini",
+      displayName: "GPT-4o Mini (Azure)",
+      description: "Azure OpenAI GPT-4o Mini deployment",
+      maxOutputTokens: 16_384,
+      contextWindow: 128_000,
+      temperature: 0,
+    },
+  ],
 };
 
 export const PROVIDER_TO_ENV_VAR: Record<string, string> = {
@@ -254,6 +323,8 @@ export const PROVIDER_TO_ENV_VAR: Record<string, string> = {
   google: "GEMINI_API_KEY",
   gemini: "GEMINI_API_KEY", // For development fallback
   openrouter: "OPENROUTER_API_KEY",
+  // Enhanced Azure support per Dyad commit #2ffbbbc
+  "azure-openai": "AZURE_API_KEY",
 };
 
 export const CLOUD_PROVIDERS: Record<
@@ -299,6 +370,12 @@ export const CLOUD_PROVIDERS: Record<
     displayName: "Applaa",
     websiteUrl: "https://academy.dyad.sh/settings",
     gatewayPrefix: "dyad/",
+  },
+  "azure-openai": {
+    displayName: "Azure OpenAI",
+    hasFreeTier: false,
+    websiteUrl: "https://portal.azure.com/",
+    gatewayPrefix: "",
   },
 };
 

@@ -9,7 +9,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, ArrowLeft, ArrowRight, Smartphone, Zap, Settings, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -224,6 +224,13 @@ export function MobileFrameworkPicker({
               <X className="h-4 w-4" />
             </Button>
           </div>
+          
+          <DialogDescription>
+            {step === 'framework' 
+              ? 'Select the mobile framework that best fits your project needs and development experience.'
+              : 'Choose a template to get started quickly with your mobile app development.'
+            }
+          </DialogDescription>
           
           {/* Progress indicator */}
           <div className="flex items-center space-x-2 mt-4">

@@ -21,6 +21,7 @@ import { UnifiedExpoPreview } from "../expo/UnifiedExpoPreview";
 import { useMemo } from "react";
 import { IpcClient } from "@/ipc/ipc_client";
 import { ExpoTerminalPanel } from "../expo/ExpoTerminalPanel";
+// DesignTab removed for MVP
 
 interface ConsoleHeaderProps {
   isOpen: boolean;
@@ -29,25 +30,26 @@ interface ConsoleHeaderProps {
 }
 
 // Console header component
-const ConsoleHeader = ({
+const ConsoleHeader = ({ 
   isOpen,
   onToggle,
   latestMessage,
 }: ConsoleHeaderProps) => (
   <div
+    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
     onClick={onToggle}
-    className="flex items-start gap-2 px-4 py-1.5 border-t border-border cursor-pointer hover:bg-[var(--background-darkest)] transition-colors"
   >
-    <Logs size={16} className="mt-0.5" />
-    <div className="flex flex-col">
-      <span className="text-sm font-medium">System Messages</span>
-      {!isOpen && latestMessage && (
-        <span className="text-xs text-gray-500 truncate max-w-[200px] md:max-w-[400px]">
+    <div className="flex items-center gap-2">
+      <Logs size={16} className="text-gray-600 dark:text-gray-400" />
+      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        Console
+      </span>
+      {latestMessage && (
+        <span className="text-xs text-gray-500 truncate max-w-48">
           {latestMessage}
         </span>
       )}
     </div>
-    <div className="flex-1" />
     {isOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
   </div>
 );
@@ -79,6 +81,7 @@ export function PreviewPanel() {
     // Require at least app.json + app/ directory structure for Expo apps
     return hasExpoConfig && (hasExpoRouterStructure || hasExpoPackages);
   }, [app?.files]);
+  
   const runningAppIdRef = useRef<number | null>(null);
   const key = useAtomValue(previewPanelKeyAtom);
   const appOutput = useAtomValue(appOutputAtom);
@@ -104,7 +107,7 @@ export function PreviewPanel() {
       if (selectedAppId !== null) {
         console.debug("Starting new app", selectedAppId);
         // Only run regular web server for non-Expo apps
-        // Expo apps will be handled by MobilePreview component
+        // Expo apps will be handled by BattleTestedExpoPreview component
         if (!isExpoApp) {
           runApp(selectedAppId); // Consider adding error handling for the promise if needed
         }
@@ -136,7 +139,7 @@ export function PreviewPanel() {
     // runApp/stopApp are stable due to useCallback.
   }, [selectedAppId, runApp, stopApp, isExpoApp]);
 
-  // Auto-start disabled - using SimpleMobilePreview's built-in auto-start instead
+  // Auto-start disabled - using BattleTestedExpoPreview's built-in auto-start instead
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-hidden">
@@ -144,7 +147,7 @@ export function PreviewPanel() {
           <Panel id="content" minSize={30}>
             <div className="h-full overflow-y-auto">
               {previewMode === "preview" ? (
-                // Show MobilePreview for Expo apps, regular PreviewIframe for web apps
+                // Show BattleTestedExpoPreview for Expo apps, regular PreviewIframe for web apps
                 isExpoApp ? (
                   <UnifiedExpoPreview />
                 ) : (

@@ -91,6 +91,7 @@ export interface Chat {
 export interface App {
   id: number;
   name: string;
+  displayName?: string;
   path: string;
   files: string[];
   createdAt: Date;

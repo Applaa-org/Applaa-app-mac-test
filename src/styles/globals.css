@@ -2,6 +2,21 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
+/* ✅ Spell Check Styles */
+.spell-check-enabled {
+  -webkit-spellcheck: true;
+  spellcheck: true;
+}
+
+/* Ensure spell check underlines are visible */
+.spell-check-enabled::spelling-error {
+  text-decoration: underline wavy red;
+}
+
+.spell-check-enabled::grammar-error {
+  text-decoration: underline wavy green;
+}
+
 /* Load Geist Font */
 
 @font-face {

@@ -1,4 +1,4 @@
-import { SmartContextFilesPicker } from "./context/SmartContextFilesPicker";
+// SmartContextFilesPicker removed for MVP
 import { ModelPicker } from "./ModelPicker";
 import { ProModeSelector } from "./ProModeSelector";
 import { ChatModeSelector } from "./ChatModeSelector";
@@ -27,11 +27,12 @@ export function ChatInputControls({
       <div className="flex items-center gap-1.5">
         <ChatModeSelector />
         <SparkModeSelector />
-        {showImportButton && <ImportAppIcon />}
+        {/* 🚀 MVP: Import option hidden for simplicity - can be re-enabled post-MVP */}
+        {/* {showImportButton && <ImportAppIcon />} */}
       </div>
       
       {/* <ProModeSelector /> - Hidden for MVP */}
-      {showContextFilesPicker && <SmartContextFilesPicker />}
+      {/* SmartContextFilesPicker removed for MVP */}
     </div>
   );
 }

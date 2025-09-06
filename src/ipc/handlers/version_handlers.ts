@@ -135,12 +135,29 @@ export function registerVersionHandlers() {
       return [];
     }
 
-    const commits = await git.log({
-      fs,
-      dir: appPath,
-      // KEEP UP TO DATE WITH ChatHeader.tsx
-      depth: 100_000, // Limit to last 100_000 commits for performance
-    });
+    let commits;
+    try {
+      commits = await git.log({
+        fs,
+        dir: appPath,
+        // KEEP UP TO DATE WITH ChatHeader.tsx
+        depth: 100_000, // Limit to last 100_000 commits for performance
+      });
+    } catch (error: any) {
+      // Handle common Git errors gracefully
+      const errorMessage = error?.message || String(error);
+      
+      if (errorMessage.includes("Could not find refs/heads/main") || 
+          errorMessage.includes("Could not find HEAD") ||
+          errorMessage.includes("NotFoundError")) {
+        logger.warn(`Git repository exists but has no commits for app ${appId} at ${appPath}. Returning empty versions list.`);
+        return [];
+      }
+      
+      // Re-throw other unexpected errors
+      logger.error(`Unexpected error reading git log for app ${appId}:`, error);
+      throw error;
+    }
 
     // Get all snapshots for this app to match with commits
     const appSnapshots = await db.query.versions.findMany({
@@ -226,9 +243,11 @@ export function registerVersionHandlers() {
         // Some environments (especially after package installs) may have a .git folder
         // but no HEAD yet. In that case, don't fail the app – return a sensible default.
         const message = error?.message || String(error);
-        if (message.includes("Could not find HEAD")) {
+        if (message.includes("Could not find HEAD") || 
+            message.includes("Could not find refs/heads/main") ||
+            message.includes("NotFoundError")) {
           logger.warn(
-            `HEAD not found for app ${appId} at ${appPath}. Returning default branch 'main'.`,
+            `Git repository exists but has no commits for app ${appId} at ${appPath}. Returning default branch 'main'.`,
           );
           return { branch: "main" };
         }

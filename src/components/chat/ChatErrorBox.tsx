@@ -17,8 +17,8 @@ export function ChatErrorBox({
       <ChatErrorContainer onDismiss={onDismiss}>
         {error}
         <span className="ml-1">
-          <ExternalLink href="https://dyad.sh/pro">
-            Access with Dyad Pro
+          <ExternalLink href="https://applaa.dev/pro">
+            Access with Applaa Pro
           </ExternalLink>
         </span>{" "}
         or switch to another model.
@@ -36,8 +36,8 @@ export function ChatErrorBox({
       <ChatErrorContainer onDismiss={onDismiss}>
         {error}
         <span className="ml-1">
-          <ExternalLink href="https://dyad.sh/pro">
-            Upgrade to Dyad Pro
+          <ExternalLink href="https://applaa.dev/pro">
+            Upgrade to Applaa Pro
           </ExternalLink>
         </span>{" "}
         or read the
@@ -54,9 +54,9 @@ export function ChatErrorBox({
     return (
       <ChatInfoContainer onDismiss={onDismiss}>
         <span>
-          Looks like you don't have a valid Dyad Pro key.{" "}
-          <ExternalLink href="https://dyad.sh/pro">
-            Upgrade to Dyad Pro
+          Looks like you don't have a valid Applaa Pro key.{" "}
+          <ExternalLink href="https://applaa.dev/pro">
+            Upgrade to Applaa Pro
           </ExternalLink>{" "}
           today.
         </span>
@@ -67,9 +67,9 @@ export function ChatErrorBox({
     return (
       <ChatInfoContainer onDismiss={onDismiss}>
         <span>
-          You have used all of your Dyad AI credits this month.{" "}
+          You have used all of your Applaa AI credits this month.{" "}
           <ExternalLink href="https://academy.dyad.sh/subscription">
-            Upgrade to Dyad Max
+            Upgrade to Applaa Max
           </ExternalLink>{" "}
           and get more AI credits
         </span>

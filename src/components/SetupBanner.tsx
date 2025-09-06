@@ -244,11 +244,11 @@ export function SetupBanner() {
                     </div>
                     <div>
                       <h4 className="font-medium text-sm text-blue-800 dark:text-blue-300">
-                        Setup Google Gemini API Key
+                        Sign in with Google (Gemini CLI)
                       </h4>
                       <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
                         <GiftIcon className="w-3 h-3" />
-                        Use Google Gemini for free
+                        1000 requests/day free - No project setup required
                       </p>
                     </div>
                   </div>

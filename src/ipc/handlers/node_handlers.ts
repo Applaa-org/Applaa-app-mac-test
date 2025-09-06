@@ -16,12 +16,18 @@ export function registerNodeHandlers() {
       "and arch:",
       arch(),
     );
-    // Try primary detection via PATH
+    
+    // 🚀 ENHANCED NODE.JS DETECTION with better error messages
     let nodeVersion = "";
     let nodeVersionResult;
+    let detectionMethod = "";
+    
+    // Try primary detection via PATH
     try {
       nodeVersionResult = await execAsync("node --version");
       nodeVersion = (nodeVersionResult.stdout || "").trim();
+      detectionMethod = "PATH";
+      logger.info(`✅ Node.js detected via PATH: ${nodeVersion}`);
     } catch (err) {
       logger.warn("node --version failed (likely PATH issue)", err);
     }
@@ -35,10 +41,22 @@ export function registerNodeHandlers() {
         if (nodePath) {
           const verRes = await execAsync(`"${nodePath}" --version`);
           nodeVersion = (verRes.stdout || "").trim();
+          detectionMethod = `absolute path (${nodePath})`;
+          logger.info(`✅ Node.js detected via absolute path: ${nodeVersion} at ${nodePath}`);
         }
       } catch (e) {
         logger.warn("Fallback node path resolution failed", e);
       }
+    }
+    
+    // Enhanced error reporting for Node.js detection failures
+    if (!nodeVersion) {
+      const platformSpecificHelp = platform() === "win32" 
+        ? "Try: 1) Download from nodejs.org, 2) Add to PATH, 3) Restart Applaa"
+        : "Try: 1) Install via package manager (brew/apt), 2) Check PATH, 3) Restart Applaa";
+      
+      logger.error(`❌ Node.js not detected on ${platform()}. ${platformSpecificHelp}`);
+      // Still return empty version but with helpful context
     }
 
     // pnpm is optional; attempt best‑effort detection only

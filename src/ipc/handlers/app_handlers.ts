@@ -15,6 +15,7 @@ import fsExtra from "fs-extra";
 import path from "node:path";
 import os from "node:os";
 import { getDyadAppPath, getUserDataPath } from "../../paths/paths";
+import { ensureWorkspaceInitialized, getAppRelativePath } from "../../paths/workspace";
 import { readSettings } from "../../main/settings";
 import { spawn } from "node:child_process";
 import git from "isomorphic-git";
@@ -55,6 +56,64 @@ import { normalizePath } from "../../../shared/normalizePath";
 import { isServerFunction } from "@/supabase_admin/supabase_utils";
 import { getVercelTeamSlug } from "../utils/vercel_utils";
 import { storeDbTimestampAtCurrentVersion } from "../utils/neon_timestamp_utils";
+import { perfMonitor, logPerfReport } from "../utils/performance_monitor";
+
+const logger = log.scope("app-handlers");
+
+/**
+ * 🚀 ENHANCED: Delete app files with retry logic to handle Windows file locks
+ */
+async function deleteAppFilesWithRetry(appPath: string, appId: number, maxRetries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      logger.log(`🗑️ Attempt ${attempt}/${maxRetries}: Deleting app files at ${appPath}`);
+      
+      // Try different deletion strategies
+      if (process.platform === "win32") {
+        // Windows: Use rmdir with force flag first
+        try {
+          await fsPromises.rm(appPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 500 });
+          return; // Success!
+        } catch (error: any) {
+          if (attempt === maxRetries) throw error;
+          
+          // If that fails, try using Windows rmdir command
+          try {
+            const { execAsync } = await import("../utils/runShellCommand");
+            await execAsync(`rmdir /S /Q "${appPath}"`, { timeout: 10000 });
+            return; // Success!
+          } catch (cmdError: any) {
+            logger.warn(`⚠️ Windows rmdir failed on attempt ${attempt}:`, cmdError.message);
+          }
+        }
+      } else {
+        // Unix-like systems
+        await fsPromises.rm(appPath, { recursive: true, force: true });
+        return; // Success!
+      }
+      
+      // If we get here, the deletion failed, wait before retry
+      if (attempt < maxRetries) {
+        const delay = attempt * 1000; // Increasing delay: 1s, 2s, 3s
+        logger.log(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      
+    } catch (error: any) {
+      logger.warn(`⚠️ Deletion attempt ${attempt} failed:`, error.message);
+      
+      if (attempt === maxRetries) {
+        // Final attempt failed
+        throw error;
+      }
+      
+      // Wait before retry with exponential backoff
+      const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      logger.log(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
 
 async function copyDir(
   source: string,
@@ -75,7 +134,6 @@ async function copyDir(
   });
 }
 
-const logger = log.scope("app_handlers");
 const handle = createLoggedHandler(logger);
 
 let proxyWorker: Worker | null = null;
@@ -122,6 +180,30 @@ async function getAppSafe(appId: number): Promise<any> {
 // to find node/pnpm.
 fixPath();
 
+/**
+ * 🔧 Generate a unique app name by appending numbers
+ */
+async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' = 'web'): Promise<string> {
+  let counter = 2;
+  let suggestedName = `${baseName}-${counter}`;
+  
+  while (counter <= 10) { // Limit to prevent infinite loops
+    const testRelPath = getAppRelativePath(suggestedName, appType);
+    const testFullPath = getDyadAppPath(testRelPath);
+    
+    if (!fs.existsSync(testFullPath)) {
+      return suggestedName;
+    }
+    
+    counter++;
+    suggestedName = `${baseName}-${counter}`;
+  }
+  
+  // If we can't find a unique name with numbers, add timestamp
+  const timestamp = Date.now().toString().slice(-6);
+  return `${baseName}-${timestamp}`;
+}
+
 async function executeApp({
   appPath,
   appId,
@@ -151,16 +233,38 @@ async function executeAppLocalNode({
   event: Electron.IpcMainInvokeEvent;
   isNeon: boolean;
 }): Promise<void> {
-  const spawnedProcess = spawn(
-    "(pnpm install && pnpm run dev --port 32100) || (npm install --legacy-peer-deps && npm run dev -- --port 32100)",
-    [],
-    {
-      cwd: appPath,
-      shell: true,
-      stdio: "pipe", // Ensure stdio is piped so we can capture output/errors and detect close
-      detached: false, // Ensure child process is attached to the main process lifecycle unless explicitly backgrounded
-    },
-  );
+  // 🚀 PERFORMANCE: Use hermetic package manager strategy for consistent dependency management
+  const { getBestPackageManager, ensurePnpmAvailable } = await import("../../lib/hermetic-runtime");
+  const packageManager = await getBestPackageManager(appPath);
+  
+  // Ensure pnpm is available if it's the preferred manager
+  if (packageManager === "pnpm") {
+    await ensurePnpmAvailable();
+  }
+  
+  // Build command based on available package manager
+  let installCommand: string;
+  let devCommand: string;
+  
+  if (packageManager === "pnpm") {
+    installCommand = "pnpm install";
+    devCommand = "pnpm run dev --port 32100";
+  } else if (packageManager === "yarn") {
+    installCommand = "yarn install";
+    devCommand = "yarn run dev --port 32100";
+  } else {
+    installCommand = "npm install --legacy-peer-deps";
+    devCommand = "npm run dev -- --port 32100";
+  }
+  
+  const fullCommand = `(${installCommand} && ${devCommand}) || (npm install --legacy-peer-deps && npm run dev -- --port 32100)`;
+  
+  const spawnedProcess = spawn(fullCommand, [], {
+    cwd: appPath,
+    shell: true,
+    stdio: "pipe", // Ensure stdio is piped so we can capture output/errors and detect close
+    detached: false, // Ensure child process is attached to the main process lifecycle unless explicitly backgrounded
+  });
 
   // Check if process spawned correctly
   if (!spawnedProcess.pid) {
@@ -232,7 +336,7 @@ async function executeAppLocalNode({
           onStarted: (proxyUrl) => {
             safeSend(event.sender, "app:output", {
               type: "stdout",
-              message: `[dyad-proxy-server]started=[${proxyUrl}] original=[${urlMatch[1]}]`,
+              message: `[applaa-proxy-server]started=[${proxyUrl}] original=[${urlMatch[1]}]`,
               appId,
             });
           },
@@ -290,6 +394,8 @@ export function registerAppHandlers() {
     return { basePath: baseDir };
   });
 
+  // REMOVED: Aggressive healing function that corrupted template files
+  // Original Dyad used simpler approach in chat stream handlers
   handle("restart-dyad", async () => {
     app.relaunch();
     app.quit();
@@ -343,6 +449,28 @@ export function registerAppHandlers() {
     }
   });
 
+  // Performance monitoring handlers
+  handle("performance:get-report", async () => {
+    return perfMonitor.generateReport();
+  });
+
+  handle("performance:get-metrics", async () => {
+    return {
+      completed: perfMonitor.getMetrics(),
+      active: perfMonitor.getActiveOperations(),
+    };
+  });
+
+  handle("performance:clear", async () => {
+    perfMonitor.clearMetrics();
+    return { success: true };
+  });
+
+  handle("performance:log-report", async () => {
+    logPerfReport();
+    return { success: true };
+  });
+
   // Background app creation handler
   handle(
     "create-app-background",
@@ -371,10 +499,16 @@ export function registerAppHandlers() {
 
       // Start the background task (non-blocking)
       taskManager.startTask(taskId, async (abortController, updateProgress) => {
-        // Check Pro limits before creating app
+        const taskStartTime = performance.now();
+        console.log(`🚀 [PERF] Starting app creation task: ${taskId} at ${new Date().toISOString()}`);
+        
+        // 🚀 PERFORMANCE: Check Pro limits before creating app
+        const permissionCheckStart = performance.now();
         updateProgress(5, "Checking user permissions...");
-        const settings = readSettings();
+        const settings = readSettings(); // Cached by our settings optimization
         const isProUser = settings.enableApplaaPro === true;
+        const permissionCheckEnd = performance.now();
+        console.log(`🔐 [PERF] Permission check took: ${(permissionCheckEnd - permissionCheckStart).toFixed(2)}ms`);
         
         if (!isProUser) {
           const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
@@ -385,18 +519,26 @@ export function registerAppHandlers() {
           }
         }
         
+        const pathValidationStart = performance.now();
         updateProgress(10, "Validating app path...");
-        const appPath = params.name;
-        const fullAppPath = getDyadAppPath(appPath);
+        await ensureWorkspaceInitialized();
+        const appRelPath = getAppRelativePath(
+          params.name,
+          (params.appType === 'mobile' || params.framework === 'expo') ? 'mobile' : 'web'
+        );
+        const fullAppPath = getDyadAppPath(appRelPath);
         if (fs.existsSync(fullAppPath)) {
           throw new Error(`App already exists at: ${fullAppPath}`);
         }
+        const pathValidationEnd = performance.now();
+        console.log(`📁 [PERF] Path validation took: ${(pathValidationEnd - pathValidationStart).toFixed(2)}ms`);
         
         // Check if cancelled
         if (abortController.signal.aborted) {
           throw new Error("App creation cancelled");
         }
         
+        const dbCreateStart = performance.now();
         updateProgress(20, "Creating app database entry...");
         const appType = (params.appType === 'mobile' || params.appType === 'web')
           ? params.appType
@@ -405,13 +547,15 @@ export function registerAppHandlers() {
             : 'web';
         
         const info = db.$client
-          .prepare("INSERT INTO apps (name, path, app_type) VALUES (?, ?, ?)")
-          .run(params.name, appPath, appType);
+          .prepare("INSERT INTO apps (name, display_name, path, app_type) VALUES (?, ?, ?, ?)")
+          .run(params.name, params.displayName, appRelPath, appType);
+        const dbCreateEnd = performance.now();
+        console.log(`💾 [PERF] Database entry creation took: ${(dbCreateEnd - dbCreateStart).toFixed(2)}ms`);
         const insertedId = Number(info.lastInsertRowid);
         
         const row = db.$client
           .prepare(
-            "SELECT id, name, path, created_at as createdAt, app_type as appType, " +
+            "SELECT id, name, display_name as displayName, path, created_at as createdAt, app_type as appType, " +
               "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
               "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
               "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
@@ -427,11 +571,10 @@ export function registerAppHandlers() {
         if (row?.updatedAt && typeof row.updatedAt === "number") {
           row.updatedAt = new Date(row.updatedAt * 1000);
         }
-        row.displayName = undefined;
-        row.packageId = undefined;
-        row.slug = undefined;
+        // displayName, packageId, and slug are now properly retrieved from database
         const app = row;
 
+        const chatCreateStart = performance.now();
         updateProgress(30, "Creating initial chat...");
         const [chat] = await db
           .insert(chats)
@@ -439,33 +582,46 @@ export function registerAppHandlers() {
             appId: app.id,
           })
           .returning();
+        const chatCreateEnd = performance.now();
+        console.log(`💬 [PERF] Chat creation took: ${(chatCreateEnd - chatCreateStart).toFixed(2)}ms`);
 
         // Check if cancelled
         if (abortController.signal.aborted) {
           throw new Error("App creation cancelled");
         }
 
+        const templateCreateStart = performance.now();
         updateProgress(50, "Setting up app template...");
         const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
+        console.log(`📋 [PERF] Starting template creation with templateId: ${templateId}`);
         await createFromTemplate({
           fullAppPath,
           templateId,
         });
+        const templateCreateEnd = performance.now();
+        console.log(`📋 [PERF] Template creation took: ${(templateCreateEnd - templateCreateStart).toFixed(2)}ms`);
 
+        const gitInitStart = performance.now();
         updateProgress(70, "Initializing git repository...");
         await git.init({
           fs: fs,
           dir: fullAppPath,
           defaultBranch: "main",
         });
+        const gitInitEnd = performance.now();
+        console.log(`🔧 [PERF] Git init took: ${(gitInitEnd - gitInitStart).toFixed(2)}ms`);
 
+        const gitAddStart = performance.now();
         updateProgress(80, "Creating initial commit...");
         await git.add({
           fs: fs,
           dir: fullAppPath,
           filepath: ".",
         });
+        const gitAddEnd = performance.now();
+        console.log(`📝 [PERF] Git add took: ${(gitAddEnd - gitAddStart).toFixed(2)}ms`);
 
+        const gitCommitStart = performance.now();
         const commitHash = await gitCommit({
           fs,
           dir: fullAppPath,
@@ -475,8 +631,22 @@ export function registerAppHandlers() {
             email: "applaa@applaa.com",
           },
         });
+        const gitCommitEnd = performance.now();
+        console.log(`💾 [PERF] Git commit took: ${(gitCommitEnd - gitCommitStart).toFixed(2)}ms`);
 
         updateProgress(100, "App creation completed!");
+        
+        const totalTaskTime = performance.now() - taskStartTime;
+        const templateTime = templateCreateEnd - templateCreateStart;
+        const gitTotalTime = (gitInitEnd - gitInitStart) + (gitAddEnd - gitAddStart) + (gitCommitEnd - gitCommitStart);
+        const dbTime = (dbCreateEnd - dbCreateStart) + (chatCreateEnd - chatCreateStart);
+        
+        console.log(`🎉 [PERF] App creation completed! Performance Summary:
+          📋 Template Creation: ${templateTime.toFixed(2)}ms (${(templateTime / totalTaskTime * 100).toFixed(1)}%)
+          🔧 Git Operations: ${gitTotalTime.toFixed(2)}ms (${(gitTotalTime / totalTaskTime * 100).toFixed(1)}%)
+          💾 Database Operations: ${dbTime.toFixed(2)}ms (${(dbTime / totalTaskTime * 100).toFixed(1)}%)
+          🚀 Total Time: ${totalTaskTime.toFixed(2)}ms
+          📊 App: ${params.name} | Framework: ${params.framework}`);
         
         // Return the result with prompt info for the renderer to handle
         return { 
@@ -515,7 +685,7 @@ export function registerAppHandlers() {
       _,
       params: CreateAppParams,
     ): Promise<{ app: any; chatId: number }> => {
-      // Check Pro limits before creating app
+      // 🚀 PERFORMANCE: Cache settings once at start to avoid repeated disk reads
       const settings = readSettings();
       // For development: just check the Pro toggle, don't require API key
       const isProUser = settings.enableApplaaPro === true;
@@ -530,10 +700,16 @@ export function registerAppHandlers() {
         }
       }
       
-      const appPath = params.name;
-      const fullAppPath = getDyadAppPath(appPath);
+      await ensureWorkspaceInitialized();
+      const appRelPath2 = getAppRelativePath(
+        params.name,
+        (params.appType === 'mobile' || params.framework === 'expo') ? 'mobile' : 'web'
+      );
+      const fullAppPath = getDyadAppPath(appRelPath2);
       if (fs.existsSync(fullAppPath)) {
-        throw new Error(`App already exists at: ${fullAppPath}`);
+        // 🚨 FIX: Provide helpful duplicate name handling instead of generic error
+        const suggestedName = await generateUniqueAppName(params.name, params.appType);
+        throw new Error(`DUPLICATE_APP_NAME:${params.name}:${suggestedName}`);
       }
       
       // Determine app type from explicit params, then framework hint, fallback to web
@@ -547,7 +723,7 @@ export function registerAppHandlers() {
       // referencing columns that might not exist (e.g., display_name)
       const info = db.$client
         .prepare("INSERT INTO apps (name, path, app_type) VALUES (?, ?, ?)")
-        .run(params.name, appPath, appType);
+        .run(params.name, appRelPath2, appType);
       const insertedId = Number(info.lastInsertRowid);
       const row = db.$client
         .prepare(
@@ -581,6 +757,7 @@ export function registerAppHandlers() {
         })
         .returning();
 
+      // 🚀 PERFORMANCE FIX: Template creation already handles Git initialization
       // Pass template info to avoid race condition with settings
       const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
       await createFromTemplate({
@@ -588,25 +765,20 @@ export function registerAppHandlers() {
         templateId,
       });
 
-      // Initialize git repo and create first commit
-      await git.init({
-        fs: fs,
-        dir: fullAppPath,
-        defaultBranch: "main",
-      });
-
-      // Stage all files
-      await git.add({
-        fs: fs,
-        dir: fullAppPath,
-        filepath: ".",
-      });
-
-      // Create initial commit
-      const commitHash = await gitCommit({
-        path: fullAppPath,
-        message: "Init Applaa app",
-      });
+      // 🚀 PERFORMANCE: Get commit hash from template creation (no duplicate Git ops)
+      let commitHash: string;
+      try {
+        // Get the commit hash that was created by initializeGitRepository in createFromTemplate
+        const commits = await git.log({
+          fs: fs,
+          dir: fullAppPath,
+          depth: 1,
+        });
+        commitHash = commits.length > 0 ? commits[0].oid : "initial";
+      } catch (error) {
+        logger.warn("Could not get commit hash, using fallback:", error);
+        commitHash = "initial";
+      }
 
       // Update chat with initial commit hash
       await db
@@ -782,7 +954,7 @@ export function registerAppHandlers() {
       try {
         const rows = db.$client
           .prepare(
-            "SELECT id, name, path, created_at as createdAt, app_type as appType, " +
+            "SELECT id, name, display_name as displayName, path, created_at as createdAt, app_type as appType, " +
               "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
               "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
               "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
@@ -795,9 +967,7 @@ export function registerAppHandlers() {
           // createdAt/updatedAt are seconds from unixepoch() → convert to Date
           createdAt: r.createdAt ? new Date(r.createdAt * 1000) : undefined,
           updatedAt: r.updatedAt ? new Date(r.updatedAt * 1000) : undefined,
-          displayName: undefined,
-          packageId: undefined,
-          slug: undefined,
+          // displayName is now properly retrieved from database
         }));
       } catch (fallbackErr) {
         log.error("list-apps: legacy SELECT failed:", fallbackErr);
@@ -845,9 +1015,19 @@ export function registerAppHandlers() {
         features?: string[];
       },
     ) => {
-      return generateSmartAppNames(params);
+      logger.info(`IPC: generate-app-names called with concept: "${params.concept}"`);
+      try {
+        const result = await generateSmartAppNames(params);
+        logger.info(`IPC: generate-app-names returning ${result.length} suggestions`);
+        return result;
+      } catch (error) {
+        logger.error("IPC: generate-app-names failed:", error);
+        throw error;
+      }
     },
   );
+  
+  logger.info("App handlers registered successfully, including generate-app-names");
 
   // Get app files for categorization (lightweight version)
   handle("get-app-files", async (_, appId: number): Promise<string[]> => {
@@ -1203,36 +1383,120 @@ export function registerAppHandlers() {
           throw new Error("App not found");
         }
 
-        // Stop the app if it's running
-        if (runningApps.has(appId)) {
-          const appInfo = runningApps.get(appId)!;
-          try {
-            logger.log(`Stopping app ${appId} before deletion.`); // Adjusted log
-            await killProcess(appInfo.process);
-            runningApps.delete(appId);
-          } catch (error: any) {
-            logger.error(`Error stopping app ${appId} before deletion:`, error); // Adjusted log
-            // Continue with deletion even if stopping fails
+        const appPath = getDyadAppPath(app.path);
+
+        // 🚀 ENHANCED: Kill all processes that might be using the app directory
+        try {
+          logger.log(`🔄 Stopping all processes for app ${appId} before deletion`);
+          
+          // Stop the app if it's running
+          if (runningApps.has(appId)) {
+            const appInfo = runningApps.get(appId)!;
+            try {
+              await killProcess(appInfo.process);
+              runningApps.delete(appId);
+              logger.log(`✅ Stopped running app process for ${appId}`);
+            } catch (error: any) {
+              logger.warn(`⚠️ Error stopping app process ${appId}:`, error);
+            }
           }
+
+          // Kill processes on ports that might be used by this specific app
+          // Use flexible port detection instead of hardcoded 8081
+          const { getPortUtils } = await import("./port_utils");
+          const portUtils = getPortUtils();
+          
+          try {
+            // Only kill ports if they're specifically associated with this app
+            // Check if the app is an Expo app and has running processes
+            const appFramework = app.framework || 'unknown';
+            if (appFramework === 'expo') {
+              // For Expo apps, try to find and kill only the ports used by this specific app
+              const portsToCheck = [8081, 8082, 8083, 19000, 19001];
+              for (const port of portsToCheck) {
+                try {
+                  // Only kill if the port is actually in use and we can confirm it's from this app
+                  const isInUse = !(await portUtils.isPortFree(port));
+                  if (isInUse) {
+                    // Be more conservative - only kill if we're sure it's this app's process
+                    logger.log(`🔍 Port ${port} is in use, checking if it belongs to app ${appId}`);
+                    await killPort(port);
+                    logger.log(`✅ Killed processes on port ${port} for app ${appId}`);
+                  }
+                } catch (error: any) {
+                  logger.debug(`No processes found on port ${port}: ${error.message}`);
+                }
+              }
+            }
+          } catch (error: any) {
+            logger.warn(`⚠️ Error during port cleanup for app ${appId}:`, error);
+          }
+
+          // Kill any Node processes that might be holding file locks (more targeted approach)
+          try {
+            const { execAsync } = await import("../utils/runShellCommand");
+            if (process.platform === "win32") {
+              // Windows: Only kill processes that are specifically in the app directory
+              // Avoid killing the main Applaa process by being more specific
+              try {
+                // Kill expo processes that might be related to this app
+                await execAsync(`taskkill /F /IM expo.exe /T`, { timeout: 5000 }).catch(() => {});
+                
+                // Only kill node processes if they're specifically related to this app path
+                // This is safer than killing ALL node processes
+                logger.log(`🔍 Checking for Node processes in app directory: ${appPath}`);
+                
+                // Use wmic to find processes with the specific app path in their command line
+                const wmicResult = await execAsync(
+                  `wmic process where "name='node.exe' and commandline like '%${appPath.replace(/\\/g, '\\\\')}%'" get processid /format:value`,
+                  { timeout: 5000 }
+                ).catch(() => ({ stdout: '' }));
+                
+                const pids = wmicResult.stdout.match(/ProcessId=(\d+)/g);
+                if (pids && pids.length > 0) {
+                  for (const pidMatch of pids) {
+                    const pid = pidMatch.split('=')[1];
+                    if (pid && pid !== '0') {
+                      await execAsync(`taskkill /F /PID ${pid}`, { timeout: 2000 }).catch(() => {});
+                      logger.log(`✅ Killed Node process ${pid} for app ${appId}`);
+                    }
+                  }
+                } else {
+                  logger.log(`ℹ️ No Node processes found for app directory: ${appPath}`);
+                }
+              } catch (wmicError: any) {
+                logger.debug(`Process detection completed: ${wmicError.message}`);
+              }
+            }
+          } catch (error: any) {
+            logger.debug(`Process cleanup completed: ${error.message}`);
+          }
+
+          // Wait a moment for processes to fully terminate
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+        } catch (error: any) {
+          logger.warn(`⚠️ Process cleanup had issues, continuing with deletion:`, error);
         }
 
         // Delete app from database
         try {
           await db.delete(apps).where(eq(apps.id, appId));
+          logger.log(`✅ Deleted app ${appId} from database`);
           // Note: Associated chats will cascade delete
         } catch (error: any) {
-          logger.error(`Error deleting app ${appId} from database:`, error);
+          logger.error(`❌ Error deleting app ${appId} from database:`, error);
           throw new Error(
             `Failed to delete app from database: ${error.message}`,
           );
         }
 
-        // Delete app files
-        const appPath = getDyadAppPath(app.path);
+        // 🚀 ENHANCED: Delete app files with retry logic
         try {
-          await fsPromises.rm(appPath, { recursive: true, force: true });
+          await deleteAppFilesWithRetry(appPath, appId);
+          logger.log(`✅ Successfully deleted app files for ${appId}`);
         } catch (error: any) {
-          logger.error(`Error deleting app files for app ${appId}:`, error);
+          logger.error(`❌ Error deleting app files for app ${appId}:`, error);
           throw new Error(
             `App deleted from database, but failed to delete app files. Please delete app files from ${appPath} manually.\n\nError: ${error.message}`,
           );

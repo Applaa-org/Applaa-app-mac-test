@@ -5,6 +5,8 @@ import { IpcClient } from '@/ipc/ipc_client';
 import QRCode, { QRCodeToDataURLOptions } from 'qrcode';
 import { Smartphone, RefreshCw, Play, Square, Globe, ExternalLink, Terminal, Monitor, Command } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { MetroRecoveryPanel } from './MetroRecoveryPanel';
+import { useMetroRecovery } from '../../hooks/useMetroRecovery';
 
 export function UnifiedExpoPreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
@@ -22,6 +24,15 @@ export function UnifiedExpoPreview() {
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
   const startHeightRef = useRef(256);
+
+  // Metro recovery hook
+  const {
+    showRecoveryPanel,
+    hasPortConflict,
+    hasHangingProcess,
+    hideRecoveryPanel,
+    forceShowRecoveryPanel
+  } = useMetroRecovery();
 
   // Generate QR code from URL
   const generateQRCode = async (url: string) => {
@@ -172,8 +183,8 @@ export function UnifiedExpoPreview() {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
-  window.removeEventListener('mousemove', onDragMove);
-  window.removeEventListener('mouseup', onDragEnd);
+      window.removeEventListener('mousemove', onDragMove);
+      window.removeEventListener('mouseup', onDragEnd);
     };
   }, []);
 
@@ -268,7 +279,15 @@ export function UnifiedExpoPreview() {
         
         {/* Right Side - QR Code & Controls */}
         <div className="w-80 p-6 border-l border-gray-200 bg-gray-50">
-          <h3 className="text-lg font-semibold mb-4">Test on your phone</h3>
+          <h3 className="text-lg font-semibold mb-4">Device Testing</h3>
+          
+          {/* Status Indicator */}
+          <div className="mb-4 flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+            <span className="text-sm text-gray-600">
+              {isRunning ? 'Expo preview ready!' : 'Preview not started'}
+            </span>
+          </div>
           
           {/* QR Code */}
           <div className="mb-6">
@@ -280,7 +299,7 @@ export function UnifiedExpoPreview() {
                   className="mx-auto mb-3 border border-gray-300 rounded-lg"
                 />
                 <p className="text-sm text-gray-600">
-                  Scan QR code to test
+                  Scan with Expo Go app or Custom Dev Client
                 </p>
               </div>
             ) : (
@@ -298,13 +317,14 @@ export function UnifiedExpoPreview() {
             <h4 className="font-medium mb-2">Scan QR code to test</h4>
             <p className="text-sm text-gray-600 mb-2">To test on your device:</p>
             <ol className="text-sm text-gray-600 list-decimal list-inside space-y-1">
-              <li>Open Camera app</li>
+              <li>Install Expo Go from app store</li>
+              <li>Open Expo Go app</li>
               <li>Scan the QR code above</li>
             </ol>
             
             {tunnelUrl && (
-              <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded text-sm">
-                <span className="text-orange-600">⚠️</span> Browser preview lacks native functions & looks different. Test on device for the best results.
+              <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                <span className="text-blue-600">✅</span> Using tunnel - accessible from anywhere
               </div>
             )}
           </div>
@@ -321,7 +341,7 @@ export function UnifiedExpoPreview() {
                 className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
               >
                 <Globe size={16} />
-                <span className="text-sm">Web</span>
+                <span className="text-sm">Open in Browser</span>
                 <ExternalLink size={12} className="ml-auto" />
               </a>
             )}
@@ -334,11 +354,42 @@ export function UnifiedExpoPreview() {
                 className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
               >
                 <Monitor size={16} />
-                <span className="text-sm">Tunnel</span>
+                <span className="text-sm">Tunnel URL</span>
                 <ExternalLink size={12} className="ml-auto" />
               </a>
             )}
           </div>
+          
+          {/* Metro Recovery Panel */}
+          {showRecoveryPanel && (
+            <div className="mt-4">
+              <MetroRecoveryPanel 
+                onRecoveryComplete={() => {
+                  hideRecoveryPanel();
+                  // Auto-restart Expo after successful recovery
+                  if (!isRunning) {
+                    setTimeout(() => {
+                      startExpo();
+                    }, 1000);
+                  }
+                }}
+              />
+            </div>
+          )}
+          
+          {/* Manual Recovery Button (always available) */}
+          {(hasPortConflict || hasHangingProcess) && !showRecoveryPanel && (
+            <div className="mt-4">
+              <Button 
+                onClick={forceShowRecoveryPanel}
+                variant="outline"
+                size="sm"
+                className="w-full text-red-600 border-red-200 hover:bg-red-50"
+              >
+                🚨 Metro Issues Detected - Show Recovery
+              </Button>
+            </div>
+          )}
           
           {/* Control Buttons */}
           <div className="mt-6 space-y-2">

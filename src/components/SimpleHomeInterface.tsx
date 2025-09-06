@@ -10,7 +10,8 @@ import { useAtom } from 'jotai';
 import { homeChatInputValueAtom } from '@/atoms/chatAtoms';
 import { HomeChatInput } from '@/components/chat/HomeChatInput';
 import { SimpleAppTypeSelector } from './SimpleAppTypeSelector';
-import { ComingSoonTiles } from './ComingSoonTiles';
+// 🚀 PERFORMANCE: Commented out for MVP - move to website as marketing content
+// import { ComingSoonTiles } from './ComingSoonTiles';
 import { IpcClient } from '@/ipc/ipc_client';
 import { useSettings } from '@/hooks/useSettings';
 import { useApplaaPro } from '@/hooks/useApplaaPro';
@@ -22,9 +23,8 @@ interface SimpleHomeInterfaceProps {
 
 type ExampleIdea = {
   title: string;
-  description: string; // 2–4 lines
+  description: string; // 2–3 lines max
   emoji: string;
-  tags: string[]; // e.g., ['AI', 'Offline', 'Best Navigation']
   prompt: string; // full prompt to inject
 };
 
@@ -65,10 +65,10 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
     }
   }, [updateSettings]);
 
-  // When app type changes, (re)load ideas
+  // When app type changes, load static ideas (performance optimized)
   useEffect(() => {
     if (selectedAppType) {
-      setIdeas(generateUniqueIdeas(selectedAppType, 6));
+      setIdeas(getStaticIdeas(selectedAppType));
     }
   }, [selectedAppType]);
 
@@ -94,7 +94,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
   const handleShuffleIdeas = () => {
     if (!selectedAppType) return;
-    setIdeas(generateUniqueIdeas(selectedAppType, 6));
+    setIdeas(getStaticIdeas(selectedAppType));
   };
 
   return (
@@ -134,7 +134,8 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
       {!selectedAppType ? (
         <>
           <SimpleAppTypeSelector onSelection={handleAppTypeSelection} />
-          <ComingSoonTiles />
+          {/* 🚀 PERFORMANCE: Commented out for MVP - move to website as marketing content */}
+          {/* <ComingSoonTiles /> */}
         </>
       ) : (
         <div className="space-y-8">
@@ -222,11 +223,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                     <p className="text-gray-600 text-[13px] leading-relaxed mb-2 whitespace-pre-line">
                       {idea.description}
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {idea.tags.map((t) => (
-                        <span key={t} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-gray-100 text-gray-700 border border-gray-200">{t}</span>
-                      ))}
-                    </div>
+
                   </div>
                 </button>
               ))}
@@ -238,174 +235,126 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   );
 }
 
-// Helper: Idea pools
-function generateIdeaPool(type: 'web' | 'expo' | 'flutter'): ExampleIdea[] {
+
+
+// PERFORMANCE: Simple static ideas (like Dyad) - no complex generation
+function getStaticIdeas(type: 'web' | 'expo' | 'flutter'): ExampleIdea[] {
   if (type === 'web') {
-    const variants = [
+    return [
       {
-        title: 'SaaS Analytics Dashboard',
-        description: 'Subscriptions, usage metering, role-based access. AI insights surface churn risk and upsell opportunities. Beautiful charts and real-time events.',
-        emoji: '📊',
-        tags: ['AI Insights', 'RBAC', 'Realtime'],
-        prompt: 'Build a SaaS analytics dashboard with subscriptions, metering, roles, AI insights for churn/upsell, and real-time charts.'
+        title: "Todo App",
+        description: "A simple todo list with add, edit, delete functionality.\nClean interface with local storage.",
+        emoji: "✅",
+        prompt: "Create a todo app with add, edit, delete, and mark complete functionality. Use React with clean, modern UI and local storage."
       },
       {
-        title: 'Modern E‑commerce Store',
-        description: 'Product catalog, Stripe payments, smart search with semantic ranking, wishlists and order tracking. Admin tools with inventory alerts.',
-        emoji: '🛒',
-        tags: ['Stripe', 'AI Search', 'Admin'],
-        prompt: 'Create a modern e‑commerce web app with Stripe payments, semantic search, wishlists, order tracking, and admin inventory tools.'
+        title: "Weather Dashboard", 
+        description: "Display current weather and 5-day forecast.\nLocation-based with search functionality.",
+        emoji: "🌤️",
+        prompt: "Build a weather dashboard that shows current weather and 5-day forecast. Include location search and clean, responsive design."
       },
       {
-        title: 'Knowledge Blog Platform',
-        description: 'Rich editor with markdown/AI assist, SEO‑friendly routing, reading time and highlights. Personalized recommendations using embeddings.',
-        emoji: '✍️',
-        tags: ['AI Writer', 'SEO', 'Embeddings'],
-        prompt: 'Build a blog platform with rich editor, AI writing assist, SEO routing, reading metrics, and embedding-based recommendations.'
+        title: "Blog Platform",
+        description: "Simple blog with posts, categories, and search.\nMarkdown support and responsive design.",
+        emoji: "📝",
+        prompt: "Create a blog platform with post creation, categories, search functionality, and markdown support. Modern, clean design."
       },
       {
-        title: 'Learning Portal',
-        description: 'Courses, lessons, quizzes and certificates. AI tutor explains answers and drafts practice questions. Progress tracking and streaks.',
-        emoji: '🎓',
-        tags: ['AI Tutor', 'Quizzes', 'Streaks'],
-        prompt: 'Create a learning portal with courses, quizzes, certificates, AI tutor and progress streaks.'
+        title: "Calculator",
+        description: "Scientific calculator with history.\nKeyboard support and responsive layout.",
+        emoji: "🧮",
+        prompt: "Build a scientific calculator with calculation history, keyboard support, and responsive design. Include basic and advanced operations."
       },
       {
-        title: 'Event Planner',
-        description: 'Calendar views, RSVPs, smart suggestions for venues and times, ICS export and shareable links. Mobile-friendly timeline.',
-        emoji: '📅',
-        tags: ['Calendar', 'AI Suggestions', 'Sharing'],
-        prompt: 'Build an event planner with RSVPs, calendar, AI venue/time suggestions, ICS export and sharing.'
+        title: "Chat App",
+        description: "Real-time messaging interface.\nMessage history and clean chat UI.",
+        emoji: "💬",
+        prompt: "Create a chat application interface with message history, real-time messaging simulation, and modern chat UI design."
       },
       {
-        title: 'Travel Planner',
-        description: 'Trips, day plans and bookmarks. AI builds itineraries from interests. Map view with offline notes and exportable PDFs.',
-        emoji: '🗺️',
-        tags: ['AI Itinerary', 'Maps', 'Offline'],
-        prompt: 'Create a travel planner with AI itineraries, map view, offline notes and PDF export.'
+        title: "Portfolio Site",
+        description: "Personal portfolio with projects showcase.\nContact form and responsive design.",
+        emoji: "🎨",
+        prompt: "Build a personal portfolio website with projects showcase, about section, contact form, and fully responsive design."
       }
     ];
-    return addUniqueFlavor(variants);
-  } else {
-    const variants = [
+  } else if (type === 'expo') {
+    return [
       {
-        title: 'Fitness Tracker',
-        description: 'Workouts, sets/reps, rest timers and progress charts. AI coach suggests routines and form tips. Offline-first with sync.',
-        emoji: '🏋️',
-        tags: ['AI Coach', 'Charts', 'Offline'],
-        prompt: 'Build an Expo fitness app with workouts, timers, progress charts, and an AI coach that suggests routines and form tips.'
+        title: "Task Manager",
+        description: "Mobile task management with categories.\nSwipe gestures and notifications.",
+        emoji: "📱",
+        prompt: "Create a mobile task manager app with categories, swipe gestures, local notifications, and clean mobile UI using Expo."
       },
       {
-        title: 'Smart Recipe Book',
-        description: 'Ingredient scanning, pantry tracking and meal plans. AI suggests recipes based on what you have. Grocery list with categories.',
-        emoji: '🍳',
-        tags: ['AI Recipes', 'Scanner', 'Planner'],
-        prompt: 'Create an Expo recipe app with pantry tracking, AI recipe suggestions, meal planner and categorized shopping lists.'
+        title: "Expense Tracker",
+        description: "Track expenses with categories and charts.\nCamera receipt scanning simulation.",
+        emoji: "💰",
+        prompt: "Build an expense tracking app with categories, spending charts, receipt photo capture, and budget tracking using Expo."
       },
       {
-        title: 'Photo Social',
-        description: 'Albums, filters and stories. AI generates captions and hashtags. Smooth gestures and best‑in‑class tab navigation.',
-        emoji: '📷',
-        tags: ['AI Captions', 'Gestures', 'Nav'],
-        prompt: 'Build an Expo social photo app with albums, filters, stories, AI captions/hashtags, and great mobile navigation.'
+        title: "Fitness Tracker",
+        description: "Workout logging and progress tracking.\nTimer and exercise database.",
+        emoji: "🏃",
+        prompt: "Create a fitness tracking app with workout logging, progress charts, exercise timer, and workout history using Expo."
       },
       {
-        title: 'Calm Meditation',
-        description: 'Breathing exercises, ambient sounds and streaks. AI mood check‑ins recommend sessions. Beautiful gradients and haptics.',
-        emoji: '🧘',
-        tags: ['AI Mood', 'Haptics', 'Streaks'],
-        prompt: 'Create an Expo meditation app with breathing, sounds, streaks and AI mood‑based recommendations.'
+        title: "Recipe App",
+        description: "Recipe collection with search and favorites.\nStep-by-step cooking mode.",
+        emoji: "🍳",
+        prompt: "Build a recipe app with search functionality, favorites, step-by-step cooking mode, and ingredient lists using Expo."
       },
       {
-        title: 'Smart Notes',
-        description: 'Voice notes with transcription, tagging and search. AI summarizes notes into action items. Offline with background sync.',
-        emoji: '📝',
-        tags: ['AI Summary', 'Voice', 'Offline'],
-        prompt: 'Build an Expo notes app with voice transcription, tagging, semantic search and AI summarization to tasks.'
+        title: "Note Taking",
+        description: "Simple note app with categories.\nSearch and offline storage.",
+        emoji: "📓",
+        prompt: "Create a note-taking app with categories, search functionality, offline storage, and clean mobile interface using Expo."
       },
       {
-        title: 'Expense Tracker',
-        description: 'Receipt scanning, budgets and charts. AI categorizes and flags anomalies. Privacy‑first local storage with export.',
-        emoji: '🧾',
-        tags: ['Scanner', 'AI Categorization', 'Privacy'],
-        prompt: 'Create an Expo expense tracker with receipt scan, budgets/charts, AI categorization and privacy‑first storage.'
+        title: "Music Player",
+        description: "Audio player with playlists.\nBackground playback and controls.",
+        emoji: "🎵",
+        prompt: "Build a music player app with playlist management, background playback, audio controls, and modern UI using Expo."
       }
     ];
-    return addUniqueFlavor(variants);
+  } else { // flutter
+    return [
+      {
+        title: "Shopping List",
+        description: "Grocery shopping with categories.\nShare lists and check-off items.",
+        emoji: "🛒",
+        prompt: "Create a shopping list app with categories, item check-off, list sharing, and clean Flutter UI with material design."
+      },
+      {
+        title: "Habit Tracker",
+        description: "Daily habit tracking with streaks.\nProgress visualization and reminders.",
+        emoji: "🎯",
+        prompt: "Build a habit tracking app with daily check-ins, streak counting, progress charts, and reminder notifications using Flutter."
+      },
+      {
+        title: "Photo Gallery",
+        description: "Image gallery with albums.\nPhoto editing and sharing features.",
+        emoji: "📸",
+        prompt: "Create a photo gallery app with album organization, basic photo editing, sharing functionality, and smooth Flutter animations."
+      },
+      {
+        title: "Language Learning",
+        description: "Vocabulary practice with flashcards.\nProgress tracking and spaced repetition.",
+        emoji: "🗣️",
+        prompt: "Build a language learning app with flashcards, spaced repetition, progress tracking, and interactive quizzes using Flutter."
+      },
+      {
+        title: "Budget Planner",
+        description: "Monthly budget planning with categories.\nExpense tracking and savings goals.",
+        emoji: "📊",
+        prompt: "Create a budget planning app with monthly budgets, expense categories, savings goals, and financial charts using Flutter."
+      },
+      {
+        title: "Meditation Timer",
+        description: "Guided meditation with timers.\nProgress tracking and ambient sounds.",
+        emoji: "🧘",
+        prompt: "Build a meditation timer app with guided sessions, ambient sounds, progress tracking, and calming Flutter UI design."
+      }
+    ];
   }
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-// Add small randomized flavor so ideas differ per user/shuffle
-function addUniqueFlavor(items: Omit<ExampleIdea, 'prompt'> & { prompt: string }[]): ExampleIdea[] {
-  const suffixes = [
-    'Use stunning micro-interactions and gestures.',
-    'Design top-tier navigation with smooth transitions.',
-    'Ensure full accessibility and offline support.',
-    'Include delightful empty/loading states.',
-    'Add sharing and deep linking where relevant.'
-  ];
-  return items.map((it) => {
-    const extra = suffixes[Math.floor(Math.random() * suffixes.length)];
-    return {
-      ...it,
-      description: `${it.description}\n${extra}`,
-      prompt: `${it.prompt} Also: ${extra}`,
-    };
-  });
-}
-
-// Generate truly unique ideas per user/session by mixing feature palettes
-function generateUniqueIdeas(type: 'web' | 'expo' | 'flutter', count: number): ExampleIdea[] {
-  const base = generateIdeaPool(type);
-  const features = [
-    'AI semantic search',
-    'offline-first caching',
-    'role-based access control',
-    'real-time collaboration',
-    'push notifications',
-    'background sync',
-    'deep links and shareable routes',
-    'export to PDF/CSV',
-    'multi-language i18n',
-    'theme personalization',
-  ];
-  const nav = [
-    'tab navigation',
-    'stack + modal flows',
-    'bottom sheets',
-    'gesture back navigation',
-    'FAB quick actions',
-  ];
-
-  const out: ExampleIdea[] = [];
-  const uniq = new Set<string>();
-  while (out.length < count) {
-    const baseIdea = base[Math.floor(Math.random() * base.length)];
-    const f1 = features[Math.floor(Math.random() * features.length)];
-    const f2 = features[Math.floor(Math.random() * features.length)];
-    const n1 = nav[Math.floor(Math.random() * nav.length)];
-    const key = `${baseIdea.title}-${f1}-${f2}-${n1}`;
-    if (uniq.has(key)) continue;
-    uniq.add(key);
-
-    const description = `${baseIdea.description}\nBonus: ${f1}, ${f2}. Navigation: ${n1}.`;
-    const prompt = `${baseIdea.prompt} Add ${f1} and ${f2}. Use ${n1}. Ensure accessibility and performance.`;
-
-    out.push({
-      ...baseIdea,
-      description,
-      prompt,
-      tags: Array.from(new Set([...baseIdea.tags, 'Unique', 'AI Enabled'])).slice(0, 4),
-    });
-  }
-  return out;
 }

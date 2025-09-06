@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "expo-device": "~7.0.1"
+  },
+  "description": "Device information and capabilities detection",
+  "features": [
+    "Device info",
+    "Platform detection",
+    "Device capabilities",
+    "Hardware specs"
+  ]
+}
+
+

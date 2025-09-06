@@ -135,6 +135,14 @@
           "notNull": false,
           "autoincrement": false,
           "default": "'web'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'ready'"
         }
       },
       "indexes": {},

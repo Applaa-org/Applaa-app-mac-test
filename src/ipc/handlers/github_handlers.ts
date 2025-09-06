@@ -16,8 +16,19 @@ import { IS_TEST_BUILD } from "../utils/test_utils";
 const logger = log.scope("github_handlers");
 
 // --- GitHub Device Flow Constants ---
-// TODO: Fetch this securely, e.g., from environment variables or a config file
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "Ov23liWV2HdC0RBLecWx";
+// Updated to use new Applaa GitHub App instead of old Dyad app
+// 
+// To set up the new Applaa GitHub App:
+// 1. Go to GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
+// 2. App name: Applaa
+// 3. Homepage URL: https://applaa.dev
+// 4. Callback URL: https://applaa.dev/auth/github/callback
+// 5. Webhook URL: https://api.applaa.dev/webhooks/github
+// 6. Permissions: Repository contents (Read & write), Metadata (Read), Pull requests (Read & write), Issues (Read & write)
+// 7. Generate Private Key and note the App ID, Client ID, Client Secret
+// 8. Install the App on the organization/repos used by Applaa
+//
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "Iv1.8a61b9c3e4f5a6b7"; // New Applaa GitHub App Client ID
 
 // Use test server URLs when in test mode
 

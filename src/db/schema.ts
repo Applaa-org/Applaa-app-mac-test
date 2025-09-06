@@ -6,10 +6,10 @@ export const apps = sqliteTable("apps", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   path: text("path").notNull(),
-  // Enhanced naming fields temporarily disabled for MVP stability
-  // displayName: text("display_name"),
-  // packageId: text("package_id"),
-  // slug: text("slug"),
+  // Enhanced naming fields re-enabled for better UX
+  displayName: text("display_name"),
+  packageId: text("package_id"),
+  slug: text("slug"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -29,6 +29,7 @@ export const apps = sqliteTable("apps", {
   vercelDeploymentUrl: text("vercel_deployment_url"),
   chatContext: text("chat_context", { mode: "json" }),
   appType: text("app_type", { enum: ["web", "mobile"] }).default("web"),
+  status: text("status", { enum: ["creating", "building", "ready", "error"] }).default("ready"),
 });
 
 export const chats = sqliteTable("chats", {
