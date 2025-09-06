@@ -394,6 +394,7 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
 
       modules.forEach(module => {
         const content = JSON.stringify(module);
+        
         // Should support both dyad and applaa tags for backward compatibility
         expect(content).toContain("applaa-write");
         // But may reference dyad tags for technical compatibility

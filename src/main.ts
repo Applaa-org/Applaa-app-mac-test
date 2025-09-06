@@ -11,6 +11,7 @@ import {
   readSettings,
   writeSettings,
 } from "./main/settings";
+import { migrateSettingsEncryption, isMigrationNeeded } from "./main/settings-migration";
 import { handleSupabaseOAuthReturn } from "./supabase_admin/supabase_return_handler";
 import { handleDyadProReturn } from "./main/pro";
 import { IS_TEST_BUILD } from "./ipc/utils/test_utils";
@@ -91,6 +92,20 @@ export async function onReady() {
     logger.error("Error initializing backup manager", e);
   }
   initializeDatabase();
+  
+  // 🔄 Auto-migrate settings encryption for seamless updates
+  try {
+    if (isMigrationNeeded()) {
+      logger.info("🔄 Settings migration needed, starting automatic migration...");
+      const migrated = await migrateSettingsEncryption();
+      if (migrated) {
+        logger.info("✅ Settings successfully migrated to stable encryption");
+      }
+    }
+  } catch (error) {
+    logger.error("❌ Settings migration failed, but continuing with app startup:", error);
+  }
+  
   const settings = readSettings();
   await onFirstRunMaybe(settings);
   createWindow();
@@ -212,12 +227,6 @@ const createWindow = () => {
     // Allow media permissions for speech recognition
     if (permission === 'media') {
       console.log('🎵 Media permission check - allowing for voice input');
-      return true;
-    }
-    
-    // Allow media permissions
-    if (permission === 'media') {
-      console.log('🎵 Media permission check - allowing');
       return true;
     }
     

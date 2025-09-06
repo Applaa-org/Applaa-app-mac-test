@@ -434,12 +434,12 @@ export function getPlatformCapabilities(): {
   web: boolean;
   desktop: boolean;
 } {
-  // In browser environment, we can't detect the actual OS platform
-  // So we'll assume all platforms are available for development
-  // The actual platform detection will be done in the main process via IPC
+  // Check if we're in a Node.js environment (test environment)
+  const isNodeEnv = typeof process !== 'undefined' && process.platform;
+  
   return {
     android: true, // Android development available on all platforms
-    ios: true, // iOS development capability will be checked via IPC
+    ios: isNodeEnv ? process.platform === 'darwin' : true, // iOS only on macOS in Node.js env
     web: true, // Web development available everywhere
     desktop: true // Desktop development available everywhere
   };

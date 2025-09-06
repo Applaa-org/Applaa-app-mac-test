@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { safeStorage } from "electron";
-import { readSettings, getSettingsFilePath } from "@/main/settings";
+import { readSettings, invalidateSettingsCache, getSettingsFilePath } from "@/main/settings";
 import { getUserDataPath } from "@/paths/paths";
-import { UserSettings } from "@/lib/schemas";
+import { scrubSettings } from "./test-utils";
 
 // Mock dependencies
 vi.mock("node:fs");
@@ -30,6 +30,7 @@ describe("readSettings", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    invalidateSettingsCache(); // Clear settings cache before each test
     mockGetUserDataPath.mockReturnValue(mockUserDataPath);
     mockPath.join.mockReturnValue(mockSettingsPath);
     mockSafeStorage.isEncryptionAvailable.mockReturnValue(true);
@@ -53,12 +54,23 @@ describe("readSettings", () => {
       );
       expect(scrubSettings(result)).toMatchInlineSnapshot(`
         {
-          "enableAutoFixProblems": false,
+          "aiTransformersInstalled": false,
+          "autoApproveChanges": true,
+          "autoFixModel": {
+            "name": "qwen2.5-coder:32b",
+            "provider": "openrouter",
+          },
+          "enableAutoFixProblems": true,
           "enableAutoUpdate": true,
-          "enableProLazyEditsMode": true,
-          "enableProSmartFilesContextMode": true,
+          "enableGemini": false,
+          "enableGeminiCLI": false,
+          "enableProLazyEditsMode": false,
+          "enableProSmartFilesContextMode": false,
+          "enableSparkContextMode": false,
+          "enableSparkEditsMode": false,
           "experiments": {},
           "hasRunBefore": false,
+          "hasShownAIFeaturesDialog": false,
           "providerSettings": {},
           "releaseChannel": "stable",
           "selectedChatMode": "build",
@@ -66,7 +78,11 @@ describe("readSettings", () => {
             "name": "auto",
             "provider": "auto",
           },
+          "selectedPlatform": "web",
           "selectedTemplateId": "react",
+          "semanticAutoIndexEnabled": true,
+          "semanticContextEnabled": false,
+          "semanticCrossAppEnabled": false,
           "telemetryConsent": "unset",
           "telemetryUserId": "[scrubbed]",
         }
@@ -299,12 +315,23 @@ describe("readSettings", () => {
 
       expect(scrubSettings(result)).toMatchInlineSnapshot(`
         {
-          "enableAutoFixProblems": false,
+          "aiTransformersInstalled": false,
+          "autoApproveChanges": true,
+          "autoFixModel": {
+            "name": "qwen2.5-coder:32b",
+            "provider": "openrouter",
+          },
+          "enableAutoFixProblems": true,
           "enableAutoUpdate": true,
-          "enableProLazyEditsMode": true,
-          "enableProSmartFilesContextMode": true,
+          "enableGemini": false,
+          "enableGeminiCLI": false,
+          "enableProLazyEditsMode": false,
+          "enableProSmartFilesContextMode": false,
+          "enableSparkContextMode": false,
+          "enableSparkEditsMode": false,
           "experiments": {},
           "hasRunBefore": false,
+          "hasShownAIFeaturesDialog": false,
           "providerSettings": {},
           "releaseChannel": "stable",
           "selectedChatMode": "build",
@@ -312,7 +339,11 @@ describe("readSettings", () => {
             "name": "auto",
             "provider": "auto",
           },
+          "selectedPlatform": "web",
           "selectedTemplateId": "react",
+          "semanticAutoIndexEnabled": true,
+          "semanticContextEnabled": false,
+          "semanticCrossAppEnabled": false,
           "telemetryConsent": "unset",
           "telemetryUserId": "[scrubbed]",
         }

@@ -103,23 +103,134 @@ vi.mock('@/data/mobile/templates', () => ({
   ],
   getTemplateById: vi.fn((id: string) => {
     const templates = [
-      { id: 'flutter-minimal', title: 'Minimal Flutter App', framework: 'flutter' },
-      { id: 'flutter-material3', title: 'Material Design 3 App', framework: 'flutter' },
-      { id: 'expo-basic', title: 'Basic Expo App', framework: 'expo' }
+      {
+        id: 'flutter-minimal',
+        title: 'Minimal Flutter App',
+        framework: 'flutter',
+        category: 'basic',
+        tags: ['minimal', 'starter'],
+        platforms: ['android', 'ios'],
+        complexity: 1,
+        setupTime: 5
+      },
+      {
+        id: 'flutter-material3',
+        title: 'Material Design 3 App',
+        framework: 'flutter',
+        category: 'basic',
+        tags: ['material3', 'theming'],
+        platforms: ['android', 'ios', 'web'],
+        complexity: 2,
+        setupTime: 10
+      },
+      {
+        id: 'flutter-riverpod-app',
+        title: 'Riverpod State Management',
+        framework: 'flutter',
+        category: 'state',
+        tags: ['riverpod', 'state-management'],
+        platforms: ['android', 'ios', 'web'],
+        complexity: 4,
+        setupTime: 25
+      },
+      {
+        id: 'expo-basic',
+        title: 'Basic Expo App',
+        framework: 'expo',
+        category: 'basic',
+        tags: ['expo', 'react-native'],
+        platforms: ['android', 'ios'],
+        complexity: 1,
+        setupTime: 5
+      }
     ];
     return templates.find(t => t.id === id);
   }),
-  getTemplatesByFramework: vi.fn(),
+  getTemplatesByFramework: vi.fn((framework: string) => {
+    const allTemplates = [
+      {
+        id: 'flutter-minimal',
+        title: 'Minimal Flutter App',
+        framework: 'flutter',
+        category: 'basic',
+        tags: ['minimal', 'starter'],
+        platforms: ['android', 'ios'],
+        complexity: 1,
+        setupTime: 5
+      },
+      {
+        id: 'flutter-material3',
+        title: 'Material Design 3 App',
+        framework: 'flutter',
+        category: 'basic',
+        tags: ['material3', 'theming'],
+        platforms: ['android', 'ios', 'web'],
+        complexity: 2,
+        setupTime: 10
+      },
+      {
+        id: 'flutter-riverpod-app',
+        title: 'Riverpod State Management',
+        framework: 'flutter',
+        category: 'state',
+        tags: ['riverpod', 'state-management'],
+        platforms: ['android', 'ios', 'web'],
+        complexity: 4,
+        setupTime: 25
+      },
+      {
+        id: 'expo-basic',
+        title: 'Basic Expo App',
+        framework: 'expo',
+        category: 'basic',
+        tags: ['expo', 'react-native'],
+        platforms: ['android', 'ios'],
+        complexity: 1,
+        setupTime: 5
+      }
+    ];
+    return allTemplates.filter(t => t.framework === framework);
+  }),
   getTemplatesByCategory: vi.fn(),
   getTemplatesByPlatform: vi.fn(),
   searchTemplates: vi.fn(),
   getTemplatesByComplexity: vi.fn(),
   getFeaturedTemplates: vi.fn(() => [
-    { id: 'flutter-material3', title: 'Material Design 3 App' },
-    { id: 'flutter-minimal', title: 'Minimal Flutter App' }
+    { id: 'flutter-material3', title: 'Material Design 3 App', framework: 'flutter' },
+    { id: 'flutter-minimal', title: 'Minimal Flutter App', framework: 'flutter' }
   ]),
-  getBeginnerTemplates: vi.fn(),
-  getTemplatesForUseCase: vi.fn(),
+  getBeginnerTemplates: vi.fn(() => [
+    {
+      id: 'flutter-minimal',
+      title: 'Minimal Flutter App',
+      framework: 'flutter',
+      category: 'basic',
+      complexity: 1,
+      setupTime: 5
+    },
+    {
+      id: 'flutter-material3',
+      title: 'Material Design 3 App',
+      framework: 'flutter',
+      category: 'basic',
+      complexity: 2,
+      setupTime: 10
+    },
+    {
+      id: 'expo-basic',
+      title: 'Basic Expo App',
+      framework: 'expo',
+      category: 'basic',
+      complexity: 1,
+      setupTime: 5
+    }
+  ]),
+  getTemplatesForUseCase: vi.fn((useCase: string) => {
+    if (useCase.toLowerCase().includes('todo')) {
+      return [{ id: 'flutter-minimal', framework: 'flutter' }];
+    }
+    return [];
+  }),
   validateTemplateRegistry: vi.fn(() => ({ valid: true, issues: [] })),
   getTemplateStats: vi.fn(() => ({
     total: 4,

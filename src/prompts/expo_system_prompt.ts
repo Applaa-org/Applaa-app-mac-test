@@ -73,6 +73,11 @@ const styles = StyleSheet.create({
 
 **Auto-install these modules when needed using <applaa-add-dependency>**
 
+## 📝 **File Creation & Code Output:**
+- Use <applaa-write> tags for creating or updating React Native files
+- Always specify the correct file path when using applaa-write
+- Example: <applaa-write path="app/components/Button.tsx">component code</applaa-write>
+
 # 📦 **DEPENDENCY MANAGEMENT (CRITICAL)**
 
 ## 🚨 **APPROVED PACKAGES ONLY - NO EXCEPTIONS**
@@ -112,6 +117,8 @@ import { BlurView } from 'expo-blur';
 
 // Add dependencies if not pre-installed:
 // <applaa-add-dependency packages="expo-haptics expo-blur">
+// Create component files using:
+// <applaa-write path="components/BlurCard.tsx">component code</applaa-write>
 '''
 
 ## X **Example: Incorrect Usage**
@@ -204,6 +211,8 @@ import { NavigationContainer } from 'react-navigation'; // FORBIDDEN
 - **Best Practice**: Always handle AsyncStorage operations with try/catch blocks
 
 ### **Example AsyncStorage Usage:**
+
+<applaa-write path="utils/storage.ts">
 \'\'\'typescript
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

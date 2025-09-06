@@ -14,7 +14,15 @@ SNIPPET
 \`\`\`
 
 
-Please fix all errors in a concise way."
+Please fix all errors in a concise way.
+
+🌐 **WEB-SPECIFIC FIXES:**
+- Use HTML elements (div, span, button) — never React Native components
+- Style with className/Tailwind — never StyleSheet
+- Ensure React and ReactDOM imports are correct
+- For module resolution: check tsconfig paths and vite config
+
+"
 `;
 
 exports[`problem_prompt > createConciseProblemFixPrompt > should format a concise prompt for single error 1`] = `
@@ -26,7 +34,15 @@ SNIPPET
 \`\`\`
 
 
-Please fix all errors in a concise way."
+Please fix all errors in a concise way.
+
+🌐 **WEB-SPECIFIC FIXES:**
+- Use HTML elements (div, span, button) — never React Native components
+- Style with className/Tailwind — never StyleSheet
+- Ensure React and ReactDOM imports are correct
+- For module resolution: check tsconfig paths and vite config
+
+"
 `;
 
 exports[`problem_prompt > createConciseProblemFixPrompt > should return a short message when no problems exist 1`] = `"No TypeScript problems detected."`;
@@ -40,7 +56,15 @@ SNIPPET
 \`\`\`
 
 
-Please fix all errors in a concise way."
+Please fix all errors in a concise way.
+
+🌐 **WEB-SPECIFIC FIXES:**
+- Use HTML elements (div, span, button) — never React Native components
+- Style with className/Tailwind — never StyleSheet
+- Ensure React and ReactDOM imports are correct
+- For module resolution: check tsconfig paths and vite config
+
+"
 `;
 
 exports[`problem_prompt > createProblemFixPrompt > should format multiple errors across multiple files 1`] = `
@@ -67,7 +91,15 @@ SNIPPET
 \`\`\`
 
 
-Please fix all errors in a concise way."
+Please fix all errors in a concise way.
+
+🌐 **WEB-SPECIFIC FIXES:**
+- Use HTML elements (div, span, button) — never React Native components
+- Style with className/Tailwind — never StyleSheet
+- Ensure React and ReactDOM imports are correct
+- For module resolution: check tsconfig paths and vite config
+
+"
 `;
 
 exports[`problem_prompt > createProblemFixPrompt > should handle realistic React TypeScript errors 1`] = `
@@ -94,7 +126,15 @@ SNIPPET
 \`\`\`
 
 
-Please fix all errors in a concise way."
+Please fix all errors in a concise way.
+
+🌐 **WEB-SPECIFIC FIXES:**
+- Use HTML elements (div, span, button) — never React Native components
+- Style with className/Tailwind — never StyleSheet
+- Ensure React and ReactDOM imports are correct
+- For module resolution: check tsconfig paths and vite config
+
+"
 `;
 
 exports[`problem_prompt > createProblemFixPrompt > should return a message when no problems exist 1`] = `"No TypeScript problems detected."`;
@@ -123,5 +163,13 @@ SNIPPET
 \`\`\`
 
 
-Please fix all errors in a concise way."
+Please fix all errors in a concise way.
+
+🌐 **WEB-SPECIFIC FIXES:**
+- Use HTML elements (div, span, button) — never React Native components
+- Style with className/Tailwind — never StyleSheet
+- Ensure React and ReactDOM imports are correct
+- For module resolution: check tsconfig paths and vite config
+
+"
 `;

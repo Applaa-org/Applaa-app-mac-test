@@ -381,7 +381,7 @@ function generateArchitectureGuidance(spec: GenerationSpec): string {
   // State management guidance
   if (spec.stateMgmt !== 'none') {
     guidance += `
-**State Management:** ${spec.stateMgmt}
+State Management: ${spec.stateMgmt}
 `;
     
     switch (spec.stateMgmt) {
@@ -417,7 +417,7 @@ function generateArchitectureGuidance(spec: GenerationSpec): string {
   // Navigation guidance
   if (spec.navigation !== 'stack') {
     guidance += `
-**Navigation:** ${spec.navigation}
+Navigation: ${spec.navigation}
 - Implement ${spec.navigation} navigation pattern
 - Use proper route management
 - Handle navigation state appropriately
@@ -427,7 +427,7 @@ function generateArchitectureGuidance(spec: GenerationSpec): string {
   // Backend integration guidance
   if (spec.backend !== 'none') {
     guidance += `
-**Backend Integration:** ${spec.backend}
+Backend Integration: ${spec.backend}
 `;
     
     switch (spec.backend) {
@@ -463,7 +463,7 @@ function generateArchitectureGuidance(spec: GenerationSpec): string {
   // Authentication guidance
   if (spec.auth !== 'none') {
     guidance += `
-**Authentication:** ${spec.auth}
+Authentication: ${spec.auth}
 - Implement secure authentication flows
 - Handle token storage securely
 - Implement proper logout functionality

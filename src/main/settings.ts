@@ -6,6 +6,8 @@ import { safeStorage } from "electron";
 import { v4 as uuidv4 } from "uuid";
 import log from "electron-log";
 import { DEFAULT_TEMPLATE_ID } from "@/shared/templates";
+import crypto from "crypto";
+import os from "os";
 
 const logger = log.scope("settings");
 
@@ -313,13 +315,103 @@ export function writeSettings(settings: Partial<UserSettings>): void {
   }
 }
 
+/**
+ * 🔐 STABLE ENCRYPTION SYSTEM
+ * 
+ * This system ensures that user settings persist across app updates.
+ * Instead of using Electron's safeStorage (which changes with each install),
+ * we use a stable key derived from the user's machine characteristics.
+ */
+
+// Generate a stable encryption key based on machine characteristics
+function getStableEncryptionKey(): Buffer {
+  const keyPath = path.join(getUserDataPath(), '.applaa-key');
+  
+  // Try to read existing key
+  if (fs.existsSync(keyPath)) {
+    try {
+      return fs.readFileSync(keyPath);
+    } catch (error) {
+      logger.warn('Failed to read existing encryption key, generating new one');
+    }
+  }
+  
+  // Generate new stable key based on machine characteristics
+  const machineId = [
+    os.hostname(),
+    os.userInfo().username,
+    'applaa-stable-key-v1' // Version identifier
+  ].join('-');
+  
+  const key = crypto.scryptSync(machineId, 'applaa-salt-2025', 32);
+  
+  // Save key for future use
+  try {
+    fs.writeFileSync(keyPath, key);
+    logger.info('Generated new stable encryption key');
+  } catch (error) {
+    logger.warn('Failed to save encryption key, using in-memory only');
+  }
+  
+  return key;
+}
+
+// Stable encryption that persists across app updates
+function stableEncrypt(data: string): string {
+  try {
+    const key = getStableEncryptionKey();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    
+    let encrypted = cipher.update(data, 'utf8', 'base64');
+    encrypted += cipher.final('base64');
+    
+    // Combine IV and encrypted data
+    return Buffer.concat([iv, Buffer.from(encrypted, 'base64')]).toString('base64');
+  } catch (error) {
+    logger.error('Stable encryption failed:', error);
+    return data; // Fallback to plaintext
+  }
+}
+
+function stableDecrypt(encryptedData: string): string {
+  try {
+    const key = getStableEncryptionKey();
+    const combined = Buffer.from(encryptedData, 'base64');
+    const iv = combined.slice(0, 16);
+    const encrypted = combined.slice(16).toString('base64');
+    
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    let decrypted = decipher.update(encrypted, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
+  } catch (error) {
+    logger.error('Stable decryption failed:', error);
+    return encryptedData; // Return as-is if decryption fails
+  }
+}
+
 export function encrypt(data: string): Secret {
+  // Try stable encryption first (persists across updates)
+  try {
+    return {
+      value: stableEncrypt(data),
+      encryptionType: "applaa-stable-v1",
+    };
+  } catch (error) {
+    logger.warn('Stable encryption failed, falling back to safeStorage');
+  }
+  
+  // Fallback to Electron's safeStorage
   if (safeStorage.isEncryptionAvailable()) {
     return {
       value: safeStorage.encryptString(data).toString("base64"),
       encryptionType: "electron-safe-storage",
     };
   }
+  
+  // Final fallback to plaintext
   return {
     value: data,
     encryptionType: "plaintext",
@@ -327,9 +419,23 @@ export function encrypt(data: string): Secret {
 }
 
 export function decrypt(data: Secret): string {
-  if (data.encryptionType === "electron-safe-storage") {
-    return safeStorage.decryptString(Buffer.from(data.value, "base64"));
+  // Handle new stable encryption
+  if (data.encryptionType === "applaa-stable-v1") {
+    return stableDecrypt(data.value);
   }
+  
+  // Handle legacy Electron safeStorage
+  if (data.encryptionType === "electron-safe-storage") {
+    try {
+      return safeStorage.decryptString(Buffer.from(data.value, "base64"));
+    } catch (error) {
+      logger.error('Failed to decrypt with safeStorage, data may be from different installation');
+      // Try to migrate to stable encryption if possible
+      return data.value; // Return encrypted value as fallback
+    }
+  }
+  
+  // Handle plaintext
   return data.value;
 }
 

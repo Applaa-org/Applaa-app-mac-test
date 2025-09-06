@@ -42,8 +42,7 @@ export default defineConfig({
         "worker_threads",
         "perf_hooks",
         /^node:/,
-        /^fs\//,
-        "default-shell"
+        /^fs\//
       ],
     },
     sourcemap: true,

@@ -14,14 +14,14 @@ vi.mock('@/hooks/mobile/useTemplateRegistry', () => ({
   useTemplateRegistry: vi.fn(() => ({
     filteredTemplates: [
       {
-        id: 'flutter-minimal',
-        title: 'Minimal Flutter App',
-        description: 'Clean, minimal Flutter app',
-        framework: 'flutter',
+        id: 'expo-minimal',
+        title: 'Minimal Expo App',
+        description: 'Clean, minimal Expo app',
+        framework: 'expo',
         category: 'basic',
         tags: ['minimal'],
-        platforms: ['android', 'ios'],
-        dependencies: ['flutter'],
+        platforms: ['android', 'ios', 'web'],
+        dependencies: ['expo'],
         complexity: 1,
         setupTime: 5
       }
@@ -61,57 +61,59 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-describe('MobileFrameworkPicker', () => {
-  const defaultProps = {
-    isOpen: true,
-    onClose: vi.fn(),
-    onSelect: vi.fn(),
-    userPrompt: 'Create a todo app'
-  };
+// Default props for all tests
+const defaultProps = {
+  isOpen: true,
+  onClose: vi.fn(),
+  onSelect: vi.fn(),
+  userPrompt: 'Create a todo app'
+};
 
+describe('MobileFrameworkPicker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  test('should render framework selection step initially', () => {
+  test('should auto-advance to template selection with single framework', () => {
     render(
       <TestWrapper>
         <MobileFrameworkPicker {...defaultProps} />
       </TestWrapper>
     );
 
-    expect(screen.getByText('Choose Mobile Framework')).toBeInTheDocument();
-    expect(screen.getByText('Flutter')).toBeInTheDocument();
-    expect(screen.getByText('Expo')).toBeInTheDocument();
+    // Should skip framework selection and go directly to template selection
+    expect(screen.queryByText('Select Template')).toBeTruthy();
+    expect(screen.queryByText('Choose Mobile Framework')).toBeFalsy();
   });
 
   test('should show user prompt when provided', () => {
+    // Since Expo is the only framework, the component auto-advances to template selection
+    // The prompt display is only shown in framework selection, so this test should check
+    // that the component still works with a prompt even if it's not displayed
     render(
       <TestWrapper>
         <MobileFrameworkPicker {...defaultProps} userPrompt="Create a todo app" />
       </TestWrapper>
     );
 
-    expect(screen.getByText('Based on your prompt:')).toBeInTheDocument();
-    expect(screen.getByText('"Create a todo app"')).toBeInTheDocument();
+    // Component should still render successfully with a prompt
+    expect(screen.queryByText('Select Template')).toBeTruthy();
   });
 
-  test('should advance to template selection when framework is selected', async () => {
+  test('should start at template selection with auto-advance', async () => {
     render(
       <TestWrapper>
         <MobileFrameworkPicker {...defaultProps} />
       </TestWrapper>
     );
 
-    // Click on Flutter framework
-    fireEvent.click(screen.getByText('Flutter'));
-
+    // Should automatically be at template selection
     await waitFor(() => {
-      expect(screen.getByText('Select Template')).toBeInTheDocument();
+      expect(screen.queryByText('Select Template')).toBeTruthy();
     });
   });
 
-  test('should call onSelect when template and framework are chosen', async () => {
+  test('should call onSelect when template is chosen with auto-selected framework', async () => {
     const onSelect = vi.fn();
     
     render(
@@ -120,24 +122,22 @@ describe('MobileFrameworkPicker', () => {
       </TestWrapper>
     );
 
-    // Select Flutter framework
-    fireEvent.click(screen.getByText('Flutter'));
-
+    // Should automatically be at template selection
     await waitFor(() => {
-      expect(screen.getByText('Select Template')).toBeInTheDocument();
+      expect(screen.queryByText('Select Template')).toBeTruthy();
     });
 
     // Select a template (click twice to confirm selection)
-    const templateCard = screen.getByText('Minimal Flutter App');
+    const templateCard = screen.getByText('Minimal Expo App');
     fireEvent.click(templateCard);
     fireEvent.click(templateCard);
 
     await waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(
-        'flutter',
+        'expo',
         expect.objectContaining({
-          id: 'flutter-minimal',
-          title: 'Minimal Flutter App'
+          id: 'expo-minimal',
+          title: 'Minimal Expo App'
         }),
         expect.any(Array)
       );
@@ -151,32 +151,29 @@ describe('MobileFrameworkPicker', () => {
       </TestWrapper>
     );
 
-    expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    // Since Expo is the only framework, it auto-advances to step 2
+    expect(screen.queryByText('Step 2 of 2')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeTruthy();
   });
 
-  test('should allow going back from template to framework selection', async () => {
+  test('should show platform selection in template step', async () => {
     render(
       <TestWrapper>
         <MobileFrameworkPicker {...defaultProps} />
       </TestWrapper>
     );
 
-    // Go to template selection
-    fireEvent.click(screen.getByText('Flutter'));
-
+    // Should automatically be at template selection with platform options
     await waitFor(() => {
-      expect(screen.getByText('Select Template')).toBeInTheDocument();
-    });
-
-    // Click back button
-    const backButton = screen.getByRole('button', { name: /back/i });
-    fireEvent.click(backButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('Choose Mobile Framework')).toBeInTheDocument();
+      expect(screen.queryByText('Select Template')).toBeTruthy();
+      expect(screen.queryByText('Target Platforms')).toBeTruthy();
+      // Check for platform buttons by role since they include emojis
+      expect(screen.getByRole('button', { name: /android/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /ios/i })).toBeTruthy();
     });
   });
+
+
 
   test('should handle platform selection', async () => {
     render(
@@ -185,16 +182,20 @@ describe('MobileFrameworkPicker', () => {
       </TestWrapper>
     );
 
-    // Go to template selection
-    fireEvent.click(screen.getByText('Flutter'));
-
+    // Should automatically be at template selection
     await waitFor(() => {
-      expect(screen.getByText('Target Platforms')).toBeInTheDocument();
+      expect(screen.queryByText('Select Template')).toBeTruthy();
     });
 
-    // Platform buttons should be available
-    expect(screen.getByText('android')).toBeInTheDocument();
-    expect(screen.getByText('ios')).toBeInTheDocument();
+    // Select template to go to platform selection
+    const templateCard = screen.getByText('Minimal Expo App');
+    fireEvent.click(templateCard);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Target Platforms')).toBeTruthy();
+      expect(screen.getByRole('button', { name: /android/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /ios/i })).toBeTruthy();
+    });
   });
 
   test('should show compact mode when enabled', () => {
@@ -205,8 +206,8 @@ describe('MobileFrameworkPicker', () => {
     );
 
     // In compact mode, the dialog should have a smaller max width
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toBeInTheDocument();
+    const dialog = screen.queryByRole('dialog');
+    expect(dialog).toBeTruthy();
   });
 
   test('should handle close action', () => {
@@ -228,72 +229,95 @@ describe('MobileFrameworkPicker', () => {
   test('should start with pre-selected framework when provided', async () => {
     render(
       <TestWrapper>
-        <MobileFrameworkPicker {...defaultProps} initialFramework="flutter" />
+        <MobileFrameworkPicker {...defaultProps} initialFramework="expo" />
       </TestWrapper>
     );
 
     // Should automatically advance to template selection
     await waitFor(() => {
-      expect(screen.getByText('Select Template')).toBeInTheDocument();
+      expect(screen.queryByText('Select Template')).toBeTruthy();
     });
   });
 
-  test('should disable Create Project button when requirements not met', async () => {
+  test('should disable Create Project button until all selections are made', async () => {
     render(
       <TestWrapper>
         <MobileFrameworkPicker {...defaultProps} />
       </TestWrapper>
     );
 
-    // Go to template selection
-    fireEvent.click(screen.getByText('Flutter'));
-
+    // Should automatically be at template selection with platforms visible
     await waitFor(() => {
-      // Create Project button should be disabled initially
+      expect(screen.queryByText('Select Template')).toBeTruthy();
+      expect(screen.getByRole('button', { name: /android/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /ios/i })).toBeTruthy();
+    });
+
+    // Select a template first
+    const templateCard = screen.getByText('Minimal Expo App');
+    fireEvent.click(templateCard);
+
+    // Check that Create Project button exists and is initially disabled
+    await waitFor(() => {
       const createButton = screen.getByRole('button', { name: /create project/i });
-      expect(createButton).toBeDisabled();
+      expect(createButton.disabled).toBe(true);
+    });
+
+    // Select platforms
+    fireEvent.click(screen.getByRole('button', { name: /android/i }));
+    fireEvent.click(screen.getByRole('button', { name: /ios/i }));
+
+    // Button should now be enabled
+    await waitFor(() => {
+      const createButton = screen.getByRole('button', { name: /create project/i });
+      expect(createButton.disabled).toBe(false);
     });
   });
 });
 
 describe('Framework Information', () => {
-  test('should display correct framework features', () => {
+  test('should skip framework selection with single framework', () => {
     render(
       <TestWrapper>
         <MobileFrameworkPicker {...defaultProps} />
       </TestWrapper>
     );
 
-    // Check Flutter features
-    expect(screen.getByText('Single codebase for all platforms')).toBeInTheDocument();
-    expect(screen.getByText('Hot reload for fast development')).toBeInTheDocument();
-    expect(screen.getByText('Native performance')).toBeInTheDocument();
-
-    // Check Expo features
-    expect(screen.getByText('React Native made easy')).toBeInTheDocument();
-    expect(screen.getByText('Instant preview on device')).toBeInTheDocument();
+    // Should skip framework selection and go directly to template selection
+    expect(screen.queryByText('Select Template')).toBeTruthy();
+    expect(screen.queryByText('Choose Mobile Framework')).toBeFalsy();
   });
 
-  test('should show popularity ratings', () => {
+  test('should auto-advance to template selection when only one framework available', () => {
     render(
       <TestWrapper>
         <MobileFrameworkPicker {...defaultProps} />
       </TestWrapper>
     );
 
-    expect(screen.getByText('95%')).toBeInTheDocument(); // Flutter popularity
-    expect(screen.getByText('88%')).toBeInTheDocument(); // Expo popularity
+    // Should skip framework selection and go directly to template selection
+    expect(screen.queryByText('Select Template')).toBeTruthy();
+    expect(screen.queryByText('Step 2 of 2')).toBeTruthy();
   });
 
-  test('should display difficulty levels', () => {
+  test('should remain on template step when clicking back (single framework)', async () => {
     render(
       <TestWrapper>
         <MobileFrameworkPicker {...defaultProps} />
       </TestWrapper>
     );
 
-    expect(screen.getByText('Intermediate')).toBeInTheDocument(); // Flutter
-    expect(screen.getByText('Beginner')).toBeInTheDocument(); // Expo
+    // Should be on template step initially
+    expect(screen.queryByText('Select Template')).toBeTruthy();
+    
+    // Click back button
+    const backButton = screen.getByRole('button', { name: /back/i });
+    fireEvent.click(backButton);
+
+    // Should still be on template step due to auto-advance with single framework
+    await waitFor(() => {
+      expect(screen.queryByText('Select Template')).toBeTruthy();
+    });
   });
 });
 

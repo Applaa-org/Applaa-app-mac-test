@@ -1094,6 +1094,9 @@ export const constructSystemPrompt = ({
   return systemPrompt.replace("[[AI_RULES]]", aiRules ?? DEFAULT_AI_RULES);
 };
 
+// Export constants for testing
+export { BUILD_SYSTEM_PROMPT, ASK_MODE_SYSTEM_PROMPT, DEFAULT_AI_RULES };
+
 export const readAiRules = async (dyadAppPath: string) => {
   const aiRulesPath = path.join(dyadAppPath, "AI_RULES.md");
   try {
