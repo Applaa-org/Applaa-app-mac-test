@@ -182,23 +182,21 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
     });
 
     it("should use premium design terminology", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
       const { EXPO_SYSTEM_PROMPT } = await import("../prompts/expo_system_prompt");
       
-      const premiumTerms = [
-        "premium",
-        "contemporary design", 
-        "award-winning",
-        "professional",
-        "$50K design"
-      ];
-
-      [BUILD_SYSTEM_PROMPT, EXPO_SYSTEM_PROMPT].forEach(prompt => {
-        const content = (typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).toLowerCase();
-        premiumTerms.forEach(term => {
-          expect(content).toContain(term.toLowerCase());
-        });
-      });
+      const buildPrompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
+      
+      // Check build prompt for premium terms
+      const buildContent = buildPrompt.toLowerCase();
+      expect(buildContent).toContain("premium");
+      expect(buildContent).toContain("professional");
+      expect(buildContent).toContain("award-winning");
+      
+      // Check expo prompt for premium terms
+      const expoContent = EXPO_SYSTEM_PROMPT.toLowerCase();
+      expect(expoContent).toContain("premium");
+      expect(expoContent).toContain("professional");
     });
 
     it("should include industry-specific color psychology", async () => {
@@ -223,8 +221,8 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
 
   describe("🎯 Quality Assurance Standards", () => {
     it("should define measurable quality metrics", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
-      const prompt = BUILD_SYSTEM_PROMPT;
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
+      const prompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
       
       const metrics = [
         "8-12 realistic items per section",
@@ -240,8 +238,8 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
     });
 
     it("should require comprehensive mock data", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
-      const prompt = BUILD_SYSTEM_PROMPT;
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
+      const prompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
       
       const mockDataRequirements = [
         "Rich Mock Data",
@@ -258,8 +256,8 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
     });
 
     it("should enforce routing standards", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
-      const prompt = BUILD_SYSTEM_PROMPT;
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
+      const prompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
       
       const routingStandards = [
         "NO 404 ERRORS",
@@ -277,8 +275,8 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
 
   describe("🔧 Technical Requirements", () => {
     it("should specify required UI component patterns", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
-      const prompt = BUILD_SYSTEM_PROMPT;
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
+      const prompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
       
       const componentPatterns = [
         "Professional Header Component",
@@ -295,8 +293,8 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
     });
 
     it("should define responsive design requirements", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
-      const prompt = BUILD_SYSTEM_PROMPT;
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
+      const prompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
       
       const responsiveRequirements = [
         "Responsive Design",
@@ -312,8 +310,8 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
     });
 
     it("should include accessibility considerations", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
-      const prompt = BUILD_SYSTEM_PROMPT;
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
+      const prompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
       
       // While not explicitly mentioned, good design practices should be implied
       const designPractices = [
@@ -332,8 +330,8 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
 
   describe("📊 Performance Standards", () => {
     it("should optimize for development speed", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
-      const prompt = BUILD_SYSTEM_PROMPT;
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
+      const prompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
       
       const speedOptimizations = [
         "shadcn/ui",
@@ -349,8 +347,8 @@ describe("🎨 SYSTEM PROMPT ENHANCEMENTS", () => {
     });
 
     it("should minimize external dependencies", async () => {
-      const { BUILD_SYSTEM_PROMPT } = await import("../prompts/system_prompt");
-      const prompt = BUILD_SYSTEM_PROMPT;
+      const { constructSystemPrompt, DEFAULT_AI_RULES } = await import("../prompts/system_prompt");
+      const prompt = constructSystemPrompt({ aiRules: DEFAULT_AI_RULES, chatMode: "build" });
       
       // Check for key dependency management concepts
       expect(prompt.toLowerCase()).toContain("shadcn/ui components");

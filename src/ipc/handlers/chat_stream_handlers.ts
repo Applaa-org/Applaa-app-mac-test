@@ -13,8 +13,17 @@ import { chats, messages } from "../../db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   constructSystemPrompt,
+  constructCacheableSystemPrompt,
   readAiRules,
 } from "../../prompts/system_prompt";
+import { 
+  optimizeForProvider,
+  costOptimizationService 
+} from "../utils/cost_optimization_service";
+import { 
+  createCacheableSystemPrompt,
+  getCachingConfig 
+} from "../utils/prompt_caching";
 import {
   SUPABASE_AVAILABLE_SYSTEM_PROMPT,
   SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT,
@@ -575,7 +584,8 @@ ${componentSnippet}
           );
         }
 
-        let systemPrompt = constructSystemPrompt({
+        // 🚀 COST OPTIMIZATION: Use prompt caching for massive savings
+        let baseSystemPrompt = constructSystemPrompt({
           aiRules: await readAiRules(appPath),
           chatMode: settings.selectedChatMode,
           appPath: appPath,
@@ -587,13 +597,13 @@ ${componentSnippet}
             .map(({ appName }) => appName)
             .join(", ");
 
-          systemPrompt += `\n\n# Referenced Apps\nThe user has mentioned the following apps in their prompt: ${mentionedAppsList}. Their codebases have been included in the context for your reference. When referring to these apps, you can understand their structure and code to provide better assistance, however you should NOT edit the files in these referenced apps. The referenced apps are NOT part of the current app and are READ-ONLY.`;
+          baseSystemPrompt += `\n\n# Referenced Apps\nThe user has mentioned the following apps in their prompt: ${mentionedAppsList}. Their codebases have been included in the context for your reference. When referring to these apps, you can understand their structure and code to provide better assistance, however you should NOT edit the files in these referenced apps. The referenced apps are NOT part of the current app and are READ-ONLY.`;
         }
         if (
           updatedChat.app?.supabaseProjectId &&
           settings.supabase?.accessToken?.value
         ) {
-          systemPrompt +=
+          baseSystemPrompt +=
             "\n\n" +
             SUPABASE_AVAILABLE_SYSTEM_PROMPT +
             "\n\n" +
@@ -604,13 +614,25 @@ ${componentSnippet}
           // Neon projects don't need Supabase.
           !updatedChat.app?.neonProjectId
         ) {
-          systemPrompt += "\n\n" + SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT;
+          baseSystemPrompt += "\n\n" + SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT;
         }
         const isSummarizeIntent = req.prompt.startsWith(
           "Summarize from chat-id=",
         );
         if (isSummarizeIntent) {
-          systemPrompt = SUMMARIZE_CHAT_SYSTEM_PROMPT;
+          baseSystemPrompt = SUMMARIZE_CHAT_SYSTEM_PROMPT;
+        }
+
+        // 💰 COST OPTIMIZATION: Simple approach - just use the system prompt as string
+        // Anthropic caching is handled by the API headers, not prompt format
+        const systemPrompt = baseSystemPrompt;
+        
+        const estimatedTokens = Math.ceil(systemPrompt.length / 4);
+        logger.log(`💰 System prompt: ${estimatedTokens} tokens`);
+        
+        if (settings.selectedModel.provider === 'anthropic' || 
+            (settings.selectedModel.provider === 'openrouter' && settings.selectedModel.name.startsWith('anthropic/'))) {
+          logger.log(`💰 Anthropic caching enabled via headers`);
         }
 
         // Update the system prompt for images if there are image attachments
@@ -756,8 +778,12 @@ This conversation includes one or more image attachments. When the user uploads 
           } else {
             logger.log("sending AI request");
           }
+          // 💰 COST CONTROL: Limit response length to prevent runaway costs
+          const defaultMaxTokens = await getMaxTokens(settings.selectedModel);
+          const safeMaxTokens = Math.min(defaultMaxTokens || 8192, 8192); // Cap at 8K tokens
+          
           return streamText({
-            maxTokens: await getMaxTokens(settings.selectedModel),
+            maxTokens: safeMaxTokens,
             temperature: await getTemperature(settings.selectedModel),
             maxRetries: 2,
             model: modelClient.model,

@@ -222,7 +222,12 @@ function getRegularModelClient(
       };
     }
     case "anthropic": {
-      const provider = createAnthropic({ apiKey });
+      const provider = createAnthropic({ 
+        apiKey,
+        headers: {
+          'anthropic-beta': 'prompt-caching-2024-07-31'
+        }
+      });
       return {
         modelClient: {
           model: provider(model.name),
@@ -242,7 +247,16 @@ function getRegularModelClient(
       };
     }
     case "openrouter": {
-      const provider = createOpenRouter({ apiKey });
+      // Check if it's an Anthropic model via OpenRouter for caching support
+      const isAnthropicModel = model.name.startsWith('anthropic/');
+      const headers = isAnthropicModel ? {
+        'anthropic-beta': 'prompt-caching-2024-07-31'
+      } : {};
+      
+      const provider = createOpenRouter({ 
+        apiKey,
+        headers
+      });
       return {
         modelClient: {
           model: provider(model.name),

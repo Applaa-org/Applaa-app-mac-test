@@ -1085,13 +1085,39 @@ export const constructSystemPrompt = ({
   } else if (appPath && isExpoApp(appPath)) {
     // Use Expo-specific system prompt for mobile apps
     systemPrompt = EXPO_SYSTEM_PROMPT;
-    logger.log('Using Expo system prompt for app at: ${appPath}');
+    logger.log(`Using Expo system prompt for app at: ${appPath}`);
   } else {
     // Default to web system prompt
     systemPrompt = BUILD_SYSTEM_PROMPT;
   }
 
   return systemPrompt.replace("[[AI_RULES]]", aiRules ?? DEFAULT_AI_RULES);
+};
+
+/**
+ * Enhanced system prompt constructor with caching support
+ */
+export const constructCacheableSystemPrompt = ({
+  aiRules,
+  chatMode = "build",
+  appPath,
+  provider,
+}: {
+  aiRules: string | undefined;
+  chatMode?: "build" | "ask";
+  appPath?: string;
+  provider?: string;
+}) => {
+  // Get the base system prompt
+  const systemPrompt = constructSystemPrompt({ aiRules, chatMode, appPath });
+  
+  // Return both the prompt and caching metadata
+  return {
+    prompt: systemPrompt,
+    isCacheable: systemPrompt.length > 4096, // Rough token estimate
+    provider: provider || "unknown",
+    estimatedTokens: Math.ceil(systemPrompt.length / 4)
+  };
 };
 
 // Export constants for testing
