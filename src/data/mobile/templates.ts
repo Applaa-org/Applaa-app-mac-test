@@ -324,7 +324,7 @@ export const FLUTTER_TEMPLATES: TemplateOption[] = [
 
   // WebView Template
   {
-    id: "webview-wrapper",
+    id: "flutter-webview-wrapper",
     title: "WebView Mobile Wrapper",
     description: "Native mobile wrapper for web apps with pull-to-refresh, offline support, and platform-specific UI",
     framework: "flutter",

@@ -189,6 +189,34 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     },
   ],
   openrouter: [
+    // Anthropic models with prompt caching support
+    {
+      name: "anthropic/claude-3.5-sonnet",
+      displayName: "Claude 3.5 Sonnet (OpenRouter)",
+      description: "Anthropic's flagship model with prompt caching support",
+      maxOutputTokens: 32_000,
+      contextWindow: 200_000,
+      temperature: 0,
+      tag: "Caching",
+    },
+    {
+      name: "anthropic/claude-3-opus",
+      displayName: "Claude 3 Opus (OpenRouter)",
+      description: "Anthropic's most powerful model with prompt caching",
+      maxOutputTokens: 32_000,
+      contextWindow: 200_000,
+      temperature: 0,
+      tag: "Caching",
+    },
+    {
+      name: "anthropic/claude-3-haiku",
+      displayName: "Claude 3 Haiku (OpenRouter)",
+      description: "Fast and cost-effective with prompt caching",
+      maxOutputTokens: 32_000,
+      contextWindow: 200_000,
+      temperature: 0,
+      tag: "Caching",
+    },
     {
       name: "qwen/qwen3-coder",
       displayName: "Qwen3 Coder",

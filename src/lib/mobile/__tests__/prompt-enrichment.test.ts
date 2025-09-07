@@ -268,12 +268,12 @@ describe('Prompt Enrichment', () => {
 
     test('should provide recommendations for low enrichment', () => {
       const mockEnriched = {
-        originalPrompt: 'Create app',
-        prompt: 'Create app with minimal guidance',
+        originalPrompt: 'Create a comprehensive mobile application with advanced features',
+        prompt: 'Create a comprehensive mobile application with advanced features with minimal guidance',
         spec: createMinimalSpec('flutter'),
         includedSections: ['Framework Guidance'],
         wasTruncated: false,
-        length: 50
+        length: 100
       };
 
       const analysis = analyzePromptEnrichment(mockEnriched);

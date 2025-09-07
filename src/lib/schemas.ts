@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const SecretSchema = z.object({
   value: z.string(),
-  encryptionType: z.enum(["electron-safe-storage", "plaintext"]).optional(),
+  encryptionType: z.enum(["electron-safe-storage", "plaintext", "applaa-stable-v1"]).optional(),
 });
 export type Secret = z.infer<typeof SecretSchema>;
 

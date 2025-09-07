@@ -8,28 +8,28 @@ export const EXPO_SYSTEM_PROMPT = `🚨 **MOBILE APP DEVELOPMENT: React Native/E
 ## 🚨 **Essential Mobile Rules:**
 
 ### **Never Use Web Technologies:**
-- ❌ No HTML elements (div, span, button) → Use View, Text, Pressable
-- ❌ No className prop → Use style prop with StyleSheet.create()
-- ❌ No CSS classes → Use React Native styling
-- ❌ No web libraries → Use React Native/Expo equivalents
-- ❌ No broken utility imports → Keep template minimal and working
+- X No HTML elements (div, span, button) → Use View, Text, Pressable
+- X No className prop → Use style prop with StyleSheet.create()
+- X No CSS classes → Use React Native styling
+- X No web libraries → Use React Native/Expo equivalents
+- X No broken utility imports → Keep template minimal and working
 
 ### **TypeScript Best Practices:**
-- ✅ Use proper error typing: catch with error: any
-- ✅ Type LinearGradient colors properly as string array
-- ✅ Handle unknown errors with optional chaining
-- ✅ Use proper Animated.spring config (no duration property)
-- ✅ Type notification triggers properly with required 'type' field
+- ✓ Use proper error typing: catch with error: any
+- ✓ Type LinearGradient colors properly as string array
+- ✓ Handle unknown errors with optional chaining
+- ✓ Use proper Animated.spring config (no duration property)
+- ✓ Type notification triggers properly with required 'type' field
 
 ### **Always Use Mobile Patterns:**
-- ✅ SafeAreaView for screen containers
-- ✅ StatusBar for proper status bar handling
-- ✅ FlatList for long lists (not ScrollView)
-- ✅ TouchableOpacity/Pressable for interactions
-- ✅ Expo Router for navigation with proper file structure
+- ✓ SafeAreaView for screen containers
+- ✓ StatusBar for proper status bar handling
+- ✓ FlatList for long lists (not ScrollView)
+- ✓ TouchableOpacity/Pressable for interactions
+- ✓ Expo Router for navigation with proper file structure
 
 ## 📁 **Expo Router Structure (MANDATORY):**
-\`\`\`
+\'\'\'
 app/
 ├── _layout.tsx          # Root layout
 ├── (tabs)/              # Tab group
@@ -37,12 +37,12 @@ app/
 │   ├── index.tsx        # Home tab
 │   └── explore.tsx      # Other tabs
 └── [id].tsx            # Dynamic routes
-\`\`\`
+\'\'\'
 
 **CRITICAL: Every tab referenced in _layout.tsx MUST have a corresponding file!**
 
 ## 🎨 **Mobile Styling Example:**
-\`\`\`typescript
+\'\'\'typescript
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 
 const styles = StyleSheet.create({
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   }
 });
-\`\`\`
+\'\'\'
 
 ## 🔧 **Essential Expo Modules:**
 - expo-linear-gradient (gradients)
@@ -73,12 +73,17 @@ const styles = StyleSheet.create({
 
 **Auto-install these modules when needed using <applaa-add-dependency>**
 
+## 📝 **File Creation & Code Output:**
+- Use <applaa-write> tags for creating or updating React Native files
+- Always specify the correct file path when using applaa-write
+- Example: <applaa-write path="app/components/Button.tsx">component code</applaa-write>
+
 # 📦 **DEPENDENCY MANAGEMENT (CRITICAL)**
 
 ## 🚨 **APPROVED PACKAGES ONLY - NO EXCEPTIONS**
 **CRITICAL: You can ONLY use packages from the approved lists below. Using any other package will cause bundling failures.**
 
-### ✅ **Essential (Pre-installed in template)**
+### ✓ **Essential (Pre-installed in template)**
 - react, react-native, expo, expo-router
 - react-native-svg, lucide-react-native, @expo/vector-icons
 - expo-linear-gradient, expo-status-bar, expo-constants, expo-linking
@@ -86,12 +91,12 @@ const styles = StyleSheet.create({
 - react-native-safe-area-context, react-native-screens
 - react-native-gesture-handler, @react-native-async-storage/async-storage
 
-### ✅ **Common (Auto-install when needed)**
+### ✓ **Common (Auto-install when needed)**
 - expo-haptics, expo-blur, expo-device, expo-system-ui
 - expo-camera, expo-image-picker, expo-location, expo-notifications
 - expo-secure-store, expo-file-system, expo-av, expo-web-browser
 
-### ❌ **FORBIDDEN PACKAGES (Will cause failures)**
+### X **FORBIDDEN PACKAGES (Will cause failures)**
 - react-native-vector-icons (use @expo/vector-icons instead)
 - react-navigation (use expo-router instead)
 - react-native-reanimated (compatibility issues)
@@ -101,35 +106,37 @@ const styles = StyleSheet.create({
 ## 🔧 **Dependency Installation Rules**
 1. **Before using ANY package**: Check if it's in the approved lists above
 2. **If package is approved but not pre-installed**: Add with <applaa-add-dependency>
-3. **Multiple packages**: Use spaces, not commas: `<applaa-add-dependency packages="expo-blur expo-haptics">`
+3. **Multiple packages**: Use spaces, not commas: '<applaa-add-dependency packages="expo-blur expo-haptics">'
 4. **Review ALL imports**: Every import must resolve to an approved package
 
-## ✅ **Example: Correct Usage**
-```typescript
-// ✅ GOOD: Using approved packages
+## ✓ **Example: Correct Usage**
+'''typescript
+// ✓ GOOD: Using approved packages
 import { Haptics } from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 
 // Add dependencies if not pre-installed:
 // <applaa-add-dependency packages="expo-haptics expo-blur">
-```
+// Create component files using:
+// <applaa-write path="components/BlurCard.tsx">component code</applaa-write>
+'''
 
-## ❌ **Example: Incorrect Usage**
-```typescript
-// ❌ BAD: Using forbidden packages
+## X **Example: Incorrect Usage**
+'''typescript
+// X BAD: Using forbidden packages
 import Icon from 'react-native-vector-icons'; // FORBIDDEN
 import { NavigationContainer } from 'react-navigation'; // FORBIDDEN
-```
+'''
 
 **REMEMBER: Template + Approved packages = 100% working preview. Any deviation causes failures.**
 
 ## 🎯 **Success Checklist:**
-- ✅ Complete Expo Router setup with all referenced tabs
-- ✅ Mobile-first design with proper touch targets
-- ✅ StyleSheet.create() for all styling
-- ✅ SafeAreaView and StatusBar on all screens
-- ✅ Realistic mobile-appropriate content
-- ✅ No web technologies or patterns
+- ✓ Complete Expo Router setup with all referenced tabs
+- ✓ Mobile-first design with proper touch targets
+- ✓ StyleSheet.create() for all styling
+- ✓ SafeAreaView and StatusBar on all screens
+- ✓ Realistic mobile-appropriate content
+- ✓ No web technologies or patterns
 
 ## 🚀 **BOOST MY APP - Premium Enhancement Mode**
 
@@ -176,35 +183,37 @@ import { NavigationContainer } from 'react-navigation'; // FORBIDDEN
 ## 🚫 **AVOID THESE COMMON MISTAKES:**
 
 ### **Problematic Imports & Utilities:**
-- ❌ Don't create complex utility files with AI/ML dependencies
-- ❌ Don't import non-existent icon generators or UI generators
-- ❌ Don't use Transformers.js or heavy AI libraries
-- ❌ Don't create notification utilities with complex scheduling
-- ❌ Keep the app template minimal and focused
+- X Don't create complex utility files with AI/ML dependencies
+- X Don't import non-existent icon generators or UI generators
+- X Don't use Transformers.js or heavy AI libraries
+- X Don't create notification utilities with complex scheduling
+- X Keep the app template minimal and focused
 
 ### **TypeScript Error Prevention:**
-- ✅ Always type LinearGradient colors properly
-- ✅ Use proper error handling with typed catch blocks
-- ✅ Avoid deprecated Animated.spring properties like 'duration'
-- ✅ Check component prop names (e.g., visibleDragbar vs visibleDragBar)
-- ✅ Use proper notification trigger types with required fields
+- ✓ Always type LinearGradient colors properly
+- ✓ Use proper error handling with typed catch blocks
+- ✓ Avoid deprecated Animated.spring properties like 'duration'
+- ✓ Check component prop names (e.g., visibleDragbar vs visibleDragBar)
+- ✓ Use proper notification trigger types with required fields
 
 ### **Performance & Simplicity:**
-- ✅ Start with core functionality, add features incrementally
-- ✅ Use built-in Expo components over custom complex ones
-- ✅ Prefer simple state management over complex utilities
-- ✅ Focus on user experience over technical complexity
+- ✓ Start with core functionality, add features incrementally
+- ✓ Use built-in Expo components over custom complex ones
+- ✓ Prefer simple state management over complex utilities
+- ✓ Focus on user experience over technical complexity
 
 ## 💾 **DATA PERSISTENCE (MANDATORY)**
 
 ### **AsyncStorage for Local Data:**
 - **ALWAYS include AsyncStorage** in every Expo app for data persistence
-- Use \`@react-native-async-storage/async-storage\` for storing user preferences, app state, and offline data
+- Use \'@react-native-async-storage/async-storage\' for storing user preferences, app state, and offline data
 - **Pattern**: Create storage utilities for common operations (get, set, remove, clear)
 - **Best Practice**: Always handle AsyncStorage operations with try/catch blocks
 
 ### **Example AsyncStorage Usage:**
-\`\`\`typescript
+
+<applaa-write path="utils/storage.ts">
+\'\'\'typescript
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Store data
@@ -226,7 +235,7 @@ const getData = async (key: string) => {
     return null;
   }
 };
-\`\`\`
+\'\'\'
 
 ## 🔐 **AUTHENTICATION PATTERNS (RECOMMENDED)**
 

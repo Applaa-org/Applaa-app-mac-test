@@ -297,7 +297,26 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   }, [appUrl]);
 
   // Function to activate component selector in the iframe
-  const handleActivateComponentSelector = () => {
+  const handleActivateComponentSelector = async () => {
+    // If component selector is not initialized, auto-apply the upgrade
+    if (!isComponentSelectorInitialized && selectedAppId) {
+      try {
+        const ipcClient = IpcClient.getInstance();
+        await ipcClient.executeAppUpgrade({ 
+          appId: selectedAppId, 
+          upgradeId: "component-tagger" 
+        });
+        // Restart the app to apply changes
+        restartApp();
+        return;
+      } catch (error) {
+        console.error("Failed to apply component tagger upgrade:", error);
+        // Fallback: show notification to manually enable
+        window.postMessage({ type: 'navigate-to-configure' }, '*');
+        return;
+      }
+    }
+
     if (iframeRef.current?.contentWindow) {
       const newIsPicking = !isPicking;
       setIsPicking(newIsPicking);
@@ -416,6 +435,27 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Component Selector Upgrade Notification */}
+      {!isComponentSelectorInitialized && selectedAppId && !loading && (
+        <div className="bg-yellow-50 border-b border-yellow-200 p-2">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 text-yellow-800">
+              <MousePointerClick size={14} />
+              <span>Component selector disabled. Need to enable component tagging.</span>
+            </div>
+            <button
+              onClick={() => {
+                // Open configure panel where upgrades are shown
+                window.postMessage({ type: 'navigate-to-configure' }, '*');
+              }}
+              className="text-yellow-700 hover:text-yellow-900 underline text-xs"
+            >
+              Enable it →
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Browser-style header */}
       <div className="flex items-center p-2 border-b space-x-2 ">
         {/* Navigation Buttons */}
@@ -430,9 +470,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
                       ? "bg-purple-500 text-white hover:bg-purple-600 dark:bg-purple-600 dark:hover:bg-purple-700"
                       : " text-purple-700 hover:bg-purple-200  dark:text-purple-300 dark:hover:bg-purple-900"
                   }`}
-                  disabled={
-                    loading || !selectedAppId || !isComponentSelectorInitialized
-                  }
+                  disabled={loading || !selectedAppId}
                   data-testid="preview-pick-element-button"
                 >
                   <MousePointerClick size={16} />
@@ -440,7 +478,9 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
               </TooltipTrigger>
               <TooltipContent>
                 <p>
-                  {isPicking
+                  {!isComponentSelectorInitialized
+                    ? "Click to enable component selector (will install component tagger)"
+                    : isPicking
                     ? "Deactivate component selector"
                     : "Select component"}
                 </p>

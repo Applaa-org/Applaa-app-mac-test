@@ -40,9 +40,9 @@ export default defineConfig({
         "assert",
         "constants",
         "worker_threads",
+        "perf_hooks",
         /^node:/,
-        /^fs\//,
-        "default-shell"
+        /^fs\//
       ],
     },
     sourcemap: true,

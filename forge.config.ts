@@ -70,9 +70,9 @@ const config: ForgeConfig = {
       "node_modules/react-native-transformers/**",
       "node_modules/better-sqlite3/**"
     ],
-    extraResource: [
-      "vendor/node20"
-    ],
+    // extraResource: [
+    //   "vendor/node20"
+    // ],
     ignore,
   },
   rebuildConfig: {
@@ -88,6 +88,16 @@ const config: ForgeConfig = {
   },
   // Makers for creating distributable packages
   makers: [
+    {
+      name: "@electron-forge/maker-squirrel",
+      config: {
+        name: "Applaa",
+        authors: "Applaa Team",
+        description: "Your local AI app builder with beautiful orange and green design",
+        setupIcon: "./assets/icon/logo.ico",
+        noMsi: true,
+      },
+    },
     {
       name: "@electron-forge/maker-zip",
       config: {

@@ -2078,6 +2078,84 @@ export class IpcClient {
     return this.ipcRenderer.invoke('flutter:get-version');
   }
 
+  // Cost Analytics Methods
+  async getCostAnalytics(): Promise<{
+    totalRequests: number;
+    cacheHits: number;
+    estimatedSavings: number;
+    dailySavings: number;
+    monthlySavings: number;
+    annualSavings: number;
+    topProviders: Array<{ provider: string; requests: number }>;
+    cachingStrategies: Record<string, string[]>;
+  }> {
+    return this.ipcRenderer.invoke('cost-analytics:get-stats');
+  }
+
+  async resetCostAnalytics(): Promise<void> {
+    return this.ipcRenderer.invoke('cost-analytics:reset-stats');
+  }
+
+  // Batch Processing Methods
+  async createOptimizedBatch(request: {
+    type: "app_generation" | "code_review" | "content_analysis";
+    requests: Array<{
+      id: string;
+      prompt: string;
+      systemPrompt?: string;
+      metadata?: any;
+    }>;
+    model?: string;
+  }): Promise<{
+    batchId: string;
+    requestCount: number;
+    estimatedCompletion: string;
+    costSavings: {
+      standardCost: number;
+      optimizedCost: number;
+      totalSavings: number;
+      savingsPercentage: number;
+    };
+  }> {
+    return this.ipcRenderer.invoke('batch:create-optimized', request);
+  }
+
+  async getBatchStatus(batchId: string): Promise<{
+    id: string;
+    type: "message_batch";
+    processing_status: "in_progress" | "completed" | "failed" | "canceled" | "expired";
+    request_counts: {
+      processing: number;
+      succeeded: number;
+      errored: number;
+      canceled: number;
+      expired: number;
+    };
+    ended_at?: string;
+    created_at: string;
+    expires_at: string;
+  }> {
+    return this.ipcRenderer.invoke('batch:get-status', batchId);
+  }
+
+  async getBatchResults(batchId: string): Promise<Array<{
+    custom_id: string;
+    result: {
+      type: "succeeded" | "errored" | "canceled" | "expired";
+      message?: any;
+      error?: {
+        type: string;
+        message: string;
+      };
+    };
+  }>> {
+    return this.ipcRenderer.invoke('batch:get-results', batchId);
+  }
+
+  async cancelBatch(batchId: string): Promise<any> {
+    return this.ipcRenderer.invoke('batch:cancel', batchId);
+  }
+
   async installFlutterSDK(): Promise<import('@/lib/mobile/types').Result<{
     platform: string;
     downloadUrl: string;

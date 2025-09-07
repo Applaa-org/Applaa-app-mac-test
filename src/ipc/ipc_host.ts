@@ -28,6 +28,8 @@ import { registerImportHandlers } from "./handlers/import_handlers";
 import { registerSessionHandlers } from "./handlers/session_handlers";
 import { registerProHandlers } from "./handlers/pro_handlers";
 import { registerContextPathsHandlers } from "./handlers/context_paths_handlers";
+import { registerCostAnalyticsHandlers } from "./handlers/cost_analytics_handlers";
+import { registerBatchProcessingHandlers } from "./handlers/batch_processing_handlers";
 import { registerNativeSpeechHandlers } from "./handlers/native_speech_handlers";
 import { registerAppUpgradeHandlers } from "./handlers/app_upgrade_handlers";
 import { registerCapacitorHandlers } from "./handlers/capacitor_handlers";
@@ -91,6 +93,8 @@ export function registerIpcHandlers() {
   registerSessionHandlers();
   registerProHandlers();
   registerContextPathsHandlers();
+  registerCostAnalyticsHandlers();
+  registerBatchProcessingHandlers();
   registerNativeSpeechHandlers();
   registerAppUpgradeHandlers();
   registerCapacitorHandlers();
