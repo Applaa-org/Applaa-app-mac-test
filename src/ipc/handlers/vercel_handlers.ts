@@ -22,6 +22,7 @@ import { ConnectToExistingVercelProjectParams } from "../ipc_types";
 import { GetVercelDeploymentsParams } from "../ipc_types";
 import { DisconnectVercelProjectParams } from "../ipc_types";
 import { createLoggedHandler } from "./safe_handle";
+import fetch from "node-fetch";
 
 const logger = log.scope("vercel_handlers");
 const handle = createLoggedHandler(logger);
@@ -471,6 +472,69 @@ async function handleDisconnectVercelProject(
     .where(eq(apps.id, appId));
 }
 
+// --- Direct Vercel Deployment Handler ---
+async function handleDeployToVercel(
+  event: IpcMainInvokeEvent,
+  { vercelToken, githubUsername, repoName, githubToken }: {
+    vercelToken: string;
+    githubUsername: string;
+    repoName: string;
+    githubToken: string;
+  },
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    logger.info(`Deploying to Vercel: ${githubUsername}/${repoName}`);
+
+    // 1. Get GitHub repo ID
+    const repoResponse = await fetch(`https://api.github.com/repos/${githubUsername}/${repoName}`, {
+      headers: {
+        "Authorization": `Bearer ${githubToken}`,
+        "Accept": "application/vnd.github+json",
+      },
+    });
+
+    if (!repoResponse.ok) {
+      throw new Error(`GitHub repo lookup failed: ${repoResponse.statusText}`);
+    }
+
+    const repoData = await repoResponse.json();
+    const repoId = repoData.id;
+
+    // 2. Prepare Vercel payload
+    const deploymentPayload = {
+      name: repoName,
+      gitSource: {
+        type: "github",
+        repoId: repoId,
+        ref: "main",
+      },
+    };
+
+    // 3. Call Vercel API
+    const deploymentResponse = await fetch("https://api.vercel.com/v13/deployments", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${vercelToken}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify(deploymentPayload),
+    });
+
+    const deploymentData = await deploymentResponse.json();
+
+    if (!deploymentResponse.ok) {
+      throw new Error(`Vercel error: ${deploymentData.message || "Unknown error"}`);
+    }
+
+    logger.info(`Vercel deployment successful: ${deploymentData.url || "No URL returned"}`);
+    return { success: true, url: deploymentData.url || null };
+  } catch (err: any) {
+    logger.error("Vercel deployment failed:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 // --- Registration ---
 export function registerVercelHandlers() {
   // DO NOT LOG this handler because tokens are sensitive
@@ -483,6 +547,7 @@ export function registerVercelHandlers() {
   handle("vercel:connect-existing-project", handleConnectToExistingProject);
   handle("vercel:get-deployments", handleGetVercelDeployments);
   handle("vercel:disconnect", handleDisconnectVercelProject);
+  handle("vercel:deploy", handleDeployToVercel);
 }
 
 export async function updateAppVercelProject({

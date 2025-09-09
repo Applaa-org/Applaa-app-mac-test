@@ -16,7 +16,7 @@ import path from "node:path";
 import os from "node:os";
 import { getDyadAppPath, getUserDataPath } from "../../paths/paths";
 import { ensureWorkspaceInitialized, getAppRelativePath } from "../../paths/workspace";
-import { readSettings } from "../../main/settings";
+// import { readSettings } from "../../main/settings";
 import { spawn } from "node:child_process";
 import git from "isomorphic-git";
 import { promises as fsPromises } from "node:fs";

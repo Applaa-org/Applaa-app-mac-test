@@ -4,6 +4,7 @@ import { useLoadApp } from "@/hooks/useLoadApp";
 import { GitHubConnector } from "@/components/GitHubConnector";
 import { VercelConnector } from "@/components/VercelConnector";
 import { PortalMigrate } from "@/components/PortalMigrate";
+import { AutoPush } from "@/components/AutoPush";
 import { IpcClient } from "@/ipc/ipc_client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -81,6 +82,9 @@ export const PublishPanel = () => {
 
         {/* Portal Section - Show only if app has neon project */}
         {app.neonProjectId && <PortalMigrate appId={selectedAppId} />}
+
+        {/* Auto Push Section */}
+        <AutoPush appId={selectedAppId} projectName={app.name} app={app} />
 
         {/* GitHub Section */}
         <Card>
