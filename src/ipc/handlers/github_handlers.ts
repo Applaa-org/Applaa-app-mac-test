@@ -4,7 +4,7 @@ import { writeSettings, readSettings } from "../../main/settings";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 import * as schema from "../../db/schema";
-import fs from "node:fs";
+import * as fs from "node:fs";
 import { getDyadAppPath } from "../../paths/paths";
 import { db } from "../../db";
 import { apps } from "../../db/schema";
@@ -16,19 +16,8 @@ import { IS_TEST_BUILD } from "../utils/test_utils";
 const logger = log.scope("github_handlers");
 
 // --- GitHub Device Flow Constants ---
-// Updated to use new Applaa GitHub App instead of old Dyad app
-// 
-// To set up the new Applaa GitHub App:
-// 1. Go to GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
-// 2. App name: Applaa
-// 3. Homepage URL: https://applaa.dev
-// 4. Callback URL: https://applaa.dev/auth/github/callback
-// 5. Webhook URL: https://api.applaa.dev/webhooks/github
-// 6. Permissions: Repository contents (Read & write), Metadata (Read), Pull requests (Read & write), Issues (Read & write)
-// 7. Generate Private Key and note the App ID, Client ID, Client Secret
-// 8. Install the App on the organization/repos used by Applaa
-//
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "Iv1.8a61b9c3e4f5a6b7"; // New Applaa GitHub App Client ID
+// TODO: Fetch this securely, e.g., from environment variables or a config file
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "Ov23liWV2HdC0RBLecWx";
 
 // Use test server URLs when in test mode
 
@@ -639,6 +628,7 @@ async function handleDisconnectGithubRepo(
     .where(eq(apps.id, appId));
 }
 
+
 // --- Registration ---
 export function registerGithubHandlers() {
   ipcMain.handle("github:start-flow", handleStartGithubFlow);
@@ -661,6 +651,23 @@ export function registerGithubHandlers() {
   ipcMain.handle("github:disconnect", (event, args: { appId: number }) =>
     handleDisconnectGithubRepo(event, args),
   );
+  ipcMain.handle("github:save-token", (event, args: { token: string }) =>
+    handleSaveGithubAccessToken(event, args),
+  );
+  ipcMain.handle("github:update-app-info", (event, args: {
+    appId: number;
+    githubOrg: string;
+    githubRepo: string;
+    githubBranch: string;
+  }) => handleUpdateAppGithubInfo(event, args));
+  
+  ipcMain.handle("github:auto-push", (event, args: {
+    appId: number;
+    githubToken: string;
+    githubUsername: string;
+    repoName: string;
+    appPath: string;
+  }) => handleAutoPushToGithub(event, args));
 }
 
 export async function updateAppGithubRepo({
@@ -682,4 +689,163 @@ export async function updateAppGithubRepo({
       githubBranch: branch || "main",
     })
     .where(eq(schema.apps.id, appId));
+}
+
+// --- Save GitHub Access Token Handler ---
+async function handleSaveGithubAccessToken(
+  event: IpcMainInvokeEvent,
+  { token }: { token: string },
+): Promise<void> {
+  try {
+    logger.info("Saving GitHub access token");
+    writeSettings({
+      githubAccessToken: {
+        value: token,
+      },
+    });
+    logger.info("GitHub access token saved successfully");
+  } catch (err: any) {
+    logger.error("Failed to save GitHub access token:", err);
+    throw new Error(err.message || "Failed to save GitHub access token.");
+  }
+}
+
+// --- Update App GitHub Info Handler (for auto push) ---
+async function handleUpdateAppGithubInfo(
+  event: IpcMainInvokeEvent,
+  { appId, githubOrg, githubRepo, githubBranch }: { 
+    appId: number; 
+    githubOrg: string; 
+    githubRepo: string; 
+    githubBranch: string; 
+  },
+): Promise<void> {
+  try {
+    logger.info(`Updating app ${appId} GitHub info: ${githubOrg}/${githubRepo}`);
+    await updateAppGithubRepo({ appId, org: githubOrg, repo: githubRepo, branch: githubBranch });
+    logger.info("App GitHub info updated successfully");
+  } catch (err: any) {
+    logger.error("Failed to update app GitHub info:", err);
+    throw new Error(err.message || "Failed to update app GitHub info.");
+  }
+}
+
+// --- Auto Push to GitHub using isomorphic-git ---
+async function handleAutoPushToGithub(
+  event: IpcMainInvokeEvent,
+  { appId, githubToken, githubUsername, repoName, appPath }: {
+    appId: number;
+    githubToken: string;
+    githubUsername: string;
+    repoName: string;
+    appPath: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    logger.info(`Starting auto push for app ${appId} to ${githubUsername}/${repoName}`);
+    
+    const dir = appPath;
+    const branch = "main";
+    const owner = githubUsername;
+    const repo = repoName;
+    const message = "Auto commit from Applaa";
+    const token = githubToken;
+    const author = { name: "Applaa", email: "applaa@example.com" };
+
+    // 1. Ensure GitHub repo exists
+    const ghApiUrl = `https://api.github.com/repos/${owner}/${repo}`;
+    let repoExists = true;
+
+    const res = await fetch(ghApiUrl, {
+      headers: { Authorization: `token ${token}` },
+    });
+
+    if (res.status === 404) {
+      repoExists = false;
+    } else if (!res.ok) {
+      throw new Error(`GitHub API error: ${res.statusText}`);
+    }
+
+    if (!repoExists) {
+      logger.info("Creating new repo on GitHub...");
+      const createRes = await fetch(`https://api.github.com/user/repos`, {
+        method: "POST",
+        headers: {
+          Authorization: `token ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: repo,
+          private: false,
+          auto_init: false,
+        }),
+      });
+
+      if (!createRes.ok) {
+        throw new Error(`Failed to create repo: ${await createRes.text()}`);
+      }
+      logger.info(`✅ Repo ${owner}/${repo} created`);
+    }
+
+    // 2. Init repo if not exists
+    try {
+      await git.status({ fs, dir, filepath: "." });
+    } catch {
+      await git.init({ fs, dir });
+      logger.info("📂 Initialized local repo");
+    }
+
+    // 3. Add remote (overwrite if needed)
+    const remoteUrl = `https://${token}@github.com/${owner}/${repo}.git`;
+    try {
+      const remotes = await git.listRemotes({ fs, dir });
+      const hasOrigin = remotes.some(r => r.remote === "origin");
+      if (!hasOrigin) {
+        await git.addRemote({ fs, dir, remote: "origin", url: remoteUrl });
+      }
+    } catch {
+      await git.addRemote({ fs, dir, remote: "origin", url: remoteUrl });
+    }
+
+    // 4. Stage all changes
+    const statusMatrix = await git.statusMatrix({ fs, dir });
+    let staged = 0;
+    for (const [filepath, , workdirStatus, stageStatus] of statusMatrix) {
+      if (workdirStatus !== stageStatus) {
+        await git.add({ fs, dir, filepath });
+        staged++;
+      }
+    }
+
+    if (staged === 0) {
+      logger.info("✅ No changes to commit.");
+      return { success: true };
+    }
+
+    // 5. Commit
+    const sha = await git.commit({
+      fs,
+      dir,
+      message,
+      author,
+    });
+    logger.info(`✅ Commit created: ${sha}`);
+
+    // 6. Push
+    await git.push({
+      fs,
+      http,
+      dir,
+      remote: "origin",
+      ref: branch,
+      onAuth: () => ({ username: token, password: "" }),
+    });
+
+    logger.info(`🚀 Successfully pushed to GitHub: ${owner}/${repo}@${branch}`);
+    return { success: true };
+
+  } catch (err: any) {
+    logger.error("Auto push failed:", err);
+    return { success: false, error: err.message || "Auto push failed" };
+  }
 }
