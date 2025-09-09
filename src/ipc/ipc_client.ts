@@ -1059,7 +1059,27 @@ export class IpcClient {
   ): Promise<void> {
     await this.ipcRenderer.invoke("vercel:disconnect", params);
   }
+  
+  // --- Direct Vercel Deployment ---
+  public async deployToVercel(params: {
+    vercelToken: string;
+    githubUsername: string;
+    repoName: string;
+    githubToken: string;
+  }): Promise<{ success: boolean; url?: string; error?: string }> {
+    return this.ipcRenderer.invoke("vercel:deploy", params);
+  }
   // --- End Vercel Project Management ---
+
+  // --- App Deployment URL Updates ---
+  public async updateAppDeploymentUrls(params: {
+    appId: number;
+    githubRepoUrl?: string;
+    vercelDeploymentUrl?: string;
+  }): Promise<void> {
+    await this.ipcRenderer.invoke("app:update-deployment-urls", params);
+  }
+  // --- End App Deployment URL Updates ---
 
   // Get the main app version
   public async getAppVersion(): Promise<string> {
