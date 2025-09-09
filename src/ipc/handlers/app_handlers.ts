@@ -1054,6 +1054,52 @@ export function registerAppHandlers() {
   });
 
   ipcMain.handle(
+    "app:update-deployment-urls",
+    async (
+      _,
+      params: { appId: number; githubRepoUrl?: string; vercelDeploymentUrl?: string },
+    ): Promise<void> => {
+      const { appId, githubRepoUrl, vercelDeploymentUrl } = params;
+      // Fetch app first for safety and to potentially backfill org/repo
+      const app = await getAppSafe(appId);
+      if (!app) throw new Error("App not found");
+
+      // Optionally parse GitHub URL to org/repo if provided
+      let githubOrg: string | undefined = undefined;
+      let githubRepo: string | undefined = undefined;
+      if (githubRepoUrl) {
+        try {
+          const url = new URL(githubRepoUrl);
+          // Expecting /:org/:repo
+          const parts = url.pathname.replace(/^\/+/, "").split("/");
+          if (parts.length >= 2) {
+            githubOrg = parts[0] || undefined;
+            githubRepo = parts[1] || undefined;
+          }
+        } catch {
+          // ignore invalid URL
+        }
+      }
+
+      const updateValues: Partial<typeof apps.$inferInsert> = {};
+      if (typeof vercelDeploymentUrl !== "undefined") {
+        (updateValues as any).vercelDeploymentUrl = vercelDeploymentUrl || null;
+      }
+      // Only set org/repo if parsed and either different or missing
+      if (githubOrg && (!app.githubOrg || app.githubOrg !== githubOrg)) {
+        (updateValues as any).githubOrg = githubOrg;
+      }
+      if (githubRepo && (!app.githubRepo || app.githubRepo !== githubRepo)) {
+        (updateValues as any).githubRepo = githubRepo;
+      }
+
+      if (Object.keys(updateValues).length > 0) {
+        await db.update(apps).set(updateValues as any).where(eq(apps.id, appId));
+      }
+    },
+  );
+
+  ipcMain.handle(
     "read-app-file",
     async (_, { appId, filePath }: { appId: number; filePath: string }) => {
       const app = await getAppSafe(appId);
