@@ -367,5 +367,49 @@ export function registerSupabaseAuthHandlers() {
       };
     }
   });
+
+  // Sign in with Google OAuth
+  ipcMain.handle('supabase:sign-in-with-google', async () => {
+    try {
+      if (!isInitialized) {
+        throw new Error('Supabase not initialized');
+      }
+
+      const auth = getSupabaseAuth();
+      const result = await auth.signInWithGoogle();
+      
+      log.info('Google OAuth URL generated');
+      return { 
+        success: true, 
+        url: result.url,
+        message: 'Opening Google sign in...' 
+      };
+    } catch (error) {
+      log.error('Google sign in failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Set session from OAuth callback
+  ipcMain.handle('supabase:set-session', async (_, params: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  }) => {
+    try {
+      if (!isInitialized) {
+        throw new Error('Supabase not initialized');
+      }
+
+      const auth = getSupabaseAuth();
+      await auth.setSession(params);
+      
+      log.info('OAuth session set successfully');
+      return { success: true };
+    } catch (error) {
+      log.error('Failed to set OAuth session:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 

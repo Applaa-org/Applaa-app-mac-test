@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { useSupabaseAuth } from '../../hooks/useSupabaseAuth';
 import { IpcClient } from '../../ipc/ipc_client';
 import { useQuery } from '@tanstack/react-query';
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Chrome } from 'lucide-react';
 
 interface AuthDialogProps {
   open: boolean;
@@ -26,9 +26,11 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
     signIn,
     signUp,
     resetPassword,
+    signInWithGoogle,
     isSigningIn,
     isSigningUp,
     isResettingPassword,
+    isSigningInWithGoogle,
     error,
   } = useSupabaseAuth();
 
@@ -200,6 +202,28 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
                 {isSigningIn ? 'Signing In...' : 'Sign In'}
               </Button>
 
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full" 
+                onClick={() => signInWithGoogle()}
+                disabled={isSigningInWithGoogle}
+              >
+                <Chrome className="mr-2 h-4 w-4" />
+                {isSigningInWithGoogle ? 'Signing in...' : 'Continue with Google'}
+              </Button>
+
               <div className="text-center">
                 <Button
                   type="button"
@@ -306,6 +330,28 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
                 disabled={isSigningUp || signUpForm.password !== signUpForm.confirmPassword}
               >
                 {isSigningUp ? 'Creating Account...' : 'Create Account'}
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full" 
+                onClick={() => signInWithGoogle()}
+                disabled={isSigningInWithGoogle}
+              >
+                <Chrome className="mr-2 h-4 w-4" />
+                {isSigningInWithGoogle ? 'Signing in...' : 'Continue with Google'}
               </Button>
             </form>
           </TabsContent>

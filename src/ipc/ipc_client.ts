@@ -1635,6 +1635,23 @@ export class IpcClient {
     return this.ipcRenderer.invoke("supabase:check-configuration");
   }
 
+  public async supabaseSignInWithGoogle(): Promise<{
+    success: boolean;
+    url?: string;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("supabase:sign-in-with-google");
+  }
+
+  public async supabaseSetSession(params: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("supabase:set-session", params);
+  }
+
   // R2 Storage Methods
   public async r2Initialize(config: {
     accountId: string;
