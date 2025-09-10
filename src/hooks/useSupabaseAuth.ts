@@ -38,7 +38,16 @@ export function useSupabaseAuth() {
     error: null,
   });
 
-  // Initialize Supabase from settings
+  // Check Supabase configuration
+  const { data: configStatus } = useQuery({
+    queryKey: ['supabase', 'config'],
+    queryFn: async () => {
+      return await IpcClient.getInstance().supabaseCheckConfiguration();
+    },
+    staleTime: 5 * 60 * 1000, // Consider config status stale after 5 minutes
+  });
+
+  // Initialize Supabase from settings or environment
   const initializeAuth = useCallback(async () => {
     try {
       const result = await IpcClient.getInstance().supabaseInitializeFromSettings();
@@ -201,28 +210,6 @@ export function useSupabaseAuth() {
     },
   });
 
-  // Save credentials mutation
-  const saveCredentialsMutation = useMutation({
-    mutationFn: async (credentials: {
-      url: string;
-      anonKey: string;
-      serviceRoleKey?: string;
-    }) => {
-      const result = await IpcClient.getInstance().supabaseSaveCredentials(credentials);
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to save credentials');
-      }
-      return result;
-    },
-    onSuccess: (data) => {
-      toast.success(data.message || 'Credentials saved successfully');
-      // Re-initialize after saving credentials
-      initializeAuth();
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
 
   return {
     // Auth state
@@ -236,7 +223,6 @@ export function useSupabaseAuth() {
     resetPassword: resetPasswordMutation.mutateAsync,
     updatePassword: updatePasswordMutation.mutateAsync,
     updateProfile: updateProfileMutation.mutateAsync,
-    saveCredentials: saveCredentialsMutation.mutateAsync,
     refetchAuth,
 
     // Mutation states
@@ -246,7 +232,6 @@ export function useSupabaseAuth() {
     isResettingPassword: resetPasswordMutation.isPending,
     isUpdatingPassword: updatePasswordMutation.isPending,
     isUpdatingProfile: updateProfileMutation.isPending,
-    isSavingCredentials: saveCredentialsMutation.isPending,
   };
 }
 

@@ -7,12 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { useSupabaseAuth } from '../../hooks/useSupabaseAuth';
+import { IpcClient } from '../../ipc/ipc_client';
+import { useQuery } from '@tanstack/react-query';
 import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface AuthDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultTab?: 'signin' | 'signup' | 'setup';
+  defaultTab?: 'signin' | 'signup' | 'reset';
 }
 
 export const AuthDialog: React.FC<AuthDialogProps> = ({ 
@@ -24,13 +26,20 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
     signIn,
     signUp,
     resetPassword,
-    saveCredentials,
     isSigningIn,
     isSigningUp,
     isResettingPassword,
-    isSavingCredentials,
     error,
   } = useSupabaseAuth();
+
+  // Check if Supabase is configured via environment variables
+  const { data: configStatus } = useQuery({
+    queryKey: ['supabase', 'config'],
+    queryFn: async () => {
+      return await IpcClient.getInstance().supabaseCheckConfiguration();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [showPassword, setShowPassword] = useState(false);
@@ -53,11 +62,6 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
     email: '',
   });
 
-  const [setupForm, setSetupForm] = useState({
-    url: '',
-    anonKey: '',
-    serviceRoleKey: '',
-  });
 
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
@@ -106,20 +110,6 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
     }
   };
 
-  // Handle setup
-  const handleSetup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await saveCredentials({
-        url: setupForm.url,
-        anonKey: setupForm.anonKey,
-        serviceRoleKey: setupForm.serviceRoleKey || undefined,
-      });
-      setActiveTab('signin');
-    } catch (error) {
-      // Error is handled by the hook
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -131,12 +121,28 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'signin' | 'signup' | 'reset')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            <TabsTrigger value="setup">Setup</TabsTrigger>
           </TabsList>
+
+          {/* Configuration Status */}
+          {configStatus?.isConfigured ? (
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                Supabase is configured. You can sign in or create an account.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Supabase is not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Error Display */}
           {error && (
@@ -304,59 +310,6 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
             </form>
           </TabsContent>
 
-          {/* Setup Tab */}
-          <TabsContent value="setup" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Supabase Configuration</CardTitle>
-                <CardDescription>
-                  Configure your Supabase project credentials to enable cloud features
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSetup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="setup-url">Supabase URL</Label>
-                    <Input
-                      id="setup-url"
-                      type="url"
-                      placeholder="https://your-project-id.supabase.co"
-                      value={setupForm.url}
-                      onChange={(e) => setSetupForm(prev => ({ ...prev, url: e.target.value }))}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="setup-anon-key">Anonymous Key</Label>
-                    <Input
-                      id="setup-anon-key"
-                      type="password"
-                      placeholder="Your Supabase anonymous key"
-                      value={setupForm.anonKey}
-                      onChange={(e) => setSetupForm(prev => ({ ...prev, anonKey: e.target.value }))}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="setup-service-key">Service Role Key (Optional)</Label>
-                    <Input
-                      id="setup-service-key"
-                      type="password"
-                      placeholder="Your Supabase service role key"
-                      value={setupForm.serviceRoleKey}
-                      onChange={(e) => setSetupForm(prev => ({ ...prev, serviceRoleKey: e.target.value }))}
-                    />
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={isSavingCredentials}>
-                    {isSavingCredentials ? 'Saving...' : 'Save Configuration'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           {/* Reset Password Tab */}
           <TabsContent value="reset" className="space-y-4">

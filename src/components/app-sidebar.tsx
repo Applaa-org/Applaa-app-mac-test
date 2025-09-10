@@ -32,8 +32,8 @@ import { AppList } from "./AppList";
 import { HelpDialog } from "./HelpDialog"; // Import the new dialog
 import { SettingsList } from "./SettingsList";
 // Advanced features temporarily disabled for core stability
-// import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-// import { AuthDialog } from "@/components/auth/AuthDialog";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { AuthDialog } from "@/components/auth/AuthDialog";
 // import { UserProfile } from "@/components/auth/UserProfile";
 
 // Menu items with custom Applaa-themed icons.
@@ -94,14 +94,11 @@ export function AppSidebar() {
   
   // Authentication state
   // Advanced features temporarily disabled for core stability
-  // const { isAuthenticated, user, isLoading: isAuthLoading } = useSupabaseAuth();
+  const { isAuthenticated, user, isLoading: isAuthLoading } = useSupabaseAuth();
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   
-  // Temporary fallback values
-  const user = null;
-  const isAuthenticated = false;
-  const isAuthLoading = false;
+  // Authentication state is now managed by useSupabaseAuth hook
 
   useEffect(() => {
     if (hoverState.startsWith("start-hover") && state === "collapsed") {
@@ -224,12 +221,12 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </div>
 
-          {/* Dialogs - Temporarily disabled for core stability */}
-          {/* 
+          {/* Dialogs */}
           <AuthDialog
             open={isAuthDialogOpen}
             onOpenChange={setIsAuthDialogOpen}
           />
+          {/* 
           <UserProfile
             open={isUserProfileOpen}
             onOpenChange={setIsUserProfileOpen}

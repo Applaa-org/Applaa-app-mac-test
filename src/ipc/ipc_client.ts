@@ -1624,6 +1624,17 @@ export class IpcClient {
     return this.ipcRenderer.invoke("supabase:save-credentials", credentials);
   }
 
+  public async supabaseCheckConfiguration(): Promise<{
+    isConfigured: boolean;
+    source: 'settings' | 'environment' | 'none' | 'error';
+    hasUrl?: boolean;
+    hasAnonKey?: boolean;
+    hasServiceRoleKey?: boolean;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("supabase:check-configuration");
+  }
+
   // R2 Storage Methods
   public async r2Initialize(config: {
     accountId: string;
