@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +18,10 @@ import { NEON_TEMPLATE_IDS, Template } from "@/shared/templates";
 
 import { useRouter } from "@tanstack/react-router";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { neonTemplateHook } from "@/client_logic/template_hook";
 import { showError } from "@/lib/toast";
+import { generateCuteAppName } from "@/lib/utils";
 
 interface CreateAppDialogProps {
   open: boolean;
@@ -48,6 +49,15 @@ export function CreateAppDialog({
     }
     onOpenChange(open);
   };
+
+
+  // Set random name when dialog opens
+  useEffect(() => {
+    if (open && !appName) {
+      const randomName = generateCuteAppName();
+      setAppName(randomName);
+    }
+  }, [open, appName]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
