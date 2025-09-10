@@ -7,10 +7,15 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName?: string;
+  full_name?: string; // Database field name
   avatarUrl?: string;
+  avatar_url?: string; // Database field name
   subscriptionTier: 'free' | 'pro';
+  subscription_tier?: 'free' | 'pro'; // Database field name
   createdAt: string;
+  created_at?: string; // Database field name
   updatedAt: string;
+  updated_at?: string; // Database field name
 }
 
 export interface AuthSession {
@@ -38,7 +43,16 @@ export function useSupabaseAuth() {
     error: null,
   });
 
-  // Initialize Supabase from settings
+  // Check Supabase configuration
+  const { data: configStatus } = useQuery({
+    queryKey: ['supabase', 'config'],
+    queryFn: async () => {
+      return await IpcClient.getInstance().supabaseCheckConfiguration();
+    },
+    staleTime: 5 * 60 * 1000, // Consider config status stale after 5 minutes
+  });
+
+  // Initialize Supabase from settings or environment
   const initializeAuth = useCallback(async () => {
     try {
       const result = await IpcClient.getInstance().supabaseInitializeFromSettings();
@@ -81,6 +95,46 @@ export function useSupabaseAuth() {
       });
     }
   }, [authData, isCheckingAuth]);
+
+  // Listen for OAuth callback from main process
+  useEffect(() => {
+    const handleOAuthCallback = (data: { accessToken: string; refreshToken: string; expiresIn: number }) => {
+      console.log('OAuth callback received:', data);
+      
+      // Set the session in Supabase client
+      const setSession = async () => {
+        try {
+          // We need to call the main process to set the session
+          await IpcClient.getInstance().supabaseSetSession({
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            expiresIn: data.expiresIn,
+          });
+          
+          toast.success('Successfully signed in with Google!');
+          queryClient.invalidateQueries({ queryKey: ['auth'] });
+          refetchAuth();
+        } catch (error) {
+          console.error('Failed to set OAuth session:', error);
+          toast.error('Failed to complete Google sign in');
+        }
+      };
+      
+      setSession();
+    };
+
+    // Listen for OAuth callback events using the preload API
+    const electronAPI = (window as any).electron;
+    if (electronAPI) {
+      electronAPI.ipcRenderer.on('oauth-callback', handleOAuthCallback);
+    }
+
+    return () => {
+      if (electronAPI) {
+        electronAPI.ipcRenderer.removeListener('oauth-callback', handleOAuthCallback);
+      }
+    };
+  }, [queryClient, refetchAuth]);
 
   // Sign up mutation
   const signUpMutation = useMutation({
@@ -201,26 +255,25 @@ export function useSupabaseAuth() {
     },
   });
 
-  // Save credentials mutation
-  const saveCredentialsMutation = useMutation({
-    mutationFn: async (credentials: {
-      url: string;
-      anonKey: string;
-      serviceRoleKey?: string;
-    }) => {
-      const result = await IpcClient.getInstance().supabaseSaveCredentials(credentials);
+  // Sign in with Google OAuth mutation
+  const signInWithGoogleMutation = useMutation({
+    mutationFn: async () => {
+      const result = await IpcClient.getInstance().supabaseSignInWithGoogle();
       if (!result.success) {
-        throw new Error(result.error || 'Failed to save credentials');
+        throw new Error(result.error || 'Google sign in failed');
       }
       return result;
     },
     onSuccess: (data) => {
-      toast.success(data.message || 'Credentials saved successfully');
-      // Re-initialize after saving credentials
-      initializeAuth();
+      // Open the OAuth URL in the default browser
+      if (data.url) {
+        (window as any).applaaShell.openExternal(data.url);
+      }
+      toast.success(data.message || 'Opening Google sign in...');
     },
     onError: (error: Error) => {
       toast.error(error.message);
+      setAuthState(prev => ({ ...prev, error: error.message }));
     },
   });
 
@@ -236,7 +289,7 @@ export function useSupabaseAuth() {
     resetPassword: resetPasswordMutation.mutateAsync,
     updatePassword: updatePasswordMutation.mutateAsync,
     updateProfile: updateProfileMutation.mutateAsync,
-    saveCredentials: saveCredentialsMutation.mutateAsync,
+    signInWithGoogle: signInWithGoogleMutation.mutateAsync,
     refetchAuth,
 
     // Mutation states
@@ -246,7 +299,7 @@ export function useSupabaseAuth() {
     isResettingPassword: resetPasswordMutation.isPending,
     isUpdatingPassword: updatePasswordMutation.isPending,
     isUpdatingProfile: updateProfileMutation.isPending,
-    isSavingCredentials: saveCredentialsMutation.isPending,
+    isSigningInWithGoogle: signInWithGoogleMutation.isPending,
   };
 }
 

@@ -83,6 +83,24 @@ const validInvokeChannels = [
   "supabase:list-projects",
   "supabase:set-app-project",
   "supabase:unset-app-project",
+  // Supabase Authentication
+  "supabase:initialize",
+  "supabase:initialize-from-settings",
+  "supabase:sign-up",
+  "supabase:sign-in",
+  "supabase:sign-out",
+  "supabase:get-current-user",
+  "supabase:get-current-session",
+  "supabase:reset-password",
+  "supabase:update-password",
+  "supabase:update-profile",
+  "supabase:is-authenticated",
+  "supabase:save-credentials",
+  "supabase:check-configuration",
+  "supabase:sign-in-with-google",
+  "supabase:set-session",
+  "shell:open-external",
+  "oauth-callback",
   "local-models:list-ollama",
   "local-models:list-lmstudio",
   "window:minimize",
@@ -238,6 +256,7 @@ const validReceiveChannels = [
   "github:flow-success",
   "github:flow-error",
   "deep-link-received",
+  "oauth-callback",
   "terminal:output",
   "gemini-stream-chunk",
   "gemini-stream-complete",
@@ -309,4 +328,9 @@ contextBridge.exposeInMainWorld("applaaTerminal", {
     ipcRenderer.on("terminal:exit", (_e, d) => cb(d)),
   onError: (cb: (e: { id: string; error: string }) => void) =>
     ipcRenderer.on("terminal:error", (_e, d) => cb(d)),
+});
+
+// Expose shell API
+contextBridge.exposeInMainWorld("applaaShell", {
+  openExternal: (url: string) => ipcRenderer.invoke("shell:open-external", url),
 });

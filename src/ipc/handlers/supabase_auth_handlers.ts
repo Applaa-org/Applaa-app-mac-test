@@ -264,48 +264,150 @@ export function registerSupabaseAuthHandlers() {
     };
   });
 
-  // Initialize from stored credentials
+  // Initialize from environment variables only
   ipcMain.handle('supabase:initialize-from-settings', async () => {
     try {
-      const settings = readSettings();
+      // Only use environment variables
+      const envUrl = process.env.SUPABASE_URL;
+      const envAnonKey = process.env.SUPABASE_ANON_KEY;
+      const envServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       
-      if (!settings.supabase?.url || !settings.supabase?.anonKey) {
-        return { success: false, error: 'Supabase credentials not configured' };
+      if (!envUrl || !envAnonKey) {
+        return { success: false, error: 'Supabase credentials not configured in environment variables. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file.' };
       }
-
+      
       const config: SupabaseConfig = {
-        url: settings.supabase.url,
-        anonKey: settings.supabase.anonKey,
-        serviceRoleKey: settings.supabase.serviceRoleKey,
+        url: envUrl,
+        anonKey: envAnonKey,
+        serviceRoleKey: envServiceRoleKey,
       };
+      
+      log.info('Using Supabase credentials from environment variables');
 
-      return await ipcMain.invoke('supabase:initialize', null, config);
+      const client = initializeSupabase(config);
+      const auth = getSupabaseAuth();
+
+      // Set up auth state listener
+      auth.onAuthStateChange(async (event, session) => {
+        log.info(`Auth state changed: ${event}`);
+        
+        if (session) {
+          currentSession = session;
+          currentUser = session.user;
+          
+          // Get full profile data
+          try {
+            const profile = await auth.getProfile(session.user.id);
+            currentUser = {
+              ...session.user,
+              ...profile,
+            };
+          } catch (error) {
+            log.warn('Failed to fetch user profile:', error);
+          }
+        } else {
+          currentSession = null;
+          currentUser = null;
+        }
+      });
+
+      isInitialized = true;
+      log.info('Supabase authentication initialized from settings');
+      return { success: true, message: 'Initialized successfully from settings' };
     } catch (error) {
       log.error('Failed to initialize from settings:', error);
       return { success: false, error: error.message };
     }
   });
 
-  // Save Supabase credentials to settings
+  // Save Supabase credentials to settings (disabled - using environment variables only)
   ipcMain.handle('supabase:save-credentials', async (_, credentials: {
     url: string;
     anonKey: string;
     serviceRoleKey?: string;
   }) => {
+    log.warn('Manual credential saving is disabled. Please use environment variables instead.');
+    return { 
+      success: false, 
+      error: 'Manual credential saving is disabled. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file.' 
+    };
+  });
+
+  // Check if Supabase is configured via environment variables
+  ipcMain.handle('supabase:check-configuration', async () => {
     try {
-      const settings = readSettings();
-      settings.supabase = {
-        ...settings.supabase,
-        url: credentials.url,
-        anonKey: credentials.anonKey,
-        serviceRoleKey: credentials.serviceRoleKey,
-      };
+      // Only check environment variables
+      const envUrl = process.env.SUPABASE_URL;
+      const envAnonKey = process.env.SUPABASE_ANON_KEY;
+      const envServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       
-      writeSettings(settings);
-      log.info('Supabase credentials saved to settings');
-      return { success: true, message: 'Credentials saved successfully' };
+      if (envUrl && envAnonKey) {
+        return {
+          isConfigured: true,
+          source: 'environment',
+          hasUrl: true,
+          hasAnonKey: true,
+          hasServiceRoleKey: !!envServiceRoleKey,
+        };
+      }
+      
+      return {
+        isConfigured: false,
+        source: 'none',
+        hasUrl: false,
+        hasAnonKey: false,
+        hasServiceRoleKey: false,
+      };
     } catch (error) {
-      log.error('Failed to save credentials:', error);
+      log.error('Failed to check Supabase configuration:', error);
+      return {
+        isConfigured: false,
+        source: 'error',
+        error: error.message,
+      };
+    }
+  });
+
+  // Sign in with Google OAuth
+  ipcMain.handle('supabase:sign-in-with-google', async () => {
+    try {
+      if (!isInitialized) {
+        throw new Error('Supabase not initialized');
+      }
+
+      const auth = getSupabaseAuth();
+      const result = await auth.signInWithGoogle();
+      
+      log.info('Google OAuth URL generated');
+      return { 
+        success: true, 
+        url: result.url,
+        message: 'Opening Google sign in...' 
+      };
+    } catch (error) {
+      log.error('Google sign in failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Set session from OAuth callback
+  ipcMain.handle('supabase:set-session', async (_, params: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  }) => {
+    try {
+      if (!isInitialized) {
+        throw new Error('Supabase not initialized');
+      }
+
+      const auth = getSupabaseAuth();
+      await auth.setSession(params);
+      
+      log.info('OAuth session set successfully');
+      return { success: true };
+    } catch (error) {
+      log.error('Failed to set OAuth session:', error);
       return { success: false, error: error.message };
     }
   });

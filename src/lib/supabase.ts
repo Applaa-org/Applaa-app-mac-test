@@ -316,6 +316,40 @@ export class SupabaseAuth {
     }
   }
 
+  // Sign in with Google OAuth
+  async signInWithGoogle() {
+    try {
+      const { data, error } = await this.client.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'applaa://auth-callback',
+        },
+      });
+
+      if (error) throw error;
+      return { url: data.url };
+    } catch (error) {
+      log.error('Google sign in error:', error);
+      throw error;
+    }
+  }
+
+  // Set session from OAuth callback
+  async setSession(params: { accessToken: string; refreshToken: string; expiresIn: number }) {
+    try {
+      const { data, error } = await this.client.auth.setSession({
+        access_token: params.accessToken,
+        refresh_token: params.refreshToken,
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      log.error('Set session error:', error);
+      throw error;
+    }
+  }
+
   // Listen to auth state changes
   onAuthStateChange(callback: (event: string, session: Session | null) => void) {
     return this.client.auth.onAuthStateChange(callback);

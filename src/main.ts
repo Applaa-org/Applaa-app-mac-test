@@ -339,24 +339,41 @@ const createWindow = () => {
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
+  // If we couldn't get the lock, quit the app
+  // The existing instance will handle the deep link
+  logger.info("Another instance is already running, quitting this instance");
   app.quit();
 } else {
-  app.on("second-instance", (_event, commandLine, _workingDirectory) => {
-    // Someone tried to run a second instance, we should focus our window.
+  // We got the lock, so this is the main instance
+  logger.info("Got single instance lock, this is the main instance");
+  app.whenReady().then(onReady);
+  
+  // Handle the protocol when the app is already running
+  app.on("open-url", (event, url) => {
+    event.preventDefault(); // Prevent opening a new window
+    logger.info("Deep link received in main instance:", url);
+    handleDeepLinkReturn(url);
+  });
+
+  // Handle when someone tries to run a second instance
+  app.on("second-instance", (event, commandLine, workingDirectory) => {
+    logger.info("Second instance attempted, focusing existing window");
+    
+    // Focus the existing window
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
+      mainWindow.show();
     }
-    // the commandLine is array of strings in which last element is deep link url
-    handleDeepLinkReturn(commandLine.pop()!);
+    
+    // Check if there's a deep link in the command line
+    const deepLink = commandLine.find(arg => arg.startsWith('applaa://'));
+    if (deepLink) {
+      logger.info("Deep link from second instance:", deepLink);
+      handleDeepLinkReturn(deepLink);
+    }
   });
-  app.whenReady().then(onReady);
 }
-
-// Handle the protocol. In this case, we choose to show an Error Box.
-app.on("open-url", (event, url) => {
-  handleDeepLinkReturn(url);
-});
 
 function handleDeepLinkReturn(url: string) {
   // example url: "dyad://supabase-oauth-return?token=a&refreshToken=b"
@@ -375,10 +392,10 @@ function handleDeepLinkReturn(url: string) {
     "hostname",
     parsed.hostname,
   );
-  if (parsed.protocol !== "dyad:") {
+  if (parsed.protocol !== "dyad:" && parsed.protocol !== "applaa:") {
     dialog.showErrorBox(
       "Invalid Protocol",
-      `Expected dyad://, got ${parsed.protocol}. Full URL: ${url}`,
+      `Expected dyad:// or applaa://, got ${parsed.protocol}. Full URL: ${url}`,
     );
     return;
   }
@@ -434,6 +451,49 @@ function handleDeepLinkReturn(url: string) {
     });
     return;
   }
+  
+  // Handle Google OAuth callback: applaa://auth-callback#access_token=...&refresh_token=...
+  if (parsed.hostname === "auth-callback") {
+    logger.info("Handling Google OAuth callback");
+    logger.info("Main window exists:", !!mainWindow);
+    logger.info("App is in development mode:", process.env.NODE_ENV === "development");
+    
+    // Extract tokens from URL fragment (after #)
+    const fragment = parsed.hash.substring(1); // Remove the #
+    const params = new URLSearchParams(fragment);
+    
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const expiresIn = params.get('expires_in');
+    
+    if (!accessToken || !refreshToken) {
+      dialog.showErrorBox(
+        "OAuth Error",
+        "Missing access token or refresh token in callback URL"
+      );
+      return;
+    }
+    
+    // Focus the existing window instead of opening a new one
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+      mainWindow.show();
+    }
+    
+    // Send the tokens to the renderer process to complete the OAuth flow
+    mainWindow?.webContents.send("oauth-callback", {
+      accessToken,
+      refreshToken,
+      expiresIn: expiresIn ? parseInt(expiresIn) : 3600,
+    });
+    
+    logger.info("OAuth callback processed successfully");
+    return;
+  }
+  
   dialog.showErrorBox("Invalid deep link URL", url);
 }
 

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
-import { cn } from '@/lib/utils';
+import { cn, generateCuteAppName } from '@/lib/utils';
 
 interface AppNamingDialogProps {
   open: boolean;
@@ -36,6 +36,15 @@ export function AppNamingDialog({
     setNameExists(false); // Reset validation state when typing
     setSuggestedName('');
   };
+
+
+  // Set random name when dialog opens
+  useEffect(() => {
+    if (open && !customName) {
+      const randomName = generateCuteAppName();
+      setCustomName(randomName);
+    }
+  }, [open, customName]);
 
   // Real-time name validation
   useEffect(() => {

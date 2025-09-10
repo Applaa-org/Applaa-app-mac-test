@@ -9,7 +9,7 @@ import {
   LogIn,
   Target
 } from "lucide-react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
 import { useEffect, useState, useRef } from "react";
 import { useAtom } from "jotai";
@@ -32,8 +32,9 @@ import { AppList } from "./AppList";
 import { HelpDialog } from "./HelpDialog"; // Import the new dialog
 import { SettingsList } from "./SettingsList";
 // Advanced features temporarily disabled for core stability
-// import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-// import { AuthDialog } from "@/components/auth/AuthDialog";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { AuthDialog } from "@/components/auth/AuthDialog";
+import { UserDropdown } from "@/components/UserDropdown";
 // import { UserProfile } from "@/components/auth/UserProfile";
 
 // Menu items with custom Applaa-themed icons.
@@ -94,14 +95,12 @@ export function AppSidebar() {
   
   // Authentication state
   // Advanced features temporarily disabled for core stability
-  // const { isAuthenticated, user, isLoading: isAuthLoading } = useSupabaseAuth();
+  const { isAuthenticated, user, isLoading: isAuthLoading } = useSupabaseAuth();
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const navigate = useNavigate();
   
-  // Temporary fallback values
-  const user = null;
-  const isAuthenticated = false;
-  const isAuthLoading = false;
+  // Authentication state is now managed by useSupabaseAuth hook
 
   useEffect(() => {
     if (hoverState.startsWith("start-hover") && state === "collapsed") {
@@ -184,7 +183,7 @@ export function AppSidebar() {
                 className="font-medium w-14 h-auto flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl"
                 onClick={() => {
                   if (isAuthenticated) {
-                    setIsUserProfileOpen(true);
+                    setIsUserDropdownOpen(!isUserDropdownOpen);
                   } else {
                     setIsAuthDialogOpen(true);
                   }
@@ -202,7 +201,11 @@ export function AppSidebar() {
                   )}
                 </div>
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                  {isAuthLoading ? "..." : isAuthenticated ? user?.email?.split('@')[0] || "Profile" : "Sign In"}
+                  {isAuthLoading ? "..." : isAuthenticated ? (
+                    user?.fullName 
+                      ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                      : user?.email?.[0].toUpperCase() || "U"
+                  ) : "Sign In"}
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -224,20 +227,18 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </div>
 
-          {/* Dialogs - Temporarily disabled for core stability */}
-          {/* 
+          {/* Dialogs */}
           <AuthDialog
             open={isAuthDialogOpen}
             onOpenChange={setIsAuthDialogOpen}
           />
-          <UserProfile
-            open={isUserProfileOpen}
-            onOpenChange={setIsUserProfileOpen}
-          />
-          */}
           <HelpDialog
             isOpen={isHelpDialogOpen}
             onClose={() => setIsHelpDialogOpen(false)}
+          />
+          <UserDropdown
+            isOpen={isUserDropdownOpen}
+            onClose={() => setIsUserDropdownOpen(false)}
           />
         </SidebarMenu>
       </SidebarFooter>
