@@ -827,6 +827,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
 
                   const deploymentPayload = {
                     name: repoName,
+                    target: "production",
                     gitSource: {
                       type: "github",
                       repoId: repoId,
