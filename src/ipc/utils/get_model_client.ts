@@ -19,6 +19,11 @@ const dyadEngineUrl = process.env.DYAD_ENGINE_URL;
 const dyadGatewayUrl = process.env.DYAD_GATEWAY_URL;
 
 const AUTO_MODELS = [
+  // Prefer Azure router model if Azure credentials are present
+  {
+    provider: "azure-openai",
+    name: "model-router",
+  },
   {
     provider: "google",
     name: "gemini-2.5-flash",
@@ -249,9 +254,10 @@ function getRegularModelClient(
     case "openrouter": {
       // Check if it's an Anthropic model via OpenRouter for caching support
       const isAnthropicModel = model.name.startsWith('anthropic/');
-      const headers = isAnthropicModel ? {
-        'anthropic-beta': 'prompt-caching-2024-07-31'
-      } : {};
+      const headers: Record<string, string> = {};
+      if (isAnthropicModel) {
+        headers['anthropic-beta'] = 'prompt-caching-2024-07-31';
+      }
       
       const provider = createOpenRouter({ 
         apiKey,
