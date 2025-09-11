@@ -19,12 +19,16 @@ import {
   ChevronRight,
   MousePointerClick,
   Power,
+  Upload,
+  Github,
+  Globe,
 } from "lucide-react";
 import { selectedChatIdAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useChats } from "@/hooks/useChats";
 
 import { useParseRouter } from "@/hooks/useParseRouter";
+import { AutoPush } from "@/components/AutoPush";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,6 +158,29 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPicking, setIsPicking] = useState(false);
+  
+  // Publish state
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishProgress, setPublishProgress] = useState("");
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [savedUrls, setSavedUrls] = useState<{
+    githubRepoUrl?: string;
+    vercelDeploymentUrl?: string;
+  }>({});
+  const [currentApp, setCurrentApp] = useState<any>(null);
+  
+  // Persistent publish state
+  const [publishState, setPublishState] = useState<{
+    isPushing: boolean;
+    progressMessage: string;
+    uploadProgress: { current: number; total: number };
+    isUploading: boolean;
+  }>({
+    isPushing: false,
+    progressMessage: "",
+    uploadProgress: { current: 0, total: 0 },
+    isUploading: false
+  });
 
   // Deactivate component selector when selection is cleared
   useEffect(() => {
@@ -167,6 +194,32 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
       setIsPicking(false);
     }
   }, [selectedComponentPreview]);
+
+  // Load saved URLs and app data when app changes
+  useEffect(() => {
+    if (selectedAppId) {
+      const loadAppData = async () => {
+        try {
+          const app = await IpcClient.getInstance().getApp(selectedAppId);
+          if (app) {
+            setCurrentApp(app);
+            const githubRepoUrl = app.githubOrg && app.githubRepo 
+              ? `https://github.com/${app.githubOrg}/${app.githubRepo}`
+              : undefined;
+            const vercelDeploymentUrl = app.vercelDeploymentUrl || undefined;
+            
+            setSavedUrls({
+              githubRepoUrl,
+              vercelDeploymentUrl
+            });
+          }
+        } catch (error) {
+          console.error("Failed to load app data:", error);
+        }
+      };
+      loadAppData();
+    }
+  }, [selectedAppId]);
 
   // 🚫 DISABLED: Console error monitoring to match Dyad's approach
   // Add message listener for iframe errors and navigation events
@@ -433,6 +486,60 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
     restartApp();
   };
 
+  const handlePublish = async () => {
+    if (!selectedAppId) return;
+    
+    setIsPublishing(true);
+    setPublishProgress("Preparing to publish...");
+    
+    try {
+      // Get app data
+      const app = await IpcClient.getInstance().getApp(selectedAppId);
+      if (!app) {
+        throw new Error("App not found");
+      }
+
+      // Show the AutoPush dialog
+      setShowPublishDialog(true);
+      setPublishProgress("Opening publish dialog...");
+      
+    } catch (error) {
+      console.error("Failed to start publish process:", error);
+      setPublishProgress("Failed to start publish process");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handlePublishSuccess = () => {
+    // Refresh saved URLs after successful publish
+    if (selectedAppId) {
+      const loadSavedUrls = async () => {
+        try {
+          const app = await IpcClient.getInstance().getApp(selectedAppId);
+          if (app) {
+            const githubRepoUrl = app.githubOrg && app.githubRepo 
+              ? `https://github.com/${app.githubOrg}/${app.githubRepo}`
+              : undefined;
+            const vercelDeploymentUrl = app.vercelDeploymentUrl || undefined;
+            
+            setSavedUrls({
+              githubRepoUrl,
+              vercelDeploymentUrl
+            });
+          }
+        } catch (error) {
+          console.error("Failed to refresh saved URLs:", error);
+        }
+      };
+      loadSavedUrls();
+    }
+  };
+
+  const handleUrlClick = (url: string) => {
+    IpcClient.getInstance().openExternalUrl(url);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Component Selector Upgrade Notification */}
@@ -558,6 +665,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
             <Power size={16} />
             <span>Restart</span>
           </button>
+          
           <button
             data-testid="preview-open-browser-button"
             onClick={() => {
@@ -566,9 +674,54 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
               }
             }}
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
+            title="Open in Browser"
+            disabled={!originalUrl}
           >
             <ExternalLink size={16} />
           </button>
+          
+          {/* Publish Button */}
+          <button
+            onClick={handlePublish}
+            disabled={publishState.isPushing}
+            className="flex items-center space-x-1 px-3 py-1 rounded-md text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+            title={publishState.isPushing ? publishState.progressMessage : "Auto Push to GitHub - Automatically create a GitHub repository and push your code with one click. Optionally deploy to Vercel for instant hosting."}
+          >
+            {publishState.isPushing ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Upload size={16} />
+            )}
+            <span>
+              {publishState.isPushing 
+                ? (publishState.isUploading && publishState.uploadProgress.total > 0
+                    ? `${publishState.uploadProgress.current}/${publishState.uploadProgress.total}`
+                    : "Publishing...")
+                : "Publish"
+              }
+            </span>
+          </button>
+
+          {/* GitHub & Vercel Icons (shown after successful publish) */}
+          {savedUrls.githubRepoUrl && (
+            <button
+              onClick={() => handleUrlClick(savedUrls.githubRepoUrl!)}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Open GitHub Repository"
+            >
+              <Github size={16} className="text-gray-600 dark:text-gray-400" />
+            </button>
+          )}
+          
+          {savedUrls.vercelDeploymentUrl && (
+            <button
+              onClick={() => handleUrlClick(savedUrls.vercelDeploymentUrl!)}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Open Vercel Deployment"
+            >
+              <Globe size={16} className="text-gray-600 dark:text-gray-400" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -621,6 +774,31 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
           />
         )}
       </div>
+
+      {/* AutoPush Dropdown */}
+      {showPublishDialog && selectedAppId && (
+        <div className="absolute top-12 right-0 w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+          <div className="p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Publish App</h3>
+              <button
+                onClick={() => setShowPublishDialog(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <AutoPush 
+              appId={selectedAppId} 
+              projectName={currentApp?.name || selectedAppId.toString()} 
+              app={currentApp}
+              onSuccess={handlePublishSuccess}
+              publishState={publishState}
+              setPublishState={setPublishState}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

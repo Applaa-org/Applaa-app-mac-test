@@ -7,11 +7,25 @@ import { Github, Upload, CheckCircle, AlertCircle } from "lucide-react";
 import { IpcClient } from "@/ipc/ipc_client";
 import { App } from "@/ipc/ipc_types";
 import { AUTOPUSH_CONFIG } from "@/config/autopush.config";
+import { toast } from "sonner";
 
 interface AutoPushProps {
   appId: number | null;
   projectName: string;
-  app: App;
+  app: App | null;
+  onSuccess?: () => void;
+  publishState?: {
+    isPushing: boolean;
+    progressMessage: string;
+    uploadProgress: { current: number; total: number };
+    isUploading: boolean;
+  };
+  setPublishState?: (state: {
+    isPushing: boolean;
+    progressMessage: string;
+    uploadProgress: { current: number; total: number };
+    isUploading: boolean;
+  }) => void;
 }
 
 // Function to read app files without using IPC
@@ -52,6 +66,7 @@ async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array
   }
   
   for (const filePath of filesToProcess) {
+    console.log(`🔍 Checking file: ${filePath}`);
     if (shouldIncludeFile(filePath, gitignorePatterns)) {
       console.log(`✅ Including file: ${filePath}`);
       try {
@@ -332,39 +347,87 @@ function shouldIncludeFile(filename: string, gitignorePatterns: string[] = []): 
     '.config.js', '.config.ts', '.config.mjs', '.config.cjs',
     '.env', '.env.local', '.env.development', '.env.production',
     '.d.ts', '.mjs', '.cjs', '.gitignore', '.eslintrc', '.eslintrc.js',
-    '.eslintrc.json', '.prettierrc', '.prettierrc.js', '.prettierrc.json'
+    '.eslintrc.json', '.prettierrc', '.prettierrc.js', '.prettierrc.json',
+    '.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf',
+    '.eot', '.scss', '.sass', '.less', '.styl', '.vue', '.svelte'
   ];
   
   // Always exclude these directories and files
   const excludePatterns = [
     'node_modules/', '.git/', 'dist/', 'build/', '.next/', 
     '.vscode/', '.idea/', '.DS_Store', '*.log', '*.local',
-    'dist-ssr/', '*.suo', '*.ntvs*', '*.njsproj', '*.sln', '*.sw?'
+    'dist-ssr/', '*.suo', '*.ntvs*', '*.njsproj', '*.sln', '*.sw?',
+    'coverage/', '.nyc_output/', '.cache/', 'temp/', 'tmp/'
   ];
   
   // Check if file should be excluded based on patterns
   const allExcludePatterns = [...excludePatterns, ...gitignorePatterns];
-  if (allExcludePatterns.some(pattern => {
+  for (const pattern of allExcludePatterns) {
+    let matches = false;
     if (pattern.includes('*')) {
       // Handle wildcard patterns
       const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'));
-      return regex.test(filename);
+      matches = regex.test(filename);
+    } else {
+      matches = filename.includes(pattern);
     }
-    return filename.includes(pattern);
-  })) {
-    return false;
+    
+    if (matches) {
+      console.log(`❌ Excluding file: ${filename} (matched exclude pattern: ${pattern})`);
+      return false;
+    }
   }
   
   // Check if file has an included extension
-  return includeExtensions.some(ext => filename.endsWith(ext));
+  const hasIncludedExtension = includeExtensions.some(ext => filename.endsWith(ext));
+  if (!hasIncludedExtension) {
+    console.log(`❌ Excluding file: ${filename} (no included extension)`);
+    console.log(`   Available extensions: ${includeExtensions.join(', ')}`);
+  } else {
+    console.log(`✅ Including file: ${filename} (has included extension)`);
+  }
+  return hasIncludedExtension;
 }
 
-export function AutoPush({ appId, projectName, app }: AutoPushProps) {
-  const [isPushing, setIsPushing] = useState(false);
+export function AutoPush({ appId, projectName, app, onSuccess, publishState, setPublishState }: AutoPushProps) {
+  // Use external state if provided, otherwise use local state
+  const [localIsPushing, setLocalIsPushing] = useState(false);
+  const [localProgressMessage, setLocalProgressMessage] = useState("");
+  const [localUploadProgress, setLocalUploadProgress] = useState({ current: 0, total: 0 });
+  const [localIsUploading, setLocalIsUploading] = useState(false);
+  
+  const isPushing = publishState?.isPushing ?? localIsPushing;
+  const progressMessage = publishState?.progressMessage ?? localProgressMessage;
+  const uploadProgress = publishState?.uploadProgress ?? localUploadProgress;
+  const isUploading = publishState?.isUploading ?? localIsUploading;
+  
+  const setIsPushing = setPublishState ? (value: boolean) => setPublishState({ ...publishState!, isPushing: value }) : setLocalIsPushing;
+  const setProgressMessage = setPublishState ? (value: string) => setPublishState({ ...publishState!, progressMessage: value }) : setLocalProgressMessage;
+  const setUploadProgress = setPublishState ? (value: { current: number; total: number }) => setPublishState({ ...publishState!, uploadProgress: value }) : setLocalUploadProgress;
+  const setIsUploading = setPublishState ? (value: boolean) => setPublishState({ ...publishState!, isUploading: value }) : setLocalIsUploading;
+  
+  // If app is null, we need to fetch it
+  const [appData, setAppData] = useState<App | null>(app);
+  
+  // Load app data if not provided
+  useEffect(() => {
+    if (!app && appId) {
+      const loadApp = async () => {
+        try {
+          const fetchedApp = await IpcClient.getInstance().getApp(appId);
+          setAppData(fetchedApp);
+        } catch (error) {
+          console.error("Failed to load app:", error);
+        }
+      };
+      loadApp();
+    }
+  }, [app, appId]);
+  
+  const currentApp = appData || app;
   const [pushStatus, setPushStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
-  const [progressMessage, setProgressMessage] = useState<string>("");
   
   // Hardcoded values as requested
   const [githubToken] = useState(AUTOPUSH_CONFIG.GITHUB_TOKEN);
@@ -372,7 +435,7 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
   const [vercelToken, setVercelToken] = useState(AUTOPUSH_CONFIG.VERCEL_TOKEN); // Updated Vercel token
   const [repoName, setRepoName] = useState(projectName);
   const [vercelProjectName, setVercelProjectName] = useState(projectName);
-  const [deployToVercel, setDeployToVercel] = useState(AUTOPUSH_CONFIG.DEFAULT_DEPLOY_TO_VERCEL);
+  const [deployToVercel, setDeployToVercel] = useState<boolean>(AUTOPUSH_CONFIG.DEFAULT_DEPLOY_TO_VERCEL);
   const [savedUrls, setSavedUrls] = useState<{
     githubRepoUrl?: string;
     vercelDeploymentUrl?: string;
@@ -383,18 +446,18 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
 
   // Load saved URLs when component mounts
   useEffect(() => {
-    if (appId && app) {
-      console.log("🔍 Loading saved URLs for app:", appId, app);
+    if (appId && currentApp) {
+      console.log("🔍 Loading saved URLs for app:", appId, currentApp);
       console.log("🔍 App data:", {
-        githubOrg: app.githubOrg,
-        githubRepo: app.githubRepo,
-        vercelDeploymentUrl: app.vercelDeploymentUrl
+        githubOrg: currentApp.githubOrg,
+        githubRepo: currentApp.githubRepo,
+        vercelDeploymentUrl: currentApp.vercelDeploymentUrl
       });
       
-      const githubRepoUrl = app.githubOrg && app.githubRepo 
-        ? `https://github.com/${app.githubOrg}/${app.githubRepo}`
+      const githubRepoUrl = currentApp.githubOrg && currentApp.githubRepo 
+        ? `https://github.com/${currentApp.githubOrg}/${currentApp.githubRepo}`
         : undefined;
-      const vercelDeploymentUrl = app.vercelDeploymentUrl || undefined;
+      const vercelDeploymentUrl = currentApp.vercelDeploymentUrl || undefined;
       
       console.log("🔍 Constructed URLs:", { githubRepoUrl, vercelDeploymentUrl });
       
@@ -403,7 +466,7 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
         vercelDeploymentUrl
       });
     }
-  }, [appId, app]);
+  }, [appId, currentApp]);
 
   // Handle Vercel deployment timer
   useEffect(() => {
@@ -498,14 +561,13 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
       // 2. Get app files and upload them
       setProgressMessage("Reading app files...");
       
-      // Get app info to access file paths
-      const app = await IpcClient.getInstance().getApp(appId);
-      if (!app) {
+      // Use current app data
+      if (!currentApp) {
         throw new Error("App not found");
       }
 
           // Try to read actual files or use fallback
-          const filesToUpload = await readAppFilesWithoutIPC(app, repoName);
+          const filesToUpload = await readAppFilesWithoutIPC(currentApp, repoName);
           
           // Add Vercel configuration files
           const vercelConfig = {
@@ -564,9 +626,11 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
 
       // Upload all files directly to GitHub
       setProgressMessage("Uploading files to GitHub...");
+      setIsUploading(true);
       
       let uploadedCount = 0;
       const totalFiles = filesToUpload.length;
+      setUploadProgress({ current: 0, total: totalFiles });
       
       console.log(`📁 Starting upload of ${totalFiles} files...`);
       
@@ -576,6 +640,35 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
         
         try {
           console.log(`📁 Uploading ${i + 1}/${totalFiles}: ${file.path}`);
+          setProgressMessage(`Uploading ${i + 1}/${totalFiles}: ${file.path}`);
+          setUploadProgress({ current: i + 1, total: totalFiles });
+          
+          // Check if file exists first to get SHA for updates
+          let fileSha = null;
+          try {
+            const checkResponse = await fetch(`https://api.github.com/repos/${githubUsername}/${repoName}/contents/${file.path}`, {
+              method: "GET",
+              headers: {
+                Authorization: `token ${githubToken}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            });
+            if (checkResponse.ok) {
+              const fileData = await checkResponse.json();
+              fileSha = fileData.sha;
+            }
+          } catch (checkError) {
+            console.warn(`Could not check if file exists: ${file.path}`);
+          }
+          
+          const uploadPayload: any = {
+            message: fileSha ? `Update ${file.path}` : `Add ${file.path}`,
+            content: btoa(unescape(encodeURIComponent(file.content))),
+          };
+          
+          if (fileSha) {
+            uploadPayload.sha = fileSha;
+          }
           
           const response = await fetch(`https://api.github.com/repos/${githubUsername}/${repoName}/contents/${file.path}`, {
             method: "PUT",
@@ -584,10 +677,7 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
               Accept: "application/vnd.github.v3+json",
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              message: `Add ${file.path}`,
-              content: btoa(unescape(encodeURIComponent(file.content))),
-            }),
+            body: JSON.stringify(uploadPayload),
           });
 
           if (response.ok) {
@@ -604,6 +694,8 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 200));
       }
+      
+      setIsUploading(false);
       
       console.log(`📊 Upload complete: ${uploadedCount}/${totalFiles} files uploaded successfully`);
 
@@ -741,11 +833,11 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
       
       try {
         await IpcClient.getInstance().updateAppDeploymentUrls({
-          appId: app.id,
+          appId: currentApp.id,
           githubRepoUrl: githubRepoUrl,
           vercelDeploymentUrl: finalVercelUrl || undefined
         });
-        console.log(`✅ Saved deployment URLs for app ${app.id}`);
+        console.log(`✅ Saved deployment URLs for app ${currentApp.id}`);
       } catch (error) {
         console.error(`⚠️ Failed to save deployment URLs:`, error);
       }
@@ -772,12 +864,29 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
       setSuccessMessage(successMsg);
       setPushStatus("success");
       setProgressMessage("");
+      
+      // Show success toast
+      toast.success("Deployment Completed!", {
+        description: `Successfully deployed ${projectName} to GitHub${deployToVercel ? ' and Vercel' : ''}`,
+        duration: 5000,
+      });
+      
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
 
     } catch (error: any) {
       console.error("Auto push error:", error);
       setErrorMessage(error.message || "An unexpected error occurred");
       setPushStatus("error");
       setProgressMessage("");
+      
+      // Show error toast
+      toast.error("Deployment Failed", {
+        description: error.message || "An unexpected error occurred during deployment",
+        duration: 5000,
+      });
     } finally {
       setIsPushing(false);
     }
@@ -785,17 +894,7 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <Upload className="w-5 h-5" />
-          Auto Push to GitHub
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Automatically create a GitHub repository and push your code with one click. Optionally deploy to Vercel for instant hosting.
-        </p>
-        
+      <CardContent className="space-y-4 pt-6">
         <div className="space-y-3">
           <div>
             <Label htmlFor="repo-name">Repository Name</Label>
@@ -877,9 +976,9 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
         </Button>
 
         {progressMessage && (
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <svg
-              className="animate-spin h-4 w-4"
+              className="animate-spin h-4 w-4 text-blue-600 dark:text-blue-400"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -898,7 +997,14 @@ export function AutoPush({ appId, projectName, app }: AutoPushProps) {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            <span className="text-sm">{progressMessage}</span>
+            <div className="flex flex-col">
+              <span className="text-sm text-blue-600 dark:text-blue-400">{progressMessage}</span>
+              {isUploading && uploadProgress.total > 0 && (
+                <span className="text-xs text-blue-500 dark:text-blue-300">
+                  {uploadProgress.current}/{uploadProgress.total} files uploaded
+                </span>
+              )}
+            </div>
           </div>
         )}
 
