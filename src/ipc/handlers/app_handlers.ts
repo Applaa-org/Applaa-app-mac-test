@@ -1057,9 +1057,22 @@ export function registerAppHandlers() {
     "app:update-deployment-urls",
     async (
       _,
-      params: { appId: number; githubRepoUrl?: string; vercelDeploymentUrl?: string },
+      params: { 
+        appId: number; 
+        githubRepoUrl?: string; 
+        vercelDeploymentUrl?: string;
+        deploymentStatus?: string;
+        deploymentNotes?: string;
+      },
     ): Promise<void> => {
-      const { appId, githubRepoUrl, vercelDeploymentUrl } = params;
+      const { appId, githubRepoUrl, vercelDeploymentUrl, deploymentStatus, deploymentNotes } = params;
+      logger.info(`Updating deployment URLs for app ${appId}:`, { 
+        githubRepoUrl, 
+        vercelDeploymentUrl, 
+        deploymentStatus,
+        deploymentNotes 
+      });
+      
       // Fetch app first for safety and to potentially backfill org/repo
       const app = await getAppSafe(appId);
       if (!app) throw new Error("App not found");
@@ -1081,10 +1094,54 @@ export function registerAppHandlers() {
         }
       }
 
+      // Check which columns exist in the database
+      const dbClient = db.$client;
+      const tableInfo = dbClient.prepare("PRAGMA table_info(apps)").all() as Array<{
+        name: string;
+        type: string;
+      }>;
+      
+      const columnNames = tableInfo.map(col => col.name);
+      const hasGithubRepoUrl = columnNames.includes('github_repo_url');
+      const hasDeploymentStatus = columnNames.includes('deployment_status');
+      const hasLastDeploymentAt = columnNames.includes('last_deployment_at');
+      const hasDeploymentNotes = columnNames.includes('deployment_notes');
+      
+      logger.info(`Database columns check:`, {
+        hasGithubRepoUrl,
+        hasDeploymentStatus,
+        hasLastDeploymentAt,
+        hasDeploymentNotes,
+        allColumns: columnNames
+      });
+
       const updateValues: Partial<typeof apps.$inferInsert> = {};
+      
+      // Update GitHub repository URL (new field - only if column exists)
+      if (typeof githubRepoUrl !== "undefined" && hasGithubRepoUrl) {
+        (updateValues as any).githubRepoUrl = githubRepoUrl || null;
+      }
+      
+      // Update Vercel deployment URL (existing field)
       if (typeof vercelDeploymentUrl !== "undefined") {
         (updateValues as any).vercelDeploymentUrl = vercelDeploymentUrl || null;
       }
+      
+      // Update deployment status (new field - only if column exists)
+      if (typeof deploymentStatus !== "undefined" && hasDeploymentStatus) {
+        (updateValues as any).deploymentStatus = deploymentStatus || "not_deployed";
+      }
+      
+      // Update deployment notes (new field - only if column exists)
+      if (typeof deploymentNotes !== "undefined" && hasDeploymentNotes) {
+        (updateValues as any).deploymentNotes = deploymentNotes || null;
+      }
+      
+      // Update last deployment timestamp (new field - only if column exists)
+      if ((githubRepoUrl || vercelDeploymentUrl) && hasLastDeploymentAt) {
+        (updateValues as any).lastDeploymentAt = new Date();
+      }
+      
       // Only set org/repo if parsed and either different or missing
       if (githubOrg && (!app.githubOrg || app.githubOrg !== githubOrg)) {
         (updateValues as any).githubOrg = githubOrg;
@@ -1094,7 +1151,36 @@ export function registerAppHandlers() {
       }
 
       if (Object.keys(updateValues).length > 0) {
-        await db.update(apps).set(updateValues as any).where(eq(apps.id, appId));
+        logger.info(`Updating app ${appId} with values:`, updateValues);
+        try {
+          await db.update(apps).set(updateValues as any).where(eq(apps.id, appId));
+          logger.info(`Successfully updated deployment URLs for app ${appId}`);
+        } catch (updateError) {
+          logger.error(`Failed to update app ${appId}:`, updateError);
+          // Try to update only the existing columns if the new ones fail
+          const fallbackValues: Partial<typeof apps.$inferInsert> = {};
+          if (typeof vercelDeploymentUrl !== "undefined") {
+            (fallbackValues as any).vercelDeploymentUrl = vercelDeploymentUrl || null;
+          }
+          if (githubOrg && (!app.githubOrg || app.githubOrg !== githubOrg)) {
+            (fallbackValues as any).githubOrg = githubOrg;
+          }
+          if (githubRepo && (!app.githubRepo || app.githubRepo !== githubRepo)) {
+            (fallbackValues as any).githubRepo = githubRepo;
+          }
+          
+          if (Object.keys(fallbackValues).length > 0) {
+            try {
+              await db.update(apps).set(fallbackValues as any).where(eq(apps.id, appId));
+              logger.info(`Successfully updated fallback values for app ${appId}`);
+            } catch (fallbackError) {
+              logger.error(`Failed to update fallback values for app ${appId}:`, fallbackError);
+              throw fallbackError;
+            }
+          }
+        }
+      } else {
+        logger.info(`No updates needed for app ${appId} - all values are the same`);
       }
     },
   );

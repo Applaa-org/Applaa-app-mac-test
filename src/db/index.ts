@@ -35,6 +35,14 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
   const hasDisplayName = tableInfo.some(col => col.name === 'display_name');
   const hasPackageId = tableInfo.some(col => col.name === 'package_id');
   const hasSlug = tableInfo.some(col => col.name === 'slug');
+  const hasGithubOrg = tableInfo.some(col => col.name === 'github_org');
+  const hasGithubRepo = tableInfo.some(col => col.name === 'github_repo');
+  const hasGithubBranch = tableInfo.some(col => col.name === 'github_branch');
+  const hasVercelDeploymentUrl = tableInfo.some(col => col.name === 'vercel_deployment_url');
+  const hasGithubRepoUrl = tableInfo.some(col => col.name === 'github_repo_url');
+  const hasDeploymentStatus = tableInfo.some(col => col.name === 'deployment_status');
+  const hasLastDeploymentAt = tableInfo.some(col => col.name === 'last_deployment_at');
+  const hasDeploymentNotes = tableInfo.some(col => col.name === 'deployment_notes');
   
   if (!hasAppType) {
     logger.log("Adding missing app_type column to apps table");
@@ -66,6 +74,56 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
     logger.log("Adding missing slug column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN slug TEXT").run();
     logger.log("Successfully added slug column");
+  }
+  
+  // 🔗 DEPLOYMENT: Ensure GitHub and Vercel URL columns exist
+  if (!hasGithubOrg) {
+    logger.log("Adding missing github_org column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN github_org TEXT").run();
+    logger.log("Successfully added github_org column");
+  }
+  
+  if (!hasGithubRepo) {
+    logger.log("Adding missing github_repo column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN github_repo TEXT").run();
+    logger.log("Successfully added github_repo column");
+  }
+  
+  if (!hasGithubBranch) {
+    logger.log("Adding missing github_branch column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN github_branch TEXT").run();
+    logger.log("Successfully added github_branch column");
+  }
+  
+  if (!hasVercelDeploymentUrl) {
+    logger.log("Adding missing vercel_deployment_url column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN vercel_deployment_url TEXT").run();
+    logger.log("Successfully added vercel_deployment_url column");
+  }
+  
+  // 🔗 NEW DEPLOYMENT FIELDS: Add new deployment tracking fields
+  if (!hasGithubRepoUrl) {
+    logger.log("Adding missing github_repo_url column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN github_repo_url TEXT").run();
+    logger.log("Successfully added github_repo_url column");
+  }
+  
+  if (!hasDeploymentStatus) {
+    logger.log("Adding missing deployment_status column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN deployment_status TEXT DEFAULT 'not_deployed'").run();
+    logger.log("Successfully added deployment_status column");
+  }
+  
+  if (!hasLastDeploymentAt) {
+    logger.log("Adding missing last_deployment_at column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN last_deployment_at INTEGER").run();
+    logger.log("Successfully added last_deployment_at column");
+  }
+  
+  if (!hasDeploymentNotes) {
+    logger.log("Adding missing deployment_notes column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN deployment_notes TEXT").run();
+    logger.log("Successfully added deployment_notes column");
   }
 }
 

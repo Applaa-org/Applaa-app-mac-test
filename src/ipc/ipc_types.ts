@@ -109,6 +109,10 @@ export interface App {
   vercelProjectName: string | null;
   vercelTeamSlug: string | null;
   vercelDeploymentUrl: string | null;
+  githubRepoUrl: string | null;
+  deploymentStatus: string | null;
+  lastDeploymentAt: Date | null;
+  deploymentNotes: string | null;
 }
 
 export interface Version {
