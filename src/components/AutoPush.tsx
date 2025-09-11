@@ -401,10 +401,46 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
   const uploadProgress = publishState?.uploadProgress ?? localUploadProgress;
   const isUploading = publishState?.isUploading ?? localIsUploading;
   
-  const setIsPushing = setPublishState ? (value: boolean) => setPublishState({ ...publishState!, isPushing: value }) : setLocalIsPushing;
-  const setProgressMessage = setPublishState ? (value: string) => setPublishState({ ...publishState!, progressMessage: value }) : setLocalProgressMessage;
-  const setUploadProgress = setPublishState ? (value: { current: number; total: number }) => setPublishState({ ...publishState!, uploadProgress: value }) : setLocalUploadProgress;
-  const setIsUploading = setPublishState ? (value: boolean) => setPublishState({ ...publishState!, isUploading: value }) : setLocalIsUploading;
+  // Debug: Log current state values
+  console.log("🔍 Current state values:", { isPushing, progressMessage, uploadProgress, isUploading, publishState });
+  
+  const setIsPushing = setPublishState ? (value: boolean) => setPublishState({ 
+    isPushing: value, 
+    progressMessage: publishState?.progressMessage || "", 
+    uploadProgress: publishState?.uploadProgress || { current: 0, total: 0 }, 
+    isUploading: publishState?.isUploading || false 
+  }) : setLocalIsPushing;
+  
+  const setProgressMessage = setPublishState ? (value: string) => {
+    console.log("🔍 setProgressMessage called with:", value);
+    const newState = { 
+      isPushing: publishState?.isPushing || false, 
+      progressMessage: value, 
+      uploadProgress: publishState?.uploadProgress || { current: 0, total: 0 }, 
+      isUploading: publishState?.isUploading || false 
+    };
+    console.log("🔍 setProgressMessage newState:", newState);
+    setPublishState(newState);
+  } : setLocalProgressMessage;
+  
+  const setUploadProgress = setPublishState ? (value: { current: number; total: number }) => {
+    console.log("🔍 setUploadProgress called with:", value);
+    const newState = { 
+      isPushing: publishState?.isPushing || false, 
+      progressMessage: publishState?.progressMessage || "", 
+      uploadProgress: value, 
+      isUploading: publishState?.isUploading || false 
+    };
+    console.log("🔍 setUploadProgress newState:", newState);
+    setPublishState(newState);
+  } : setLocalUploadProgress;
+  
+  const setIsUploading = setPublishState ? (value: boolean) => setPublishState({ 
+    isPushing: publishState?.isPushing || false, 
+    progressMessage: publishState?.progressMessage || "", 
+    uploadProgress: publishState?.uploadProgress || { current: 0, total: 0 }, 
+    isUploading: value 
+  }) : setLocalIsUploading;
   
   // If app is null, we need to fetch it
   const [appData, setAppData] = useState<App | null>(app);
@@ -532,6 +568,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
 
     try {
       // 1. Create GitHub repository via API
+      console.log("📝 Setting progress message: Creating GitHub repository...");
       setProgressMessage("Creating GitHub repository...");
       
       const createRepoResponse = await fetch("https://api.github.com/user/repos", {
@@ -559,6 +596,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       }
 
       // 2. Get app files and upload them
+      console.log("📝 Setting progress message: Reading app files...");
       setProgressMessage("Reading app files...");
       
       // Use current app data
@@ -625,11 +663,13 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
 
 
       // Upload all files directly to GitHub
+      console.log("📝 Setting progress message: Uploading files to GitHub...");
       setProgressMessage("Uploading files to GitHub...");
-      setIsUploading(true);
+      // No need to set isUploading - we'll check uploadProgress.current < uploadProgress.total
       
       let uploadedCount = 0;
       const totalFiles = filesToUpload.length;
+      console.log(`📁 Setting upload progress: 0/${totalFiles}`);
       setUploadProgress({ current: 0, total: totalFiles });
       
       console.log(`📁 Starting upload of ${totalFiles} files...`);
@@ -641,7 +681,12 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         try {
           console.log(`📁 Uploading ${i + 1}/${totalFiles}: ${file.path}`);
           setProgressMessage(`Uploading ${i + 1}/${totalFiles}: ${file.path}`);
+          console.log(`📁 Setting upload progress: ${i + 1}/${totalFiles}`);
           setUploadProgress({ current: i + 1, total: totalFiles });
+          console.log("🔍 After setUploadProgress, publishState:", publishState);
+          
+          // Add a small delay to make progress visible in UI
+          await new Promise(resolve => setTimeout(resolve, 100));
           
           // Check if file exists first to get SHA for updates
           let fileSha = null;
@@ -683,6 +728,8 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           if (response.ok) {
             uploadedCount++;
             console.log(`✅ Uploaded: ${file.path}`);
+            // Add a small delay to make progress visible in UI
+            await new Promise(resolve => setTimeout(resolve, 50));
           } else {
             const errorData = await response.json();
             console.error(`❌ Failed to upload ${file.path}:`, errorData);
@@ -695,9 +742,12 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         await new Promise(resolve => setTimeout(resolve, 200));
       }
       
-      setIsUploading(false);
-      
       console.log(`📊 Upload complete: ${uploadedCount}/${totalFiles} files uploaded successfully`);
+      
+      // Show completion message
+      setProgressMessage(`Successfully pushed to GitHub! Uploaded ${uploadedCount} files. Repository: https://github.com/${githubUsername}/${repoName}`);
+      // Set upload progress to completed (current = total)
+      setUploadProgress({ current: totalFiles, total: totalFiles });
 
       // 3. Deploy to Vercel if requested
       let vercelUrl = "";
@@ -707,6 +757,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         if (!vercelToken.trim()) {
           vercelError = "Vercel token is required for deployment";
         } else {
+          console.log("📝 Setting progress message: Setting up Vercel deployment...");
           setProgressMessage("Setting up Vercel deployment...");
           
           try {
@@ -719,6 +770,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
             console.log("✅ Vercel token saved");
 
             // Start the deployment timer
+            console.log("🚀 Starting Vercel deployment timer...");
             setVercelDeploying(true);
             setVercelDeployTimer(0);
             setVercelUrlShown(false);
@@ -826,7 +878,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           }
         }
       }
-
+      
       // Save deployment URLs to app data
       const githubRepoUrl = `https://github.com/${githubUsername}/${repoName}`;
       const finalVercelUrl = vercelUrl?.startsWith("https://") ? vercelUrl : vercelUrl ? `https://${vercelUrl}` : null;
@@ -863,7 +915,10 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       }
       setSuccessMessage(successMsg);
       setPushStatus("success");
-      setProgressMessage("");
+      // Don't clear progress message if Vercel deployment is still in progress
+      if (!deployToVercel || !vercelDeploying) {
+        setProgressMessage("");
+      }
       
       // Show success toast
       toast.success("Deployment Completed!", {
@@ -975,7 +1030,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           )}
         </Button>
 
-        {progressMessage && (
+        {(progressMessage || (uploadProgress && uploadProgress.current < uploadProgress.total)) && (
           <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <svg
               className="animate-spin h-4 w-4 text-blue-600 dark:text-blue-400"
@@ -998,8 +1053,12 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               ></path>
             </svg>
             <div className="flex flex-col">
-              <span className="text-sm text-blue-600 dark:text-blue-400">{progressMessage}</span>
-              {isUploading && uploadProgress.total > 0 && (
+              {progressMessage && (
+                <span className="text-sm text-blue-600 dark:text-blue-400">{progressMessage}</span>
+              )}
+              {console.log("🔍 Upload progress display check:", { uploadProgress, condition: uploadProgress && uploadProgress.current < uploadProgress.total })}
+              {/* Show uploading if current < total */}
+              {uploadProgress && uploadProgress.current < uploadProgress.total && (
                 <span className="text-xs text-blue-500 dark:text-blue-300">
                   {uploadProgress.current}/{uploadProgress.total} files uploaded
                 </span>
@@ -1009,6 +1068,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         )}
 
         {/* Vercel deployment loader */}
+        {console.log("🔍 Vercel timer display check:", { vercelDeploying, vercelDeployTimer, deployToVercel })}
         {vercelDeploying && (
           <div className="space-y-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
             <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">

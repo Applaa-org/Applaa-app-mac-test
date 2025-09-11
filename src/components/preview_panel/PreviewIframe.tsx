@@ -656,72 +656,77 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex space-x-1">
-          <button
-            onClick={onRestart}
-            className="flex items-center space-x-1 px-3 py-1 rounded-md text-sm hover:bg-[var(--background-darkest)] transition-colors"
-            title="Restart App"
-          >
-            <Power size={16} />
-            <span>Restart</span>
-          </button>
-          
-          <button
-            data-testid="preview-open-browser-button"
-            onClick={() => {
-              if (originalUrl) {
-                IpcClient.getInstance().openExternalUrl(originalUrl);
-              }
-            }}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
-            title="Open in Browser"
-            disabled={!originalUrl}
-          >
-            <ExternalLink size={16} />
-          </button>
-          
-          {/* Publish Button */}
-          <button
-            onClick={handlePublish}
-            disabled={publishState.isPushing}
-            className="flex items-center space-x-1 px-3 py-1 rounded-md text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
-            title={publishState.isPushing ? publishState.progressMessage : "Auto Push to GitHub - Automatically create a GitHub repository and push your code with one click. Optionally deploy to Vercel for instant hosting."}
-          >
-            {publishState.isPushing ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Upload size={16} />
-            )}
-            <span>
-              {publishState.isPushing 
-                ? (publishState.isUploading && publishState.uploadProgress.total > 0
-                    ? `${publishState.uploadProgress.current}/${publishState.uploadProgress.total}`
-                    : "Publishing...")
-                : "Publish"
-              }
-            </span>
-          </button>
+        <div className="flex items-center space-x-3">
+          {/* Local Deployment Group */}
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={onRestart}
+              className="flex items-center space-x-1 px-3 py-1 rounded-md text-sm hover:bg-[var(--background-darkest)] transition-colors"
+              title="Restart App"
+            >
+              <Power size={16} />
+              <span>Restart</span>
+            </button>
+            
+            <button
+              data-testid="preview-open-browser-button"
+              onClick={() => {
+                if (originalUrl) {
+                  IpcClient.getInstance().openExternalUrl(originalUrl);
+                }
+              }}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
+              title="Open in Browser"
+              disabled={!originalUrl}
+            >
+              <ExternalLink size={16} />
+            </button>
+          </div>
 
-          {/* GitHub & Vercel Icons (shown after successful publish) */}
-          {savedUrls.githubRepoUrl && (
+          {/* Web Deployment Group */}
+          <div className="flex items-center space-x-1">
             <button
-              onClick={() => handleUrlClick(savedUrls.githubRepoUrl!)}
-              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              title="Open GitHub Repository"
+              onClick={handlePublish}
+              disabled={publishState.isPushing}
+              className="flex items-center space-x-1 px-3 py-1 rounded-md text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+              title={publishState.isPushing ? publishState.progressMessage : "Auto Push to GitHub - Automatically create a GitHub repository and push your code with one click. Optionally deploy to Vercel for instant hosting."}
             >
-              <Github size={16} className="text-gray-600 dark:text-gray-400" />
+              {publishState.isPushing ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Upload size={16} />
+              )}
+              <span>
+                {publishState.isPushing 
+                  ? (publishState.isUploading && publishState.uploadProgress.total > 0
+                      ? `${publishState.uploadProgress.current}/${publishState.uploadProgress.total}`
+                      : "Publishing...")
+                  : "Publish"
+                }
+              </span>
             </button>
-          )}
-          
-          {savedUrls.vercelDeploymentUrl && (
-            <button
-              onClick={() => handleUrlClick(savedUrls.vercelDeploymentUrl!)}
-              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              title="Open Vercel Deployment"
-            >
-              <Globe size={16} className="text-gray-600 dark:text-gray-400" />
-            </button>
-          )}
+
+            {/* GitHub & Vercel Icons (shown after successful publish) */}
+            {savedUrls.githubRepoUrl && (
+              <button
+                onClick={() => handleUrlClick(savedUrls.githubRepoUrl!)}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                title="Open GitHub Repository"
+              >
+                <Github size={16} className="text-gray-600 dark:text-gray-400" />
+              </button>
+            )}
+            
+            {savedUrls.vercelDeploymentUrl && (
+              <button
+                onClick={() => handleUrlClick(savedUrls.vercelDeploymentUrl!)}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                title="Open Vercel Deployment"
+              >
+                <Globe size={16} className="text-gray-600 dark:text-gray-400" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
