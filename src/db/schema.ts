@@ -27,6 +27,10 @@ export const apps = sqliteTable("apps", {
   vercelProjectName: text("vercel_project_name"),
   vercelTeamId: text("vercel_team_id"),
   vercelDeploymentUrl: text("vercel_deployment_url"),
+  githubRepoUrl: text("github_repo_url"),
+  deploymentStatus: text("deployment_status").default("not_deployed"),
+  lastDeploymentAt: integer("last_deployment_at", { mode: "timestamp" }),
+  deploymentNotes: text("deployment_notes"),
   chatContext: text("chat_context", { mode: "json" }),
   appType: text("app_type", { enum: ["web", "mobile"] }).default("web"),
 });

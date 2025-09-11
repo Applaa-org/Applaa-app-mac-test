@@ -48,6 +48,7 @@ const validInvokeChannels = [
   "get-current-branch",
   "delete-app",
   "rename-app",
+  "app:update-deployment-urls",
   "get-user-settings",
   "set-user-settings",
   "get-env-vars",
