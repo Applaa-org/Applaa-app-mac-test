@@ -3,6 +3,7 @@ import {
   appUrlAtom,
   appOutputAtom,
   previewErrorMessageAtom,
+  globalPublishStateAtom,
 } from "@/atoms/appAtoms";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
@@ -169,18 +170,8 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   }>({});
   const [currentApp, setCurrentApp] = useState<any>(null);
   
-  // Persistent publish state
-  const [publishState, setPublishState] = useState<{
-    isPushing: boolean;
-    progressMessage: string;
-    uploadProgress: { current: number; total: number };
-    isUploading: boolean;
-  }>({
-    isPushing: false,
-    progressMessage: "",
-    uploadProgress: { current: 0, total: 0 },
-    isUploading: false
-  });
+  // Global persistent publish state
+  const [publishState, setPublishState] = useAtom(globalPublishStateAtom);
 
   // Deactivate component selector when selection is cleared
   useEffect(() => {

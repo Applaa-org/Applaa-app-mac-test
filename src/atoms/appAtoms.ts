@@ -18,6 +18,19 @@ export const appUrlAtom = atom<
 >({ appUrl: null, appId: null, originalUrl: null });
 export const userSettingsAtom = atom<UserSettings | null>(null);
 
+// Global publish state for persistent upload progress
+export const globalPublishStateAtom = atom<{
+  isPushing: boolean;
+  progressMessage: string;
+  uploadProgress: { current: number; total: number };
+  isUploading: boolean;
+}>({
+  isPushing: false,
+  progressMessage: "",
+  uploadProgress: { current: 0, total: 0 },
+  isUploading: false
+});
+
 // Atom for storing allow-listed environment variables
 export const envVarsAtom = atom<Record<string, string | undefined>>({});
 

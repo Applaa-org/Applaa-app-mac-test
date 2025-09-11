@@ -8,6 +8,8 @@ import { IpcClient } from "@/ipc/ipc_client";
 import { App } from "@/ipc/ipc_types";
 import { AUTOPUSH_CONFIG } from "@/config/autopush.config";
 import { toast } from "sonner";
+import { useAtom } from "jotai";
+import { globalPublishStateAtom } from "@/atoms/appAtoms";
 
 interface AutoPushProps {
   appId: number | null;
@@ -390,57 +392,58 @@ function shouldIncludeFile(filename: string, gitignorePatterns: string[] = []): 
 }
 
 export function AutoPush({ appId, projectName, app, onSuccess, publishState, setPublishState }: AutoPushProps) {
-  // Use external state if provided, otherwise use local state
-  const [localIsPushing, setLocalIsPushing] = useState(false);
-  const [localProgressMessage, setLocalProgressMessage] = useState("");
-  const [localUploadProgress, setLocalUploadProgress] = useState({ current: 0, total: 0 });
-  const [localIsUploading, setLocalIsUploading] = useState(false);
+  // Use global state by default, or external state if provided
+  const [globalPublishState, setGlobalPublishState] = useAtom(globalPublishStateAtom);
   
-  const isPushing = publishState?.isPushing ?? localIsPushing;
-  const progressMessage = publishState?.progressMessage ?? localProgressMessage;
-  const uploadProgress = publishState?.uploadProgress ?? localUploadProgress;
-  const isUploading = publishState?.isUploading ?? localIsUploading;
+  // Use external state if provided, otherwise use global state
+  const currentPublishState = publishState || globalPublishState;
+  const currentSetPublishState = setPublishState || setGlobalPublishState;
+  
+  const isPushing = currentPublishState.isPushing;
+  const progressMessage = currentPublishState.progressMessage;
+  const uploadProgress = currentPublishState.uploadProgress;
+  const isUploading = currentPublishState.isUploading;
   
   // Debug: Log current state values
   console.log("🔍 Current state values:", { isPushing, progressMessage, uploadProgress, isUploading, publishState });
   
-  const setIsPushing = setPublishState ? (value: boolean) => setPublishState({ 
+  const setIsPushing = (value: boolean) => currentSetPublishState({ 
     isPushing: value, 
-    progressMessage: publishState?.progressMessage || "", 
-    uploadProgress: publishState?.uploadProgress || { current: 0, total: 0 }, 
-    isUploading: publishState?.isUploading || false 
-  }) : setLocalIsPushing;
+    progressMessage: currentPublishState.progressMessage, 
+    uploadProgress: currentPublishState.uploadProgress, 
+    isUploading: currentPublishState.isUploading 
+  });
   
-  const setProgressMessage = setPublishState ? (value: string) => {
+  const setProgressMessage = (value: string) => {
     console.log("🔍 setProgressMessage called with:", value);
     const newState = { 
-      isPushing: publishState?.isPushing || false, 
+      isPushing: currentPublishState.isPushing, 
       progressMessage: value, 
-      uploadProgress: publishState?.uploadProgress || { current: 0, total: 0 }, 
-      isUploading: publishState?.isUploading || false 
+      uploadProgress: currentPublishState.uploadProgress, 
+      isUploading: currentPublishState.isUploading 
     };
     console.log("🔍 setProgressMessage newState:", newState);
-    setPublishState(newState);
-  } : setLocalProgressMessage;
+    currentSetPublishState(newState);
+  };
   
-  const setUploadProgress = setPublishState ? (value: { current: number; total: number }) => {
+  const setUploadProgress = (value: { current: number; total: number }) => {
     console.log("🔍 setUploadProgress called with:", value);
     const newState = { 
-      isPushing: publishState?.isPushing || false, 
-      progressMessage: publishState?.progressMessage || "", 
+      isPushing: currentPublishState.isPushing, 
+      progressMessage: currentPublishState.progressMessage, 
       uploadProgress: value, 
-      isUploading: publishState?.isUploading || false 
+      isUploading: currentPublishState.isUploading 
     };
     console.log("🔍 setUploadProgress newState:", newState);
-    setPublishState(newState);
-  } : setLocalUploadProgress;
+    currentSetPublishState(newState);
+  };
   
-  const setIsUploading = setPublishState ? (value: boolean) => setPublishState({ 
-    isPushing: publishState?.isPushing || false, 
-    progressMessage: publishState?.progressMessage || "", 
-    uploadProgress: publishState?.uploadProgress || { current: 0, total: 0 }, 
+  const setIsUploading = (value: boolean) => currentSetPublishState({ 
+    isPushing: currentPublishState.isPushing, 
+    progressMessage: currentPublishState.progressMessage, 
+    uploadProgress: currentPublishState.uploadProgress, 
     isUploading: value 
-  }) : setLocalIsUploading;
+  });
   
   // If app is null, we need to fetch it
   const [appData, setAppData] = useState<App | null>(app);
@@ -899,14 +902,12 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       if (vercelUrl) {
         if (vercelUrl.includes("Deployment in progress")) {
           successMsg += `\n🚀 Vercel deployment triggered!`;
-          successMsg += `\n💡 Your app is being deployed to Vercel. The deployment URL will appear after ${AUTOPUSH_CONFIG.DEPLOYMENT_TIMER_SECONDS} seconds.`;
+         
         } else if (vercelUrl.startsWith("https://")) {
           // Don't show the URL here - it will be shown after the timer completes
           successMsg += `\n🚀 Vercel deployment in progress...`;
-          successMsg += `\n💡 Your app is being deployed to Vercel. The deployment URL will appear after ${AUTOPUSH_CONFIG.DEPLOYMENT_TIMER_SECONDS} seconds.`;
         } else {
           successMsg += `\n🚀 Vercel deployment in progress...`;
-          successMsg += `\n💡 Your app is being deployed to Vercel. The deployment URL will appear after ${AUTOPUSH_CONFIG.DEPLOYMENT_TIMER_SECONDS} seconds.`;
         }
       } else if (vercelError) {
         successMsg += `\n⚠️ Vercel deployment failed: ${vercelError}`;
