@@ -141,6 +141,51 @@ function ensureCoreTables(sqlite: Database.Database): void {
     logger.log("Successfully created prompts table");
   }
 
+  // Check if language_model_providers table exists
+  const languageModelProvidersTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='language_model_providers'
+  `).get();
+  
+  if (!languageModelProvidersTableExists) {
+    logger.log("Creating language_model_providers table...");
+    sqlite.prepare(`
+      CREATE TABLE language_model_providers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        api_base_url TEXT NOT NULL,
+        env_var_name TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `).run();
+    logger.log("Successfully created language_model_providers table");
+  }
+
+  // Check if language_models table exists
+  const languageModelsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='language_models'
+  `).get();
+  
+  if (!languageModelsTableExists) {
+    logger.log("Creating language_models table...");
+    sqlite.prepare(`
+      CREATE TABLE language_models (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        display_name TEXT NOT NULL,
+        api_name TEXT NOT NULL,
+        builtin_provider_id TEXT,
+        custom_provider_id TEXT,
+        description TEXT,
+        max_output_tokens INTEGER,
+        context_window INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (custom_provider_id) REFERENCES language_model_providers (id) ON DELETE CASCADE
+      )
+    `).run();
+    logger.log("Successfully created language_models table");
+  }
+
   logger.log("✅ All core tables verified/created successfully");
 }
 
