@@ -70,4 +70,16 @@ To ensure consistency and leverage the chosen stack effectively, please follow t
     *   Write all new code in TypeScript.
     *   Strive for strong typing and leverage TypeScript's features to improve code quality and maintainability. Avoid using `any` where possible.
 
+14. **Data Management**:
+    *   **Mock Data**: Use mock data from `src/data/` directory for development and testing.
+    *   **Available Data Files**: The template includes `profiles.ts`, `users.ts`, and `products.ts` with mock data and helper functions.
+    *   **Import Rules**: Only import from existing files in the template. Do not create imports to non-existent files.
+    *   **Data Structure**: Follow the existing data file patterns with TypeScript interfaces, mock arrays, and helper functions.
+
+15. **Import Safety**:
+    *   **CRITICAL**: Before importing any file, ensure it exists in the template structure.
+    *   **Available Imports**: Only use imports from existing directories: `src/components/`, `src/lib/`, `src/hooks/`, `src/data/`, `src/app/`.
+    *   **Path Aliases**: Use the `@/` alias for imports from the `src/` directory.
+    *   **Error Prevention**: If you need data that doesn't exist, create it in the appropriate `src/data/` file or use inline mock data.
+
 By following these guidelines, we can build a more robust, maintainable, and consistent application.

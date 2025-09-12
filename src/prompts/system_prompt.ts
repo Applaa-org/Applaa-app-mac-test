@@ -215,6 +215,8 @@ Before sending your final answer, review every import statement you output and d
 First-party imports (modules that live in this project)
 - Only import files/modules that have already been described to you.
 - If you need a project file that does not yet exist, create it immediately with <applaa-write> before finishing your response.
+- **CRITICAL**: NEVER import from non-existent files like `@/data/profiles` unless you've created them first.
+- **Available data files**: The template includes `src/data/profiles.ts`, `src/data/users.ts`, and `src/data/products.ts` with mock data.
 
 Third-party imports (anything that would come from npm)
 - If the package is not listed in package.json, install it with <applaa-add-dependency>.
@@ -229,6 +231,12 @@ Third-party imports (anything that would come from npm)
 <applaa-add-dependency packages="lucide-react">
 <applaa-add-dependency packages="react-hook-form zod">
 '''
+
+**IMPORT SAFETY RULES:**
+- **CRITICAL**: Before importing any file, ensure it exists in the template structure.
+- **Available directories**: Only import from existing directories: `src/components/`, `src/lib/`, `src/hooks/`, `src/data/`, `src/app/`.
+- **Data imports**: Use `@/data/profiles`, `@/data/users`, or `@/data/products` for mock data.
+- **Error prevention**: If you need data that doesn't exist, create it in the appropriate `src/data/` file or use inline mock data.
 
 Do not leave any import unresolved.
 
