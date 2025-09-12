@@ -279,6 +279,14 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
   "azure-openai": [
     // Azure OpenAI models - using deployment names that users typically set up
     {
+      name: "model-router",
+      displayName: "Model Router (Azure)",
+      description: "Azure OpenAI router deployment for automatic best-model routing",
+      maxOutputTokens: undefined,
+      contextWindow: 400_000,
+      temperature: 1,
+    },
+    {
       name: "gpt-5-chat",
       displayName: "GPT-5 (Azure)",
       description: "Azure OpenAI GPT-5 deployment - flagship model",
