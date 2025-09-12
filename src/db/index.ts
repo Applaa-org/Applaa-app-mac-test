@@ -186,6 +186,91 @@ function ensureCoreTables(sqlite: Database.Database): void {
     logger.log("Successfully created language_models table");
   }
 
+  // Check if context_documents table exists (for vector store/semantic search)
+  const contextDocumentsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='context_documents'
+  `).get();
+  
+  if (!contextDocumentsTableExists) {
+    logger.log("Creating context_documents table...");
+    sqlite.prepare(`
+      CREATE TABLE context_documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_id INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        content TEXT NOT NULL,
+        summary TEXT,
+        tokens INTEGER DEFAULT 0,
+        language TEXT,
+        embedding BLOB,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(app_id, file_path)
+      )
+    `).run();
+    
+    // Create indexes
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_documents_app_id ON context_documents(app_id)`).run();
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_documents_file_path ON context_documents(file_path)`).run();
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_documents_language ON context_documents(language)`).run();
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_documents_updated_at ON context_documents(updated_at)`).run();
+    
+    logger.log("Successfully created context_documents table with indexes");
+  }
+
+  // Check if context_usage table exists
+  const contextUsageTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='context_usage'
+  `).get();
+  
+  if (!contextUsageTableExists) {
+    logger.log("Creating context_usage table...");
+    sqlite.prepare(`
+      CREATE TABLE context_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_id INTEGER NOT NULL,
+        query_text TEXT NOT NULL,
+        similarity REAL NOT NULL,
+        accepted BOOLEAN NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (document_id) REFERENCES context_documents (id) ON DELETE CASCADE
+      )
+    `).run();
+    
+    // Create indexes
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_usage_document_id ON context_usage(document_id)`).run();
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_usage_accepted ON context_usage(accepted)`).run();
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_usage_created_at ON context_usage(created_at)`).run();
+    
+    logger.log("Successfully created context_usage table with indexes");
+  }
+
+  // Check if context_analytics table exists
+  const contextAnalyticsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='context_analytics'
+  `).get();
+  
+  if (!contextAnalyticsTableExists) {
+    logger.log("Creating context_analytics table...");
+    sqlite.prepare(`
+      CREATE TABLE context_analytics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_id INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        usage_count INTEGER DEFAULT 0,
+        acceptance_rate REAL DEFAULT 0.0,
+        avg_similarity REAL DEFAULT 0.0,
+        last_used_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(app_id, file_path)
+      )
+    `).run();
+    
+    logger.log("Successfully created context_analytics table");
+  }
+
   logger.log("✅ All core tables verified/created successfully");
 }
 
@@ -216,6 +301,7 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
   const hasDeploymentStatus = tableInfo.some(col => col.name === 'deployment_status');
   const hasLastDeploymentAt = tableInfo.some(col => col.name === 'last_deployment_at');
   const hasDeploymentNotes = tableInfo.some(col => col.name === 'deployment_notes');
+  const hasChatContext = tableInfo.some(col => col.name === 'chat_context');
   
   if (!hasAppType) {
     logger.log("Adding missing app_type column to apps table");
@@ -297,6 +383,12 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
     logger.log("Adding missing deployment_notes column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN deployment_notes TEXT").run();
     logger.log("Successfully added deployment_notes column");
+  }
+  
+  if (!hasChatContext) {
+    logger.log("Adding missing chat_context column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN chat_context TEXT").run();
+    logger.log("Successfully added chat_context column");
   }
 }
 
