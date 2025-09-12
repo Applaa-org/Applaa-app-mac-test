@@ -230,6 +230,15 @@ export const UserSettingsSchema = z.object({
   enableGemini: z.boolean().optional(),
   enableGeminiCLI: z.boolean().optional(),
 
+  // Cloudflare R2 Storage Settings
+  cloudflareR2: z.object({
+    accountId: z.string().optional(),
+    accessKeyId: z.string().optional(),
+    secretAccessKey: z.string().optional(),
+    bucketName: z.string().optional(),
+    region: z.string().optional(),
+  }).optional(),
+
   ////////////////////////////////
   // E2E TESTING ONLY.
   ////////////////////////////////

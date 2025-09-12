@@ -17,6 +17,134 @@ const logger = log.scope("db");
 let _db: ReturnType<typeof drizzle> | null = null;
 
 /**
+ * Ensure core tables exist in the database - critical for app functionality
+ */
+function ensureCoreTables(sqlite: Database.Database): void {
+  // Check if apps table exists
+  const appsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='apps'
+  `).get();
+  
+  if (!appsTableExists) {
+    logger.log("Creating apps table...");
+    sqlite.prepare(`
+      CREATE TABLE apps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        path TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        github_org TEXT,
+        github_repo TEXT,
+        github_branch TEXT,
+        supabase_project_id TEXT,
+        neon_project_id TEXT,
+        neon_development_branch_id TEXT,
+        neon_preview_branch_id TEXT,
+        vercel_project_id TEXT,
+        vercel_project_name TEXT,
+        vercel_team_id TEXT,
+        vercel_deployment_url TEXT,
+        github_repo_url TEXT,
+        deployment_status TEXT DEFAULT 'not_deployed',
+        last_deployment_at INTEGER,
+        deployment_notes TEXT,
+        chat_context TEXT,
+        app_type TEXT DEFAULT 'web'
+      )
+    `).run();
+    logger.log("Successfully created apps table");
+  }
+
+  // Check if chats table exists
+  const chatsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='chats'
+  `).get();
+  
+  if (!chatsTableExists) {
+    logger.log("Creating chats table...");
+    sqlite.prepare(`
+      CREATE TABLE chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_id INTEGER NOT NULL,
+        title TEXT,
+        initial_commit_hash TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (app_id) REFERENCES apps (id) ON DELETE CASCADE
+      )
+    `).run();
+    logger.log("Successfully created chats table");
+  }
+
+  // Check if messages table exists
+  const messagesTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='messages'
+  `).get();
+  
+  if (!messagesTableExists) {
+    logger.log("Creating messages table...");
+    sqlite.prepare(`
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+        content TEXT NOT NULL,
+        approval_state TEXT CHECK (approval_state IN ('approved', 'rejected')),
+        commit_hash TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (chat_id) REFERENCES chats (id) ON DELETE CASCADE
+      )
+    `).run();
+    logger.log("Successfully created messages table");
+  }
+
+  // Check if versions table exists
+  const versionsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='versions'
+  `).get();
+  
+  if (!versionsTableExists) {
+    logger.log("Creating versions table...");
+    sqlite.prepare(`
+      CREATE TABLE versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_id INTEGER NOT NULL,
+        commit_hash TEXT NOT NULL,
+        neon_db_timestamp TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (app_id) REFERENCES apps (id) ON DELETE CASCADE,
+        UNIQUE (app_id, commit_hash)
+      )
+    `).run();
+    logger.log("Successfully created versions table");
+  }
+
+  // Check if prompts table exists
+  const promptsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'
+  `).get();
+  
+  if (!promptsTableExists) {
+    logger.log("Creating prompts table...");
+    sqlite.prepare(`
+      CREATE TABLE prompts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        content TEXT NOT NULL,
+        category TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `).run();
+    logger.log("Successfully created prompts table");
+  }
+
+  logger.log("✅ All core tables verified/created successfully");
+}
+
+/**
  * Ensure critical columns exist in the database for app functionality
  */
 function ensureCriticalColumns(sqlite: Database.Database): void {
@@ -191,6 +319,15 @@ export function initializeDatabase(): BetterSQLite3Database<typeof schema> & {
     ensureCriticalColumns(sqlite);
   } catch (error) {
     logger.warn("Failed to ensure critical columns:", error.message);
+  }
+
+  // 🚀 CRITICAL FIX: Ensure core tables exist even if migrations fail
+  try {
+    ensureCoreTables(sqlite);
+  } catch (error) {
+    logger.error("Failed to ensure core tables:", error.message);
+    // This is critical - if core tables don't exist, the app won't work
+    throw new Error(`Database initialization failed: ${error.message}`);
   }
 
   return _db as any;

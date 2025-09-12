@@ -45,7 +45,7 @@ export function registerR2StorageHandlers() {
       return { success: true, message: 'Initialized successfully' };
     } catch (error) {
       log.error('Failed to initialize R2:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -69,10 +69,28 @@ export function registerR2StorageHandlers() {
         region: settings.cloudflareR2.region || 'auto',
       };
 
-      return await ipcMain.invoke('r2:initialize', null, config);
+      // Call the initialize handler directly
+      try {
+        if (isInitialized) {
+          return { success: true, message: 'Already initialized' };
+        }
+
+        const client = initializeR2(config);
+        
+        // Test connection by listing objects
+        const storage = getR2Storage();
+        await storage.listFiles('', 1);
+
+        isInitialized = true;
+        log.info('R2 storage initialized successfully');
+        return { success: true, message: 'Initialized successfully' };
+      } catch (initError) {
+        log.error('Failed to initialize R2:', initError);
+        return { success: false, error: initError instanceof Error ? initError.message : String(initError) };
+      }
     } catch (error) {
       log.error('Failed to initialize R2 from settings:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -100,7 +118,7 @@ export function registerR2StorageHandlers() {
       return { success: true, message: 'Credentials saved successfully' };
     } catch (error) {
       log.error('Failed to save R2 credentials:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -121,7 +139,7 @@ export function registerR2StorageHandlers() {
       return { success: true, message: 'File uploaded successfully' };
     } catch (error) {
       log.error('Upload file failed:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -142,7 +160,7 @@ export function registerR2StorageHandlers() {
       return { success: true, message: 'File downloaded successfully' };
     } catch (error) {
       log.error('Download file failed:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -162,7 +180,7 @@ export function registerR2StorageHandlers() {
       return { success: true, message: 'File deleted successfully' };
     } catch (error) {
       log.error('Delete file failed:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -182,7 +200,7 @@ export function registerR2StorageHandlers() {
       return { success: true, files };
     } catch (error) {
       log.error('List files failed:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -201,7 +219,7 @@ export function registerR2StorageHandlers() {
       return { success: true, exists };
     } catch (error) {
       log.error('File exists check failed:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -307,8 +325,8 @@ export function registerR2StorageHandlers() {
         success: false,
         uploaded: 0,
         skipped: 0,
-        errors: [error.message],
-        message: `Sync failed: ${error.message}`,
+        errors: [error instanceof Error ? error.message : String(error)],
+        message: `Sync failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   });
@@ -358,7 +376,7 @@ export function registerR2StorageHandlers() {
           await storage.downloadFile(file.key, localPath);
           downloaded++;
         } catch (error) {
-          const errorMsg = `Failed to download ${file.key}: ${error.message}`;
+          const errorMsg = `Failed to download ${file.key}: ${error instanceof Error ? error.message : String(error)}`;
           log.error(errorMsg);
           errors.push(errorMsg);
         }
@@ -380,8 +398,8 @@ export function registerR2StorageHandlers() {
         success: false,
         uploaded: 0,
         skipped: 0,
-        errors: [error.message],
-        message: `Restore failed: ${error.message}`,
+        errors: [error instanceof Error ? error.message : String(error)],
+        message: `Restore failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   });
@@ -426,7 +444,7 @@ export function registerR2StorageHandlers() {
       };
     } catch (error) {
       log.error('Get sync status failed:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -443,7 +461,7 @@ export function registerR2StorageHandlers() {
       return { success: true, message: 'Connection successful' };
     } catch (error) {
       log.error('R2 connection test failed:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 }
