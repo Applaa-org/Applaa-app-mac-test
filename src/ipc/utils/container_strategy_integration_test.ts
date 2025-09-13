@@ -1,6 +1,6 @@
 import log from "electron-log";
 import { workspaceDependencyManager } from "./workspace_dependency_manager";
-import { getBestPackageManager, getHermeticStatus } from "../../lib/hermetic-runtime";
+import { getBestPackageManager, getHermeticStatus } from "../../../lib/hermetic-runtime";
 
 const logger = log.scope("container_strategy_integration_test");
 

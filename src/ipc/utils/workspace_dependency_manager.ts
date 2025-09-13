@@ -144,7 +144,7 @@ class WorkspaceDependencyManager {
       logger.log(`📦 Installing dependencies with hermetic runtime for ${path.basename(appPath)}`);
       
       // 🔧 INTEGRATION: Use hermetic runtime for consistent package manager detection
-      const { getBestPackageManager, runPackageManagerCommand } = await import("../lib/hermetic-runtime");
+      const { getBestPackageManager, runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
       const packageManager = await getBestPackageManager(appPath);
       
       logger.log(`🚀 Using ${packageManager} via hermetic runtime`);
@@ -227,7 +227,7 @@ class WorkspaceDependencyManager {
 
     // 🔧 INTEGRATION: Use hermetic runtime for consistent package manager usage
     try {
-      const { getBestPackageManager, runPackageManagerCommand } = await import("../lib/hermetic-runtime");
+      const { getBestPackageManager, runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
       const packageManager = await getBestPackageManager(this.config.workspaceRoot);
       
       logger.log(`🚀 Using ${packageManager} for shared workspace dependencies`);
