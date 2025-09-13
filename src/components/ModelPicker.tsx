@@ -132,12 +132,16 @@ export function ModelPicker() {
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-1 h-6 max-w-[80px] px-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 border-gray-300 shadow-sm"
+              className="flex items-center gap-1 h-6 max-w-[140px] px-2 text-xs bg-white hover:bg-gray-50 text-gray-700 border-gray-300 shadow-sm"
             >
               <div className="flex items-center gap-0.5">
                 <Brain className="h-2.5 w-2.5" />
                 <span className="truncate text-xs">
-                  {modelDisplayName === "Auto" ? "Auto" : modelDisplayName}
+                  {modelDisplayName === "Auto" ? "Auto" : (
+                    modelDisplayName.length > 20 
+                      ? modelDisplayName.replace(/\s*\(.*?\)/g, '').substring(0, 18) + "..."
+                      : modelDisplayName
+                  )}
                 </span>
                 <ChevronDown className="h-2 w-2 opacity-70" />
               </div>
