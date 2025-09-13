@@ -65,8 +65,8 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
   const userApiKey = settings?.providerSettings?.[provider]?.apiKey?.value;
   const userApiBaseUrl = settings?.providerSettings?.[provider]?.apiBaseUrl?.value;
   
-  // Check if this provider needs API Base URL (Azure OpenAI)
-  const needsApiBaseUrl = provider === "azure-openai";
+  // Check if this provider needs API Base URL (Azure OpenAI, Google Vertex AI, Amazon Bedrock)
+  const needsApiBaseUrl = provider === "azure-openai" || provider === "google-vertex" || provider === "amazon-bedrock";
 
   // --- Configuration Logic --- Updated Priority ---
   const isValidUserKey =
