@@ -713,7 +713,7 @@ ${componentSnippet}
 
         // 💰 COST OPTIMIZATION: Simple approach - just use the system prompt as string
         // Anthropic caching is handled by the API headers, not prompt format
-        const systemPrompt = baseSystemPrompt;
+        systemPrompt = baseSystemPrompt;
         
         const estimatedTokens = Math.ceil(systemPrompt.length / 4);
         logger.log(`💰 System prompt: ${estimatedTokens} tokens`);
