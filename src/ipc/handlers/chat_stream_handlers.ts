@@ -888,7 +888,7 @@ This conversation includes one or more image attachments. When the user uploads 
           return streamText({
             maxTokens: safeMaxTokens,
             temperature: await getTemperature(settings.selectedModel),
-            maxRetries: 2,
+            maxRetries: modelClient.builtinProviderId === 'openrouter' ? 5 : 2,
             model: modelClient.model,
             providerOptions: {
               "dyad-engine": {
@@ -919,6 +919,16 @@ This conversation includes one or more image attachments. When the user uploads 
               const errorObj = error as any;
               let errorMessage = errorObj?.error?.message;
               const responseBody = errorObj?.error?.responseBody;
+              
+              // Special handling for OpenRouter rate limits
+              if (modelClient.builtinProviderId === 'openrouter' && 
+                  (errorMessage?.includes('Too Many Requests') || 
+                   errorMessage?.includes('rate limit') ||
+                   errorObj?.error?.status === 429)) {
+                logger.warn("🔄 OpenRouter rate limit hit - consider switching models or upgrading plan");
+                errorMessage = "OpenRouter rate limit exceeded. Try switching to a different model or upgrading your OpenRouter plan. Free tier has strict limits.";
+              }
+              
               if (errorMessage && responseBody) {
                 errorMessage += "\n\nDetails: " + responseBody;
               }
