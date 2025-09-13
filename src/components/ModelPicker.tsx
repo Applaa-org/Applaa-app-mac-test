@@ -230,71 +230,162 @@ export function ModelPicker() {
               </>
             )}
 
-            {/* Group other providers into submenus */}
-            {Object.entries(modelsByProviders).map(([providerId, models]) => {
-              // Skip auto provider as it's already handled
-              if (providerId === "auto") return null;
+            {/* Group "Other AI providers" into a single submenu like Dyad */}
+            {(() => {
+              // Define which providers should be in "Other AI providers" group
+              const otherProviders = ["azure-openai", "google-vertex", "amazon-bedrock", "groq", "cerebras", "xai"];
+              const otherProvidersWithModels = Object.entries(modelsByProviders).filter(([providerId]) => 
+                otherProviders.includes(providerId)
+              );
 
-              const provider = providers?.find((p) => p.id === providerId);
-              // Allow custom providers to appear even if they don't have predefined models yet.
-              // Users may add models later, or the provider may serve a single default model.
-              if (!provider) return null;
+              // Group remaining providers individually
+              const individualProviders = Object.entries(modelsByProviders).filter(([providerId]) => 
+                providerId !== "auto" && !otherProviders.includes(providerId)
+              );
 
               return (
-                <DropdownMenuSub key={providerId}>
-                  <DropdownMenuSubTrigger className="w-full font-normal">
-                    <div className="flex flex-col items-start">
-                      <span>{provider?.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {models.length} models
-                      </span>
-                    </div>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-56">
-                    <DropdownMenuLabel>
-                      {provider?.name} Models
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {(models.length === 0 ? [] : models).map((model) => (
-                      <Tooltip key={`${providerId}-${model.apiName}`}>
-                        <TooltipTrigger asChild>
-                          <DropdownMenuItem
-                            className={
-                              selectedModel.provider === providerId &&
-                              selectedModel.name === model.apiName
-                                ? "bg-secondary"
-                                : ""
-                            }
-                            onClick={() => {
-                              const customModelId =
-                                model.type === "custom" ? model.id : undefined;
-                              onModelSelect({
-                                name: model.apiName,
-                                provider: providerId,
-                                customModelId,
-                              });
-                              setOpen(false);
-                            }}
-                          >
-                            <div className="flex justify-between items-start w-full">
-                              <span>{model.displayName}</span>
-                              {model.tag && (
-                                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                                  {model.tag}
-                                </span>
-                              )}
-                            </div>
-                          </DropdownMenuItem>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">
-                          {model.description}
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <>
+                  {/* Other AI providers grouped submenu */}
+                  {otherProvidersWithModels.length > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="w-full font-normal">
+                        <div className="flex flex-col items-start">
+                          <span>Other AI providers</span>
+                          <span className="text-xs text-muted-foreground">
+                            {otherProvidersWithModels.length} providers
+                          </span>
+                        </div>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-56">
+                        <DropdownMenuLabel>Other AI providers</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {otherProvidersWithModels.map(([providerId, models]) => {
+                          const provider = providers?.find((p) => p.id === providerId);
+                          if (!provider) return null;
+
+                          return (
+                            <DropdownMenuSub key={providerId}>
+                              <DropdownMenuSubTrigger className="w-full font-normal">
+                                <div className="flex flex-col items-start">
+                                  <span>{provider.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {models.length} models
+                                  </span>
+                                </div>
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-56">
+                                <DropdownMenuLabel>{provider.name} Models</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {models.map((model) => (
+                                  <Tooltip key={`${providerId}-${model.apiName}`}>
+                                    <TooltipTrigger asChild>
+                                      <DropdownMenuItem
+                                        className={
+                                          selectedModel.provider === providerId &&
+                                          selectedModel.name === model.apiName
+                                            ? "bg-secondary"
+                                            : ""
+                                        }
+                                        onClick={() => {
+                                          const customModelId =
+                                            model.type === "custom" ? model.id : undefined;
+                                          onModelSelect({
+                                            name: model.apiName,
+                                            provider: providerId,
+                                            customModelId,
+                                          });
+                                          setOpen(false);
+                                        }}
+                                      >
+                                        <div className="flex justify-between items-start w-full">
+                                          <span>{model.displayName}</span>
+                                          {model.tag && (
+                                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                                              {model.tag}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </DropdownMenuItem>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="right">
+                                      {model.description}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          );
+                        })}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
+
+                  {/* Individual providers (like OpenRouter, etc.) */}
+                  {individualProviders.map(([providerId, models]) => {
+                    // Skip auto provider as it's already handled
+                    if (providerId === "auto") return null;
+
+                    const provider = providers?.find((p) => p.id === providerId);
+                    if (!provider) return null;
+
+                    return (
+                      <DropdownMenuSub key={providerId}>
+                        <DropdownMenuSubTrigger className="w-full font-normal">
+                          <div className="flex flex-col items-start">
+                            <span>{provider?.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {models.length} models
+                            </span>
+                          </div>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="w-56">
+                          <DropdownMenuLabel>
+                            {provider?.name} Models
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          {models.map((model) => (
+                            <Tooltip key={`${providerId}-${model.apiName}`}>
+                              <TooltipTrigger asChild>
+                                <DropdownMenuItem
+                                  className={
+                                    selectedModel.provider === providerId &&
+                                    selectedModel.name === model.apiName
+                                      ? "bg-secondary"
+                                      : ""
+                                  }
+                                  onClick={() => {
+                                    const customModelId =
+                                      model.type === "custom" ? model.id : undefined;
+                                    onModelSelect({
+                                      name: model.apiName,
+                                      provider: providerId,
+                                      customModelId,
+                                    });
+                                    setOpen(false);
+                                  }}
+                                >
+                                  <div className="flex justify-between items-start w-full">
+                                    <span>{model.displayName}</span>
+                                    {model.tag && (
+                                      <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                                        {model.tag}
+                                      </span>
+                                    )}
+                                  </div>
+                                </DropdownMenuItem>
+                              </TooltipTrigger>
+                              <TooltipContent side="right">
+                                {model.description}
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    );
+                  })}
+                </>
               );
-            })}
+            })()}
           </>
         )}
 
