@@ -65,8 +65,9 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
   const userApiKey = settings?.providerSettings?.[provider]?.apiKey?.value;
   const userApiBaseUrl = settings?.providerSettings?.[provider]?.apiBaseUrl?.value;
   
-  // Check if this provider needs API Base URL (Azure OpenAI, Google Vertex AI, Amazon Bedrock, Groq, Cerebras, xAI)
-  const needsApiBaseUrl = provider === "azure-openai" || provider === "google-vertex" || provider === "amazon-bedrock" || provider === "groq" || provider === "cerebras" || provider === "xai";
+  // Check if this provider needs API Base URL (Azure OpenAI, Google Vertex AI, Amazon Bedrock, Cerebras, xAI)
+  // Note: Groq uses standard endpoint, no custom API Base URL needed
+  const needsApiBaseUrl = provider === "azure-openai" || provider === "google-vertex" || provider === "amazon-bedrock" || provider === "cerebras" || provider === "xai";
 
   // --- Configuration Logic --- Updated Priority ---
   const isValidUserKey =
@@ -94,7 +95,7 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
       return;
     }
     if (needsApiBaseUrl && !apiBaseUrlInput) {
-      setSaveError("API Base URL is required for Azure OpenAI.");
+      setSaveError("API Base URL is required for this provider.");
       return;
     }
     setIsSaving(true);
