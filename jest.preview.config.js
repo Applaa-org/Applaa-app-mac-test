@@ -21,8 +21,8 @@ module.exports = {
     '<rootDir>/src/__tests__/IntelligentPreviewPanel.test.tsx'
   ],
   
-  // Module name mapping
-  moduleNameMapping: {
+  // Module name mapping (correct key)
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@components/(.*)$': '<rootDir>/src/components/$1',
     '^@ipc/(.*)$': '<rootDir>/src/ipc/$1',
@@ -124,19 +124,9 @@ module.exports = {
   // Mock configuration
   automock: false,
   
-  // Preset
-  preset: 'ts-jest/presets/js-with-ts-esm',
-  
-  // ESM support
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
-  
-  // Globals
-  globals: {
-    'ts-jest': {
-      useESM: true,
-      tsconfig: {
-        jsx: 'react-jsx'
-      }
-    }
-  }
+  // Ignore problematic paths to avoid haste map collisions
+  modulePathIgnorePatterns: [
+    '<rootDir>/e2e-tests/fixtures/',
+    '<rootDir>/webapp-templates/'
+  ]
 };
