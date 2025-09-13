@@ -132,14 +132,14 @@ export function ModelPicker() {
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-1.5 h-7 max-w-[120px] px-2 text-xs bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-blue-500 shadow-sm"
+              className="flex items-center gap-1 h-6 max-w-[100px] px-1.5 text-xs bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-blue-500 shadow-sm"
             >
-              <div className="flex items-center gap-1">
-                <Brain className="h-3 w-3" />
+              <div className="flex items-center gap-0.5">
+                <Brain className="h-2.5 w-2.5" />
                 <span className="truncate text-xs">
                   {modelDisplayName === "Auto" ? "Auto" : modelDisplayName}
                 </span>
-                <ChevronDown className="h-2.5 w-2.5 opacity-70" />
+                <ChevronDown className="h-2 w-2 opacity-70" />
               </div>
             </Button>
           </DropdownMenuTrigger>
