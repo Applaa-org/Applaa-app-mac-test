@@ -58,6 +58,7 @@ import { cleanFullResponse } from "../utils/cleanFullResponse";
 import { generateProblemReport } from "../processors/tsc";
 import { createProblemFixPrompt } from "../../shared/problem_prompt";
 import { AsyncVirtualFileSystem } from "../../../shared/VirtualFilesystem";
+import { onChatStreamStart, onLLMGenerationStart, onLLMGenerationComplete } from "../utils/preview_integration";
 import {
   getDyadAddDependencyTags,
   getDyadWriteTags,
@@ -79,7 +80,53 @@ interface CacheEntry {
 }
 
 const systemPromptCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes cache
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache - extended for better performance
+
+// 🚀 PERFORMANCE: Pre-warm cache for active apps
+const activeAppsCache = new Set<number>();
+
+/**
+ * 🚀 PERFORMANCE: Pre-warm system prompt cache for an app
+ * Call this when an app is selected to reduce first-chat latency
+ */
+export async function preWarmAppCache(appId: number, appPath: string): Promise<void> {
+  if (activeAppsCache.has(appId)) {
+    logger.log(`🚀 Cache already warmed for app ${appId}`);
+    return;
+  }
+
+  try {
+    logger.log(`🚀 Pre-warming cache for app ${appId}`);
+    
+    // Extract codebase and build system prompt in background
+    const extracted = await extractCodebase({
+      appPath,
+      chatContext: { messages: [], files: [] }, // Minimal context for pre-warming
+    });
+    
+    const baseSystemPrompt = constructSystemPrompt({
+      aiRules: await readAiRules(appPath),
+      chatMode: 'build', // Default mode
+      appPath: appPath,
+    });
+    
+    const cacheKey = `${appId}-${JSON.stringify({ messages: [], files: [] })}`;
+    const now = Date.now();
+    
+    systemPromptCache.set(cacheKey, {
+      systemPrompt: baseSystemPrompt,
+      codebaseInfo: extracted.formattedOutput,
+      codebaseHash: require('crypto').createHash('md5').update(extracted.formattedOutput).digest('hex'),
+      timestamp: now,
+    });
+    
+    activeAppsCache.add(appId);
+    logger.log(`✅ Pre-warmed cache for app ${appId}`);
+    
+  } catch (error) {
+    logger.warn(`⚠️ Failed to pre-warm cache for app ${appId}:`, error);
+  }
+}
 
 type AsyncIterableStream<T> = AsyncIterable<T> & ReadableStream<T>;
 
@@ -333,6 +380,14 @@ export function registerChatStreamHandlers() {
       // Create an AbortController for this stream
       const abortController = new AbortController();
       activeStreams.set(req.chatId, abortController);
+
+      // 🚀 PERFORMANCE: Start intelligent preview preparation during LLM generation
+      try {
+        await onChatStreamStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
+        await onLLMGenerationStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
+      } catch (error) {
+        logger.warn(`⚠️ Failed to start preview preparation:`, error);
+      }
 
       // Get the chat to check for existing messages
       const chat = await db.query.chats.findFirst({
@@ -1334,6 +1389,13 @@ ${problemReport.problems
             extraFiles: status.extraFiles,
             extraFilesError: status.extraFilesError,
           } satisfies ChatResponseEnd);
+
+          // 🚀 PERFORMANCE: Notify preview system that LLM generation is complete
+          try {
+            await onLLMGenerationComplete(updatedChat.app.id);
+          } catch (error) {
+            logger.warn(`⚠️ Failed to notify preview completion:`, error);
+          }
         } else {
           safeSend(event.sender, "chat:response:end", {
             chatId: req.chatId,

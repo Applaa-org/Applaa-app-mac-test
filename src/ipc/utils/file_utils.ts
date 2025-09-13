@@ -49,6 +49,9 @@ export async function copyDirectoryRecursive(
   // which is helpful for tests (and has no practical downsides).
   entries.sort();
 
+  // 🚀 PERFORMANCE: Parallel file operations for faster copying
+  const copyPromises: Promise<void>[] = [];
+
   for (const entry of entries) {
     const srcPath = path.join(source, entry.name);
     const destPath = path.join(destination, entry.name);
@@ -56,12 +59,15 @@ export async function copyDirectoryRecursive(
     if (entry.isDirectory()) {
       // Exclude node_modules directories
       if (entry.name !== "node_modules") {
-        await copyDirectoryRecursive(srcPath, destPath);
+        copyPromises.push(copyDirectoryRecursive(srcPath, destPath));
       }
     } else {
-      await fsPromises.copyFile(srcPath, destPath);
+      copyPromises.push(fsPromises.copyFile(srcPath, destPath));
     }
   }
+
+  // Wait for all file operations to complete in parallel
+  await Promise.all(copyPromises);
 }
 
 export async function writeMigrationFile(
