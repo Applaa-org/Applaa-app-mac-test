@@ -70,6 +70,17 @@ import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { extractMentionedAppsCodebases } from "../utils/mention_apps";
 import { parseAppMentions } from "../../shared/parse_mention_apps";
 
+// 🚀 PERFORMANCE: System prompt and codebase caching per app
+interface CacheEntry {
+  systemPrompt: string;
+  codebaseInfo: string;
+  codebaseHash: string;
+  timestamp: number;
+}
+
+const systemPromptCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes cache
+
 type AsyncIterableStream<T> = AsyncIterable<T> & ReadableStream<T>;
 
 const logger = log.scope("chat_stream_handlers");
@@ -91,6 +102,12 @@ const partialFileEdits = new Map<number, PartialFileEdit[]>();
 
 // Periodic persistence interval (save every 2 seconds during streaming)
 const PERSISTENCE_INTERVAL = 2000;
+
+// Performance optimization constants
+const MIN_CHARS_FOR_AUTOSAVE = 800; // Minimum chars since last save
+const MAX_AUTOSAVE_INTERVAL = 10000; // Max 1 write per 10 seconds
+const UI_UPDATE_THROTTLE_MS = 50; // Reduced from 100ms to 50ms
+const MIN_CHARS_FOR_UI_UPDATE = 120; // Minimum chars since last UI update
 
 // Directory for storing temporary files
 const TEMP_DIR = path.join(os.tmpdir(), "dyad-attachments");
@@ -149,21 +166,52 @@ async function persistPartialProgress(chatId: number, placeholderMessageId: numb
 
 // Setup periodic persistence for active streams
 const persistenceTimers = new Map<number, NodeJS.Timeout>();
+const lastAutosaveTime = new Map<number, number>();
+const lastAutosaveLength = new Map<number, number>();
 
 function startPeriodicPersistence(chatId: number, placeholderMessageId: number) {
+  const settings = readSettings();
+  
+  // Only start autosave if explicitly enabled
+  if (!settings.enableStreamAutosave) {
+    logger.log(`⏸️ Auto-save disabled for chat ${chatId} (settings.enableStreamAutosave=false)`);
+    return;
+  }
+  
   // Clear any existing timer
   const existingTimer = persistenceTimers.get(chatId);
   if (existingTimer) {
     clearInterval(existingTimer);
   }
 
-  // Start new periodic persistence
+  // Initialize tracking
+  lastAutosaveTime.set(chatId, Date.now());
+  lastAutosaveLength.set(chatId, 0);
+
+  // Start new periodic persistence with debouncing
   const timer = setInterval(async () => {
-    await persistPartialProgress(chatId, placeholderMessageId);
+    const now = Date.now();
+    const lastSave = lastAutosaveTime.get(chatId) || 0;
+    const lastLength = lastAutosaveLength.get(chatId) || 0;
+    const partialResponse = partialResponses.get(chatId) || '';
+    const currentLength = partialResponse.length;
+    
+    // Check if enough time has passed AND enough chars have accumulated
+    const timeSinceLastSave = now - lastSave;
+    const charsSinceLastSave = currentLength - lastLength;
+    
+    if (timeSinceLastSave >= PERSISTENCE_INTERVAL && 
+        charsSinceLastSave >= MIN_CHARS_FOR_AUTOSAVE &&
+        timeSinceLastSave < MAX_AUTOSAVE_INTERVAL) {
+      await persistPartialProgress(chatId, placeholderMessageId);
+      lastAutosaveTime.set(chatId, now);
+      lastAutosaveLength.set(chatId, currentLength);
+      logger.log(`💾 Debounced auto-save for chat ${chatId} (${charsSinceLastSave} chars, ${timeSinceLastSave}ms)`);
+    }
   }, PERSISTENCE_INTERVAL);
 
   persistenceTimers.set(chatId, timer);
-  logger.log(`🔄 Started auto-save for chat ${chatId} (every ${PERSISTENCE_INTERVAL}ms)`);
+  logger.log(`🔄 Started debounced auto-save for chat ${chatId} (every ${PERSISTENCE_INTERVAL}ms, min ${MIN_CHARS_FOR_AUTOSAVE} chars)`);
 }
 
 function stopPeriodicPersistence(chatId: number) {
@@ -171,6 +219,8 @@ function stopPeriodicPersistence(chatId: number) {
   if (timer) {
     clearInterval(timer);
     persistenceTimers.delete(chatId);
+    lastAutosaveTime.delete(chatId);
+    lastAutosaveLength.delete(chatId);
     logger.log(`⏹️ Stopped auto-save for chat ${chatId}`);
   }
 }
@@ -194,9 +244,9 @@ async function processStreamChunks({
   let incrementalResponse = "";
   let inThinkingBlock = false;
   
-  // 🚀 PERFORMANCE FIX: Throttle UI updates to prevent Claude slowdown
+  // 🚀 PERFORMANCE FIX: Optimized throttling with char-delta gating
   let lastUpdateTime = 0;
-  const UPDATE_THROTTLE_MS = 100; // Update UI max every 100ms
+  let lastUpdateLength = 0;
   let pendingUpdate = false;
 
   for await (const part of fullStream) {
@@ -226,24 +276,28 @@ async function processStreamChunks({
     // 🚀 PERFORMANCE: Only clean response when we're about to send it, not on every chunk
     // This avoids expensive regex operations on every text delta
     
-    // 🚀 THROTTLE: Only update UI periodically, not on every chunk
+    // 🚀 OPTIMIZED THROTTLE: Char-delta gating + reduced throttle time
     const now = Date.now();
-    if (now - lastUpdateTime >= UPDATE_THROTTLE_MS && !pendingUpdate) {
+    const timeSinceLastUpdate = now - lastUpdateTime;
+    const charsSinceLastUpdate = fullResponse.length - lastUpdateLength;
+    
+    if (timeSinceLastUpdate >= UI_UPDATE_THROTTLE_MS && 
+        charsSinceLastUpdate >= MIN_CHARS_FOR_UI_UPDATE && 
+        !pendingUpdate) {
       pendingUpdate = true;
       lastUpdateTime = now;
+      lastUpdateLength = fullResponse.length;
       
-      // Process update asynchronously to not block streaming
-      setImmediate(async () => {
-        try {
-          // Clean response only when sending to UI
-          const cleanedResponse = cleanFullResponse(fullResponse);
-          await processResponseChunkUpdate({ fullResponse: cleanedResponse });
-        } catch (error) {
-          logger.error(`Error in throttled chunk update for chat ${chatId}:`, error);
-        } finally {
-          pendingUpdate = false;
-        }
-      });
+      // 🚀 DIRECT ASYNC AWAIT: Remove setImmediate to avoid microtask queue backlog
+      try {
+        // Clean response only when sending to UI
+        const cleanedResponse = cleanFullResponse(fullResponse);
+        await processResponseChunkUpdate({ fullResponse: cleanedResponse });
+      } catch (error) {
+        logger.error(`Error in throttled chunk update for chat ${chatId}:`, error);
+      } finally {
+        pendingUpdate = false;
+      }
     }
 
     // If the stream was aborted, exit early
@@ -440,7 +494,7 @@ ${componentSnippet}
         })
         .returning();
 
-      // 🚀 START PERIODIC PERSISTENCE: Auto-save progress every 2 seconds
+      // 🚀 START PERIODIC PERSISTENCE: Auto-save progress (if enabled)
       startPeriodicPersistence(req.chatId, placeholderAssistantMessage.id);
 
       // Fetch updated chat data after possible deletions and additions
@@ -497,11 +551,49 @@ ${componentSnippet}
         // Parse app mentions from the prompt
         const mentionedAppNames = parseAppMentions(req.prompt);
 
-        // Extract codebase for current app
-        const { formattedOutput: codebaseInfo, files } = await extractCodebase({
-          appPath,
-          chatContext,
-        });
+        // 🚀 PERFORMANCE: Cache system prompt and codebase per app
+        const appId = updatedChat.app.id;
+        const cacheKey = `${appId}-${JSON.stringify(chatContext)}`;
+        const now = Date.now();
+        
+        let codebaseInfo: string;
+        let files: any;
+        let systemPrompt: string;
+        
+        // Check cache first
+        const cached = systemPromptCache.get(cacheKey);
+        if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
+          logger.log(`🚀 Using cached system prompt and codebase for app ${appId}`);
+          codebaseInfo = cached.codebaseInfo;
+          files = []; // Files are not cached, but we'll get them fresh
+          systemPrompt = cached.systemPrompt;
+        } else {
+          // Extract codebase for current app
+          const extracted = await extractCodebase({
+            appPath,
+            chatContext,
+          });
+          codebaseInfo = extracted.formattedOutput;
+          files = extracted.files;
+          
+          // Build system prompt
+          systemPrompt = constructSystemPrompt({
+            aiRules: await readAiRules(appPath),
+            chatMode: settings.selectedChatMode,
+            appPath: appPath,
+          });
+          
+          // Cache the result
+          const codebaseHash = crypto.createHash('md5').update(codebaseInfo).digest('hex');
+          systemPromptCache.set(cacheKey, {
+            systemPrompt,
+            codebaseInfo,
+            codebaseHash,
+            timestamp: now,
+          });
+          
+          logger.log(`💾 Cached system prompt and codebase for app ${appId} (${codebaseHash})`);
+        }
 
         // Extract codebases for mentioned apps
         const mentionedAppsCodebases = await extractMentionedAppsCodebases(
@@ -584,12 +676,8 @@ ${componentSnippet}
           );
         }
 
-        // 🚀 COST OPTIMIZATION: Use prompt caching for massive savings
-        let baseSystemPrompt = constructSystemPrompt({
-          aiRules: await readAiRules(appPath),
-          chatMode: settings.selectedChatMode,
-          appPath: appPath,
-        });
+        // 🚀 PERFORMANCE: Use cached system prompt (already built above)
+        let baseSystemPrompt = systemPrompt;
 
         // Add information about mentioned apps if any
         if (otherAppsCodebaseInfo) {

@@ -53,6 +53,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   // Gemini Integration defaults (disabled for Phase 1 rollout)
   enableGemini: false,
   enableGeminiCLI: false,
+
+  // Chat Stream Performance defaults (disabled for Dyad-like performance)
+  enableStreamAutosave: false,
 };
 
 // Use different settings file for packaged apps to avoid loading dev settings

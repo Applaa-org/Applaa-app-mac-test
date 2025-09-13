@@ -311,8 +311,36 @@ function renderCustomTag(
   { isStreaming }: { isStreaming: boolean },
 ): React.ReactNode {
   const { tag, attributes, content, inProgress } = tagInfo;
-  // Normalize Applaa-branded tags to Dyad internal components
-  const normalizedTag = tag.startsWith("applaa-") ? `dyad-${tag.substring(7)}` : tag;
+  
+  // 🚀 COMPREHENSIVE TAG NORMALIZATION: Map all Applaa tags to Dyad equivalents
+  const tagNormalizationMap: Record<string, string> = {
+    // File operations
+    'applaa-write': 'dyad-write',
+    'applaa-file': 'dyad-write',
+    'applaa-create-file': 'dyad-write', 
+    'applaa-update-file': 'dyad-write',
+    'applaa-rename': 'dyad-rename',
+    'applaa-delete': 'dyad-delete',
+    'applaa-file-delete': 'dyad-delete',
+    'applaa-file-removal': 'dyad-delete',
+    
+    // Dependencies and integrations
+    'applaa-add-dependency': 'dyad-add-dependency',
+    'applaa-execute-sql': 'dyad-execute-sql',
+    'applaa-add-integration': 'dyad-add-integration',
+    
+    // Output and reporting
+    'applaa-output': 'dyad-output',
+    'applaa-problem-report': 'dyad-problem-report',
+    'applaa-chat-summary': 'dyad-chat-summary',
+    
+    // Editing and context
+    'applaa-edit': 'dyad-edit',
+    'applaa-codebase-context': 'dyad-codebase-context',
+    'applaa-command': 'dyad-command',
+  };
+  
+  const normalizedTag = tagNormalizationMap[tag] || tag;
 
   switch (normalizedTag) {
     case "think":
@@ -328,9 +356,6 @@ function renderCustomTag(
         </DyadThink>
       );
     case "dyad-write":
-    case "dyad-file": // Support for applaa-file tags (alias for dyad-write)
-    case "applaa-create-file": // Support for applaa-create-file tags (alias for dyad-write)
-    case "applaa-update-file": // Support for applaa-update-file tags (alias for dyad-write)
       return (
         <DyadWrite
           node={{
@@ -360,8 +385,6 @@ function renderCustomTag(
       );
 
     case "dyad-delete":
-    case "applaa-file-delete": // Support for applaa-file-delete tags (alias for dyad-delete)
-    case "applaa-file-removal": // Support for applaa-file-removal tags (alias for dyad-delete)
       return (
         <DyadDelete
           node={{
