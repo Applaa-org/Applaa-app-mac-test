@@ -75,6 +75,7 @@ class WorkspaceDependencyManager {
 
   /**
    * Install dependencies for an app, using shared workspace when possible
+   * 🔧 INTEGRATION: Works with hermetic runtime for consistent package manager usage
    */
   async installDependenciesForApp(appPath: string): Promise<void> {
     const startTime = Date.now();
@@ -88,10 +89,10 @@ class WorkspaceDependencyManager {
       return;
     }
 
-    // Install dependencies locally (fallback)
-    await this.installLocalDependencies(appPath);
+    // 🔧 INTEGRATION: Use hermetic runtime for consistent dependency installation
+    await this.installDependenciesWithHermeticRuntime(appPath);
     const duration = Date.now() - startTime;
-    logger.log(`✅ Installed local dependencies for ${path.basename(appPath)} in ${duration}ms`);
+    logger.log(`✅ Installed dependencies with hermetic runtime for ${path.basename(appPath)} in ${duration}ms`);
   }
 
   /**
@@ -136,6 +137,57 @@ class WorkspaceDependencyManager {
   }
 
   /**
+   * Install dependencies using hermetic runtime (consistent with container strategy)
+   */
+  private async installDependenciesWithHermeticRuntime(appPath: string): Promise<void> {
+    try {
+      logger.log(`📦 Installing dependencies with hermetic runtime for ${path.basename(appPath)}`);
+      
+      // 🔧 INTEGRATION: Use hermetic runtime for consistent package manager detection
+      const { getBestPackageManager, runPackageManagerCommand } = await import("../lib/hermetic-runtime");
+      const packageManager = await getBestPackageManager(appPath);
+      
+      logger.log(`🚀 Using ${packageManager} via hermetic runtime`);
+      
+      // Use hermetic runtime's package manager command execution
+      const installProcess = await runPackageManagerCommand("install", [], appPath, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 300000 // 5 minutes
+      });
+      
+      await new Promise<void>((resolve, reject) => {
+        let output = '';
+        
+        installProcess.stdout?.on('data', (data) => {
+          output += data.toString();
+        });
+        
+        installProcess.stderr?.on('data', (data) => {
+          const errorMsg = data.toString();
+          if (!errorMsg.includes('WARN') && !errorMsg.includes('deprecated')) {
+            logger.warn(`⚠️ ${errorMsg.trim()}`);
+          }
+        });
+        
+        installProcess.on('close', (code) => {
+          if (code === 0) {
+            logger.log(`✅ Hermetic runtime installation succeeded for ${path.basename(appPath)}`);
+            resolve();
+          } else {
+            reject(new Error(`Hermetic runtime installation failed with code ${code}`));
+          }
+        });
+        
+        installProcess.on('error', reject);
+      });
+      
+    } catch (error) {
+      logger.error(`❌ Failed to install dependencies with hermetic runtime for ${path.basename(appPath)}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Install dependencies locally (fallback method)
    */
   private async installLocalDependencies(appPath: string): Promise<void> {
@@ -149,7 +201,7 @@ class WorkspaceDependencyManager {
   }
 
   /**
-   * Update shared workspace dependencies
+   * Update shared workspace dependencies using hermetic runtime
    */
   async updateSharedDependencies(dependencies: string[]): Promise<void> {
     if (!this.config || dependencies.length === 0) {
@@ -173,13 +225,41 @@ class WorkspaceDependencyManager {
       JSON.stringify(sharedPackageJson, null, 2)
     );
 
-    // Install dependencies in shared workspace
+    // 🔧 INTEGRATION: Use hermetic runtime for consistent package manager usage
     try {
-      await execAsync("npm install", { cwd: this.config.workspaceRoot });
-      logger.log(`✅ Updated shared workspace dependencies`);
+      const { getBestPackageManager, runPackageManagerCommand } = await import("../lib/hermetic-runtime");
+      const packageManager = await getBestPackageManager(this.config.workspaceRoot);
+      
+      logger.log(`🚀 Using ${packageManager} for shared workspace dependencies`);
+      
+      const installProcess = await runPackageManagerCommand("install", [], this.config.workspaceRoot, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 300000 // 5 minutes
+      });
+      
+      await new Promise<void>((resolve, reject) => {
+        installProcess.on('close', (code) => {
+          if (code === 0) {
+            logger.log(`✅ Updated shared workspace dependencies with ${packageManager}`);
+            resolve();
+          } else {
+            reject(new Error(`Shared workspace dependency update failed with code ${code}`));
+          }
+        });
+        
+        installProcess.on('error', reject);
+      });
+      
     } catch (error) {
-      logger.error(`❌ Failed to update shared dependencies:`, error);
-      throw error;
+      logger.error(`❌ Failed to update shared dependencies with hermetic runtime:`, error);
+      // Fallback to basic npm install
+      try {
+        await execAsync("npm install", { cwd: this.config.workspaceRoot });
+        logger.log(`✅ Updated shared workspace dependencies (fallback)`);
+      } catch (fallbackError) {
+        logger.error(`❌ Fallback also failed:`, fallbackError);
+        throw fallbackError;
+      }
     }
   }
 

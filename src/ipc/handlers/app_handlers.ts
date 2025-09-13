@@ -258,15 +258,46 @@ async function executeAppLocalNode({
     devCommand = "npm run dev -- --port 32100";
   }
 
-  // 🚀 PERFORMANCE: Install dependencies using workspace manager (2-5s vs 30-60s)
+  // 🚀 PERFORMANCE: Install dependencies using workspace manager with hermetic runtime integration
   let fullCommand: string;
   try {
+    // 🔧 INTEGRATION: Workspace manager now uses hermetic runtime for consistency
     await workspaceDependencyManager.installDependenciesForApp(appPath);
     // If workspace manager succeeded, just run dev command
     fullCommand = devCommand;
+    logger.info(`🚀 Using workspace dependency manager for ${path.basename(appPath)}`);
   } catch (error) {
-    // Fallback to traditional install if workspace manager fails
-    fullCommand = `(${installCommand} && ${devCommand}) || (npm install --legacy-peer-deps && npm run dev -- --port 32100)`;
+    // 🔧 INTEGRATION: Fallback uses hermetic runtime for consistent package manager usage
+    logger.warn(`⚠️ Workspace manager failed for ${path.basename(appPath)}, using hermetic runtime fallback:`, error);
+    
+    // Use hermetic runtime for fallback installation
+    try {
+      const { runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
+      const installProcess = await runPackageManagerCommand("install", [], appPath, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 300000 // 5 minutes
+      });
+      
+      await new Promise<void>((resolve, reject) => {
+        installProcess.on('close', (code) => {
+          if (code === 0) {
+            logger.info(`✅ Hermetic runtime fallback installation succeeded for ${path.basename(appPath)}`);
+            resolve();
+          } else {
+            reject(new Error(`Hermetic runtime installation failed with code ${code}`));
+          }
+        });
+        
+        installProcess.on('error', reject);
+      });
+      
+      fullCommand = devCommand;
+      
+    } catch (hermeticError) {
+      // Final fallback to traditional install
+      logger.warn(`⚠️ Hermetic runtime fallback also failed, using traditional install:`, hermeticError);
+      fullCommand = `(${installCommand} && ${devCommand}) || (npm install --legacy-peer-deps && npm run dev -- --port 32100)`;
+    }
   }
   
   const spawnedProcess = spawn(fullCommand, [], {

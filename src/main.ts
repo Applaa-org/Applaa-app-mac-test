@@ -100,6 +100,20 @@ export async function onReady() {
     const workspaceRoot = path.join(userDataPath, "applaa-workspace");
     await workspaceDependencyManager.initialize(workspaceRoot);
     logger.info("🚀 Workspace dependency manager initialized successfully");
+    
+    // 🔧 INTEGRATION: Validate container strategy integration
+    try {
+      const { validateCoreFunctionality } = await import("./ipc/utils/container_strategy_integration_test");
+      const validationResults = await validateCoreFunctionality();
+      logger.info("🧪 Container strategy integration validation:", validationResults);
+      
+      if (!validationResults.containerStrategy) {
+        logger.warn("⚠️ Container strategy integration validation failed - performance optimizations may not work optimally");
+      }
+    } catch (validationError) {
+      logger.warn("⚠️ Container strategy integration validation failed (non-critical):", validationError);
+    }
+    
   } catch (error) {
     logger.error("❌ Failed to initialize workspace dependency manager:", error);
   }
