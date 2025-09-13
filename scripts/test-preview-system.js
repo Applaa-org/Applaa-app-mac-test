@@ -149,6 +149,7 @@ async function runUnitTests() {
       const { code, stdout, stderr } = await runCommand('npx', [
         'jest',
         testFile,
+        '--config', 'jest.preview.config.js',
         '--verbose',
         '--no-cache',
         '--detectOpenHandles'
@@ -328,6 +329,7 @@ async function generateTestReport() {
     const { code, stdout } = await runCommand('npx', [
       'jest',
       'src/__tests__/',
+      '--config', 'jest.preview.config.js',
       '--coverage',
       '--coverageReporters=json-summary',
       '--silent'
