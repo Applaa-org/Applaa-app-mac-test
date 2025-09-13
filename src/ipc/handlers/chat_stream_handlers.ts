@@ -577,11 +577,26 @@ ${componentSnippet}
           files = extracted.files;
           
           // Build system prompt
-          systemPrompt = constructSystemPrompt({
+          const baseSystemPrompt = constructSystemPrompt({
             aiRules: await readAiRules(appPath),
             chatMode: settings.selectedChatMode,
             appPath: appPath,
           });
+          
+          // Apply cost optimization and prompt caching
+          const optimized = await costOptimizationService.optimizeSystemPrompt(
+            baseSystemPrompt,
+            settings.selectedModel.provider,
+            settings.selectedModel.name
+          );
+          
+          systemPrompt = optimized.systemPrompt;
+          
+          // Log cost optimization results
+          if (optimized.cachingStrategy !== 'none') {
+            logger.log(`💰 Cost optimization applied: ${optimized.cachingStrategy} caching for ${settings.selectedModel.provider}/${settings.selectedModel.name}`);
+            logger.log(`📊 Estimated savings: ${optimized.costSavingsEstimate}% (${optimized.estimatedTokens} tokens)`);
+          }
           
           // Cache the result
           const codebaseHash = crypto.createHash('md5').update(codebaseInfo).digest('hex');
