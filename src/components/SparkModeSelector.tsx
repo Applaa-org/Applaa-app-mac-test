@@ -53,9 +53,9 @@ export function SparkModeSelector() {
               className={`w-8 h-8 p-0 flex items-center justify-center transition-all ${
                 isPro
                   ? isAnyProFeatureEnabled
-                    ? "bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white border-purple-500 shadow-md"
-                    : "bg-gradient-to-r from-purple-100 to-blue-100 hover:from-purple-200 hover:to-blue-200 text-purple-700 border-purple-300"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-500 border-gray-300"
+                    ? "bg-white hover:bg-gray-50 text-purple-600 border-purple-300 shadow-sm"
+                    : "bg-white hover:bg-gray-50 text-purple-600 border-purple-200 shadow-sm"
+                  : "bg-white hover:bg-gray-50 text-gray-500 border-gray-300 shadow-sm"
               }`}
             >
               {isPro ? (

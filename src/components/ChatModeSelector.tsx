@@ -44,8 +44,8 @@ export function ChatModeSelector() {
             className={cn(
               "h-6 w-fit px-1 py-0 text-xs font-medium shadow-none gap-0.5",
               selectedMode === "build"
-                ? "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-orange-500 shadow-sm"
-                : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-500 shadow-sm",
+                ? "bg-white hover:bg-gray-50 text-orange-600 border-orange-300 shadow-sm"
+                : "bg-white hover:bg-gray-50 text-green-600 border-green-300 shadow-sm",
             )}
             size="sm"
           >
