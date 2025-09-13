@@ -132,21 +132,14 @@ export function ModelPicker() {
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-2 h-8 max-w-[160px] px-2 text-xs-sm bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-blue-500 shadow-md"
+              className="flex items-center gap-1.5 h-7 max-w-[120px] px-2 text-xs bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-blue-500 shadow-sm"
             >
-              <div className="flex items-center gap-1.5">
-                <Brain className="h-3.5 w-3.5" />
-                <span className="truncate">
-                  {modelDisplayName === "Auto" && (
-                    <>
-                      <span className="text-xs opacity-80">
-                        Model:
-                      </span>{" "}
-                    </>
-                  )}
-                  {modelDisplayName}
+              <div className="flex items-center gap-1">
+                <Brain className="h-3 w-3" />
+                <span className="truncate text-xs">
+                  {modelDisplayName === "Auto" ? "Auto" : modelDisplayName}
                 </span>
-                <ChevronDown className="h-3 w-3 opacity-70" />
+                <ChevronDown className="h-2.5 w-2.5 opacity-70" />
               </div>
             </Button>
           </DropdownMenuTrigger>
@@ -158,7 +151,7 @@ export function ModelPicker() {
         align="start"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <DropdownMenuLabel>Cloud Models</DropdownMenuLabel>
+        <DropdownMenuLabel>AI Models</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         {/* Cloud models - loading state */}

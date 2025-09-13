@@ -188,6 +188,72 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       temperature: 0.7,
     },
   ],
+  "google-vertex": [
+    // Google Vertex AI models - separate from regular Google API
+    {
+      name: "gemini-2.5-pro",
+      displayName: "Gemini 2.5 Pro (Vertex)",
+      description: "Google Vertex AI Gemini 2.5 Pro model",
+      maxOutputTokens: 65_536 - 1,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "gemini-2.5-flash",
+      displayName: "Gemini 2.5 Flash (Vertex)",
+      description: "Google Vertex AI Gemini 2.5 Flash model",
+      maxOutputTokens: 65_536 - 1,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "gemini-1.5-pro",
+      displayName: "Gemini 1.5 Pro (Vertex)",
+      description: "Google Vertex AI Gemini 1.5 Pro model",
+      maxOutputTokens: 8_192,
+      contextWindow: 2_000_000,
+      temperature: 0.7,
+    },
+  ],
+  "amazon-bedrock": [
+    // Amazon Bedrock models
+    {
+      name: "claude-3-5-sonnet-20241022",
+      displayName: "Claude 3.5 Sonnet (Bedrock)",
+      description: "Anthropic Claude 3.5 Sonnet via Amazon Bedrock",
+      maxOutputTokens: 8_000,
+      contextWindow: 200_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "claude-3-opus-20240229",
+      displayName: "Claude 3 Opus (Bedrock)",
+      description: "Anthropic Claude 3 Opus via Amazon Bedrock",
+      maxOutputTokens: 4_096,
+      contextWindow: 200_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "claude-3-haiku-20240307",
+      displayName: "Claude 3 Haiku (Bedrock)",
+      description: "Anthropic Claude 3 Haiku via Amazon Bedrock",
+      maxOutputTokens: 4_096,
+      contextWindow: 200_000,
+      temperature: 0,
+    },
+    {
+      name: "meta.llama3-70b-instruct-v1:0",
+      displayName: "Llama 3 70B (Bedrock)",
+      description: "Meta Llama 3 70B via Amazon Bedrock",
+      maxOutputTokens: 4_096,
+      contextWindow: 8_000,
+      temperature: 0,
+    },
+  ],
   openrouter: [
     // Anthropic models with prompt caching support
     {
@@ -260,6 +326,52 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       maxOutputTokens: 32_000,
       contextWindow: 256_000,
       temperature: 0,
+    },
+    // 🚀 TURBO MODELS: Ultra-fast inference (4-10x faster)
+    {
+      name: "cerebras/cerebras-llama-3.1-8b-instruct",
+      displayName: "Cerebras L3.1 8B (Turbo)",
+      description: "Cerebras ultra-fast L3.1 8B model - 4x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "cerebras/cerebras-llama-3.1-70b-instruct",
+      displayName: "Cerebras L3.1 70B (Turbo)",
+      description: "Cerebras ultra-fast L3.1 70B model - 4x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "groq/llama-3.1-70b-versatile",
+      displayName: "Groq L3.1 70B (Turbo)",
+      description: "Groq ultra-fast L3.1 70B model - 10x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "groq/llama-3.1-8b-instant",
+      displayName: "Groq L3.1 8B (Turbo)",
+      description: "Groq ultra-fast L3.1 8B model - 10x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "groq/mixtral-8x7b-32768",
+      displayName: "Groq Mixtral 8x7B (Turbo)",
+      description: "Groq ultra-fast Mixtral 8x7B model - 10x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 32_768,
+      temperature: 0,
+      tag: "Turbo",
     },
   ],
   auto: [
@@ -361,6 +473,9 @@ export const PROVIDER_TO_ENV_VAR: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY",
   // Enhanced Azure support per Dyad commit #2ffbbbc
   "azure-openai": "AZURE_API_KEY",
+  // 🚀 NEW PROVIDERS from Dyad v0.21.0-beta.1
+  "google-vertex": "GOOGLE_APPLICATION_CREDENTIALS",
+  "amazon-bedrock": "AWS_ACCESS_KEY_ID",
 };
 
 export const CLOUD_PROVIDERS: Record<
@@ -412,6 +527,18 @@ export const CLOUD_PROVIDERS: Record<
     hasFreeTier: false,
     websiteUrl: "https://portal.azure.com/",
     gatewayPrefix: "",
+  },
+  "google-vertex": {
+    displayName: "Google Vertex AI",
+    hasFreeTier: true,
+    websiteUrl: "https://console.cloud.google.com/vertex-ai",
+    gatewayPrefix: "vertex/",
+  },
+  "amazon-bedrock": {
+    displayName: "Amazon Bedrock",
+    hasFreeTier: false,
+    websiteUrl: "https://console.aws.amazon.com/bedrock/",
+    gatewayPrefix: "bedrock/",
   },
 };
 

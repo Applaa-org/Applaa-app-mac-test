@@ -16,15 +16,15 @@ export function ChatInputControls({
   showPlatformSelector?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-1.5 py-1">
       {/* Left group: Build and Model selection side by side */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         {showPlatformSelector && <PlatformSelector />}
         <ModelPicker />
       </div>
       
       {/* Right group: App Type, Spark, and Import App */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <ChatModeSelector />
         <SparkModeSelector />
         {/* 🚀 MVP: Import option hidden for simplicity - can be re-enabled post-MVP */}
