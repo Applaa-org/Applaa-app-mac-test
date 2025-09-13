@@ -255,38 +255,19 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     },
   ],
   openrouter: [
-    // Anthropic models with prompt caching support
+    // Qwen3 models - both free and paid versions
     {
-      name: "anthropic/claude-3.5-sonnet",
-      displayName: "Claude 3.5 Sonnet (OpenRouter)",
-      description: "Anthropic's flagship model with prompt caching support",
+      name: "qwen/qwen3-coder:free",
+      displayName: "Qwen3 Coder (free)",
+      description: "Qwen's best coding model - free tier",
       maxOutputTokens: 32_000,
-      contextWindow: 200_000,
+      contextWindow: 262_000,
       temperature: 0,
-      tag: "Caching",
-    },
-    {
-      name: "anthropic/claude-3-opus",
-      displayName: "Claude 3 Opus (OpenRouter)",
-      description: "Anthropic's most powerful model with prompt caching",
-      maxOutputTokens: 32_000,
-      contextWindow: 200_000,
-      temperature: 0,
-      tag: "Caching",
-    },
-    {
-      name: "anthropic/claude-3-haiku",
-      displayName: "Claude 3 Haiku (OpenRouter)",
-      description: "Fast and cost-effective with prompt caching",
-      maxOutputTokens: 32_000,
-      contextWindow: 200_000,
-      temperature: 0,
-      tag: "Caching",
     },
     {
       name: "qwen/qwen3-coder",
       displayName: "Qwen3 Coder",
-      description: "Qwen's best coding model",
+      description: "Qwen's best coding model - paid version",
       maxOutputTokens: 32_000,
       contextWindow: 262_000,
       temperature: 0,
@@ -327,27 +308,10 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 256_000,
       temperature: 0,
     },
-    // 🚀 TURBO MODELS: Ultra-fast inference (4-10x faster)
+  ],
+  groq: [
     {
-      name: "cerebras/cerebras-llama-3.1-8b-instruct",
-      displayName: "Cerebras L3.1 8B (Turbo)",
-      description: "Cerebras ultra-fast L3.1 8B model - 4x faster inference",
-      maxOutputTokens: 32_000,
-      contextWindow: 128_000,
-      temperature: 0,
-      tag: "Turbo",
-    },
-    {
-      name: "cerebras/cerebras-llama-3.1-70b-instruct",
-      displayName: "Cerebras L3.1 70B (Turbo)",
-      description: "Cerebras ultra-fast L3.1 70B model - 4x faster inference",
-      maxOutputTokens: 32_000,
-      contextWindow: 128_000,
-      temperature: 0,
-      tag: "Turbo",
-    },
-    {
-      name: "groq/llama-3.1-70b-versatile",
+      name: "llama-3.1-70b-versatile",
       displayName: "Groq L3.1 70B (Turbo)",
       description: "Groq ultra-fast L3.1 70B model - 10x faster inference",
       maxOutputTokens: 32_000,
@@ -356,7 +320,7 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       tag: "Turbo",
     },
     {
-      name: "groq/llama-3.1-8b-instant",
+      name: "llama-3.1-8b-instant",
       displayName: "Groq L3.1 8B (Turbo)",
       description: "Groq ultra-fast L3.1 8B model - 10x faster inference",
       maxOutputTokens: 32_000,
@@ -365,13 +329,43 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       tag: "Turbo",
     },
     {
-      name: "groq/mixtral-8x7b-32768",
+      name: "mixtral-8x7b-32768",
       displayName: "Groq Mixtral 8x7B (Turbo)",
       description: "Groq ultra-fast Mixtral 8x7B model - 10x faster inference",
       maxOutputTokens: 32_000,
       contextWindow: 32_768,
       temperature: 0,
       tag: "Turbo",
+    },
+  ],
+  cerebras: [
+    {
+      name: "cerebras-llama-3.1-8b-instruct",
+      displayName: "Cerebras L3.1 8B (Turbo)",
+      description: "Cerebras ultra-fast L3.1 8B model - 4x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "cerebras-llama-3.1-70b-instruct",
+      displayName: "Cerebras L3.1 70B (Turbo)",
+      description: "Cerebras ultra-fast L3.1 70B model - 4x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+  ],
+  xai: [
+    {
+      name: "grok-code-fast-1",
+      displayName: "Grok Code Fast 1",
+      description: "xAI's fast coding model optimized for rapid code generation",
+      maxOutputTokens: 32_000,
+      contextWindow: 256_000,
+      temperature: 0,
     },
   ],
   auto: [
@@ -476,6 +470,9 @@ export const PROVIDER_TO_ENV_VAR: Record<string, string> = {
   // 🚀 NEW PROVIDERS from Dyad v0.21.0-beta.1
   "google-vertex": "GOOGLE_APPLICATION_CREDENTIALS",
   "amazon-bedrock": "AWS_ACCESS_KEY_ID",
+  "groq": "GROQ_API_KEY",
+  "cerebras": "CEREBRAS_API_KEY",
+  "xai": "XAI_API_KEY",
 };
 
 export const CLOUD_PROVIDERS: Record<
@@ -539,6 +536,24 @@ export const CLOUD_PROVIDERS: Record<
     hasFreeTier: false,
     websiteUrl: "https://console.aws.amazon.com/bedrock/",
     gatewayPrefix: "bedrock/",
+  },
+  "groq": {
+    displayName: "Groq",
+    hasFreeTier: true,
+    websiteUrl: "https://console.groq.com/keys",
+    gatewayPrefix: "groq/",
+  },
+  "cerebras": {
+    displayName: "Cerebras",
+    hasFreeTier: false,
+    websiteUrl: "https://www.cerebras.net/",
+    gatewayPrefix: "cerebras/",
+  },
+  "xai": {
+    displayName: "xAI",
+    hasFreeTier: false,
+    websiteUrl: "https://console.x.ai/",
+    gatewayPrefix: "xai/",
   },
 };
 

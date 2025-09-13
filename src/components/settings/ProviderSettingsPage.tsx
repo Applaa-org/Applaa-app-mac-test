@@ -65,8 +65,8 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
   const userApiKey = settings?.providerSettings?.[provider]?.apiKey?.value;
   const userApiBaseUrl = settings?.providerSettings?.[provider]?.apiBaseUrl?.value;
   
-  // Check if this provider needs API Base URL (Azure OpenAI, Google Vertex AI, Amazon Bedrock)
-  const needsApiBaseUrl = provider === "azure-openai" || provider === "google-vertex" || provider === "amazon-bedrock";
+  // Check if this provider needs API Base URL (Azure OpenAI, Google Vertex AI, Amazon Bedrock, Groq, Cerebras, xAI)
+  const needsApiBaseUrl = provider === "azure-openai" || provider === "google-vertex" || provider === "amazon-bedrock" || provider === "groq" || provider === "cerebras" || provider === "xai";
 
   // --- Configuration Logic --- Updated Priority ---
   const isValidUserKey =
