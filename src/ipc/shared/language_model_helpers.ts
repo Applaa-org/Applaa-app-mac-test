@@ -162,32 +162,6 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       temperature: 0,
     },
   ],
-  gemini: [
-    {
-      name: "gemini-1.5-pro",
-      displayName: "Gemini 1.5 Pro",
-      description: "Most capable model for complex reasoning tasks",
-      maxOutputTokens: 8_192,
-      contextWindow: 2_000_000, // 2M tokens
-      temperature: 0.7,
-    },
-    {
-      name: "gemini-1.5-flash",
-      displayName: "Gemini 1.5 Flash",
-      description: "Fast and efficient model for most tasks",
-      maxOutputTokens: 8_192,
-      contextWindow: 1_000_000, // 1M tokens
-      temperature: 0.7,
-    },
-    {
-      name: "gemini-1.5-flash-8b",
-      displayName: "Gemini 1.5 Flash-8B",
-      description: "Lightweight model for simple tasks",
-      maxOutputTokens: 8_192,
-      contextWindow: 1_000_000, // 1M tokens
-      temperature: 0.7,
-    },
-  ],
   "google-vertex": [
     // Google Vertex AI models - separate from regular Google API
     {
@@ -463,7 +437,6 @@ export const PROVIDER_TO_ENV_VAR: Record<string, string> = {
   openai: "OPENAI_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   google: "GEMINI_API_KEY",
-  gemini: "GEMINI_API_KEY", // For development fallback
   openrouter: "OPENROUTER_API_KEY",
   // Enhanced Azure support per Dyad commit #2ffbbbc
   "azure-openai": "AZURE_API_KEY",
@@ -501,12 +474,6 @@ export const CLOUD_PROVIDERS: Record<
     hasFreeTier: true,
     websiteUrl: "https://aistudio.google.com/app/apikey",
     gatewayPrefix: "gemini/",
-  },
-  gemini: {
-    displayName: "Gemini (OAuth)",
-    hasFreeTier: true,
-    websiteUrl: "https://console.cloud.google.com/",
-    gatewayPrefix: "gemini-oauth/",
   },
   openrouter: {
     displayName: "OpenRouter",
