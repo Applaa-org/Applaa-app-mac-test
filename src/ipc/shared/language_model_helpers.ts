@@ -311,6 +311,15 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       temperature: 0,
       tag: "Free",
     },
+    {
+      name: "gemma2-9b-it",
+      displayName: "Gemma 2 9B (Free)",
+      description: "Groq free tier: Google's balanced coding model - great for development",
+      maxOutputTokens: 8_192,
+      contextWindow: 8_192,
+      temperature: 0,
+      tag: "Free",
+    },
   ],
   cerebras: [
     {
