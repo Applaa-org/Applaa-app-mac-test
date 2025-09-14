@@ -66,7 +66,7 @@ export class PreviewIntegration {
       
       // Start intelligent preparation
       const ipcClient = IpcClient.getInstance();
-      const result = await ipcClient.ipcRenderer.invoke('intelligent-preview:start-preparation', {
+      const result = await ipcClient.invoke('intelligent-preview:start-preparation', {
         appId,
         isLLMGenerating
       });
@@ -98,7 +98,7 @@ export class PreviewIntegration {
       logger.info(`🎯 Notifying LLM completion for app ${appId}`);
       
       const ipcClient = IpcClient.getInstance();
-      const result = await ipcClient.ipcRenderer.invoke('intelligent-preview:llm-completed', {
+      const result = await ipcClient.invoke('intelligent-preview:llm-completed', {
         appId
       });
       
@@ -124,7 +124,7 @@ export class PreviewIntegration {
       this.activePreparations.delete(appId);
       
       const ipcClient = IpcClient.getInstance();
-      await ipcClient.ipcRenderer.invoke('intelligent-preview:stop', { appId });
+      await ipcClient.invoke('intelligent-preview:stop', { appId });
       
       logger.info(`✅ Preparation cleaned up for app ${appId}`);
       
@@ -262,7 +262,7 @@ export async function onChatStreamEnd(appId: number): Promise<void> {
 export async function isPreviewReady(appId: number): Promise<boolean> {
   try {
     const ipcClient = IpcClient.getInstance();
-    const result = await ipcClient.ipcRenderer.invoke('intelligent-preview:get-state', { appId });
+    const result = await ipcClient.invoke('intelligent-preview:get-state', { appId });
     
     return result.success && result.state?.phase === 'ready';
   } catch (error) {

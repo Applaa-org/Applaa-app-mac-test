@@ -101,11 +101,12 @@ export function registerIpcHandlers() {
   registerAppEnvVarsHandlers();
   registerTemplateHandlers();
   registerPortalHandlers();
-  registerExpoHandlers();
-  registerDualExpoHandlers();
-  registerSimpleExpoHandlers();
-  registerUnifiedExpoPreview();
-  registerIntelligentPreviewSystem();
+  // 🚀 UNIFIED PREVIEW: Only register the unified preview system for Dyad-like performance
+  // registerExpoHandlers(); // DISABLED - conflicts with unified system
+  // registerDualExpoHandlers(); // DISABLED - conflicts with unified system  
+  // registerSimpleExpoHandlers(); // DISABLED - conflicts with unified system
+  registerUnifiedExpoPreview(); // ✅ ACTIVE - Single, optimized preview system
+  // registerIntelligentPreviewSystem(); // DISABLED - conflicts with unified system
   registerExpoPerformanceMonitor();
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
   registerPromptOptimizationHandlers();
@@ -116,7 +117,7 @@ export function registerIpcHandlers() {
   registerPlaywrightMCPHandlers();
   registerBackgroundDependencyInstaller();
   registerFeatureInstaller();
-  registerParallelPrebuildSystem();
+  // registerParallelPrebuildSystem(); // DISABLED - conflicts with unified preview system
   // Gemini handlers removed for MVP
   registerBackgroundTaskHandlers();
   registerTerminalHandlers();

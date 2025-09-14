@@ -65,7 +65,8 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
   const userApiKey = settings?.providerSettings?.[provider]?.apiKey?.value;
   const userApiBaseUrl = settings?.providerSettings?.[provider]?.apiBaseUrl?.value;
   
-  // Check if this provider needs API Base URL (Azure OpenAI)
+  // Check if this provider needs API Base URL
+  // Only Azure OpenAI needs custom API Base URL - all others use standard endpoints or gateway
   const needsApiBaseUrl = provider === "azure-openai";
 
   // --- Configuration Logic --- Updated Priority ---
@@ -94,7 +95,7 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
       return;
     }
     if (needsApiBaseUrl && !apiBaseUrlInput) {
-      setSaveError("API Base URL is required for Azure OpenAI.");
+      setSaveError("API Base URL is required for this provider.");
       return;
     }
     setIsSaving(true);

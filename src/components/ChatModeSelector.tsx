@@ -42,21 +42,21 @@ export function ChatModeSelector() {
           <MiniSelectTrigger
             data-testid="chat-mode-selector"
             className={cn(
-              "h-6 w-fit px-1.5 py-0 text-xs-sm font-medium shadow-none gap-0.5",
+              "h-6 w-fit px-1 py-0 text-xs font-medium shadow-none gap-0.5",
               selectedMode === "build"
-                ? "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-orange-500 shadow-md"
-                : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-500 shadow-md",
+                ? "bg-white hover:bg-gray-50 text-orange-600 border-orange-300 shadow-sm"
+                : "bg-white hover:bg-gray-50 text-green-600 border-green-300 shadow-sm",
             )}
             size="sm"
           >
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-0.5">
               {selectedMode === "build" ? (
-                <Hammer className="h-3.5 w-3.5" />
+                <Hammer className="h-2.5 w-2.5" />
               ) : (
-                <MessageCircleQuestion className="h-3.5 w-3.5" />
+                <MessageCircleQuestion className="h-2.5 w-2.5" />
               )}
               <SelectValue>{getModeDisplayName(selectedMode)}</SelectValue>
-              <ChevronDown className="h-3 w-3 opacity-70" />
+              <ChevronDown className="h-2 w-2 opacity-70" />
             </div>
           </MiniSelectTrigger>
         </TooltipTrigger>

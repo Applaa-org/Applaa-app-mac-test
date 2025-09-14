@@ -46,7 +46,7 @@ export function useStreamChat({
   const { refreshApp } = useLoadApp(selectedAppId);
   const setStreamCount = useSetAtom(chatStreamCountAtom);
   const { refreshVersions } = useVersions(selectedAppId);
-  const { refreshAppIframe } = useRunApp();
+  const { refreshAppIframe, restartApp } = useRunApp();
   const { countTokens } = useCountTokens();
   const { refetchUserBudget } = useUserBudgetInfo();
   const { checkProblems } = useCheckProblems(selectedAppId);
@@ -140,6 +140,13 @@ export function useStreamChat({
               
               if (response.updatedFiles) {
                 setIsPreviewOpen(true);
+                // Auto-restart the dev server so preview loads without manual action
+                // This mirrors Dyad's behaviour for instant preview after edits
+                try {
+                  restartApp();
+                } catch (e) {
+                  // Non-blocking: still refresh iframe even if restart fails
+                }
                 refreshAppIframe();
                 if (settings?.enableAutoFixProblems) {
                   checkProblems();

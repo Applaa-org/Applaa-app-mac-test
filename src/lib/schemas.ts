@@ -239,6 +239,9 @@ export const UserSettingsSchema = z.object({
     region: z.string().optional(),
   }).optional(),
 
+  // Chat Stream Performance Settings
+  enableStreamAutosave: z.boolean().optional(),
+
   ////////////////////////////////
   // E2E TESTING ONLY.
   ////////////////////////////////

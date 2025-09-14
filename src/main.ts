@@ -20,6 +20,7 @@ import { getDatabasePath, initializeDatabase } from "./db";
 import { UserSettings } from "./lib/schemas";
 import { handleNeonOAuthReturn } from "./neon_admin/neon_return_handler";
 import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
+import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -92,6 +93,30 @@ export async function onReady() {
     logger.error("Error initializing backup manager", e);
   }
   initializeDatabase();
+
+  // 🚀 PERFORMANCE: Initialize workspace dependency manager for faster app creation
+  try {
+    const userDataPath = app.getPath("userData");
+    const workspaceRoot = path.join(userDataPath, "applaa-workspace");
+    await workspaceDependencyManager.initialize(workspaceRoot);
+    logger.info("🚀 Workspace dependency manager initialized successfully");
+    
+    // 🔧 INTEGRATION: Validate container strategy integration
+    try {
+      const { validateCoreFunctionality } = await import("./ipc/utils/container_strategy_integration_test");
+      const validationResults = await validateCoreFunctionality();
+      logger.info("🧪 Container strategy integration validation:", validationResults);
+      
+      if (!validationResults.containerStrategy) {
+        logger.warn("⚠️ Container strategy integration validation failed - performance optimizations may not work optimally");
+      }
+    } catch (validationError) {
+      logger.warn("⚠️ Container strategy integration validation failed (non-critical):", validationError);
+    }
+    
+  } catch (error) {
+    logger.error("❌ Failed to initialize workspace dependency manager:", error);
+  }
   
   // 🔄 Auto-migrate settings encryption for seamless updates
   try {

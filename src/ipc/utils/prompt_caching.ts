@@ -60,10 +60,11 @@ export function getCachingConfig(provider: string): PromptCachingConfig {
         provider
       };
     case "openrouter":
-      // Check if it's an Anthropic model via OpenRouter
+      // 🚀 FIX: OpenRouter models do NOT get native Anthropic caching
+      // They use application-level caching instead
       return {
-        enableCaching: true,
-        minTokensForCaching: 1024,
+        enableCaching: false,
+        minTokensForCaching: 0,
         provider
       };
     default:

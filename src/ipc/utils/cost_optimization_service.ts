@@ -60,12 +60,13 @@ export class CostOptimizationService {
 
     // Step 2: Apply provider-specific caching
     if (this.config.enablePromptCaching && cachingConfig.enableCaching) {
-      if (provider === 'anthropic' || (provider === 'openrouter' && modelName.startsWith('anthropic/'))) {
+      // 🚀 FIX: Only use native Anthropic caching for direct Anthropic provider, NOT OpenRouter
+      if (provider === 'anthropic') {
         // Use Anthropic's native prompt caching
         const cacheablePrompt = createCacheableSystemPrompt(optimizedPrompt, cachingConfig);
         cachingStrategy = 'provider';
         
-        logger.log(`Using Anthropic prompt caching for ${provider}/${modelName}`);
+        logger.log(`Using Anthropic native prompt caching for ${provider}/${modelName}`);
         
         return {
           systemPrompt: cacheablePrompt,

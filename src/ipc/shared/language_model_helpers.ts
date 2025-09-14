@@ -162,65 +162,86 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       temperature: 0,
     },
   ],
-  gemini: [
+  "google-vertex": [
+    // Google Vertex AI models - separate from regular Google API
+    {
+      name: "gemini-2.5-pro",
+      displayName: "Gemini 2.5 Pro (Vertex)",
+      description: "Google Vertex AI Gemini 2.5 Pro model",
+      maxOutputTokens: 65_536 - 1,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "gemini-2.5-flash",
+      displayName: "Gemini 2.5 Flash (Vertex)",
+      description: "Google Vertex AI Gemini 2.5 Flash model",
+      maxOutputTokens: 65_536 - 1,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Turbo",
+    },
     {
       name: "gemini-1.5-pro",
-      displayName: "Gemini 1.5 Pro",
-      description: "Most capable model for complex reasoning tasks",
+      displayName: "Gemini 1.5 Pro (Vertex)",
+      description: "Google Vertex AI Gemini 1.5 Pro model",
       maxOutputTokens: 8_192,
-      contextWindow: 2_000_000, // 2M tokens
-      temperature: 0.7,
-    },
-    {
-      name: "gemini-1.5-flash",
-      displayName: "Gemini 1.5 Flash",
-      description: "Fast and efficient model for most tasks",
-      maxOutputTokens: 8_192,
-      contextWindow: 1_000_000, // 1M tokens
-      temperature: 0.7,
-    },
-    {
-      name: "gemini-1.5-flash-8b",
-      displayName: "Gemini 1.5 Flash-8B",
-      description: "Lightweight model for simple tasks",
-      maxOutputTokens: 8_192,
-      contextWindow: 1_000_000, // 1M tokens
+      contextWindow: 2_000_000,
       temperature: 0.7,
     },
   ],
+  "amazon-bedrock": [
+    // Amazon Bedrock models
+    {
+      name: "claude-3-5-sonnet-20241022",
+      displayName: "Claude 3.5 Sonnet (Bedrock)",
+      description: "Anthropic Claude 3.5 Sonnet via Amazon Bedrock",
+      maxOutputTokens: 8_000,
+      contextWindow: 200_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "claude-3-opus-20240229",
+      displayName: "Claude 3 Opus (Bedrock)",
+      description: "Anthropic Claude 3 Opus via Amazon Bedrock",
+      maxOutputTokens: 4_096,
+      contextWindow: 200_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "claude-3-haiku-20240307",
+      displayName: "Claude 3 Haiku (Bedrock)",
+      description: "Anthropic Claude 3 Haiku via Amazon Bedrock",
+      maxOutputTokens: 4_096,
+      contextWindow: 200_000,
+      temperature: 0,
+    },
+    {
+      name: "meta.llama3-70b-instruct-v1:0",
+      displayName: "Llama 3 70B (Bedrock)",
+      description: "Meta Llama 3 70B via Amazon Bedrock",
+      maxOutputTokens: 4_096,
+      contextWindow: 8_000,
+      temperature: 0,
+    },
+  ],
   openrouter: [
-    // Anthropic models with prompt caching support
+    // Qwen3 models - both free and paid versions
     {
-      name: "anthropic/claude-3.5-sonnet",
-      displayName: "Claude 3.5 Sonnet (OpenRouter)",
-      description: "Anthropic's flagship model with prompt caching support",
+      name: "qwen/qwen3-coder:free",
+      displayName: "Qwen3 Coder (free)",
+      description: "Qwen's best coding model - free tier",
       maxOutputTokens: 32_000,
-      contextWindow: 200_000,
+      contextWindow: 262_000,
       temperature: 0,
-      tag: "Caching",
-    },
-    {
-      name: "anthropic/claude-3-opus",
-      displayName: "Claude 3 Opus (OpenRouter)",
-      description: "Anthropic's most powerful model with prompt caching",
-      maxOutputTokens: 32_000,
-      contextWindow: 200_000,
-      temperature: 0,
-      tag: "Caching",
-    },
-    {
-      name: "anthropic/claude-3-haiku",
-      displayName: "Claude 3 Haiku (OpenRouter)",
-      description: "Fast and cost-effective with prompt caching",
-      maxOutputTokens: 32_000,
-      contextWindow: 200_000,
-      temperature: 0,
-      tag: "Caching",
     },
     {
       name: "qwen/qwen3-coder",
       displayName: "Qwen3 Coder",
-      description: "Qwen's best coding model",
+      description: "Qwen's best coding model - paid version",
       maxOutputTokens: 32_000,
       contextWindow: 262_000,
       temperature: 0,
@@ -255,6 +276,74 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     // https://openrouter.ai/x-ai/grok-code-fast-1
     {
       name: "x-ai/grok-code-fast-1",
+      displayName: "Grok Code Fast 1",
+      description: "xAI's fast coding model optimized for rapid code generation",
+      maxOutputTokens: 32_000,
+      contextWindow: 256_000,
+      temperature: 0,
+    },
+  ],
+  groq: [
+    {
+      name: "llama-3.1-70b-versatile",
+      displayName: "Llama 3.1 70B (Free)",
+      description: "Groq free tier: powerful coding model, great for complex tasks",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Free",
+    },
+    {
+      name: "llama-3.1-8b-instant",
+      displayName: "Llama 3.1 8B (Free)",
+      description: "Groq free tier: fast coding model ideal for development",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Free",
+    },
+    {
+      name: "mixtral-8x7b-32768",
+      displayName: "Mixtral 8x7B (Free)",
+      description: "Groq free tier: excellent general-purpose coding model",
+      maxOutputTokens: 32_000,
+      contextWindow: 32_768,
+      temperature: 0,
+      tag: "Free",
+    },
+    {
+      name: "gemma2-9b-it",
+      displayName: "Gemma 2 9B (Free)",
+      description: "Groq free tier: Google's balanced coding model - great for development",
+      maxOutputTokens: 8_192,
+      contextWindow: 8_192,
+      temperature: 0,
+      tag: "Free",
+    },
+  ],
+  cerebras: [
+    {
+      name: "cerebras-llama-3.1-8b-instruct",
+      displayName: "Cerebras L3.1 8B (Turbo)",
+      description: "Cerebras ultra-fast L3.1 8B model - 4x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+    {
+      name: "cerebras-llama-3.1-70b-instruct",
+      displayName: "Cerebras L3.1 70B (Turbo)",
+      description: "Cerebras ultra-fast L3.1 70B model - 4x faster inference",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+      tag: "Turbo",
+    },
+  ],
+  xai: [
+    {
+      name: "grok-code-fast-1",
       displayName: "Grok Code Fast 1",
       description: "xAI's fast coding model optimized for rapid code generation",
       maxOutputTokens: 32_000,
@@ -357,10 +446,15 @@ export const PROVIDER_TO_ENV_VAR: Record<string, string> = {
   openai: "OPENAI_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   google: "GEMINI_API_KEY",
-  gemini: "GEMINI_API_KEY", // For development fallback
   openrouter: "OPENROUTER_API_KEY",
   // Enhanced Azure support per Dyad commit #2ffbbbc
   "azure-openai": "AZURE_API_KEY",
+  // 🚀 NEW PROVIDERS from Dyad v0.21.0-beta.1
+  "google-vertex": "GOOGLE_APPLICATION_CREDENTIALS",
+  "amazon-bedrock": "AWS_ACCESS_KEY_ID",
+  "groq": "GROQ_API_KEY",
+  "cerebras": "CEREBRAS_API_KEY",
+  "xai": "XAI_API_KEY",
 };
 
 export const CLOUD_PROVIDERS: Record<
@@ -390,12 +484,6 @@ export const CLOUD_PROVIDERS: Record<
     websiteUrl: "https://aistudio.google.com/app/apikey",
     gatewayPrefix: "gemini/",
   },
-  gemini: {
-    displayName: "Gemini (OAuth)",
-    hasFreeTier: true,
-    websiteUrl: "https://console.cloud.google.com/",
-    gatewayPrefix: "gemini-oauth/",
-  },
   openrouter: {
     displayName: "OpenRouter",
     hasFreeTier: true,
@@ -412,6 +500,36 @@ export const CLOUD_PROVIDERS: Record<
     hasFreeTier: false,
     websiteUrl: "https://portal.azure.com/",
     gatewayPrefix: "",
+  },
+  "google-vertex": {
+    displayName: "Google Vertex AI",
+    hasFreeTier: true,
+    websiteUrl: "https://console.cloud.google.com/vertex-ai",
+    gatewayPrefix: "vertex/",
+  },
+  "amazon-bedrock": {
+    displayName: "Amazon Bedrock",
+    hasFreeTier: false,
+    websiteUrl: "https://console.aws.amazon.com/bedrock/",
+    gatewayPrefix: "bedrock/",
+  },
+  "groq": {
+    displayName: "Groq",
+    hasFreeTier: true,
+    websiteUrl: "https://console.groq.com/keys",
+    gatewayPrefix: "groq/",
+  },
+  "cerebras": {
+    displayName: "Cerebras",
+    hasFreeTier: false,
+    websiteUrl: "https://www.cerebras.net/",
+    gatewayPrefix: "cerebras/",
+  },
+  "xai": {
+    displayName: "xAI",
+    hasFreeTier: false,
+    websiteUrl: "https://console.x.ai/",
+    gatewayPrefix: "xai/",
   },
 };
 

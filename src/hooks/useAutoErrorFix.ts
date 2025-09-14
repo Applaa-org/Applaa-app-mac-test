@@ -194,8 +194,8 @@ export interface UseAutoErrorFixOptions {
   debounceMs?: number; // Debounce time for error detection
 }
 
-// 🚫 DISABLED: Auto-fix to match Dyad's cleaner approach without flickery messages
-const AUTO_FIX_DISABLED = true;
+// 🚀 ENABLED: Auto-fix re-enabled for Dyad-like behavior
+const AUTO_FIX_DISABLED = false;
 
 export function useAutoErrorFix(options: UseAutoErrorFixOptions = {}) {
   // 🚫 Early return: Auto-fix disabled to match Dyad's approach
@@ -522,25 +522,37 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     const IpcClient = (await import("@/ipc/ipc_client")).IpcClient;
     const ipcClient = IpcClient.getInstance();
     
-    // Use auto-fix streaming with cheaper model
-    ipcClient.streamAutoFix(prompt, {
-      selectedComponent: null,
-      chatId: chatId,
-      redo: false,
-      onUpdate: () => {
-        console.log("🔧 Auto-fix stream update received");
-      },
-      onEnd: () => {
-        console.log("✅ Auto-fix stream completed successfully");
-      },
-      onError: (error) => {
-        console.error("❌ Auto-fix stream error:", error);
-      },
+    // 🚀 Return a Promise that resolves when the stream completes
+    return new Promise<void>((resolve, reject) => {
+      let isResolved = false;
+      
+      // Use auto-fix streaming with cheaper model
+      ipcClient.streamAutoFix(prompt, {
+        selectedComponent: null,
+        chatId: chatId,
+        redo: false,
+        onUpdate: () => {
+          console.log("🔧 Auto-fix stream update received");
+        },
+        onEnd: () => {
+          console.log("✅ Auto-fix stream completed successfully");
+          if (!isResolved) {
+            isResolved = true;
+            setDetectedErrors(prev => 
+              prev.map(error => ({ ...error, autoFixed: true }))
+            );
+            resolve();
+          }
+        },
+        onError: (error) => {
+          console.error("❌ Auto-fix stream error:", error);
+          if (!isResolved) {
+            isResolved = true;
+            reject(error);
+          }
+        },
+      });
     });
-    
-    setDetectedErrors(prev => 
-      prev.map(error => ({ ...error, autoFixed: true }))
-    );
   }, [chatId, detectedErrors, createAutoFixPrompt]);
 
   // Enhanced Problems tab integration - trigger auto-fix when problems are detected
