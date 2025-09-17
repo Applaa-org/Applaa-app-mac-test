@@ -104,7 +104,7 @@ export function registerIpcHandlers() {
   // 🚀 UNIFIED PREVIEW: Only register the unified preview system for Dyad-like performance
   // registerExpoHandlers(); // DISABLED - conflicts with unified system
   // registerDualExpoHandlers(); // DISABLED - conflicts with unified system  
-  // registerSimpleExpoHandlers(); // DISABLED - conflicts with unified system
+  registerSimpleExpoHandlers(); // ✅ ENABLED - Required for frontend compatibility
   registerUnifiedExpoPreview(); // ✅ ACTIVE - Single, optimized preview system
   // registerIntelligentPreviewSystem(); // DISABLED - conflicts with unified system
   registerExpoPerformanceMonitor();
