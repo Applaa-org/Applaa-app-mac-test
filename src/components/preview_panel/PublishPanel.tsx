@@ -84,29 +84,61 @@ export const PublishPanel = () => {
         {/* Portal Section - Show only if app has neon project */}
         {app.neonProjectId && <PortalMigrate appId={selectedAppId} />}
 
-        {/* EAS Deployment Section */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-              EAS Deployment
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Deploy your Expo app to EAS (Expo Application Services) for mobile and web distribution.
-            </p>
-            <EASDeploymentPanel 
-              appId={selectedAppId} 
-              appName={app.name} 
-            />
-          </CardContent>
-        </Card>
+        {/* Check if this is a mobile/Expo app or web app */}
+        {(() => {
+          // Check if this is an Expo/mobile app by looking for package.json with expo dependency
+          const isExpoApp = app.path && (
+            app.path.includes('mobile') || 
+            app.path.includes('expo') ||
+            app.name.toLowerCase().includes('mobile') ||
+            app.name.toLowerCase().includes('expo')
+          );
 
-        {/* Auto Push Section */}
-        <AutoPush appId={selectedAppId} projectName={app.name} app={app} />
+          if (isExpoApp) {
+            // Show EAS Deployment for mobile/Expo apps
+            return (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    EAS Deployment for Mobile App
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Deploy your Expo mobile app to EAS (Expo Application Services) for iOS, Android, and web distribution.
+                  </p>
+                  <EASDeploymentPanel 
+                    appId={selectedAppId} 
+                    appName={app.name} 
+                  />
+                </CardContent>
+              </Card>
+            );
+          } else {
+            // Show Auto Push for web apps
+            return (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Auto Push for Web App
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Automatically push your web app changes to your connected repository.
+                  </p>
+                  <AutoPush appId={selectedAppId} projectName={app.name} app={app} />
+                </CardContent>
+              </Card>
+            );
+          }
+        })()}
 
         {/* GitHub Section */}
         <Card>
