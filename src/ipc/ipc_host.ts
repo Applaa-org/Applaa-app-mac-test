@@ -59,6 +59,7 @@ import { registerAssetStorageHandlers } from "./handlers/asset_storage_handlers"
 import { registerBackgroundDependencyInstaller } from "./handlers/background_dependency_installer";
 import { registerFeatureInstaller } from "./handlers/feature_installer";
 import { registerParallelPrebuildSystem } from "./handlers/parallel_prebuild_system";
+import { registerEASHandlers } from "./handlers/eas_handlers";
 
 
 export function registerIpcHandlers() {
@@ -125,6 +126,9 @@ export function registerIpcHandlers() {
   registerParallelAppCreationHandlers();
   // Design generation handlers removed for MVP
   registerAssetStorageHandlers();
+  
+  // 🚀 EAS Integration for Mobile App Deployment
+  registerEASHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

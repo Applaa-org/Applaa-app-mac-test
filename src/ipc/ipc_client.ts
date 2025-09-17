@@ -18,6 +18,11 @@ import type {
   Message,
   Version,
   SystemDebugInfo,
+  EASStatus,
+  EASBuildResult,
+  EASDeployResult,
+  EASProject,
+  EASBuildStatus,
   LocalModel,
   TokenCountParams,
   TokenCountResult,
@@ -2598,10 +2603,59 @@ export class IpcClient {
     return this.ipcRenderer.invoke("hermetic-runtime:ensure-pnpm");
   }
 
+  // EAS Integration Methods
+  public async getEASStatus(): Promise<EASStatus> {
+    return this.ipcRenderer.invoke("eas:status");
+  }
 
+  public async loginToEAS(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("eas:login");
+  }
 
+  public async loginToEASWithToken(params: {
+    token: string;
+  }): Promise<{ success: boolean; username?: string; error?: string }> {
+    return this.ipcRenderer.invoke("eas:login-token", params);
+  }
 
+  public async buildWithEAS(params: {
+    appId: number;
+    platform?: "all" | "ios" | "android";
+  }): Promise<EASBuildResult> {
+    return this.ipcRenderer.invoke("eas:build", params);
+  }
 
+  public async deployWithEAS(params: {
+    appId: number;
+  }): Promise<EASDeployResult> {
+    return this.ipcRenderer.invoke("eas:deploy", params);
+  }
+
+  public async getEASBuildStatus(params: {
+    buildId: string;
+  }): Promise<EASBuildStatus> {
+    return this.ipcRenderer.invoke("eas:build-status", params);
+  }
+
+  public async listEASProjects(): Promise<{
+    success: boolean;
+    projects: EASProject[];
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("eas:list-projects");
+  }
+
+  public async checkEASAppReadiness(params: {
+    appId: number;
+  }): Promise<{
+    success: boolean;
+    isExpoApp?: boolean;
+    isEASConfigured?: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("eas:check-app-readiness", params);
+  }
 }
 
 // Export singleton instance

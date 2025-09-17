@@ -412,3 +412,43 @@ export interface RevertVersionParams {
 export type RevertVersionResponse =
   | { successMessage: string }
   | { warningMessage: string };
+
+// EAS Integration Types
+export interface EASBuildResult {
+  success: boolean;
+  buildId?: string;
+  buildUrl?: string;
+  publicUrl?: string;
+  qrCode?: string;
+  error?: string;
+  logs?: string[];
+}
+
+export interface EASDeployResult {
+  success: boolean;
+  publicUrl?: string;
+  qrCode?: string;
+  error?: string;
+  logs?: string[];
+}
+
+export interface EASStatus {
+  success: boolean;
+  isLoggedIn: boolean;
+  username?: string;
+  error?: string;
+}
+
+export interface EASProject {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface EASBuildStatus {
+  success: boolean;
+  status?: string;
+  publicUrl?: string;
+  error?: string;
+  logs?: string[];
+}
