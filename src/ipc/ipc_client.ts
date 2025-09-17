@@ -2656,6 +2656,19 @@ export class IpcClient {
   }> {
     return this.ipcRenderer.invoke("eas:check-app-readiness", params);
   }
+
+  public async checkEASKeystores(params: {
+    appId: number;
+  }): Promise<{ success: boolean; android?: boolean; ios?: boolean; both?: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("eas:check-keystores", params);
+  }
+
+  public async setupEASKeystores(params: {
+    appId: number;
+    platforms: string[];
+  }): Promise<{ success: boolean; results?: Array<{ platform: string; success: boolean; error?: string }>; message?: string; error?: string }> {
+    return this.ipcRenderer.invoke("eas:setup-keystores", params);
+  }
 }
 
 // Export singleton instance

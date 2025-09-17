@@ -147,6 +147,11 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
           <CardDescription>
             Deploy your Expo app to EAS for public URLs and app store distribution
           </CardDescription>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
+            <div className="text-sm text-blue-800 dark:text-blue-200">
+              <strong>Note:</strong> Mobile builds require keystore setup. Use "Deploy Web App" for immediate deployment, or set up keystores using the guide below.
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {/* EAS Status */}
@@ -274,6 +279,66 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
                 </div>
               </div>
 
+              {/* Keystore Setup Section */}
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                    <span className="font-medium text-amber-800 dark:text-amber-200">
+                      Keystore Setup Required
+                    </span>
+                  </div>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Mobile builds require keystores for app signing. We'll automatically set them up when you click "Build App" below.
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      What happens when you build:
+                    </div>
+                    <div className="space-y-1 text-sm text-amber-700 dark:text-amber-300">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 bg-green-200 dark:bg-green-800 rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+                        <span>Check if keystores already exist</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 bg-green-200 dark:bg-green-800 rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+                        <span>EAS will generate keystores automatically if needed</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 bg-green-200 dark:bg-green-800 rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+                        <span>Start the build process</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const ipcClient = IpcClient.getInstance();
+                        ipcClient.openExternalUrl("https://docs.expo.dev/build-reference/app-signing/");
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Documentation
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const ipcClient = IpcClient.getInstance();
+                        ipcClient.openExternalUrl("https://expo.dev/accounts/patidarmk/projects/applaa-app/credentials");
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Manage Credentials
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               {/* Build Button */}
               <Button
                 onClick={handleBuild}
@@ -283,7 +348,7 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
                 {buildMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Building...
+                    Setting up keystores & building...
                   </>
                 ) : (
                   <>

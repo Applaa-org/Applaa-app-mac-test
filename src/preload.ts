@@ -255,6 +255,8 @@ const validInvokeChannels = [
   "eas:build-status",
   "eas:list-projects",
   "eas:check-app-readiness",
+  "eas:check-keystores",
+  "eas:setup-keystores",
 ];
 
 // Add valid receive channels
