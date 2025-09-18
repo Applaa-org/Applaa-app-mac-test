@@ -257,6 +257,9 @@ const validInvokeChannels = [
   "eas:check-app-readiness",
   "eas:check-keystores",
   "eas:setup-keystores",
+  "url:save-deployment",
+  "url:get-deployments",
+  "url:delete-deployment",
 ];
 
 // Add valid receive channels

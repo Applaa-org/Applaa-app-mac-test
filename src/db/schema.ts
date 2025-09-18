@@ -28,6 +28,11 @@ export const apps = sqliteTable("apps", {
   vercelTeamId: text("vercel_team_id"),
   vercelDeploymentUrl: text("vercel_deployment_url"),
   githubRepoUrl: text("github_repo_url"),
+  // EAS deployment URLs
+  easBuildUrl: text("eas_build_url"),
+  easDeploymentUrl: text("eas_deployment_url"),
+  easProjectId: text("eas_project_id"),
+  easBuildId: text("eas_build_id"),
   deploymentStatus: text("deployment_status").default("not_deployed"),
   lastDeploymentAt: integer("last_deployment_at", { mode: "timestamp" }),
   deploymentNotes: text("deployment_notes"),

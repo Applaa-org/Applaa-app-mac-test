@@ -57,6 +57,42 @@ function ConnectedVercelConnector({
     disconnectError,
   } = useVercelDeployments(appId);
 
+  // Auto-save deployment URLs to database when they exist
+  useEffect(() => {
+    const saveDeploymentUrls = async () => {
+      const ipcClient = IpcClient.getInstance();
+      
+      // Save Vercel deployment URL if it exists
+      if (app.vercelDeploymentUrl) {
+        try {
+          await ipcClient.saveDeploymentUrl({
+            appId,
+            urlType: 'vercel',
+            url: app.vercelDeploymentUrl,
+            projectId: app.vercelProjectId || undefined
+          });
+        } catch (error) {
+          console.error('Failed to save Vercel deployment URL:', error);
+        }
+      }
+      
+      // Save GitHub repo URL if it exists
+      if (app.githubRepoUrl) {
+        try {
+          await ipcClient.saveDeploymentUrl({
+            appId,
+            urlType: 'github',
+            url: app.githubRepoUrl
+          });
+        } catch (error) {
+          console.error('Failed to save GitHub repo URL:', error);
+        }
+      }
+    };
+
+    saveDeploymentUrls();
+  }, [appId, app.vercelDeploymentUrl, app.githubRepoUrl, app.vercelProjectId]);
+
   const handleDisconnectProject = async () => {
     await disconnectProject();
     refreshApp();

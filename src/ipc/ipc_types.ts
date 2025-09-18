@@ -110,6 +110,11 @@ export interface App {
   vercelTeamSlug: string | null;
   vercelDeploymentUrl: string | null;
   githubRepoUrl: string | null;
+  // EAS deployment URLs
+  easBuildUrl: string | null;
+  easDeploymentUrl: string | null;
+  easProjectId: string | null;
+  easBuildId: string | null;
   deploymentStatus: string | null;
   lastDeploymentAt: Date | null;
   deploymentNotes: string | null;
@@ -451,4 +456,30 @@ export interface EASBuildStatus {
   publicUrl?: string;
   error?: string;
   logs?: string[];
+}
+
+// URL Management Types
+export interface DeploymentInfo {
+  type: 'vercel' | 'github' | 'eas-build' | 'eas-deployment';
+  name: string;
+  url: string;
+  projectId?: string;
+  buildId?: string;
+  lastDeploymentAt?: Date;
+}
+
+export interface SaveDeploymentResult {
+  success: boolean;
+  error?: string;
+}
+
+export interface GetDeploymentsResult {
+  success: boolean;
+  deployments?: DeploymentInfo[];
+  error?: string;
+}
+
+export interface DeleteDeploymentResult {
+  success: boolean;
+  error?: string;
 }

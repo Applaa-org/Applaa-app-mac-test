@@ -199,12 +199,32 @@ export function registerEASHandlers() {
         // Extract build URL and QR code from output
         const buildUrl = extractBuildUrl(result.output || "");
         const qrCode = extractQRCode(result.output || "");
+        const buildId = extractBuildId(result.output || "");
         
         logger.log(`✅ EAS build completed for app ${appId}`);
         
+        // Save build URL to database
+        if (buildUrl) {
+          try {
+            await db.update(apps)
+              .set({
+                easBuildUrl: buildUrl,
+                easBuildId: buildId || null,
+                lastDeploymentAt: new Date(),
+                deploymentStatus: 'deployed'
+              })
+              .where(eq(apps.id, appId));
+            logger.log(`💾 Saved EAS build URL to database: ${buildUrl}`);
+          } catch (error: any) {
+            logger.error(`⚠️ Failed to save EAS build URL: ${error.message}`);
+          }
+        } else {
+          logger.warn(`⚠️ No build URL found in output: ${result.output}`);
+        }
+        
         return {
           success: true,
-          buildId: extractBuildId(result.output || ""),
+          buildId,
           buildUrl,
           publicUrl: buildUrl,
           qrCode,
@@ -253,6 +273,14 @@ export function registerEASHandlers() {
       // Initialize EAS project if needed
       await initializeEASProject(appPath);
 
+      // Check EAS authentication status before deploying
+      logger.log("🔍 Checking EAS authentication status...");
+      const authCheck = await runEASCommand(["whoami"], { cwd: appPath });
+      if (!authCheck.success) {
+        throw new Error(`EAS authentication failed. Please login first: ${authCheck.error}`);
+      }
+      logger.log(`✅ EAS authenticated as: ${authCheck.output}`);
+
       // Export the app for web deployment
       logger.log("🔄 Exporting app for web deployment...");
       const exportResult = await runCommand("npx", ["expo", "export", "--platform", "web"], { cwd: appPath });
@@ -263,8 +291,9 @@ export function registerEASHandlers() {
       
       logger.log("✅ App exported successfully");
 
-      // Deploy the app
-      const result = await runEASCommand(["deploy"], { cwd: appPath });
+      // Deploy the app with more specific error handling
+      logger.log("🚀 Starting EAS deployment...");
+      const result = await runEASCommand(["deploy", "--non-interactive"], { cwd: appPath });
       
       if (result.success) {
         // Extract deployment URL from output
@@ -272,6 +301,24 @@ export function registerEASHandlers() {
         const qrCode = extractQRCode(result.output || "");
         
         logger.log(`✅ EAS deploy completed for app ${appId}`);
+        
+        // Save deployment URL to database
+        if (publicUrl) {
+          try {
+            await db.update(apps)
+              .set({
+                easDeploymentUrl: publicUrl,
+                lastDeploymentAt: new Date(),
+                deploymentStatus: 'deployed'
+              })
+              .where(eq(apps.id, appId));
+            logger.log(`💾 Saved EAS deployment URL to database: ${publicUrl}`);
+          } catch (error: any) {
+            logger.error(`⚠️ Failed to save EAS deployment URL: ${error.message}`);
+          }
+        } else {
+          logger.warn(`⚠️ No deployment URL found in output: ${result.output}`);
+        }
         
         return {
           success: true,
@@ -281,17 +328,21 @@ export function registerEASHandlers() {
         };
       } else {
         logger.error(`❌ EAS deploy failed for app ${appId}: ${result.error}`);
+        logger.error(`Deploy output: ${result.output}`);
+        logger.error(`Deploy logs: ${JSON.stringify(result.logs)}`);
+        const parsedError = parseGraphQLError(result.error || 'Unknown error');
         return {
           success: false,
-          error: result.error,
+          error: `Deploy failed: ${parsedError}. Output: ${result.output || 'No output'}`,
           logs: result.logs || [],
         };
       }
     } catch (error: any) {
       logger.error(`❌ EAS deploy error for app ${appId}: ${error}`);
+      const parsedError = parseGraphQLError(error.message || error.toString());
       return {
         success: false,
-        error: error.message,
+        error: parsedError,
         logs: [],
       };
     }
@@ -504,6 +555,7 @@ export function registerEASHandlers() {
       return { success: false, error: error.message };
     }
   });
+
 
   logger.info("✅ EAS handlers registered successfully");
 }
@@ -794,6 +846,29 @@ function extractQRCode(output: string): string | undefined {
   // Look for QR code patterns in the output
   const qrMatch = output.match(/QR code: (.+)/);
   return qrMatch ? qrMatch[1] : undefined;
+}
+
+function parseGraphQLError(error: string): string {
+  // Common GraphQL error patterns and their solutions
+  if (error.includes("GraphQL request failed")) {
+    if (error.includes("Unauthorized") || error.includes("401")) {
+      return "EAS authentication expired. Please login again using the login button.";
+    }
+    if (error.includes("Forbidden") || error.includes("403")) {
+      return "Access denied. Check your EAS account permissions.";
+    }
+    if (error.includes("Not Found") || error.includes("404")) {
+      return "EAS project not found. Try running 'eas init' first.";
+    }
+    if (error.includes("Rate limit") || error.includes("429")) {
+      return "Rate limit exceeded. Please wait a few minutes and try again.";
+    }
+    if (error.includes("Network") || error.includes("timeout")) {
+      return "Network error. Check your internet connection and try again.";
+    }
+    return `GraphQL API error: ${error}. This might be a temporary EAS service issue.`;
+  }
+  return error;
 }
 
 function extractBuildId(output: string): string | undefined {

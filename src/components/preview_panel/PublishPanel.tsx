@@ -6,8 +6,11 @@ import { VercelConnector } from "@/components/VercelConnector";
 import { PortalMigrate } from "@/components/PortalMigrate";
 import { AutoPush } from "@/components/AutoPush";
 import { EASDeploymentPanel } from "@/components/EASDeploymentPanel";
+import { DeploymentUrls } from "@/components/DeploymentUrls";
 import { IpcClient } from "@/ipc/ipc_client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 export const PublishPanel = () => {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
@@ -84,6 +87,9 @@ export const PublishPanel = () => {
         {/* Portal Section - Show only if app has neon project */}
         {app.neonProjectId && <PortalMigrate appId={selectedAppId} />}
 
+        {/* Deployment URLs Section */}
+        <DeploymentUrls appId={selectedAppId} />
+
         {/* Check if this is a mobile/Expo app or web app */}
         {(() => {
           // Check if this is an Expo/mobile app by looking for package.json with expo dependency
@@ -103,13 +109,23 @@ export const PublishPanel = () => {
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
-                    EAS Deployment for Mobile App
+                    Mobile App Deployment
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Note: Mobile builds require keystore setup. Use "Deploy Web App" for immediate deployment, or set up keystores using the guide below.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Deploy your Expo mobile app to EAS (Expo Application Services) for iOS, Android, and web distribution.
-                  </p>
+                 
                   <EASDeploymentPanel 
                     appId={selectedAppId} 
                     appName={app.name} 

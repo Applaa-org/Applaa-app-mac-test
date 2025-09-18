@@ -302,6 +302,10 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
   const hasLastDeploymentAt = tableInfo.some(col => col.name === 'last_deployment_at');
   const hasDeploymentNotes = tableInfo.some(col => col.name === 'deployment_notes');
   const hasChatContext = tableInfo.some(col => col.name === 'chat_context');
+  const hasEasBuildUrl = tableInfo.some(col => col.name === 'eas_build_url');
+  const hasEasDeploymentUrl = tableInfo.some(col => col.name === 'eas_deployment_url');
+  const hasEasProjectId = tableInfo.some(col => col.name === 'eas_project_id');
+  const hasEasBuildId = tableInfo.some(col => col.name === 'eas_build_id');
   
   if (!hasAppType) {
     logger.log("Adding missing app_type column to apps table");
@@ -389,6 +393,31 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
     logger.log("Adding missing chat_context column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN chat_context TEXT").run();
     logger.log("Successfully added chat_context column");
+  }
+  
+  // 🚀 EAS INTEGRATION: Add EAS deployment URL columns
+  if (!hasEasBuildUrl) {
+    logger.log("Adding missing eas_build_url column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_build_url TEXT").run();
+    logger.log("Successfully added eas_build_url column");
+  }
+  
+  if (!hasEasDeploymentUrl) {
+    logger.log("Adding missing eas_deployment_url column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_deployment_url TEXT").run();
+    logger.log("Successfully added eas_deployment_url column");
+  }
+  
+  if (!hasEasProjectId) {
+    logger.log("Adding missing eas_project_id column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_project_id TEXT").run();
+    logger.log("Successfully added eas_project_id column");
+  }
+  
+  if (!hasEasBuildId) {
+    logger.log("Adding missing eas_build_id column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_build_id TEXT").run();
+    logger.log("Successfully added eas_build_id column");
   }
 }
 

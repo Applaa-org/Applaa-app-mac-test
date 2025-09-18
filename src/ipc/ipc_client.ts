@@ -2669,6 +2669,31 @@ export class IpcClient {
   }): Promise<{ success: boolean; results?: Array<{ platform: string; success: boolean; error?: string }>; message?: string; error?: string }> {
     return this.ipcRenderer.invoke("eas:setup-keystores", params);
   }
+
+
+  // URL Management
+  public async saveDeploymentUrl(params: {
+    appId: number;
+    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment';
+    url: string;
+    projectId?: string;
+    buildId?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("url:save-deployment", params);
+  }
+
+  public async getDeploymentUrls(params: {
+    appId: number;
+  }): Promise<{ success: boolean; deployments?: Array<{ type: string; name: string; url: string; projectId?: string; buildId?: string; lastDeploymentAt?: Date }>; error?: string }> {
+    return this.ipcRenderer.invoke("url:get-deployments", params);
+  }
+
+  public async deleteDeploymentUrl(params: {
+    appId: number;
+    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment';
+  }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("url:delete-deployment", params);
+  }
 }
 
 // Export singleton instance

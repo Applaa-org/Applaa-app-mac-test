@@ -60,6 +60,7 @@ import { registerBackgroundDependencyInstaller } from "./handlers/background_dep
 import { registerFeatureInstaller } from "./handlers/feature_installer";
 import { registerParallelPrebuildSystem } from "./handlers/parallel_prebuild_system";
 import { registerEASHandlers } from "./handlers/eas_handlers";
+import { registerURLHandlers } from "./handlers/url_handlers";
 
 
 export function registerIpcHandlers() {
@@ -102,11 +103,10 @@ export function registerIpcHandlers() {
   registerAppEnvVarsHandlers();
   registerTemplateHandlers();
   registerPortalHandlers();
-  // 🚀 UNIFIED PREVIEW: Only register the unified preview system for Dyad-like performance
-  // registerExpoHandlers(); // DISABLED - conflicts with unified system
-  // registerDualExpoHandlers(); // DISABLED - conflicts with unified system  
-  // registerSimpleExpoHandlers(); // DISABLED - conflicts with unified system
-  registerUnifiedExpoPreview(); // ✅ ACTIVE - Single, optimized preview system
+  // 🚀 EXPO PREVIEW: Register both systems for compatibility
+  registerExpoHandlers(); // ✅ ACTIVE - Main expo handlers
+  registerSimpleExpoHandlers(); // ✅ ACTIVE - Simple expo handlers for frontend compatibility
+  registerUnifiedExpoPreview(); // ✅ ACTIVE - Unified preview system
   // registerIntelligentPreviewSystem(); // DISABLED - conflicts with unified system
   registerExpoPerformanceMonitor();
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
@@ -129,6 +129,7 @@ export function registerIpcHandlers() {
   
   // 🚀 EAS Integration for Mobile App Deployment
   registerEASHandlers();
+  registerURLHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

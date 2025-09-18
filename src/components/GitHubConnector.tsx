@@ -77,6 +77,26 @@ function ConnectedGitHubConnector({
   const [disconnectError, setDisconnectError] = useState<string | null>(null);
   const autoSyncTriggeredRef = useRef(false);
 
+  // Auto-save GitHub repo URL to database when it exists
+  useEffect(() => {
+    const saveGitHubUrl = async () => {
+      if (app.githubRepoUrl) {
+        try {
+          const ipcClient = IpcClient.getInstance();
+          await ipcClient.saveDeploymentUrl({
+            appId,
+            urlType: 'github',
+            url: app.githubRepoUrl
+          });
+        } catch (error) {
+          console.error('Failed to save GitHub repo URL:', error);
+        }
+      }
+    };
+
+    saveGitHubUrl();
+  }, [appId, app.githubRepoUrl]);
+
   const handleDisconnectRepo = async () => {
     setIsDisconnecting(true);
     setDisconnectError(null);

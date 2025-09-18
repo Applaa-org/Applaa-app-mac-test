@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Loader2, 
   Smartphone, 
@@ -15,9 +16,11 @@ import {
   Clock,
   User,
   LogIn,
-  RefreshCw
+  RefreshCw,
+  Info
 } from "lucide-react";
 import { useEASStatus, useEASLogin, useEASBuild, useEASDeploy, useEASProjects } from "@/hooks/useEAS";
+import { useLoadApp } from "@/hooks/useLoadApp";
 import { IpcClient } from "@/ipc/ipc_client";
 import { toast } from "sonner";
 
@@ -38,8 +41,46 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
   const buildMutation = useEASBuild();
   const deployMutation = useEASDeploy();
   const { data: projects } = useEASProjects();
+  const { app } = useLoadApp(appId);
   
   const ipcClient = IpcClient.getInstance();
+
+  // Auto-save EAS URLs to database when they exist
+  React.useEffect(() => {
+    const saveEASUrls = async () => {
+      if (!app) return;
+      
+      // Save EAS build URL if it exists
+      if (app.easBuildUrl) {
+        try {
+          await ipcClient.saveDeploymentUrl({
+            appId,
+            urlType: 'eas-build',
+            url: app.easBuildUrl,
+            buildId: app.easBuildId || undefined
+          });
+        } catch (error) {
+          console.error('Failed to save EAS build URL:', error);
+        }
+      }
+      
+      // Save EAS deployment URL if it exists
+      if (app.easDeploymentUrl) {
+        try {
+          await ipcClient.saveDeploymentUrl({
+            appId,
+            urlType: 'eas-deployment',
+            url: app.easDeploymentUrl,
+            projectId: app.easProjectId || undefined
+          });
+        } catch (error) {
+          console.error('Failed to save EAS deployment URL:', error);
+        }
+      }
+    };
+
+    saveEASUrls();
+  }, [appId, app?.easBuildUrl, app?.easDeploymentUrl, app?.easBuildId, app?.easProjectId]);
 
   const handleLogin = async () => {
     try {
@@ -65,6 +106,7 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
       toast.error("Token login failed");
     }
   };
+
 
   const handleBuild = async () => {
     try {
@@ -138,8 +180,8 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card>
-        <CardHeader>
+      {/* <Card> */}
+        {/* <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Smartphone className="h-5 w-5" />
             EAS Deployment
@@ -152,8 +194,8 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
               <strong>Note:</strong> Mobile builds require keystore setup. Use "Deploy Web App" for immediate deployment, or set up keystores using the guide below.
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </CardHeader> */}
+        {/* <CardContent> */}
           {/* EAS Status */}
           <div className="space-y-4">
             {statusLoading ? (
@@ -231,8 +273,8 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
               </Alert>
             )}
           </div>
-        </CardContent>
-      </Card>
+        {/* </CardContent>
+      </Card> */}
 
       {/* Main Actions */}
       <Tabs defaultValue="build" className="w-full">
@@ -279,65 +321,6 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
                 </div>
               </div>
 
-              {/* Keystore Setup Section */}
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                    <span className="font-medium text-amber-800 dark:text-amber-200">
-                      Keystore Setup Required
-                    </span>
-                  </div>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Mobile builds require keystores for app signing. We'll automatically set them up when you click "Build App" below.
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                      What happens when you build:
-                    </div>
-                    <div className="space-y-1 text-sm text-amber-700 dark:text-amber-300">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 bg-green-200 dark:bg-green-800 rounded-full flex items-center justify-center text-xs font-bold">✓</span>
-                        <span>Check if keystores already exist</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 bg-green-200 dark:bg-green-800 rounded-full flex items-center justify-center text-xs font-bold">✓</span>
-                        <span>EAS will generate keystores automatically if needed</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 bg-green-200 dark:bg-green-800 rounded-full flex items-center justify-center text-xs font-bold">✓</span>
-                        <span>Start the build process</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const ipcClient = IpcClient.getInstance();
-                        ipcClient.openExternalUrl("https://docs.expo.dev/build-reference/app-signing/");
-                      }}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Documentation
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const ipcClient = IpcClient.getInstance();
-                        ipcClient.openExternalUrl("https://expo.dev/accounts/patidarmk/projects/applaa-app/credentials");
-                      }}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Manage Credentials
-                    </Button>
-                  </div>
-                </div>
-              </div>
 
               {/* Build Button */}
               <Button
@@ -517,20 +500,6 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
         </Card>
       )}
 
-      {/* Debug Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Debug Info</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <div>App ID: {appId}</div>
-            <div>App Name: {appName || 'Unknown'}</div>
-            <div>EAS Status: {statusLoading ? 'Loading...' : status?.isLoggedIn ? 'Logged In' : 'Not Logged In'}</div>
-            <div>Username: {status?.username || 'None'}</div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
