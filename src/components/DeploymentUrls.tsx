@@ -3,7 +3,7 @@ import { IpcClient } from "@/ipc/ipc_client";
 import { DeploymentInfo } from "@/ipc/ipc_types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Trash2, RefreshCw, Globe, Smartphone, Github, Zap } from "lucide-react";
+import { ExternalLink, Trash2, RefreshCw, Globe, Smartphone, Github, Zap, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
 interface DeploymentUrlsProps {
@@ -61,8 +61,17 @@ export const DeploymentUrls: React.FC<DeploymentUrlsProps> = ({ appId }) => {
     }
   };
 
-  const openUrl = (url: string) => {
-    ipcClient.openExternalUrl(url);
+  const openUrl = (url: string, type: DeploymentInfo['type']) => {
+    if (type.startsWith('local-')) {
+      // For local files, show the folder containing the file
+      const pathParts = url.split('/');
+      const fileName = pathParts.pop();
+      const folderPath = pathParts.join('/');
+      ipcClient.showItemInFolder(folderPath);
+    } else {
+      // For URLs, open in browser
+      ipcClient.openExternalUrl(url);
+    }
   };
 
   const getIcon = (type: DeploymentInfo['type']) => {
@@ -75,6 +84,10 @@ export const DeploymentUrls: React.FC<DeploymentUrlsProps> = ({ appId }) => {
         return <Smartphone className="w-4 h-4" />;
       case 'eas-deployment':
         return <Globe className="w-4 h-4" />;
+      case 'local-apk':
+      case 'local-aab':
+      case 'local-ipa':
+        return <Smartphone className="w-4 h-4" />;
       default:
         return <Globe className="w-4 h-4" />;
     }
@@ -90,6 +103,12 @@ export const DeploymentUrls: React.FC<DeploymentUrlsProps> = ({ appId }) => {
         return 'text-blue-600 dark:text-blue-400';
       case 'eas-deployment':
         return 'text-green-600 dark:text-green-400';
+      case 'local-apk':
+        return 'text-orange-600 dark:text-orange-400';
+      case 'local-aab':
+        return 'text-purple-600 dark:text-purple-400';
+      case 'local-ipa':
+        return 'text-pink-600 dark:text-pink-400';
       default:
         return 'text-gray-600 dark:text-gray-400';
     }
@@ -187,9 +206,13 @@ export const DeploymentUrls: React.FC<DeploymentUrlsProps> = ({ appId }) => {
                     size="sm"
                     variant="ghost"
                     className="h-6 w-6 p-0 flex-shrink-0"
-                    onClick={() => openUrl(deployment.url)}
+                    onClick={() => openUrl(deployment.url, deployment.type)}
                   >
-                    <ExternalLink className="w-3 h-3" />
+                    {deployment.type.startsWith('local-') ? (
+                      <FolderOpen className="w-3 h-3" />
+                    ) : (
+                      <ExternalLink className="w-3 h-3" />
+                    )}
                   </Button>
                 </div>
                 {deployment.lastDeploymentAt && (

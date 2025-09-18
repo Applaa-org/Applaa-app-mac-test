@@ -22,6 +22,7 @@ import {
 import { useEASStatus, useEASLogin, useEASBuild, useEASDeploy, useEASProjects } from "@/hooks/useEAS";
 import { useLoadApp } from "@/hooks/useLoadApp";
 import { IpcClient } from "@/ipc/ipc_client";
+import { LocalBuildPanel } from "@/components/LocalBuildPanel";
 import { toast } from "sonner";
 
 interface EASDeploymentPanelProps {
@@ -179,23 +180,15 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      {/* <Card> */}
-        {/* <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Smartphone className="h-5 w-5" />
-            EAS Deployment
-          </CardTitle>
-          <CardDescription>
-            Deploy your Expo app to EAS for public URLs and app store distribution
-          </CardDescription>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
-            <div className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>Note:</strong> Mobile builds require keystore setup. Use "Deploy Web App" for immediate deployment, or set up keystores using the guide below.
-            </div>
-          </div>
-        </CardHeader> */}
-        {/* <CardContent> */}
+      {/* Tabs for EAS vs Local Build */}
+      <Tabs defaultValue="eas" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="eas">EAS Deployment</TabsTrigger>
+          <TabsTrigger value="local">Local Build</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="eas" className="space-y-4">
+          {/* EAS Deployment Content */}
           {/* EAS Status */}
           <div className="space-y-4">
             {statusLoading ? (
@@ -499,6 +492,12 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+        
+        <TabsContent value="local" className="space-y-4">
+          <LocalBuildPanel appId={appId} appName={appName} />
+        </TabsContent>
+      </Tabs>
 
     </div>
   );

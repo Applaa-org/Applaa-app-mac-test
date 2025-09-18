@@ -2670,6 +2670,27 @@ export class IpcClient {
     return this.ipcRenderer.invoke("eas:setup-keystores", params);
   }
 
+  // Local Build Methods
+  public async buildAndroidAPK(params: { appId: number }): Promise<LocalBuildResult> {
+    return this.ipcRenderer.invoke("local-build:android-apk", params);
+  }
+
+  public async buildAndroidAAB(params: { appId: number }): Promise<LocalBuildResult> {
+    return this.ipcRenderer.invoke("local-build:android-aab", params);
+  }
+
+  public async buildIOSIPA(params: { appId: number }): Promise<LocalBuildResult> {
+    return this.ipcRenderer.invoke("local-build:ios-ipa", params);
+  }
+
+  public async getLocalBuildStatus(): Promise<LocalBuildStatus> {
+    return this.ipcRenderer.invoke("local-build:status");
+  }
+
+  public async cancelLocalBuild(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("local-build:cancel");
+  }
+
 
   // URL Management
   public async saveDeploymentUrl(params: {

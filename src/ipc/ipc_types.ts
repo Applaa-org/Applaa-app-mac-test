@@ -460,7 +460,7 @@ export interface EASBuildStatus {
 
 // URL Management Types
 export interface DeploymentInfo {
-  type: 'vercel' | 'github' | 'eas-build' | 'eas-deployment';
+  type: 'vercel' | 'github' | 'eas-build' | 'eas-deployment' | 'local-apk' | 'local-aab' | 'local-ipa';
   name: string;
   url: string;
   projectId?: string;
@@ -482,4 +482,18 @@ export interface GetDeploymentsResult {
 export interface DeleteDeploymentResult {
   success: boolean;
   error?: string;
+}
+
+// Local Build Types
+export interface LocalBuildResult {
+  success: boolean;
+  buildPath?: string;
+  buildType?: 'apk' | 'ipa' | 'aab';
+  error?: string;
+  logs?: string[];
+}
+
+export interface LocalBuildStatus {
+  isBuilding: boolean;
+  processId: number | null;
 }

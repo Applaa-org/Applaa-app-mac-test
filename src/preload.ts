@@ -260,6 +260,11 @@ const validInvokeChannels = [
   "url:save-deployment",
   "url:get-deployments",
   "url:delete-deployment",
+  "local-build:android-apk",
+  "local-build:android-aab",
+  "local-build:ios-ipa",
+  "local-build:status",
+  "local-build:cancel",
 ];
 
 // Add valid receive channels

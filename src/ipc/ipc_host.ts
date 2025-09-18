@@ -61,6 +61,7 @@ import { registerFeatureInstaller } from "./handlers/feature_installer";
 import { registerParallelPrebuildSystem } from "./handlers/parallel_prebuild_system";
 import { registerEASHandlers } from "./handlers/eas_handlers";
 import { registerURLHandlers } from "./handlers/url_handlers";
+import { registerLocalBuildHandlers } from "./handlers/local_build_handlers";
 
 
 export function registerIpcHandlers() {
@@ -130,6 +131,9 @@ export function registerIpcHandlers() {
   // 🚀 EAS Integration for Mobile App Deployment
   registerEASHandlers();
   registerURLHandlers();
+  
+  // 🔨 Local Build System for APK/IPA generation
+  registerLocalBuildHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

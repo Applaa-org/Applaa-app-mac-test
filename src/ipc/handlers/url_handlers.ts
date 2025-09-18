@@ -16,7 +16,7 @@ export function registerURLHandlers() {
     buildId 
   }: { 
     appId: number; 
-    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment'; 
+    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment' | 'local-apk' | 'local-aab' | 'local-ipa'; 
     url: string; 
     projectId?: string; 
     buildId?: string; 
@@ -40,6 +40,18 @@ export function registerURLHandlers() {
         case 'eas-deployment':
           updateData.easDeploymentUrl = url;
           if (projectId) updateData.easProjectId = projectId;
+          break;
+        case 'local-apk':
+          updateData.localApkPath = url;
+          updateData.localApkBuiltAt = new Date();
+          break;
+        case 'local-aab':
+          updateData.localAabPath = url;
+          updateData.localAabBuiltAt = new Date();
+          break;
+        case 'local-ipa':
+          updateData.localIpaPath = url;
+          updateData.localIpaBuiltAt = new Date();
           break;
       }
       
@@ -113,6 +125,34 @@ export function registerURLHandlers() {
         });
       }
       
+      // Local build files
+      if (app.localApkPath) {
+        deployments.push({
+          type: 'local-apk',
+          name: 'Local APK Build',
+          url: app.localApkPath,
+          lastDeploymentAt: app.localApkBuiltAt
+        });
+      }
+      
+      if (app.localAabPath) {
+        deployments.push({
+          type: 'local-aab',
+          name: 'Local AAB Build',
+          url: app.localAabPath,
+          lastDeploymentAt: app.localAabBuiltAt
+        });
+      }
+      
+      if (app.localIpaPath) {
+        deployments.push({
+          type: 'local-ipa',
+          name: 'Local IPA Build',
+          url: app.localIpaPath,
+          lastDeploymentAt: app.localIpaBuiltAt
+        });
+      }
+      
       logger.log(`✅ Found ${deployments.length} deployment URLs for app ${appId}`);
       
       return { success: true, deployments };
@@ -128,7 +168,7 @@ export function registerURLHandlers() {
     urlType 
   }: { 
     appId: number; 
-    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment'; 
+    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment' | 'local-apk' | 'local-aab' | 'local-ipa'; 
   }) => {
     try {
       logger.log(`🗑️ Deleting ${urlType} URL for app ${appId}`);
@@ -151,6 +191,18 @@ export function registerURLHandlers() {
         case 'eas-deployment':
           updateData.easDeploymentUrl = null;
           updateData.easProjectId = null;
+          break;
+        case 'local-apk':
+          updateData.localApkPath = null;
+          updateData.localApkBuiltAt = null;
+          break;
+        case 'local-aab':
+          updateData.localAabPath = null;
+          updateData.localAabBuiltAt = null;
+          break;
+        case 'local-ipa':
+          updateData.localIpaPath = null;
+          updateData.localIpaBuiltAt = null;
           break;
       }
       
