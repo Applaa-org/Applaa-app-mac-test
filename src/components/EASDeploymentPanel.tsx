@@ -181,10 +181,11 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
   return (
     <div className="space-y-6">
       {/* Tabs for EAS vs Local Build */}
-      <Tabs defaultValue="eas" className="w-full">
+      <Tabs defaultValue="local" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="local">Local Build</TabsTrigger>
           <TabsTrigger value="eas">EAS Deployment</TabsTrigger>
-          <TabsTrigger value="local">Local Build</TabsTrigger>
+         
         </TabsList>
         
         <TabsContent value="eas" className="space-y-4">

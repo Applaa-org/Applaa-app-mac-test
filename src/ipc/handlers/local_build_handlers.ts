@@ -190,22 +190,49 @@ export function registerLocalBuildHandlers() {
  * Build Android APK using Gradle directly
  */
 async function buildAndroidAPK(appPath: string, logs: string[], appId: number): Promise<LocalBuildResult> {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     logs.push("🔨 Starting Android APK build...");
     logs.push("📱 This will create a debug APK file");
     
     const androidPath = path.join(appPath, 'android');
     if (!fs.existsSync(androidPath)) {
+      logs.push("📱 Android directory not found. Running expo prebuild to generate native Android files...");
+      
+      try {
+        // Run expo prebuild to generate Android platform files
+        const prebuildResult = await runExpoPrebuild(appPath, logs, 'android');
+        if (!prebuildResult.success) {
       resolve({
         success: false,
-        error: "Android directory not found. Make sure this is an Expo app with Android support.",
+            error: `Failed to generate Android platform files: ${prebuildResult.error}`,
         logs
       });
       return;
+        }
+        
+        logs.push("✅ Android platform files generated successfully!");
+        
+        // Check again if Android directory exists
+        if (!fs.existsSync(androidPath)) {
+          resolve({
+            success: false,
+            error: "Android directory still not found after prebuild. Check your app configuration.",
+            logs
+          });
+          return;
+        }
+      } catch (error: any) {
+        resolve({
+          success: false,
+          error: `Failed to run expo prebuild: ${error.message}`,
+          logs
+        });
+        return;
+      }
     }
     
     // Ensure NDK version is set to use available version
-    await ensureNDKVersion(androidPath, logs);
+    ensureNDKVersion(androidPath, logs);
     
     // Use Gradle directly to build APK without installing
     currentBuildProcess = spawn('./gradlew', ['app:assembleDebug', '-x', 'lint', '-x', 'test'], {
@@ -300,22 +327,49 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
  * Build Android AAB using Gradle directly
  */
 async function buildAndroidAAB(appPath: string, logs: string[], appId: number): Promise<LocalBuildResult> {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     logs.push("🔨 Starting Android AAB build...");
     logs.push("📱 This will create a release AAB file for Play Store");
     
     const androidPath = path.join(appPath, 'android');
     if (!fs.existsSync(androidPath)) {
+      logs.push("📱 Android directory not found. Running expo prebuild to generate native Android files...");
+      
+      try {
+        // Run expo prebuild to generate Android platform files
+        const prebuildResult = await runExpoPrebuild(appPath, logs, 'android');
+        if (!prebuildResult.success) {
       resolve({
         success: false,
-        error: "Android directory not found. Make sure this is an Expo app with Android support.",
+            error: `Failed to generate Android platform files: ${prebuildResult.error}`,
         logs
       });
       return;
+        }
+        
+        logs.push("✅ Android platform files generated successfully!");
+        
+        // Check again if Android directory exists
+        if (!fs.existsSync(androidPath)) {
+          resolve({
+            success: false,
+            error: "Android directory still not found after prebuild. Check your app configuration.",
+            logs
+          });
+          return;
+        }
+      } catch (error: any) {
+        resolve({
+          success: false,
+          error: `Failed to run expo prebuild: ${error.message}`,
+          logs
+        });
+        return;
+      }
     }
     
     // Ensure NDK version is set to use available version
-    await ensureNDKVersion(androidPath, logs);
+    ensureNDKVersion(androidPath, logs);
     
     // Use Gradle directly to build AAB without installing
     currentBuildProcess = spawn('./gradlew', ['app:bundleRelease', '-x', 'lint', '-x', 'test'], {
@@ -410,67 +464,167 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
  * Build iOS IPA using xcodebuild directly
  */
 async function buildIOSIPA(appPath: string, logs: string[], appId: number): Promise<LocalBuildResult> {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     logs.push("🔨 Starting iOS IPA build...");
     logs.push("🍎 This will create an IPA file (requires Xcode)");
     
     const iosPath = path.join(appPath, 'ios');
     if (!fs.existsSync(iosPath)) {
+      logs.push("📱 iOS directory not found. Running expo prebuild to generate native iOS files...");
+      
+      try {
+        // Run expo prebuild to generate iOS platform files
+        const prebuildResult = await runExpoPrebuild(appPath, logs, 'ios');
+        if (!prebuildResult.success) {
       resolve({
         success: false,
-        error: "iOS directory not found. Make sure this is an Expo app with iOS support.",
+            error: `Failed to generate iOS platform files: ${prebuildResult.error}`,
         logs
       });
       return;
+        }
+        
+        logs.push("✅ iOS platform files generated successfully!");
+        
+        // Check again if iOS directory exists
+        if (!fs.existsSync(iosPath)) {
+          resolve({
+            success: false,
+            error: "iOS directory still not found after prebuild. Check your app configuration.",
+            logs
+          });
+          return;
+        }
+      } catch (error: any) {
+        resolve({
+          success: false,
+          error: `Failed to run expo prebuild: ${error.message}`,
+          logs
+        });
+        return;
+      }
     }
     
     // Find the .xcworkspace file
     const workspaceFiles = fs.readdirSync(iosPath).filter(file => file.endsWith('.xcworkspace'));
     if (workspaceFiles.length === 0) {
+      // Check if there's a .xcodeproj file as fallback
+      const projectFiles = fs.readdirSync(iosPath).filter(file => file.endsWith('.xcodeproj'));
+      if (projectFiles.length === 0) {
+        logs.push("❌ No .xcworkspace or .xcodeproj file found in iOS directory");
+        logs.push("💡 This usually means CocoaPods installation failed during prebuild");
+        logs.push("💡 Common solutions:");
+        logs.push("   - Install Xcode from the App Store");
+        logs.push("   - Run 'sudo xcode-select --install' to install command line tools");
+        logs.push("   - Make sure Xcode is properly configured");
       resolve({
         success: false,
-        error: "No .xcworkspace file found in iOS directory",
+          error: "No .xcworkspace or .xcodeproj file found. CocoaPods installation likely failed. Please install Xcode and try again.",
+          logs
+        });
+        return;
+      } else {
+        logs.push(`⚠️ Found .xcodeproj file instead of .xcworkspace: ${projectFiles[0]}`);
+        logs.push("💡 This means CocoaPods didn't run successfully, but we can try building with the project file");
+        // We'll use the .xcodeproj file instead
+        const projectFile = projectFiles[0];
+        const projectPath = path.join(iosPath, projectFile);
+        
+        try {
+          // Try to build with the .xcodeproj file directly
+          const schemeName = await detectSchemeNameFromProject(projectPath, logs);
+          if (!schemeName) {
+            resolve({
+              success: false,
+              error: "Could not detect scheme name from project file",
         logs
       });
       return;
     }
     
-    const workspaceFile = workspaceFiles[0];
-    const workspacePath = path.join(iosPath, workspaceFile);
-    
-    // Use xcodebuild to create archive and export IPA
-    currentBuildProcess = spawn('xcodebuild', [
-      '-workspace', workspacePath,
-      '-scheme', 'App', // Default scheme name for Expo apps
+          logs.push(`📋 Using scheme: ${schemeName} (from .xcodeproj)`);
+          
+          // Create export options plist
+          const exportOptionsPath = await createExportOptionsPlist(iosPath, logs);
+          
+          // Step 1: Create archive using .xcodeproj
+          logs.push("📦 Creating archive using .xcodeproj...");
+          const archivePath = path.join(iosPath, `${schemeName}.xcarchive`);
+          
+          const archiveResult = await runXcodeBuild([
+            '-project', projectPath,
+            '-scheme', schemeName,
       '-configuration', 'Release',
-      '-archivePath', path.join(iosPath, 'App.xcarchive'),
+            '-archivePath', archivePath,
       'archive'
-    ], {
-      cwd: iosPath,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    let output = '';
-    let errorOutput = '';
-
-    currentBuildProcess.stdout?.on('data', (data) => {
-      const text = data.toString();
-      output += text;
-      logs.push(text.trim());
-      logger.log(`IPA Build: ${text.trim()}`);
-    });
-
-    currentBuildProcess.stderr?.on('data', (data) => {
-      const text = data.toString();
-      errorOutput += text;
-      logs.push(`ERROR: ${text.trim()}`);
-      logger.error(`IPA Build Error: ${text.trim()}`);
-    });
-
-    currentBuildProcess.on('close', (code) => {
-      currentBuildProcess = null;
-      
-      if (code === 0) {
+          ], iosPath, logs);
+          
+          if (!archiveResult.success) {
+            resolve({
+              success: false,
+              error: `Archive creation failed: ${archiveResult.error}`,
+              logs
+            });
+            return;
+          }
+          
+          // Step 2: Export IPA from archive
+          logs.push("📱 Exporting IPA from archive...");
+          const exportPath = path.join(iosPath, 'export');
+          
+          // Clean up any existing export directory
+          if (fs.existsSync(exportPath)) {
+            fs.rmSync(exportPath, { recursive: true, force: true });
+            logs.push("🧹 Cleaned up existing export directory");
+          }
+          
+          const exportResult = await runXcodeBuild([
+            '-exportArchive',
+            '-archivePath', archivePath,
+            '-exportPath', exportPath,
+            '-exportOptionsPlist', exportOptionsPath
+          ], iosPath, logs);
+          
+          if (!exportResult.success) {
+            // Try alternative export method if first attempt fails
+            logs.push("⚠️ First export attempt failed, trying alternative method...");
+            
+            // Create a simpler export options plist
+            const simpleExportOptionsPath = path.join(iosPath, 'SimpleExportOptions.plist');
+            const simplePlistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+    <key>compileBitcode</key>
+    <false/>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>
+</dict>
+</plist>`;
+            
+            fs.writeFileSync(simpleExportOptionsPath, simplePlistContent);
+            
+            const retryResult = await runXcodeBuild([
+              '-exportArchive',
+              '-archivePath', archivePath,
+              '-exportPath', exportPath,
+              '-exportOptionsPlist', simpleExportOptionsPath
+            ], iosPath, logs);
+            
+            if (!retryResult.success) {
+              resolve({
+                success: false,
+                error: `IPA export failed after retry: ${retryResult.error}`,
+                logs
+              });
+              return;
+            }
+          }
+          
         // Look for the generated IPA file
         const ipaPath = findGeneratedIPA(appPath);
         if (ipaPath) {
@@ -479,20 +633,15 @@ async function buildIOSIPA(appPath: string, logs: string[], appId: number): Prom
           
           // Save IPA path to database
           try {
-            db.update(apps)
+              await db.update(apps)
               .set({
                 localIpaPath: ipaPath,
                 localIpaBuiltAt: new Date(),
                 lastDeploymentAt: new Date(),
                 deploymentStatus: 'deployed'
               })
-              .where(eq(apps.id, appId))
-              .then(() => {
+                .where(eq(apps.id, appId));
                 logs.push(`💾 IPA path saved to database`);
-              })
-              .catch((error: any) => {
-                logs.push(`⚠️ Failed to save IPA path: ${error.message}`);
-              });
           } catch (error: any) {
             logs.push(`⚠️ Failed to save IPA path: ${error.message}`);
           }
@@ -503,33 +652,268 @@ async function buildIOSIPA(appPath: string, logs: string[], appId: number): Prom
             buildType: 'ipa',
             logs
           });
+            return;
         } else {
           logs.push(`⚠️ Build completed but IPA file not found`);
+            logs.push(`🔍 Searched in: ${path.join(iosPath, 'export')}`);
+            logs.push(`💡 Make sure your app has proper code signing configured`);
           resolve({
             success: false,
-            error: "Build completed but IPA file not found",
+              error: "Build completed but IPA file not found. Check code signing configuration.",
             logs
           });
-        }
+            return;
+          }
+        } catch (error: any) {
+          logs.push(`❌ Build process error: ${error.message}`);
+          
+          // Check for specific Xcode-related errors
+          if (error.message.includes('xcode-select: error: tool \'xcodebuild\' requires Xcode')) {
+            logs.push(`💡 Xcode Issue Detected:`);
+            logs.push(`   You have Xcode Command Line Tools installed, but not the full Xcode app.`);
+            logs.push(`   iOS builds require the full Xcode application.`);
+            logs.push(`   Solutions:`);
+            logs.push(`   1. Install Xcode from the Mac App Store (free)`);
+            logs.push(`   2. After installation, run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`);
+            logs.push(`   3. Accept the Xcode license: sudo xcodebuild -license accept`);
+            resolve({
+              success: false,
+              error: "Xcode app required for iOS builds. Please install Xcode from the Mac App Store and configure it properly.",
+              logs
+            });
+            return;
+          } else if (error.message.includes('SDK "iphoneos" cannot be located')) {
+            logs.push(`💡 Xcode SDK Issue Detected:`);
+            logs.push(`   The iOS SDK cannot be found. This usually means:`);
+            logs.push(`   1. Xcode is not properly installed`);
+            logs.push(`   2. Xcode needs to be opened and configured`);
+            logs.push(`   3. Command line tools are not properly linked`);
+            logs.push(`   Solutions:`);
+            logs.push(`   1. Open Xcode app and complete the setup wizard`);
+            logs.push(`   2. Run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`);
+            logs.push(`   3. Run: sudo xcodebuild -license accept`);
+            resolve({
+              success: false,
+              error: "iOS SDK not found. Please install and configure Xcode properly.",
+              logs
+            });
+            return;
       } else {
-        logs.push(`❌ IPA build failed with exit code ${code}`);
+            logs.push(`💡 Common issues:`);
+            logs.push(`   - Make sure Xcode is installed and up to date`);
+            logs.push(`   - Check that your app has proper code signing`);
+            logs.push(`   - Ensure the iOS directory was generated by Expo`);
         resolve({
           success: false,
-          error: `Build failed with exit code ${code}. ${errorOutput}`,
+              error: error.message,
+          logs
+        });
+            return;
+          }
+        }
+      }
+    }
+    
+    const workspaceFile = workspaceFiles[0];
+    const workspacePath = path.join(iosPath, workspaceFile);
+    
+    try {
+      // Detect the correct scheme name
+      const schemeName = await detectSchemeName(workspacePath, logs);
+      if (!schemeName) {
+        resolve({
+          success: false,
+          error: "Could not detect scheme name from workspace",
+          logs
+        });
+        return;
+      }
+      
+      logs.push(`📋 Using scheme: ${schemeName}`);
+      
+      // Create export options plist
+      const exportOptionsPath = await createExportOptionsPlist(iosPath, logs);
+      
+      // Step 1: Create archive
+      logs.push("📦 Creating archive...");
+      const archivePath = path.join(iosPath, `${schemeName}.xcarchive`);
+      
+      const archiveResult = await runXcodeBuild([
+        '-workspace', workspacePath,
+        '-scheme', schemeName,
+        '-configuration', 'Release',
+        '-archivePath', archivePath,
+        'archive'
+      ], iosPath, logs);
+      
+      if (!archiveResult.success) {
+        resolve({
+          success: false,
+          error: `Archive creation failed: ${archiveResult.error}`,
+          logs
+        });
+        return;
+      }
+      
+      // Step 2: Export IPA from archive
+      logs.push("📱 Exporting IPA from archive...");
+      const exportPath = path.join(iosPath, 'export');
+      
+      // Clean up any existing export directory
+      if (fs.existsSync(exportPath)) {
+        fs.rmSync(exportPath, { recursive: true, force: true });
+        logs.push("🧹 Cleaned up existing export directory");
+      }
+      
+      const exportResult = await runXcodeBuild([
+        '-exportArchive',
+        '-archivePath', archivePath,
+        '-exportPath', exportPath,
+        '-exportOptionsPlist', exportOptionsPath
+      ], iosPath, logs);
+      
+      if (!exportResult.success) {
+        // Try alternative export method if first attempt fails
+        logs.push("⚠️ First export attempt failed, trying alternative method...");
+        
+        // Create a simpler export options plist
+        const simpleExportOptionsPath = path.join(iosPath, 'SimpleExportOptions.plist');
+        const simplePlistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+    <key>compileBitcode</key>
+    <false/>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>
+</dict>
+</plist>`;
+        
+        fs.writeFileSync(simpleExportOptionsPath, simplePlistContent);
+        
+        const retryResult = await runXcodeBuild([
+          '-exportArchive',
+          '-archivePath', archivePath,
+          '-exportPath', exportPath,
+          '-exportOptionsPlist', simpleExportOptionsPath
+        ], iosPath, logs);
+        
+        if (!retryResult.success) {
+          resolve({
+            success: false,
+            error: `IPA export failed after retry: ${retryResult.error}`,
+            logs
+          });
+          return;
+        }
+      }
+      
+      // Look for the generated IPA file
+      const ipaPath = findGeneratedIPA(appPath);
+      if (ipaPath) {
+        logs.push(`✅ IPA build completed successfully!`);
+        logs.push(`🍎 IPA location: ${ipaPath}`);
+        
+        // Save IPA path to database
+        try {
+          await db.update(apps)
+            .set({
+              localIpaPath: ipaPath,
+              localIpaBuiltAt: new Date(),
+              lastDeploymentAt: new Date(),
+              deploymentStatus: 'deployed'
+            })
+            .where(eq(apps.id, appId));
+          logs.push(`💾 IPA path saved to database`);
+        } catch (error: any) {
+          logs.push(`⚠️ Failed to save IPA path: ${error.message}`);
+        }
+        
+        resolve({
+          success: true,
+          buildPath: ipaPath,
+          buildType: 'ipa',
+          logs
+        });
+      } else {
+        logs.push(`⚠️ Build completed but IPA file not found`);
+        logs.push(`🔍 Searched in: ${path.join(iosPath, 'export')}`);
+        logs.push(`💡 Make sure your app has proper code signing configured`);
+        resolve({
+          success: false,
+          error: "Build completed but IPA file not found. Check code signing configuration.",
           logs
         });
       }
-    });
-
-    currentBuildProcess.on('error', (error) => {
-      currentBuildProcess = null;
+      
+    } catch (error: any) {
       logs.push(`❌ Build process error: ${error.message}`);
+      
+      // Check for specific Xcode-related errors
+      if (error.message.includes('xcode-select: error: tool \'xcodebuild\' requires Xcode')) {
+        logs.push(`💡 Xcode Issue Detected:`);
+        logs.push(`   You have Xcode Command Line Tools installed, but not the full Xcode app.`);
+        logs.push(`   iOS builds require the full Xcode application.`);
+        logs.push(`   Solutions:`);
+        logs.push(`   1. Install Xcode from the Mac App Store (free)`);
+        logs.push(`   2. After installation, run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`);
+        logs.push(`   3. Accept the Xcode license: sudo xcodebuild -license accept`);
       resolve({
         success: false,
-        error: error.message,
+          error: "Xcode app required for iOS builds. Please install Xcode from the Mac App Store and configure it properly.",
         logs
       });
-    });
+        return;
+      } else if (error.message.includes('SDK "iphoneos" cannot be located')) {
+        logs.push(`💡 Xcode SDK Issue Detected:`);
+        logs.push(`   The iOS SDK cannot be found. This usually means:`);
+        logs.push(`   1. Xcode is not properly installed`);
+        logs.push(`   2. Xcode needs to be opened and configured`);
+        logs.push(`   3. Command line tools are not properly linked`);
+        logs.push(`   Solutions:`);
+        logs.push(`   1. Open Xcode app and complete the setup wizard`);
+        logs.push(`   2. Run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`);
+        logs.push(`   3. Run: sudo xcodebuild -license accept`);
+        resolve({
+          success: false,
+          error: "iOS SDK not found. Please install and configure Xcode properly.",
+          logs
+        });
+        return;
+      } else {
+        logs.push(`💡 Common issues:`);
+        logs.push(`   - Make sure Xcode is installed and up to date`);
+        logs.push(`   - Check that your app has proper code signing`);
+        logs.push(`   - Ensure the iOS directory was generated by Expo`);
+        resolve({
+          success: false,
+          error: error.message,
+          logs
+        });
+        return;
+      }
+    } finally {
+      // Clean up temporary files
+      try {
+        const exportOptionsPath = path.join(iosPath, 'ExportOptions.plist');
+        const simpleExportOptionsPath = path.join(iosPath, 'SimpleExportOptions.plist');
+        
+        if (fs.existsSync(exportOptionsPath)) {
+          fs.unlinkSync(exportOptionsPath);
+        }
+        if (fs.existsSync(simpleExportOptionsPath)) {
+          fs.unlinkSync(simpleExportOptionsPath);
+        }
+        
+        logs.push("🧹 Cleaned up temporary files");
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+    }
   });
 }
 
@@ -587,8 +971,258 @@ function findGeneratedIPA(appPath: string): string | null {
     return null;
   }
 
+  // Look for IPA in the export directory first
+  const exportPath = path.join(iosPath, 'export');
+  if (fs.existsSync(exportPath)) {
+    const ipaFiles = fs.readdirSync(exportPath).filter(file => file.endsWith('.ipa'));
+    if (ipaFiles.length > 0) {
+      return path.join(exportPath, ipaFiles[0]);
+    }
+  }
+
   // Search recursively for .ipa files
   return findFileRecursively(iosPath, '.ipa');
+}
+
+/**
+ * Detect the correct scheme name from workspace
+ */
+async function detectSchemeName(workspacePath: string, logs: string[]): Promise<string | null> {
+  try {
+    logs.push("🔍 Detecting scheme name from workspace...");
+    
+    // Try to list schemes using xcodebuild
+    const result = await runXcodeBuild(['-list', '-workspace', workspacePath], path.dirname(workspacePath), logs);
+    
+    if (result.success && result.output) {
+      const lines = result.output.split('\n');
+      let inSchemesSection = false;
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine === 'Schemes:') {
+          inSchemesSection = true;
+          continue;
+        }
+        
+        if (inSchemesSection && trimmedLine && !trimmedLine.startsWith(' ')) {
+          // Found a scheme name
+          const schemeName = trimmedLine;
+          logs.push(`✅ Detected scheme: ${schemeName}`);
+          return schemeName;
+        }
+        
+        // Stop if we hit another section
+        if (inSchemesSection && trimmedLine && !trimmedLine.startsWith(' ') && trimmedLine !== 'Schemes:') {
+          break;
+        }
+      }
+    }
+    
+    // Fallback to common scheme names
+    const commonSchemes = ['App', 'MyApp', 'ExpoApp', 'ReactNativeApp'];
+    logs.push(`⚠️ Could not detect scheme, trying common names: ${commonSchemes.join(', ')}`);
+    
+    return commonSchemes[0]; // Default to 'App'
+    
+  } catch (error: any) {
+    logs.push(`⚠️ Scheme detection failed: ${error.message}`);
+    return 'App'; // Fallback
+  }
+}
+
+/**
+ * Detect the correct scheme name from project file
+ */
+async function detectSchemeNameFromProject(projectPath: string, logs: string[]): Promise<string | null> {
+  try {
+    logs.push("🔍 Detecting scheme name from project file...");
+    
+    // Try to list schemes using xcodebuild
+    const result = await runXcodeBuild(['-list', '-project', projectPath], path.dirname(projectPath), logs);
+    
+    if (result.success && result.output) {
+      const lines = result.output.split('\n');
+      let inSchemesSection = false;
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine === 'Schemes:') {
+          inSchemesSection = true;
+          continue;
+        }
+        
+        if (inSchemesSection && trimmedLine && !trimmedLine.startsWith(' ')) {
+          // Found a scheme name
+          const schemeName = trimmedLine;
+          logs.push(`✅ Detected scheme: ${schemeName}`);
+          return schemeName;
+        }
+        
+        // Stop if we hit another section
+        if (inSchemesSection && trimmedLine && !trimmedLine.startsWith(' ') && trimmedLine !== 'Schemes:') {
+          break;
+        }
+      }
+    }
+    
+    // Fallback to common scheme names
+    const commonSchemes = ['App', 'MyApp', 'ExpoApp', 'ReactNativeApp'];
+    logs.push(`⚠️ Could not detect scheme, trying common names: ${commonSchemes.join(', ')}`);
+    
+    return commonSchemes[0]; // Default to 'App'
+    
+  } catch (error: any) {
+    logs.push(`⚠️ Scheme detection failed: ${error.message}`);
+    return 'App'; // Fallback
+  }
+}
+
+/**
+ * Create export options plist for IPA export
+ */
+async function createExportOptionsPlist(iosPath: string, logs: string[]): Promise<string> {
+  const exportOptionsPath = path.join(iosPath, 'ExportOptions.plist');
+  
+  // Try to detect if we have a development team configured
+  let exportMethod = 'development';
+  let teamID = '';
+  
+  try {
+    // Check if we can get team info from xcodebuild
+    const teamResult = await runXcodeBuild(['-showBuildSettings'], iosPath, []);
+    if (teamResult.success && teamResult.output) {
+      const teamMatch = teamResult.output.match(/DEVELOPMENT_TEAM = (.+)/);
+      if (teamMatch) {
+        teamID = teamMatch[1];
+        logs.push(`🏢 Found development team: ${teamID}`);
+      }
+    }
+  } catch (error) {
+    logs.push(`⚠️ Could not detect development team: ${error}`);
+  }
+  
+  const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>${exportMethod}</string>
+    <key>compileBitcode</key>
+    <false/>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>
+    ${teamID ? `<key>teamID</key>\n    <string>${teamID}</string>` : ''}
+</dict>
+</plist>`;
+  
+  fs.writeFileSync(exportOptionsPath, plistContent);
+  logs.push(`📄 Created export options plist: ${exportOptionsPath}`);
+  logs.push(`📋 Export method: ${exportMethod}${teamID ? `, Team: ${teamID}` : ''}`);
+  
+  return exportOptionsPath;
+}
+
+/**
+ * Run expo prebuild to generate native platform files
+ */
+async function runExpoPrebuild(appPath: string, logs: string[], platform?: 'ios' | 'android'): Promise<{ success: boolean; output?: string; error?: string }> {
+  return new Promise((resolve) => {
+    const args = ['expo', 'prebuild', '--clean'];
+    if (platform) {
+      args.push('--platform', platform);
+    }
+    
+    logs.push(`🔧 Running: npx ${args.join(' ')}`);
+    
+    const prebuildProcess = spawn('npx', args, {
+      cwd: appPath,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        EXPO_NO_TELEMETRY: '1',
+        EXPO_NO_DOCTOR: '1',
+        EXPO_NO_UPDATE_CHECK: '1',
+        CI: '1'
+      }
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    prebuildProcess.stdout?.on('data', (data: any) => {
+      const text = data.toString();
+      output += text;
+      logs.push(text.trim());
+    });
+
+    prebuildProcess.stderr?.on('data', (data: any) => {
+      const text = data.toString();
+      errorOutput += text;
+      logs.push(`ERROR: ${text.trim()}`);
+    });
+
+    prebuildProcess.on('close', (code: any) => {
+      if (code === 0) {
+        resolve({ success: true, output });
+      } else {
+        resolve({ success: false, error: errorOutput || `Process exited with code ${code}` });
+      }
+    });
+
+    prebuildProcess.on('error', (error: any) => {
+      resolve({ success: false, error: error.message });
+    });
+  });
+}
+
+/**
+ * Run xcodebuild command and return result
+ */
+async function runXcodeBuild(args: string[], cwd: string, logs: string[]): Promise<{ success: boolean; output?: string; error?: string }> {
+  return new Promise((resolve) => {
+    logs.push(`🔧 Running: xcodebuild ${args.join(' ')}`);
+    
+    const process = spawn('xcodebuild', args, {
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    process.stdout?.on('data', (data) => {
+      const text = data.toString();
+      output += text;
+      logs.push(text.trim());
+    });
+
+    process.stderr?.on('data', (data) => {
+      const text = data.toString();
+      errorOutput += text;
+      logs.push(`ERROR: ${text.trim()}`);
+    });
+
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, output });
+      } else {
+        resolve({ success: false, error: errorOutput || `Process exited with code ${code}` });
+      }
+    });
+
+    process.on('error', (error) => {
+      resolve({ success: false, error: error.message });
+    });
+  });
 }
 
 /**
@@ -619,7 +1253,7 @@ function findFileRecursively(dir: string, extension: string): string | null {
 /**
  * Ensure NDK version is set to use available version
  */
-async function ensureNDKVersion(androidPath: string, logs: string[]): Promise<void> {
+function ensureNDKVersion(androidPath: string, logs: string[]): void {
   try {
     const gradlePropertiesPath = path.join(androidPath, 'gradle.properties');
     
