@@ -4,13 +4,14 @@ import {
   previewModeAtom,
   previewPanelKeyAtom,
   selectedAppIdAtom,
+  showConfigurePanelAtom,
 } from "../../atoms/appAtoms";
 
 import { CodeView } from "./CodeView";
 import { PreviewIframe } from "./PreviewIframe";
 import { Problems } from "./Problems";
 import { ConfigurePanel } from "./ConfigurePanel";
-import { ChevronDown, ChevronUp, Logs } from "lucide-react";
+import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Console } from "./Console";
@@ -54,10 +55,16 @@ const ConsoleHeader = ({
   </div>
 );
 
+interface PreviewPanelProps {
+  isLeftPanelOpen: boolean;
+  onToggleLeftPanel: () => void;
+}
+
 // Main PreviewPanel component
-export function PreviewPanel() {
+export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPanelProps) {
   const [previewMode] = useAtom(previewModeAtom);
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  const [showConfigurePanel, setShowConfigurePanel] = useAtom(showConfigurePanelAtom);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const { runApp, stopApp, loading, app } = useRunApp();
   
@@ -142,6 +149,33 @@ export function PreviewPanel() {
   // Auto-start disabled - using BattleTestedExpoPreview's built-in auto-start instead
   return (
     <div className="flex flex-col h-full">
+      {/* Hide Chat Button and Configure Button */}
+      <div className="flex items-center justify-between p-2 border-b border-border">
+        <button
+          data-testid="toggle-left-panel-button"
+          onClick={onToggleLeftPanel}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-[var(--background)] transition-colors"
+          title={isLeftPanelOpen ? "Hide Left Panel" : "Show Left Panel"}
+        >
+          {isLeftPanelOpen ? (
+            <PanelLeftClose size={16} />
+          ) : (
+            <PanelLeftOpen size={16} />
+          )}
+          <span>{isLeftPanelOpen ? "Hide Chat" : "Show Chat"}</span>
+        </button>
+        
+        <button
+          onClick={() => setShowConfigurePanel(!showConfigurePanel)}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-[var(--background)] transition-colors ${
+            showConfigurePanel ? 'bg-[var(--background-lightest)]' : ''
+          }`}
+          title="Toggle Configure Panel"
+        >
+          <Wrench size={16} />
+          <span>Configure</span>
+        </button>
+      </div>
       <div className="flex-1 overflow-hidden">
         <PanelGroup direction="vertical">
           <Panel id="content" minSize={30}>
@@ -155,8 +189,6 @@ export function PreviewPanel() {
                 )
               ) : previewMode === "code" ? (
                 <CodeView loading={loading} app={app} />
-              ) : previewMode === "configure" ? (
-                <ConfigurePanel />
               ) : previewMode === "publish" ? (
                 <PublishPanel />
               ) : previewMode === "testing" ? (
@@ -183,6 +215,14 @@ export function PreviewPanel() {
           )}
         </PanelGroup>
       </div>
+      
+      {/* Configure Panel - Show at bottom when in preview mode and toggle is on */}
+      {previewMode === "preview" && showConfigurePanel && (
+        <div className="border-t border-border bg-background">
+          <ConfigurePanel />
+        </div>
+      )}
+      
       {!isExpoApp && !isConsoleOpen && (
         <ConsoleHeader
           isOpen={false}

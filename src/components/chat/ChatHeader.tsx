@@ -1,11 +1,9 @@
 import {
-  PanelRightOpen,
   History,
   PlusCircle,
   GitBranch,
   Info,
 } from "lucide-react";
-import { PanelRightClose } from "lucide-react";
 import { useAtom, useAtomValue } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { useVersions } from "@/hooks/useVersions";
@@ -31,15 +29,11 @@ import { LoadingBar } from "../ui/LoadingBar";
 
 interface ChatHeaderProps {
   isVersionPaneOpen: boolean;
-  isPreviewOpen: boolean;
-  onTogglePreview: () => void;
   onVersionClick: () => void;
 }
 
 export function ChatHeader({
   isVersionPaneOpen,
-  isPreviewOpen,
-  onTogglePreview,
   onVersionClick,
 }: ChatHeaderProps) {
   const appId = useAtomValue(selectedAppIdAtom);
@@ -201,17 +195,6 @@ export function ChatHeader({
           </Button>
         </div>
 
-        <button
-          data-testid="toggle-preview-panel-button"
-          onClick={onTogglePreview}
-          className="cursor-pointer p-2 hover:bg-(--background-lightest) rounded-md"
-        >
-          {isPreviewOpen ? (
-            <PanelRightClose size={20} />
-          ) : (
-            <PanelRightOpen size={20} />
-          )}
-        </button>
       </div>
     </div>
   );
