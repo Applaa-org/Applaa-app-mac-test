@@ -9,7 +9,6 @@ import {
   MoreVertical,
   Cog,
   Trash2,
-  AlertTriangle,
   Globe,
   TestTube,
   Palette,
@@ -89,12 +88,8 @@ export const PreviewHeader = ({
   }, []);
 
   const selectPanel = (panel: PreviewMode) => {
-    if (previewMode === panel) {
-      setIsPreviewOpen(!isPreviewOpen);
-    } else {
-      setPreviewMode(panel);
-      setIsPreviewOpen(true);
-    }
+    setPreviewMode(panel);
+    setIsPreviewOpen(true);
   };
 
   const onCleanRestart = useCallback(() => {
@@ -136,9 +131,6 @@ export const PreviewHeader = ({
           break;
         case "code":
           targetRef = codeRef;
-          break;
-        case "problems":
-          targetRef = problemsRef;
           break;
         case "publish":
           targetRef = publishRef;
@@ -231,18 +223,6 @@ export const PreviewHeader = ({
             <Eye size={14} />,
             "Preview",
             "preview-mode-button",
-          )}
-          {renderButton(
-            "problems",
-            problemsRef,
-            <AlertTriangle size={14} />,
-            "Problems",
-            "problems-mode-button",
-            problemReport?.problems?.length ? (
-              <span className="ml-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                {problemReport.problems.length}
-              </span>
-            ) : undefined,
           )}
           {/* {renderButton(
             "code",

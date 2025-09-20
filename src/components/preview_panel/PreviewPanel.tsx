@@ -6,12 +6,13 @@ import {
   selectedAppIdAtom,
   showConfigurePanelAtom,
 } from "../../atoms/appAtoms";
+import { useCheckProblems } from "@/hooks/useCheckProblems";
 
 import { CodeView } from "./CodeView";
 import { PreviewIframe } from "./PreviewIframe";
 import { Problems } from "./Problems";
 import { ConfigurePanel } from "./ConfigurePanel";
-import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench } from "lucide-react";
+import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench, AlertTriangle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Console } from "./Console";
@@ -62,11 +63,13 @@ interface PreviewPanelProps {
 
 // Main PreviewPanel component
 export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPanelProps) {
-  const [previewMode] = useAtom(previewModeAtom);
+  const [previewMode, setPreviewMode] = useAtom(previewModeAtom);
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const [showConfigurePanel, setShowConfigurePanel] = useAtom(showConfigurePanelAtom);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [showProblemsPanel, setShowProblemsPanel] = useState(false);
   const { runApp, stopApp, loading, app } = useRunApp();
+  const { problemReport } = useCheckProblems(selectedAppId);
   
   // Detect if this is an Expo app based on files
   const isExpoApp = useMemo(() => {
@@ -149,7 +152,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   // Auto-start disabled - using BattleTestedExpoPreview's built-in auto-start instead
   return (
     <div className="flex flex-col h-full">
-      {/* Hide Chat Button and Configure Button */}
+      {/* Hide Chat Button, Problems Button, and Configure Button */}
       <div className="flex items-center justify-between p-2 border-b border-border">
         <button
           data-testid="toggle-left-panel-button"
@@ -165,55 +168,114 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
           <span>{isLeftPanelOpen ? "Hide Chat" : "Show Chat"}</span>
         </button>
         
-        <button
-          onClick={() => setShowConfigurePanel(!showConfigurePanel)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-[var(--background)] transition-colors ${
-            showConfigurePanel ? 'bg-[var(--background-lightest)]' : ''
-          }`}
-          title="Toggle Configure Panel"
-        >
-          <Wrench size={16} />
-          <span>Configure</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowProblemsPanel(!showProblemsPanel)}
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium hover:bg-[var(--background)] transition-colors ${
+              showProblemsPanel ? 'bg-[var(--background-lightest)]' : ''
+            }`}
+            title="Toggle Problems Panel"
+          >
+            <AlertTriangle size={16} />
+            <span>Problems</span>
+            {problemReport?.problems?.length ? (
+              <span className="ml-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                {problemReport.problems.length}
+              </span>
+            ) : undefined}
+          </button>
+          
+          <button
+            onClick={() => setShowConfigurePanel(!showConfigurePanel)}
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium hover:bg-[var(--background)] transition-colors ${
+              showConfigurePanel ? 'bg-[var(--background-lightest)]' : ''
+            }`}
+            title="Toggle Configure Panel"
+          >
+            <Wrench size={16} />
+            <span>Configure</span>
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-hidden">
-        <PanelGroup direction="vertical">
-          <Panel id="content" minSize={30}>
-            <div className="h-full overflow-y-auto">
-              {previewMode === "preview" ? (
-                // Show BattleTestedExpoPreview for Expo apps, regular PreviewIframe for web apps
-                isExpoApp ? (
+        {/* Problems Panel - Show at top when toggle is on */}
+        {showProblemsPanel && (
+          <div className="border-b border-border bg-background">
+            <Problems />
+          </div>
+        )}
+        
+        {previewMode === "publish" ? (
+          // When in publish mode, show preview on left and publish panel on right
+          <div className="flex h-full">
+            <div className="flex-1 overflow-hidden">
+              <div className="h-full overflow-y-auto">
+                {isExpoApp ? (
                   <UnifiedExpoPreview />
                 ) : (
                   <PreviewIframe key={key} loading={loading} />
-                )
-              ) : previewMode === "code" ? (
-                <CodeView loading={loading} app={app} />
-              ) : previewMode === "publish" ? (
-                <PublishPanel />
-              ) : previewMode === "testing" ? (
-                <TestingPanel />
-              ) : (
-                <Problems />
-              )}
+                )}
+              </div>
             </div>
-          </Panel>
-          {(!isExpoApp && isConsoleOpen) && (
-            <>
-              <PanelResizeHandle className="h-1 bg-border hover:bg-gray-400 transition-colors cursor-row-resize" />
-              <Panel id="console" minSize={10} defaultSize={30}>
-                <div className="flex flex-col h-full">
-                  <ConsoleHeader
-                    isOpen={true}
-                    onToggle={() => setIsConsoleOpen(false)}
-                    latestMessage={latestMessage}
-                  />
-                  <Console />
-                </div>
-              </Panel>
-            </>
-          )}
-        </PanelGroup>
+            <div className="w-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors cursor-col-resize"></div>
+            <div className="w-96 min-w-80 overflow-y-auto border-l border-border flex flex-col">
+              {/* Publish Sidebar Header with Close Button */}
+              <div className="flex items-center justify-between p-3 border-b border-border bg-background">
+                {/* <h3 className="text-sm font-semibold text-foreground">Publish</h3> */}
+                <h2 className="text-1xl font-bold text-gray-900 dark:text-gray-100 ">
+            Publish App
+          </h2>
+                <button
+                  onClick={() => setPreviewMode("preview")}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                  title="Close Publish Panel"
+                >
+                  <X size={16} className="text-muted-foreground" />
+                </button>
+              </div>
+              {/* Publish Panel Content */}
+              <div className="flex-1 overflow-y-auto">
+                <PublishPanel />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <PanelGroup direction="vertical">
+            <Panel id="content" minSize={30}>
+              <div className="h-full overflow-y-auto">
+                {previewMode === "preview" ? (
+                  // Show BattleTestedExpoPreview for Expo apps, regular PreviewIframe for web apps
+                  isExpoApp ? (
+                    <UnifiedExpoPreview />
+                  ) : (
+                    <PreviewIframe key={key} loading={loading} />
+                  )
+                ) : previewMode === "code" ? (
+                  <CodeView loading={loading} app={app} />
+                ) : previewMode === "testing" ? (
+                  <TestingPanel />
+                ) : (
+                  <Problems />
+                )}
+              </div>
+            </Panel>
+            {(!isExpoApp && isConsoleOpen) && (
+              <>
+                <PanelResizeHandle className="h-1 bg-border hover:bg-gray-400 transition-colors cursor-row-resize" />
+                <Panel id="console" minSize={10} defaultSize={30}>
+                  <div className="flex flex-col h-full">
+                    <ConsoleHeader
+                      isOpen={true}
+                      onToggle={() => setIsConsoleOpen(false)}
+                      latestMessage={latestMessage}
+                    />
+                    <Console />
+                  </div>
+                </Panel>
+              </>
+            )}
+          </PanelGroup>
+        )}
       </div>
       
       {/* Configure Panel - Show at bottom when in preview mode and toggle is on */}
