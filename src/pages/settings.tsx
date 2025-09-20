@@ -91,8 +91,8 @@ export default function SettingsPage() {
 
   // Otherwise, render the main settings page
   return (
-    <div className="min-h-screen px-8 py-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen mx-auto px-8 py-4 flex justify-center">
+      <div className="max-w-5xl w-full">
         <Button
           onClick={() => router.history.back()}
           variant="outline"

@@ -144,9 +144,16 @@ export function AppSidebar() {
     }
   }
 
+  // Determine if sidebar should be expanded (18rem) or collapsed (5rem)
+  const shouldExpand = selectedItem === "Apps" || selectedItem === "Settings";
+  
   return (
     <Sidebar
       collapsible="icon"
+      style={{
+        '--sidebar-width': shouldExpand ? '18rem' : '5rem',
+        '--sidebar-width-icon': '5rem'
+      } as React.CSSProperties}
       onMouseLeave={() => {
         if (!isDropdownOpen) {
           setHoverState("clear-hover");
