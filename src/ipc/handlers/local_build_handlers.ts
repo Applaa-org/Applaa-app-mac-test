@@ -56,7 +56,10 @@ export function registerLocalBuildHandlers() {
       }
 
       const logs: string[] = [];
-      const buildResult = await buildAndroidAPK(appPath, logs, appId);
+      const emit = (line: string) => {
+        try { event.sender.send('local-build:log', { type: 'apk', line }); } catch {}
+      };
+      const buildResult = await buildAndroidAPK(appPath, logs, appId, emit);
       
       return buildResult;
     } catch (error: any) {
@@ -101,7 +104,10 @@ export function registerLocalBuildHandlers() {
       }
 
       const logs: string[] = [];
-      const buildResult = await buildAndroidAAB(appPath, logs, appId);
+      const emit = (line: string) => {
+        try { event.sender.send('local-build:log', { type: 'aab', line }); } catch {}
+      };
+      const buildResult = await buildAndroidAAB(appPath, logs, appId, emit);
       
       return buildResult;
     } catch (error: any) {
@@ -151,7 +157,10 @@ export function registerLocalBuildHandlers() {
       }
 
       const logs: string[] = [];
-      const buildResult = await buildIOSIPA(appPath, logs, appId);
+      const emit = (line: string) => {
+        try { event.sender.send('local-build:log', { type: 'ipa', line }); } catch {}
+      };
+      const buildResult = await buildIOSIPA(appPath, logs, appId, emit);
       
       return buildResult;
     } catch (error: any) {
@@ -189,14 +198,14 @@ export function registerLocalBuildHandlers() {
 /**
  * Build Android APK using Gradle directly
  */
-async function buildAndroidAPK(appPath: string, logs: string[], appId: number): Promise<LocalBuildResult> {
+async function buildAndroidAPK(appPath: string, logs: string[], appId: number, emit?: (line: string) => void): Promise<LocalBuildResult> {
   return new Promise(async (resolve) => {
-    logs.push("🔨 Starting Android APK build...");
-    logs.push("📱 This will create a debug APK file");
+    logs.push("🔨 Starting Android APK build..."); emit?.("🔨 Starting Android APK build...");
+    logs.push("📱 This will create a debug APK file"); emit?.("📱 This will create a debug APK file");
     
     const androidPath = path.join(appPath, 'android');
     if (!fs.existsSync(androidPath)) {
-      logs.push("📱 Android directory not found. Running expo prebuild to generate native Android files...");
+      logs.push("📱 Android directory not found. Running expo prebuild to generate native Android files..."); emit?.("📱 Android directory not found. Running expo prebuild to generate native Android files...");
       
       try {
         // Run expo prebuild to generate Android platform files
@@ -210,7 +219,7 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
       return;
         }
         
-        logs.push("✅ Android platform files generated successfully!");
+        logs.push("✅ Android platform files generated successfully!"); emit?.("✅ Android platform files generated successfully!");
         
         // Check again if Android directory exists
         if (!fs.existsSync(androidPath)) {
@@ -232,7 +241,7 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
     }
     
     // Ensure NDK version is set to use available version
-    ensureNDKVersion(androidPath, logs);
+    ensureNDKVersion(androidPath, logs); emit?.("🧩 Ensured NDK version in gradle.properties");
     
     // Use Gradle directly to build APK without installing
     currentBuildProcess = spawn('./gradlew', ['app:assembleDebug', '-x', 'lint', '-x', 'test'], {
@@ -246,14 +255,18 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
     currentBuildProcess.stdout?.on('data', (data) => {
       const text = data.toString();
       output += text;
-      logs.push(text.trim());
+      const line = text.trim();
+      logs.push(line);
+      emit?.(line);
       logger.log(`APK Build: ${text.trim()}`);
     });
 
     currentBuildProcess.stderr?.on('data', (data) => {
       const text = data.toString();
       errorOutput += text;
-      logs.push(`ERROR: ${text.trim()}`);
+      const line = `ERROR: ${text.trim()}`;
+      logs.push(line);
+      emit?.(line);
       logger.error(`APK Build Error: ${text.trim()}`);
     });
 
@@ -264,8 +277,8 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
         // Look for the generated APK file
         const apkPath = findGeneratedAPK(appPath);
         if (apkPath) {
-          logs.push(`✅ APK build completed successfully!`);
-          logs.push(`📱 APK location: ${apkPath}`);
+          logs.push(`✅ APK build completed successfully!`); emit?.("✅ APK build completed successfully!");
+          logs.push(`📱 APK location: ${apkPath}`); emit?.(`📱 APK location: ${apkPath}`);
           
           // Save APK path to database
           try {
@@ -278,10 +291,10 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
               })
               .where(eq(apps.id, appId))
               .then(() => {
-                logs.push(`💾 APK path saved to database`);
+                logs.push(`💾 APK path saved to database`); emit?.("💾 APK path saved to database");
               })
               .catch((error: any) => {
-                logs.push(`⚠️ Failed to save APK path: ${error.message}`);
+                logs.push(`⚠️ Failed to save APK path: ${error.message}`); emit?.(`⚠️ Failed to save APK path: ${error.message}`);
               });
           } catch (error: any) {
             logs.push(`⚠️ Failed to save APK path: ${error.message}`);
@@ -294,7 +307,7 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
             logs
           });
         } else {
-          logs.push(`⚠️ Build completed but APK file not found`);
+          logs.push(`⚠️ Build completed but APK file not found`); emit?.("⚠️ Build completed but APK file not found");
           resolve({
             success: false,
             error: "Build completed but APK file not found",
@@ -302,7 +315,7 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
           });
         }
       } else {
-        logs.push(`❌ APK build failed with exit code ${code}`);
+        logs.push(`❌ APK build failed with exit code ${code}`); emit?.(`❌ APK build failed with exit code ${code}`);
         resolve({
           success: false,
           error: `Build failed with exit code ${code}. ${errorOutput}`,
@@ -313,7 +326,7 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
 
     currentBuildProcess.on('error', (error) => {
       currentBuildProcess = null;
-      logs.push(`❌ Build process error: ${error.message}`);
+      logs.push(`❌ Build process error: ${error.message}`); emit?.(`❌ Build process error: ${error.message}`);
       resolve({
         success: false,
         error: error.message,
@@ -326,14 +339,14 @@ async function buildAndroidAPK(appPath: string, logs: string[], appId: number): 
 /**
  * Build Android AAB using Gradle directly
  */
-async function buildAndroidAAB(appPath: string, logs: string[], appId: number): Promise<LocalBuildResult> {
+async function buildAndroidAAB(appPath: string, logs: string[], appId: number, emit?: (line: string) => void): Promise<LocalBuildResult> {
   return new Promise(async (resolve) => {
-    logs.push("🔨 Starting Android AAB build...");
-    logs.push("📱 This will create a release AAB file for Play Store");
+    logs.push("🔨 Starting Android AAB build..."); emit?.("🔨 Starting Android AAB build...");
+    logs.push("📱 This will create a release AAB file for Play Store"); emit?.("📱 This will create a release AAB file for Play Store");
     
     const androidPath = path.join(appPath, 'android');
     if (!fs.existsSync(androidPath)) {
-      logs.push("📱 Android directory not found. Running expo prebuild to generate native Android files...");
+      logs.push("📱 Android directory not found. Running expo prebuild to generate native Android files..."); emit?.("📱 Android directory not found. Running expo prebuild to generate native Android files...");
       
       try {
         // Run expo prebuild to generate Android platform files
@@ -347,7 +360,7 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
       return;
         }
         
-        logs.push("✅ Android platform files generated successfully!");
+        logs.push("✅ Android platform files generated successfully!"); emit?.("✅ Android platform files generated successfully!");
         
         // Check again if Android directory exists
         if (!fs.existsSync(androidPath)) {
@@ -369,7 +382,7 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
     }
     
     // Ensure NDK version is set to use available version
-    ensureNDKVersion(androidPath, logs);
+    ensureNDKVersion(androidPath, logs); emit?.("🧩 Ensured NDK version in gradle.properties");
     
     // Use Gradle directly to build AAB without installing
     currentBuildProcess = spawn('./gradlew', ['app:bundleRelease', '-x', 'lint', '-x', 'test'], {
@@ -383,14 +396,18 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
     currentBuildProcess.stdout?.on('data', (data) => {
       const text = data.toString();
       output += text;
-      logs.push(text.trim());
+      const line = text.trim();
+      logs.push(line);
+      emit?.(line);
       logger.log(`AAB Build: ${text.trim()}`);
     });
 
     currentBuildProcess.stderr?.on('data', (data) => {
       const text = data.toString();
       errorOutput += text;
-      logs.push(`ERROR: ${text.trim()}`);
+      const line = `ERROR: ${text.trim()}`;
+      logs.push(line);
+      emit?.(line);
       logger.error(`AAB Build Error: ${text.trim()}`);
     });
 
@@ -401,8 +418,8 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
         // Look for the generated AAB file
         const aabPath = findGeneratedAAB(appPath);
         if (aabPath) {
-          logs.push(`✅ AAB build completed successfully!`);
-          logs.push(`📱 AAB location: ${aabPath}`);
+          logs.push(`✅ AAB build completed successfully!`); emit?.("✅ AAB build completed successfully!");
+          logs.push(`📱 AAB location: ${aabPath}`); emit?.(`📱 AAB location: ${aabPath}`);
           
           // Save AAB path to database
           try {
@@ -415,10 +432,10 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
               })
               .where(eq(apps.id, appId))
               .then(() => {
-                logs.push(`💾 AAB path saved to database`);
+                logs.push(`💾 AAB path saved to database`); emit?.("💾 AAB path saved to database");
               })
               .catch((error: any) => {
-                logs.push(`⚠️ Failed to save AAB path: ${error.message}`);
+                logs.push(`⚠️ Failed to save AAB path: ${error.message}`); emit?.(`⚠️ Failed to save AAB path: ${error.message}`);
               });
           } catch (error: any) {
             logs.push(`⚠️ Failed to save AAB path: ${error.message}`);
@@ -431,7 +448,7 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
             logs
           });
         } else {
-          logs.push(`⚠️ Build completed but AAB file not found`);
+          logs.push(`⚠️ Build completed but AAB file not found`); emit?.("⚠️ Build completed but AAB file not found");
           resolve({
             success: false,
             error: "Build completed but AAB file not found",
@@ -439,7 +456,7 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
           });
         }
       } else {
-        logs.push(`❌ AAB build failed with exit code ${code}`);
+        logs.push(`❌ AAB build failed with exit code ${code}`); emit?.(`❌ AAB build failed with exit code ${code}`);
         resolve({
           success: false,
           error: `Build failed with exit code ${code}. ${errorOutput}`,
@@ -450,7 +467,7 @@ async function buildAndroidAAB(appPath: string, logs: string[], appId: number): 
 
     currentBuildProcess.on('error', (error) => {
       currentBuildProcess = null;
-      logs.push(`❌ Build process error: ${error.message}`);
+      logs.push(`❌ Build process error: ${error.message}`); emit?.(`❌ Build process error: ${error.message}`);
       resolve({
         success: false,
         error: error.message,

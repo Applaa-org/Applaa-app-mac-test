@@ -29,6 +29,23 @@ export function LocalBuildPanel({ appId, appName }: LocalBuildPanelProps) {
   const [buildLogs, setBuildLogs] = useState<string[]>([]);
   const [previousBuilds, setPreviousBuilds] = useState<DeploymentInfo[]>([]);
   
+  // Stream logs from main process
+  useEffect(() => {
+    const off = (window as any)?.electron?.ipcRenderer?.on?.(
+      "local-build:log",
+      (payload: { type: 'apk' | 'aab' | 'ipa'; line: string }) => {
+        if (!payload?.line) return;
+        setBuildLogs((prev) => [...prev, payload.line]);
+      },
+    );
+    return () => {
+      try {
+        if (off && typeof off === 'function') off();
+        else (window as any)?.electron?.ipcRenderer?.removeAllListeners?.("local-build:log");
+      } catch {}
+    };
+  }, []);
+  
   // Hooks
   const { data: buildStatus } = useLocalBuildStatus();
   const apkMutation = useLocalBuildAndroidAPK();
@@ -222,7 +239,7 @@ export function LocalBuildPanel({ appId, appName }: LocalBuildPanelProps) {
       )}
 
       {/* Build Options */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Android APK */}
         <Card>
           <CardHeader className="pb-3">
@@ -230,9 +247,9 @@ export function LocalBuildPanel({ appId, appName }: LocalBuildPanelProps) {
               <Smartphone className="h-4 w-4" />
               Android APK
             </CardTitle>
-            <CardDescription className="text-xs">
+            {/* <CardDescription className="text-xs">
               Debug APK for testing
-            </CardDescription>
+            </CardDescription> */}
           </CardHeader>
           <CardContent>
             <Button
@@ -257,7 +274,7 @@ export function LocalBuildPanel({ appId, appName }: LocalBuildPanelProps) {
         </Card>
 
         {/* Android AAB */}
-        <Card>
+        {/* <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
               <Smartphone className="h-4 w-4" />
@@ -287,7 +304,7 @@ export function LocalBuildPanel({ appId, appName }: LocalBuildPanelProps) {
               )}
             </Button>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* iOS IPA */}
         <Card>
@@ -296,9 +313,9 @@ export function LocalBuildPanel({ appId, appName }: LocalBuildPanelProps) {
               <Smartphone className="h-4 w-4" />
               iOS IPA
             </CardTitle>
-            <CardDescription className="text-xs">
+            {/* <CardDescription className="text-xs">
               Release IPA for App Store
-            </CardDescription>
+            </CardDescription> */}
           </CardHeader>
           <CardContent>
             <Button

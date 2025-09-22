@@ -288,6 +288,8 @@ const validReceiveChannels = [
   "terminal:data",
   "terminal:exit",
   "terminal:error",
+  // Local build streaming
+  "local-build:log",
   // Voice input trigger
   "trigger-voice-input",
 ] as const;
