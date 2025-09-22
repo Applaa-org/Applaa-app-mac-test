@@ -29,8 +29,8 @@ const HubPage: React.FC = () => {
     templates?.filter((template) => !template.isOfficial) || [];
 
   return (
-    <div className="min-h-screen px-8 py-4">
-      <div className="max-w-5xl mx-auto pb-12">
+    <div className="min-h-screen px-8 py-4 flex justify-center">
+      <div className="max-w-5xl w-full pb-12">
         <Button
           onClick={() => router.history.back()}
           variant="outline"

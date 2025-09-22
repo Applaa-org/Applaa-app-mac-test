@@ -302,6 +302,17 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
   const hasLastDeploymentAt = tableInfo.some(col => col.name === 'last_deployment_at');
   const hasDeploymentNotes = tableInfo.some(col => col.name === 'deployment_notes');
   const hasChatContext = tableInfo.some(col => col.name === 'chat_context');
+  const hasEasBuildUrl = tableInfo.some(col => col.name === 'eas_build_url');
+  const hasEasDeploymentUrl = tableInfo.some(col => col.name === 'eas_deployment_url');
+  const hasEasProjectId = tableInfo.some(col => col.name === 'eas_project_id');
+  const hasEasBuildId = tableInfo.some(col => col.name === 'eas_build_id');
+  // Local build file columns
+  const hasLocalApkPath = tableInfo.some(col => col.name === 'local_apk_path');
+  const hasLocalAabPath = tableInfo.some(col => col.name === 'local_aab_path');
+  const hasLocalIpaPath = tableInfo.some(col => col.name === 'local_ipa_path');
+  const hasLocalApkBuiltAt = tableInfo.some(col => col.name === 'local_apk_built_at');
+  const hasLocalAabBuiltAt = tableInfo.some(col => col.name === 'local_aab_built_at');
+  const hasLocalIpaBuiltAt = tableInfo.some(col => col.name === 'local_ipa_built_at');
   
   if (!hasAppType) {
     logger.log("Adding missing app_type column to apps table");
@@ -389,6 +400,68 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
     logger.log("Adding missing chat_context column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN chat_context TEXT").run();
     logger.log("Successfully added chat_context column");
+  }
+  
+  // 🚀 EAS INTEGRATION: Add EAS deployment URL columns
+  if (!hasEasBuildUrl) {
+    logger.log("Adding missing eas_build_url column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_build_url TEXT").run();
+    logger.log("Successfully added eas_build_url column");
+  }
+  
+  if (!hasEasDeploymentUrl) {
+    logger.log("Adding missing eas_deployment_url column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_deployment_url TEXT").run();
+    logger.log("Successfully added eas_deployment_url column");
+  }
+  
+  if (!hasEasProjectId) {
+    logger.log("Adding missing eas_project_id column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_project_id TEXT").run();
+    logger.log("Successfully added eas_project_id column");
+  }
+  
+  if (!hasEasBuildId) {
+    logger.log("Adding missing eas_build_id column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_build_id TEXT").run();
+    logger.log("Successfully added eas_build_id column");
+  }
+  
+  // 🔨 LOCAL BUILD: Add local build file columns
+  if (!hasLocalApkPath) {
+    logger.log("Adding missing local_apk_path column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN local_apk_path TEXT").run();
+    logger.log("Successfully added local_apk_path column");
+  }
+  
+  if (!hasLocalAabPath) {
+    logger.log("Adding missing local_aab_path column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN local_aab_path TEXT").run();
+    logger.log("Successfully added local_aab_path column");
+  }
+  
+  if (!hasLocalIpaPath) {
+    logger.log("Adding missing local_ipa_path column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN local_ipa_path TEXT").run();
+    logger.log("Successfully added local_ipa_path column");
+  }
+  
+  if (!hasLocalApkBuiltAt) {
+    logger.log("Adding missing local_apk_built_at column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN local_apk_built_at INTEGER").run();
+    logger.log("Successfully added local_apk_built_at column");
+  }
+  
+  if (!hasLocalAabBuiltAt) {
+    logger.log("Adding missing local_aab_built_at column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN local_aab_built_at INTEGER").run();
+    logger.log("Successfully added local_aab_built_at column");
+  }
+  
+  if (!hasLocalIpaBuiltAt) {
+    logger.log("Adding missing local_ipa_built_at column to apps table");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN local_ipa_built_at INTEGER").run();
+    logger.log("Successfully added local_ipa_built_at column");
   }
 }
 

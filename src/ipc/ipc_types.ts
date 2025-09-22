@@ -110,6 +110,11 @@ export interface App {
   vercelTeamSlug: string | null;
   vercelDeploymentUrl: string | null;
   githubRepoUrl: string | null;
+  // EAS deployment URLs
+  easBuildUrl: string | null;
+  easDeploymentUrl: string | null;
+  easProjectId: string | null;
+  easBuildId: string | null;
   deploymentStatus: string | null;
   lastDeploymentAt: Date | null;
   deploymentNotes: string | null;
@@ -412,3 +417,83 @@ export interface RevertVersionParams {
 export type RevertVersionResponse =
   | { successMessage: string }
   | { warningMessage: string };
+
+// EAS Integration Types
+export interface EASBuildResult {
+  success: boolean;
+  buildId?: string;
+  buildUrl?: string;
+  publicUrl?: string;
+  qrCode?: string;
+  error?: string;
+  logs?: string[];
+}
+
+export interface EASDeployResult {
+  success: boolean;
+  publicUrl?: string;
+  qrCode?: string;
+  error?: string;
+  logs?: string[];
+}
+
+export interface EASStatus {
+  success: boolean;
+  isLoggedIn: boolean;
+  username?: string;
+  error?: string;
+}
+
+export interface EASProject {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface EASBuildStatus {
+  success: boolean;
+  status?: string;
+  publicUrl?: string;
+  error?: string;
+  logs?: string[];
+}
+
+// URL Management Types
+export interface DeploymentInfo {
+  type: 'vercel' | 'github' | 'eas-build' | 'eas-deployment' | 'local-apk' | 'local-aab' | 'local-ipa';
+  name: string;
+  url: string;
+  projectId?: string;
+  buildId?: string;
+  lastDeploymentAt?: Date;
+}
+
+export interface SaveDeploymentResult {
+  success: boolean;
+  error?: string;
+}
+
+export interface GetDeploymentsResult {
+  success: boolean;
+  deployments?: DeploymentInfo[];
+  error?: string;
+}
+
+export interface DeleteDeploymentResult {
+  success: boolean;
+  error?: string;
+}
+
+// Local Build Types
+export interface LocalBuildResult {
+  success: boolean;
+  buildPath?: string;
+  buildType?: 'apk' | 'ipa' | 'aab';
+  error?: string;
+  logs?: string[];
+}
+
+export interface LocalBuildStatus {
+  isBuilding: boolean;
+  processId: number | null;
+}

@@ -28,6 +28,18 @@ export const apps = sqliteTable("apps", {
   vercelTeamId: text("vercel_team_id"),
   vercelDeploymentUrl: text("vercel_deployment_url"),
   githubRepoUrl: text("github_repo_url"),
+  // EAS deployment URLs
+  easBuildUrl: text("eas_build_url"),
+  easDeploymentUrl: text("eas_deployment_url"),
+  easProjectId: text("eas_project_id"),
+  easBuildId: text("eas_build_id"),
+  // Local build files
+  localApkPath: text("local_apk_path"),
+  localAabPath: text("local_aab_path"),
+  localIpaPath: text("local_ipa_path"),
+  localApkBuiltAt: integer("local_apk_built_at", { mode: "timestamp" }),
+  localAabBuiltAt: integer("local_aab_built_at", { mode: "timestamp" }),
+  localIpaBuiltAt: integer("local_ipa_built_at", { mode: "timestamp" }),
   deploymentStatus: text("deployment_status").default("not_deployed"),
   lastDeploymentAt: integer("last_deployment_at", { mode: "timestamp" }),
   deploymentNotes: text("deployment_notes"),

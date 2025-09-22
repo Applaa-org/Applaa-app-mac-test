@@ -31,6 +31,7 @@ export const TitleBar = () => {
   const { settings, refreshSettings } = useSettings();
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [showWindowControls, setShowWindowControls] = useState(false);
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const { app } = useRunApp();
 
   useEffect(() => {
@@ -121,12 +122,14 @@ export const TitleBar = () => {
         </Button>
         {hasApplaaProKey && <ApplaaProButton isApplaaProEnabled={isApplaaProEnabled} />}
 
-
-
         {/* Preview Header */}
         {location.pathname === "/chat" && (
           <div className="flex-1 flex justify-end">
-            <PreviewHeader isExpoApp={isExpoApp} />
+            <PreviewHeader 
+              isExpoApp={isExpoApp} 
+              isLeftPanelOpen={isLeftPanelOpen}
+              onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+            />
           </div>
         )}
 

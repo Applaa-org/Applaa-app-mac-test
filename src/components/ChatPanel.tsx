@@ -11,14 +11,10 @@ import { ChatError } from "./chat/ChatError";
 
 interface ChatPanelProps {
   chatId?: number;
-  isPreviewOpen: boolean;
-  onTogglePreview: () => void;
 }
 
 export function ChatPanel({
   chatId,
-  isPreviewOpen,
-  onTogglePreview,
 }: ChatPanelProps) {
   const [messages, setMessages] = useAtom(chatMessagesAtom);
   const [isVersionPaneOpen, setIsVersionPaneOpen] = useState(false);
@@ -118,8 +114,6 @@ export function ChatPanel({
     <div className="flex flex-col h-full">
       <ChatHeader
         isVersionPaneOpen={isVersionPaneOpen}
-        isPreviewOpen={isPreviewOpen}
-        onTogglePreview={onTogglePreview}
         onVersionClick={() => setIsVersionPaneOpen(!isVersionPaneOpen)}
       />
       <div className="flex flex-1 overflow-hidden">

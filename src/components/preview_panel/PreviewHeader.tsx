@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue } from "jotai";
-import { previewModeAtom, selectedAppIdAtom } from "../../atoms/appAtoms";
+import { previewModeAtom, selectedAppIdAtom, showConfigurePanelAtom } from "../../atoms/appAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useCheckProblems } from "@/hooks/useCheckProblems";
 
@@ -9,11 +9,11 @@ import {
   MoreVertical,
   Cog,
   Trash2,
-  AlertTriangle,
-  Wrench,
   Globe,
   TestTube,
   Palette,
+  PanelLeftOpen,
+  PanelLeftClose,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -40,15 +40,24 @@ export type PreviewMode =
   | "preview"
   | "code"
   | "problems"
-  | "configure"
   | "publish"
   | "testing";
 
 const BUTTON_CLASS_NAME =
   "no-app-region-drag cursor-pointer relative flex items-center gap-1 px-2 py-1 rounded-md text-[13px] font-medium z-10 hover:bg-[var(--background)]";
 
+interface PreviewHeaderProps {
+  isExpoApp?: boolean;
+  isLeftPanelOpen?: boolean;
+  onToggleLeftPanel?: () => void;
+}
+
 // Preview Header component with preview mode toggle
-export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) => {
+export const PreviewHeader = ({ 
+  isExpoApp = false, 
+  isLeftPanelOpen = true, 
+  onToggleLeftPanel = () => {} 
+}: PreviewHeaderProps) => {
   const [previewMode, setPreviewMode] = useAtom(previewModeAtom);
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
   const selectedAppId = useAtomValue(selectedAppIdAtom);
@@ -56,13 +65,13 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
   const previewRef = useRef<HTMLButtonElement>(null);
   const codeRef = useRef<HTMLButtonElement>(null);
   const problemsRef = useRef<HTMLButtonElement>(null);
-  const configureRef = useRef<HTMLButtonElement>(null);
   const publishRef = useRef<HTMLButtonElement>(null);
   const testingRef = useRef<HTMLButtonElement>(null);
   const designRef = useRef<HTMLButtonElement>(null);
 
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [showConfigurePanel, setShowConfigurePanel] = useAtom(showConfigurePanelAtom);
 
   const { restartApp, refreshAppIframe } = useRunApp();
 
@@ -79,12 +88,8 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
   }, []);
 
   const selectPanel = (panel: PreviewMode) => {
-    if (previewMode === panel) {
-      setIsPreviewOpen(!isPreviewOpen);
-    } else {
-      setPreviewMode(panel);
-      setIsPreviewOpen(true);
-    }
+    setPreviewMode(panel);
+    setIsPreviewOpen(true);
   };
 
   const onCleanRestart = useCallback(() => {
@@ -126,12 +131,6 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
           break;
         case "code":
           targetRef = codeRef;
-          break;
-        case "problems":
-          targetRef = problemsRef;
-          break;
-        case "configure":
-          targetRef = configureRef;
           break;
         case "publish":
           targetRef = publishRef;
@@ -225,33 +224,14 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
             "Preview",
             "preview-mode-button",
           )}
-          {renderButton(
-            "problems",
-            problemsRef,
-            <AlertTriangle size={14} />,
-            "Problems",
-            "problems-mode-button",
-            problemReport?.problems?.length ? (
-              <span className="ml-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                {problemReport.problems.length}
-              </span>
-            ) : undefined,
-          )}
-          {renderButton(
+          {/* {renderButton(
             "code",
             codeRef,
             <Code size={14} />,
             "Code",
             "code-mode-button",
-          )}
+          )} */}
 
-          {renderButton(
-            "configure",
-            configureRef,
-            <Wrench size={14} />,
-            "Configure",
-            "configure-mode-button",
-          )}
           {renderButton(
             "publish",
             publishRef,
@@ -259,16 +239,16 @@ export const PreviewHeader = ({ isExpoApp = false }: { isExpoApp?: boolean }) =>
             "Publish",
             "publish-mode-button",
           )}
-          {renderButton(
+          {/* {renderButton(
             "testing",
             testingRef,
             <TestTube size={14} />,
             "Testing",
             "testing-mode-button",
-          )}
+          )} */}
           {/* Design button removed for MVP */}
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

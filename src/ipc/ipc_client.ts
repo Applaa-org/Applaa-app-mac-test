@@ -18,6 +18,11 @@ import type {
   Message,
   Version,
   SystemDebugInfo,
+  EASStatus,
+  EASBuildResult,
+  EASDeployResult,
+  EASProject,
+  EASBuildStatus,
   LocalModel,
   TokenCountParams,
   TokenCountResult,
@@ -2598,10 +2603,118 @@ export class IpcClient {
     return this.ipcRenderer.invoke("hermetic-runtime:ensure-pnpm");
   }
 
+  // EAS Integration Methods
+  public async getEASStatus(): Promise<EASStatus> {
+    return this.ipcRenderer.invoke("eas:status");
+  }
+
+  public async loginToEAS(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("eas:login");
+  }
+
+  public async loginToEASWithToken(params: {
+    token: string;
+  }): Promise<{ success: boolean; username?: string; error?: string }> {
+    return this.ipcRenderer.invoke("eas:login-token", params);
+  }
+
+  public async buildWithEAS(params: {
+    appId: number;
+    platform?: "all" | "ios" | "android";
+  }): Promise<EASBuildResult> {
+    return this.ipcRenderer.invoke("eas:build", params);
+  }
+
+  public async deployWithEAS(params: {
+    appId: number;
+  }): Promise<EASDeployResult> {
+    return this.ipcRenderer.invoke("eas:deploy", params);
+  }
+
+  public async getEASBuildStatus(params: {
+    buildId: string;
+  }): Promise<EASBuildStatus> {
+    return this.ipcRenderer.invoke("eas:build-status", params);
+  }
+
+  public async listEASProjects(): Promise<{
+    success: boolean;
+    projects: EASProject[];
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("eas:list-projects");
+  }
+
+  public async checkEASAppReadiness(params: {
+    appId: number;
+  }): Promise<{
+    success: boolean;
+    isExpoApp?: boolean;
+    isEASConfigured?: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("eas:check-app-readiness", params);
+  }
+
+  public async checkEASKeystores(params: {
+    appId: number;
+  }): Promise<{ success: boolean; android?: boolean; ios?: boolean; both?: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("eas:check-keystores", params);
+  }
+
+  public async setupEASKeystores(params: {
+    appId: number;
+    platforms: string[];
+  }): Promise<{ success: boolean; results?: Array<{ platform: string; success: boolean; error?: string }>; message?: string; error?: string }> {
+    return this.ipcRenderer.invoke("eas:setup-keystores", params);
+  }
+
+  // Local Build Methods
+  public async buildAndroidAPK(params: { appId: number }): Promise<LocalBuildResult> {
+    return this.ipcRenderer.invoke("local-build:android-apk", params);
+  }
+
+  public async buildAndroidAAB(params: { appId: number }): Promise<LocalBuildResult> {
+    return this.ipcRenderer.invoke("local-build:android-aab", params);
+  }
+
+  public async buildIOSIPA(params: { appId: number }): Promise<LocalBuildResult> {
+    return this.ipcRenderer.invoke("local-build:ios-ipa", params);
+  }
+
+  public async getLocalBuildStatus(): Promise<LocalBuildStatus> {
+    return this.ipcRenderer.invoke("local-build:status");
+  }
+
+  public async cancelLocalBuild(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("local-build:cancel");
+  }
 
 
+  // URL Management
+  public async saveDeploymentUrl(params: {
+    appId: number;
+    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment';
+    url: string;
+    projectId?: string;
+    buildId?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("url:save-deployment", params);
+  }
 
+  public async getDeploymentUrls(params: {
+    appId: number;
+  }): Promise<{ success: boolean; deployments?: Array<{ type: string; name: string; url: string; projectId?: string; buildId?: string; lastDeploymentAt?: Date }>; error?: string }> {
+    return this.ipcRenderer.invoke("url:get-deployments", params);
+  }
 
+  public async deleteDeploymentUrl(params: {
+    appId: number;
+    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment';
+  }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("url:delete-deployment", params);
+  }
 }
 
 // Export singleton instance

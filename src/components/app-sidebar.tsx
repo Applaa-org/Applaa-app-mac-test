@@ -37,20 +37,18 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import { UserDropdown } from "@/components/UserDropdown";
 // import { UserProfile } from "@/components/auth/UserProfile";
 
-// Menu items with custom Applaa-themed icons.
+// Menu items with dynamic colors - blue for active, gray for inactive
 const items = [
   {
     title: "Apps",
     to: "/",
     icon: Sparkles, // AI magic for app creation
-    gradient: "from-purple-500 to-pink-500",
   },
   // 🚀 MVP: Chat tab removed - chat is integrated within each app context
   // {
   //   title: "Chat",
   //   to: "/chat", 
   //   icon: MessageSquareCode, // Code-focused chat
-  //   gradient: "from-blue-500 to-cyan-500",
   // },
   // {
   //   title: "Library",
@@ -62,19 +60,16 @@ const items = [
     title: "Settings",
     to: "/settings",
     icon: Sliders, // More modern settings icon
-    gradient: "from-gray-500 to-gray-600",
   },
   {
     title: "Hub",
     to: "/hub",
     icon: Zap, // Energy/power for marketplace
-    gradient: "from-orange-500 to-red-500",
   },
   {
     title: "Docs",
     to: "/docs",
     icon: BookOpenText,
-    gradient: "from-emerald-500 to-teal-500",
   },
 ];
 
@@ -125,6 +120,8 @@ export function AppSidebar() {
     routerState.location.pathname.startsWith("/app-details");
   const isChatRoute = routerState.location.pathname === "/chat";
   const isSettingsRoute = routerState.location.pathname.startsWith("/settings");
+  const isHubRoute = routerState.location.pathname.startsWith("/hub");
+  const isDocsRoute = routerState.location.pathname.startsWith("/docs");
 
   let selectedItem: string | null = null;
   if (hoverState === "start-hover:app") {
@@ -140,12 +137,23 @@ export function AppSidebar() {
       selectedItem = "Chat";
     } else if (isSettingsRoute) {
       selectedItem = "Settings";
+    } else if (isHubRoute) {
+      selectedItem = "Hub";
+    } else if (isDocsRoute) {
+      selectedItem = "Docs";
     }
   }
 
+  // Determine if sidebar should be expanded (18rem) or collapsed (5rem)
+  const shouldExpand = selectedItem === "Apps" || selectedItem === "Settings";
+  
   return (
     <Sidebar
       collapsible="icon"
+      style={{
+        '--sidebar-width': shouldExpand ? '18rem' : '5rem',
+        '--sidebar-width-icon': '5rem'
+      } as React.CSSProperties}
       onMouseLeave={() => {
         if (!isDropdownOpen) {
           setHoverState("clear-hover");
@@ -163,13 +171,15 @@ export function AppSidebar() {
             />
             <AppIcons onHoverChange={setHoverState} />
           </div>
-          {/* Right Column: Chat List Section */}
-          <div className="w-[240px] flex flex-col min-h-0 flex-1">
-            <AppList show={selectedItem === "Apps"} />
-            {/* 🚀 MVP: ChatList removed - chat integrated within apps */}
-            {/* <ChatList show={selectedItem === "Chat"} /> */}
-            <SettingsList show={selectedItem === "Settings"} />
-          </div>
+          {/* Right Column: Content Section - only show when there's content to display */}
+          {(selectedItem === "Apps" || selectedItem === "Settings") && (
+            <div className="w-[240px] flex flex-col min-h-0 flex-1">
+              <AppList show={selectedItem === "Apps"} />
+              {/* 🚀 MVP: ChatList removed - chat integrated within apps */}
+              {/* <ChatList show={selectedItem === "Chat"} /> */}
+              <SettingsList show={selectedItem === "Settings"} />
+            </div>
+          )}
         </div>
       </SidebarContent>
 
@@ -189,11 +199,7 @@ export function AppSidebar() {
                   }
                 }}
               >
-                <div className={`p-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 ${
-                  isAuthenticated 
-                    ? "bg-gradient-to-r from-green-500 to-emerald-500" 
-                    : "bg-gradient-to-r from-blue-500 to-purple-500"
-                }`}>
+                <div className="p-2 rounded-xl bg-gradient-to-r from-gray-500 to-gray-600 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
                   {isAuthenticated ? (
                     <User className="h-5 w-5 text-white" />
                   ) : (
@@ -217,7 +223,7 @@ export function AppSidebar() {
                 className="font-medium w-14 h-auto flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl"
                 onClick={() => setIsHelpDialogOpen(true)}
               >
-                <div className="p-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
+                <div className="p-2 rounded-xl bg-gradient-to-r from-gray-500 to-gray-600 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
                   <HelpCircle className="h-5 w-5 text-white" />
                 </div>
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
@@ -278,7 +284,7 @@ function AppIcons({
                   <Link
                     to={item.to}
                     className={`flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                      isActive ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20" : ""
+                      isActive ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20" : ""
                     }`}
                     onMouseEnter={() => {
                       if (item.title === "Apps") {
@@ -291,10 +297,18 @@ function AppIcons({
                     }}
                   >
                     <div className="flex flex-col items-center gap-1">
-                      <div className={`p-2 rounded-xl bg-gradient-to-r ${item.gradient} shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105`}>
+                      <div className={`p-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 ${
+                        isActive 
+                          ? "bg-gradient-to-r from-blue-500 to-blue-600" 
+                          : "bg-gradient-to-r from-gray-500 to-gray-600"
+                      }`}>
                         <item.icon className="h-5 w-5 text-white" />
                       </div>
-                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      <span className={`text-xs font-medium whitespace-nowrap ${
+                        isActive 
+                          ? "text-blue-700 dark:text-blue-300" 
+                          : "text-gray-700 dark:text-gray-300"
+                      }`}>
                         {item.title}
                       </span>
                     </div>

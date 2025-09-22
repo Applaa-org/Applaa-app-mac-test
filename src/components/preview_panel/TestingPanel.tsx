@@ -64,7 +64,7 @@ export function TestingPanel() {
   // Show the actual testing panel when app is running
   return (
     <div className="h-full p-4 overflow-y-auto">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <AppTestingPanel 
           appId={selectedAppId} 
           appUrl={appUrl} 

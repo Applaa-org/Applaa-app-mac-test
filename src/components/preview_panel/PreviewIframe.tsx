@@ -676,7 +676,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
 
           {/* Web Deployment Group */}
           <div className="flex items-center space-x-1">
-            <button
+            {/* <button
               onClick={handlePublish}
               disabled={publishState.isPushing}
               className="flex items-center space-x-1 px-3 py-1 rounded-md text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
@@ -695,7 +695,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
                   : "Publish"
                 }
               </span>
-            </button>
+            </button> */}
 
             {/* GitHub & Vercel Icons (shown after successful publish) */}
             {savedUrls.githubRepoUrl && (

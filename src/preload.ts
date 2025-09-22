@@ -245,6 +245,26 @@ const validInvokeChannels = [
   // We can't detect with IS_TEST_BUILD in the preload script because
   // it's a separate process from the main process.
   "supabase:fake-connect-and-set-project",
+  
+  // EAS Integration channels
+  "eas:status",
+  "eas:login",
+  "eas:login-token",
+  "eas:build",
+  "eas:deploy",
+  "eas:build-status",
+  "eas:list-projects",
+  "eas:check-app-readiness",
+  "eas:check-keystores",
+  "eas:setup-keystores",
+  "url:save-deployment",
+  "url:get-deployments",
+  "url:delete-deployment",
+  "local-build:android-apk",
+  "local-build:android-aab",
+  "local-build:ios-ipa",
+  "local-build:status",
+  "local-build:cancel",
 ];
 
 // Add valid receive channels
@@ -268,6 +288,8 @@ const validReceiveChannels = [
   "terminal:data",
   "terminal:exit",
   "terminal:error",
+  // Local build streaming
+  "local-build:log",
   // Voice input trigger
   "trigger-voice-input",
 ] as const;

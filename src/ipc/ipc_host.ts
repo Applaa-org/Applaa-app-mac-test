@@ -37,8 +37,8 @@ import { registerProblemsHandlers } from "./handlers/problems_handlers";
 import { registerAppEnvVarsHandlers } from "./handlers/app_env_vars_handlers";
 import { registerTemplateHandlers } from "./handlers/template_handlers";
 import { registerPortalHandlers } from "./handlers/portal_handlers";
-import { registerExpoHandlers } from "./handlers/expo_handlers";
-import { registerDualExpoHandlers } from "./handlers/expo_dual_handlers";
+// import { registerExpoHandlers } from "./handlers/expo_handlers"; // unused when unified preview is active
+// import { registerDualExpoHandlers } from "./handlers/expo_dual_handlers"; // unused when unified preview is active
 import { registerSimpleExpoHandlers } from "./handlers/simple_expo_handlers";
 import { registerUnifiedExpoPreview } from "./handlers/unified_expo_preview";
 import { registerIntelligentPreviewSystem } from "./handlers/intelligent_preview_system";
@@ -59,6 +59,9 @@ import { registerAssetStorageHandlers } from "./handlers/asset_storage_handlers"
 import { registerBackgroundDependencyInstaller } from "./handlers/background_dependency_installer";
 import { registerFeatureInstaller } from "./handlers/feature_installer";
 import { registerParallelPrebuildSystem } from "./handlers/parallel_prebuild_system";
+import { registerEASHandlers } from "./handlers/eas_handlers";
+import { registerURLHandlers } from "./handlers/url_handlers";
+import { registerLocalBuildHandlers } from "./handlers/local_build_handlers";
 
 
 export function registerIpcHandlers() {
@@ -106,6 +109,11 @@ export function registerIpcHandlers() {
   // registerDualExpoHandlers(); // DISABLED - conflicts with unified system  
   registerSimpleExpoHandlers(); // ✅ ENABLED - Required for frontend compatibility
   registerUnifiedExpoPreview(); // ✅ ACTIVE - Single, optimized preview system
+
+  // Legacy EXPO PREVIEW option (commented; keep for quick toggle)
+  // registerExpoHandlers(); // ✅ ACTIVE - Main expo handlers
+  // registerSimpleExpoHandlers(); // ✅ ACTIVE - Simple expo handlers for frontend compatibility
+  // registerUnifiedExpoPreview(); // ✅ ACTIVE - Unified preview system
   // registerIntelligentPreviewSystem(); // DISABLED - conflicts with unified system
   registerExpoPerformanceMonitor();
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
@@ -125,6 +133,13 @@ export function registerIpcHandlers() {
   registerParallelAppCreationHandlers();
   // Design generation handlers removed for MVP
   registerAssetStorageHandlers();
+  
+  // 🚀 EAS Integration for Mobile App Deployment
+  registerEASHandlers();
+  registerURLHandlers();
+  
+  // 🔨 Local Build System for APK/IPA generation
+  registerLocalBuildHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

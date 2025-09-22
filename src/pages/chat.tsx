@@ -7,21 +7,27 @@ import {
 } from "react-resizable-panels";
 import { ChatPanel } from "../components/ChatPanel";
 import { PreviewPanel } from "../components/preview_panel/PreviewPanel";
+import { CodeView } from "../components/preview_panel/CodeView";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { isPreviewOpenAtom } from "@/atoms/viewAtoms";
 import { useChats } from "@/hooks/useChats";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
+import { useRunApp } from "@/hooks/useRunApp";
+import { MessageSquare, Code } from "lucide-react";
 
 export default function ChatPage() {
   let { id: chatId } = useSearch({ from: "/chat" });
   const navigate = useNavigate();
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
   const [isResizing, setIsResizing] = useState(false);
+  const [leftPanelView, setLeftPanelView] = useState<"chat" | "code">("chat");
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const setSelectedAppId = useSetAtom(selectedAppIdAtom);
   const { chats, loading } = useChats(selectedAppId);
+  const { loading: appLoading, app } = useRunApp();
 
   useEffect(() => {
     if (!chatId && chats.length && !loading) {
@@ -39,24 +45,62 @@ export default function ChatPage() {
       ref.current?.collapse();
     }
   }, [isPreviewOpen]);
+
+  useEffect(() => {
+    if (isLeftPanelOpen) {
+      leftPanelRef.current?.expand();
+    } else {
+      leftPanelRef.current?.collapse();
+    }
+  }, [isLeftPanelOpen]);
+
   const ref = useRef<ImperativePanelHandle>(null);
+  const leftPanelRef = useRef<ImperativePanelHandle>(null);
 
   return (
     <PanelGroup autoSaveId="persistence" direction="horizontal">
-      <Panel id="chat-panel" minSize={30}>
-        <div className="h-full w-full">
-          <ChatPanel
-            chatId={chatId}
-            isPreviewOpen={isPreviewOpen}
-            onTogglePreview={() => {
-              setIsPreviewOpen(!isPreviewOpen);
-              if (isPreviewOpen) {
-                ref.current?.collapse();
-              } else {
-                ref.current?.expand();
-              }
-            }}
-          />
+      <Panel id="left-panel" minSize={30} ref={leftPanelRef} collapsible>
+        <div className="h-full w-full flex flex-col">
+          {/* Toggle Header */}
+          <div className="flex items-center border-b border-border bg-background px-4 py-1">
+            <div className="flex rounded-md p-1 bg-muted">
+              <button
+                onClick={() => setLeftPanelView("chat")}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-sm text-sm font-medium transition-colors",
+                  leftPanelView === "chat"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <MessageSquare size={16} />
+                Chat
+              </button>
+              <button
+                onClick={() => setLeftPanelView("code")}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-sm text-sm font-medium transition-colors",
+                  leftPanelView === "code"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Code size={16} />
+                Code
+              </button>
+            </div>
+          </div>
+          
+          {/* Content Area */}
+          <div className="flex-1 overflow-hidden">
+            {leftPanelView === "chat" ? (
+              <ChatPanel
+                chatId={chatId}
+              />
+            ) : (
+              <CodeView loading={appLoading} app={app} />
+            )}
+          </div>
         </div>
       </Panel>
 
@@ -74,7 +118,10 @@ export default function ChatPage() {
             !isResizing && "transition-all duration-100 ease-in-out",
           )}
         >
-          <PreviewPanel />
+          <PreviewPanel 
+            isLeftPanelOpen={isLeftPanelOpen}
+            onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+          />
         </Panel>
       </>
     </PanelGroup>
