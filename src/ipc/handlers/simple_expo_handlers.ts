@@ -612,23 +612,53 @@ export function registerSimpleExpoHandlers() {
       expoStatus.terminalOutput += portMessage;
       log.log(`✅ ${portMessage.trim()}`);
 
+      // Install ngrok globally if tunnel mode is requested
+      if (useTunnel) {
+        log.log("🚇 Installing @expo/ngrok globally for tunnel support...");
+        expoStatus.terminalOutput += "Installing tunnel dependencies...\n";
+        
+        try {
+          const { spawn } = require('child_process');
+          const installNgrok = spawn('npm', ['install', '-g', '@expo/ngrok@^4.1.0'], {
+            stdio: 'pipe'
+          });
+          
+          await new Promise((resolve, reject) => {
+            installNgrok.on('close', (code: number) => {
+              if (code === 0) {
+                log.log("✅ @expo/ngrok installed successfully");
+                expoStatus.terminalOutput += "✅ Tunnel dependencies installed\n";
+                resolve(true);
+              } else {
+                log.warn("⚠️ Failed to install @expo/ngrok, falling back to localhost mode");
+                expoStatus.terminalOutput += "⚠️ Tunnel setup failed, using localhost mode\n";
+                resolve(false);
+              }
+            });
+            installNgrok.on('error', reject);
+          });
+        } catch (e) {
+          log.warn("⚠️ Error installing ngrok:", e);
+          expoStatus.terminalOutput += "⚠️ Tunnel setup failed, using localhost mode\n";
+        }
+      }
+
       // Build command with SUPPORTED anti-interactive flags only
       const args = [
         "expo", "start", 
         "--clear",
         "--web",
-        `--port=${finalPort}`        // 🎯 Explicit port prevents "Use port 8082 instead?" prompt
-        // Removed unsupported flags: --non-interactive, --no-install, --offline, --minify
-        // Using environment variables instead (CI=1, etc.)
+        "--port", finalPort.toString(),  // 🎯 Explicit port prevents "Use port 8082 instead?" prompt
+        "--non-interactive"              // 🎯 Prevent interactive prompts
       ];
       
-      // Use tunnel by default for consistent external access
+      // Use tunnel mode for public access through Expo Go
       if (useTunnel) {
         args.push("--tunnel");
-        log.log("🚇 Using tunnel mode for consistent access");
+        log.log("🚇 Using tunnel mode for public access");
       } else {
         args.push("--localhost");
-        log.log("🏠 Using localhost mode");
+        log.log("🏠 Using localhost mode (local network only)");
       }
 
       log.log(`🚀 Starting Expo: npx ${args.join(" ")}`);
@@ -646,6 +676,9 @@ export function registerSimpleExpoHandlers() {
           // Metro server configuration
           RCT_METRO_PORT: String(finalPort),   // Explicit Metro port
           REACT_NATIVE_PACKAGER_HOSTNAME: '0.0.0.0',
+          // Prevent ngrok installation prompts
+          EXPO_NO_WEB_SETUP: '1',          // Skip web setup prompts
+          CI: '1',                         // Non-interactive mode
           // Additional non-interactive safeguards
       EXPO_NO_DOTENV: '1',                 // Skip .env prompts
       EXPO_NO_GIT_STATUS: '1',             // Skip git status checks
