@@ -1014,6 +1014,17 @@ export class IpcClient {
     });
   }
 
+  // Auto push entire working tree to GitHub (uses main-process handler)
+  public async autoPushToGithub(params: {
+    appId: number;
+    githubToken: string;
+    githubUsername: string;
+    repoName: string;
+    appPath: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("github:auto-push", params);
+  }
+
   public async disconnectGithubRepo(appId: number): Promise<void> {
     await this.ipcRenderer.invoke("github:disconnect", {
       appId,

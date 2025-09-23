@@ -10,6 +10,9 @@ import { AUTOPUSH_CONFIG } from "@/config/autopush.config";
 import { toast } from "sonner";
 import { useAtom } from "jotai";
 import { globalPublishStateAtom } from "@/atoms/appAtoms";
+import log from "electron-log";
+
+const logger = log.scope("AutoPush");
 
 interface AutoPushProps {
   appId: number | null;
@@ -43,10 +46,10 @@ async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array
         .split('\n')
         .map(line => line.trim())
         .filter(line => line && !line.startsWith('#'));
-      console.log(`📁 Found .gitignore with ${gitignorePatterns.length} patterns`);
+      logger.info(`📁 Found .gitignore with ${gitignorePatterns.length} patterns`);
     }
   } catch (error) {
-    console.log(`📁 No .gitignore file found or could not read it`);
+    logger.info(`📁 No .gitignore file found or could not read it`);
   }
   
   // Try to read files using fetch (if they're served by a local server)
@@ -607,150 +610,26 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         throw new Error("App not found");
       }
 
-          // Try to read actual files or use fallback
-          const filesToUpload = await readAppFilesWithoutIPC(currentApp, repoName);
-          
-          // Add Vercel configuration files
-          const vercelConfig = {
-            path: "vercel.json",
-            content: JSON.stringify({
-              "version": 2,
-              "builds": [
-                {
-                  "src": "package.json",
-                  "use": "@vercel/static-build",
-                  "config": {
-                    "distDir": "dist"
-                  }
-                }
-              ],
-              "routes": [
-                {
-                  "src": "/(.*)",
-                  "dest": "/index.html"
-                }
-              ]
-            }, null, 2)
-          };
-          
-          const packageJson = {
-            path: "package.json",
-            content: JSON.stringify({
-              "name": repoName,
-              "version": "1.0.0",
-              "scripts": {
-                "build": "npm run build:web",
-                "build:web": "vite build",
-                "dev": "vite dev",
-                "preview": "vite preview"
-              },
-              "dependencies": {
-                "react": "^18.2.0",
-                "react-dom": "^18.2.0"
-              },
-              "devDependencies": {
-                "vite": "^4.4.0",
-                "@vitejs/plugin-react": "^4.0.0"
-              }
-            }, null, 2)
-          };
-          
-          // Add our proper configuration files (only if they don't already exist)
-          const existingPaths = filesToUpload.map(f => f.path);
-          if (!existingPaths.includes("vercel.json")) {
-            filesToUpload.push(vercelConfig);
-          }
-          if (!existingPaths.includes("package.json")) {
-            filesToUpload.push(packageJson);
-          }
+      // Use main-process auto push to push the entire working tree reliably
+      console.log("📝 Setting progress message: Preparing full repo push...");
+      setProgressMessage("Preparing full repo push...");
 
+      const autoPushResult = await IpcClient.getInstance().autoPushToGithub({
+        appId: currentApp.id,
+        githubToken,
+        githubUsername,
+        repoName,
+        appPath: currentApp.path,
+      });
 
-      // Upload all files directly to GitHub
-      console.log("📝 Setting progress message: Uploading files to GitHub...");
-      setProgressMessage("Uploading files to GitHub...");
-      // No need to set isUploading - we'll check uploadProgress.current < uploadProgress.total
-      
-      let uploadedCount = 0;
-      const totalFiles = filesToUpload.length;
-      console.log(`📁 Setting upload progress: 0/${totalFiles}`);
-      setUploadProgress({ current: 0, total: totalFiles });
-      
-      console.log(`📁 Starting upload of ${totalFiles} files...`);
-      
-      // Upload files one by one to avoid rate limiting
-      for (let i = 0; i < filesToUpload.length; i++) {
-        const file = filesToUpload[i];
-        
-        try {
-          console.log(`📁 Uploading ${i + 1}/${totalFiles}: ${file.path}`);
-          setProgressMessage(`Uploading ${i + 1}/${totalFiles}: ${file.path}`);
-          console.log(`📁 Setting upload progress: ${i + 1}/${totalFiles}`);
-          setUploadProgress({ current: i + 1, total: totalFiles });
-          console.log("🔍 After setUploadProgress, publishState:", publishState);
-          
-          // Add a small delay to make progress visible in UI
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-          // Check if file exists first to get SHA for updates
-          let fileSha = null;
-          try {
-            const checkResponse = await fetch(`https://api.github.com/repos/${githubUsername}/${repoName}/contents/${file.path}`, {
-              method: "GET",
-              headers: {
-                Authorization: `token ${githubToken}`,
-                Accept: "application/vnd.github.v3+json",
-              },
-            });
-            if (checkResponse.ok) {
-              const fileData = await checkResponse.json();
-              fileSha = fileData.sha;
-            }
-          } catch (checkError) {
-            console.warn(`Could not check if file exists: ${file.path}`);
-          }
-          
-          const uploadPayload: any = {
-            message: fileSha ? `Update ${file.path}` : `Add ${file.path}`,
-            content: btoa(unescape(encodeURIComponent(file.content))),
-          };
-          
-          if (fileSha) {
-            uploadPayload.sha = fileSha;
-          }
-          
-          const response = await fetch(`https://api.github.com/repos/${githubUsername}/${repoName}/contents/${file.path}`, {
-            method: "PUT",
-            headers: {
-              Authorization: `token ${githubToken}`,
-              Accept: "application/vnd.github.v3+json",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(uploadPayload),
-          });
-
-          if (response.ok) {
-            uploadedCount++;
-            console.log(`✅ Uploaded: ${file.path}`);
-            // Add a small delay to make progress visible in UI
-            await new Promise(resolve => setTimeout(resolve, 50));
-          } else {
-            const errorData = await response.json();
-            console.error(`❌ Failed to upload ${file.path}:`, errorData);
-          }
-        } catch (error: any) {
-          console.error(`❌ Error uploading ${file.path}:`, error.message);
-        }
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200));
+      if (!autoPushResult.success) {
+        throw new Error(autoPushResult.error || "Auto push failed");
       }
-      
-      console.log(`📊 Upload complete: ${uploadedCount}/${totalFiles} files uploaded successfully`);
-      
+
       // Show completion message
-      setProgressMessage(`Successfully pushed to GitHub! Uploaded ${uploadedCount} files. Repository: https://github.com/${githubUsername}/${repoName}`);
-      // Set upload progress to completed (current = total)
-      setUploadProgress({ current: totalFiles, total: totalFiles });
+      setProgressMessage(`Successfully pushed to GitHub! Repository: https://github.com/${githubUsername}/${repoName}`);
+      // Mark upload progress as complete (no per-file count in full push mode)
+      setUploadProgress({ current: 1, total: 1 });
 
       // 3. Deploy to Vercel if requested
       let vercelUrl = "";
@@ -899,7 +778,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       }
 
       // Success!
-      let successMsg = `✅ Successfully pushed to GitHub! Uploaded ${uploadedCount} files. Repository: ${githubRepoUrl}`;
+      let successMsg = `✅ Successfully pushed to GitHub! Repository: ${githubRepoUrl}`;
       if (vercelUrl) {
         if (vercelUrl.includes("Deployment in progress")) {
           successMsg += `\n🚀 Vercel deployment triggered!`;
