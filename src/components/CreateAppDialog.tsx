@@ -21,7 +21,6 @@ import { useRouter } from "@tanstack/react-router";
 import { Loader2, Sparkles } from "lucide-react";
 import { neonTemplateHook } from "@/client_logic/template_hook";
 import { showError } from "@/lib/toast";
-import { generateCuteAppName } from "@/lib/utils";
 
 interface CreateAppDialogProps {
   open: boolean;
@@ -51,13 +50,7 @@ export function CreateAppDialog({
   };
 
 
-  // Set random name when dialog opens
-  useEffect(() => {
-    if (open && !appName) {
-      const randomName = generateCuteAppName();
-      setAppName(randomName);
-    }
-  }, [open, appName]);
+  // No auto-generated name suggestions
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 

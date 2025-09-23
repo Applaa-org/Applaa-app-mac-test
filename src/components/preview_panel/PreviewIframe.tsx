@@ -744,11 +744,21 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
         />
 
         {!appUrl ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-gray-50 dark:bg-gray-950">
-            <Loader2 className="w-8 h-8 animate-spin text-gray-400 dark:text-gray-500" />
-            <p className="text-gray-600 dark:text-gray-300">
-              Starting your app server...
-            </p>
+          <div className="absolute inset-0">
+            {/* Temporary game while preview initializes */}
+            <iframe
+              title="Loading game while preview starts"
+              className="w-full h-full border-none bg-white dark:bg-gray-950"
+              src="https://memory-card-game-nu-ecru.vercel.app/"
+              allow="fullscreen; autoplay; picture-in-picture"
+              referrerPolicy="no-referrer"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
+            />
+            {/* Status overlay */}
+            <div className="absolute top-3 left-3 flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-900/70 text-white text-xs shadow">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Starting your app preview... enjoy a quick game meanwhile</span>
+            </div>
           </div>
         ) : (
           <iframe

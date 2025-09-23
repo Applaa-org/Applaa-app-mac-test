@@ -68,7 +68,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [showConfigurePanel, setShowConfigurePanel] = useAtom(showConfigurePanelAtom);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [showProblemsPanel, setShowProblemsPanel] = useState(false);
-  const { runApp, stopApp, loading, app } = useRunApp();
+  const { runApp, stopApp, loading, app, refreshAppIframe, restartApp } = useRunApp();
   const { problemReport } = useCheckProblems(selectedAppId);
   
   // Detect if this is an Expo app based on files
@@ -116,10 +116,13 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
       // Start the new app if an ID is selected
       if (selectedAppId !== null) {
         console.debug("Starting new app", selectedAppId);
+        // Force refresh the preview iframe when switching apps
+        refreshAppIframe();
         // Only run regular web server for non-Expo apps
         // Expo apps will be handled by BattleTestedExpoPreview component
         if (!isExpoApp) {
-          runApp(selectedAppId); // Consider adding error handling for the promise if needed
+          // Use restartApp instead of runApp to ensure proper restart
+          restartApp({ removeNodeModules: false });
         }
         runningAppIdRef.current = selectedAppId; // Update ref to the new running app ID
       } else {
@@ -147,7 +150,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     };
     // Dependencies: run effect when selectedAppId or app type changes.
     // runApp/stopApp are stable due to useCallback.
-  }, [selectedAppId, runApp, stopApp, isExpoApp]);
+  }, [selectedAppId, runApp, stopApp, isExpoApp, refreshAppIframe, restartApp]);
 
   // Auto-start disabled - using BattleTestedExpoPreview's built-in auto-start instead
   return (
