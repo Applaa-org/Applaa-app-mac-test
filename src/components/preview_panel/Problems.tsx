@@ -156,37 +156,23 @@ const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
     setIsFixingAll(true);
     
     try {
-      // Use auto-fix streaming path (uses cheaper model if configured, otherwise falls back to main model)
+      // Use the standard chat stream hook so the chat UI updates live
       const prompt = createProblemFixPrompt(problemReport, appCategory);
-      const IpcClient = (await import("@/ipc/ipc_client")).IpcClient;
-      await IpcClient.getInstance().streamAutoFix(prompt, {
-        selectedComponent: null,
+      await streamMessage({
+        prompt,
         chatId,
         redo: false,
-        onUpdate: () => {
-          console.log("🔧 Fix All progress update");
-        },
-        onEnd: () => {
-          console.log("✅ Fix All completed successfully");
-        },
-        onError: (e) => {
-          console.error("❌ Fix All auto-fix error:", e);
-        },
+        attachments: [],
+        selectedComponent: null,
       });
-      
-      console.log("Fix All stream started successfully");
+      console.log("Fix All stream initiated via chat hook");
       
       // Wait a bit for the fix to complete, then re-check problems
       setTimeout(async () => {
         try {
           console.log("Re-checking problems after Fix All...");
-          const { checkProblems } = await import("@/hooks/useCheckProblems");
-          // Force a fresh check of problems
-          if (window.location.pathname.includes('/chat')) {
-            // Trigger a problems recheck via IPC
-            const IpcClient = (await import("@/ipc/ipc_client")).IpcClient;
-            await IpcClient.getInstance().checkProblems(appId);
-          }
+          const IpcClient = (await import("@/ipc/ipc_client")).IpcClient;
+          await IpcClient.getInstance().checkProblems({ appId });
         } catch (error) {
           console.error("Failed to re-check problems:", error);
         }
