@@ -7,7 +7,7 @@ export const AUTOPUSH_CONFIG = {
   GITHUB_USERNAME: import.meta.env.VITE_GITHUB_USERNAME || "patidarmk",
   
   // Vercel Configuration
-  VERCEL_TOKEN: import.meta.env.VITE_VERCEL_TOKEN || "Nhp1PuFYBmKFsXR8e0aUvDpA",
+  VERCEL_TOKEN: import.meta.env.VITE_VERCEL_TOKEN || "oKy0ljHgV10r1unsphU4XoaM",
   
   // Deployment Settings
   DEPLOYMENT_TIMER_SECONDS: 60,

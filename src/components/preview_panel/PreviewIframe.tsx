@@ -533,26 +533,6 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Component Selector Upgrade Notification */}
-      {!isComponentSelectorInitialized && selectedAppId && !loading && (
-        <div className="bg-yellow-50 border-b border-yellow-200 p-2">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-yellow-800">
-              <MousePointerClick size={14} />
-              <span>Component selector disabled. Need to enable component tagging.</span>
-            </div>
-            <button
-              onClick={() => {
-                // Open configure panel where upgrades are shown
-                window.postMessage({ type: 'navigate-to-configure' }, '*');
-              }}
-              className="text-yellow-700 hover:text-yellow-900 underline text-xs"
-            >
-              Enable it →
-            </button>
-          </div>
-        </div>
-      )}
       
       {/* Browser-style header */}
       <div className="flex items-center p-2 border-b space-x-2 ">
