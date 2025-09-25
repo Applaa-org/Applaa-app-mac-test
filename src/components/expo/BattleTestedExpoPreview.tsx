@@ -64,6 +64,7 @@ export function BattleTestedExpoPreview() {
   // Refs for cleanup
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const retryTimeout = useRef<NodeJS.Timeout | null>(null);
+
   
   /**
    * 🚀 Start Expo Development Server
@@ -100,7 +101,7 @@ export function BattleTestedExpoPreview() {
         console.log(`✅ App validation successful for app ${selectedAppId}: ${currentApp.name}`);
       } catch (error) {
         console.error('App validation failed:', error);
-        throw new Error(`App validation failed: ${error.message}`);
+        throw new Error(`App validation failed: ${error instanceof Error ? error.message : String(error)}`);
       }
 
       // Start Expo server with both web and dev-client support
@@ -139,7 +140,7 @@ export function BattleTestedExpoPreview() {
       
       setPreviewState({
         status: 'error',
-        message: `Failed to start preview: ${error.message}`,
+        message: `Failed to start preview: ${error instanceof Error ? error.message : String(error)}`,
         canRetry: true,
         showDetails: true
       });
@@ -545,6 +546,7 @@ export function BattleTestedExpoPreview() {
           </pre>
         </div>
       )}
+      
     </div>
   );
 }
