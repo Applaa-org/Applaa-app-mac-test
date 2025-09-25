@@ -23,6 +23,8 @@ import { UnifiedExpoPreview } from "../expo/UnifiedExpoPreview";
 import { useMemo } from "react";
 import { IpcClient } from "@/ipc/ipc_client";
 import { ExpoTerminalPanel } from "../expo/ExpoTerminalPanel";
+import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
+import { WebPreviewTimeoutPopup } from "../WebPreviewTimeoutPopup";
 // DesignTab removed for MVP
 
 interface ConsoleHeaderProps {
@@ -70,6 +72,13 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [showProblemsPanel, setShowProblemsPanel] = useState(false);
   const { runApp, stopApp, loading, app, refreshAppIframe, restartApp } = useRunApp();
   const { problemReport } = useCheckProblems(selectedAppId);
+
+  // Web preview timeout hook (only for non-Expo apps)
+  const {
+    shouldShowTimeoutPopup,
+    timeoutReason,
+    resetTimeout
+  } = useWebPreviewTimeout();
   
   // Detect if this is an Expo app based on files
   const isExpoApp = useMemo(() => {
@@ -293,6 +302,15 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
           isOpen={false}
           onToggle={() => setIsConsoleOpen(true)}
           latestMessage={latestMessage}
+        />
+      )}
+      
+      {/* Web Preview Timeout Popup - Only show for non-Expo apps */}
+      {!isExpoApp && (
+        <WebPreviewTimeoutPopup
+          isOpen={shouldShowTimeoutPopup}
+          message={timeoutReason}
+          onClose={resetTimeout}
         />
       )}
     </div>

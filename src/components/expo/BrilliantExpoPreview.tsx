@@ -93,6 +93,7 @@ export function BrilliantExpoPreview() {
   const [autoFixAttempts, setAutoFixAttempts] = useState<number>(0);
   
   const autoStartedForAppId = useRef<number | null>(null);
+
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const healthCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -814,6 +815,7 @@ export function BrilliantExpoPreview() {
           </Card>
         </div>
       </div>
+      
     </div>
   );
 }
