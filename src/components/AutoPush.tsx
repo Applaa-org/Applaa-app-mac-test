@@ -14,6 +14,76 @@ import log from "electron-log";
 
 const logger = log.scope("AutoPush");
 
+// Function to generate a valid Vercel project name from repository name
+function generateVercelProjectName(repoName: string): string {
+  // Convert to lowercase and replace invalid characters
+  let projectName = repoName
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-') // Replace invalid characters with hyphens
+    .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
+    .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+    .substring(0, 52); // Limit to 52 characters
+  
+  // Ensure it doesn't start with a number (Vercel requirement)
+  if (/^[0-9]/.test(projectName)) {
+    projectName = 'app-' + projectName;
+  }
+  
+  // Ensure it's not empty
+  if (!projectName) {
+    projectName = 'app-project';
+  }
+  
+  return projectName;
+}
+
+// Function to validate and check availability of Vercel project name
+async function validateVercelProjectName(name: string, token: string): Promise<{
+  valid: boolean;
+  available: boolean;
+  reason?: string;
+}> {
+  // 1. Validate format
+  const regex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+  if (!regex.test(name) || name.length > 52) {
+    return { valid: false, available: false, reason: "Invalid format" };
+  }
+
+  // 2. Check availability via API
+  const url = `https://api.vercel.com/v9/projects/${encodeURIComponent(name)}`;
+  
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+  
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (res.status === 404) {
+      return { valid: true, available: true }; // ✅ Valid and available
+    } else if (res.ok) {
+      return { valid: true, available: false }; // ❌ Already exists
+    } else {
+      const errText = await res.text();
+      return { valid: false, available: false, reason: `API error: ${res.status} - ${errText}` };
+    }
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      return { valid: false, available: false, reason: "Validation timed out" };
+    }
+    throw error;
+  }
+}
+
 interface AutoPushProps {
   appId: number | null;
   projectName: string;
@@ -476,8 +546,14 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
   const [githubUsername] = useState(AUTOPUSH_CONFIG.GITHUB_USERNAME);
   const [vercelToken, setVercelToken] = useState(AUTOPUSH_CONFIG.VERCEL_TOKEN); // Updated Vercel token
   const [repoName, setRepoName] = useState(projectName);
-  const [vercelProjectName, setVercelProjectName] = useState(projectName);
+  const [vercelProjectName, setVercelProjectName] = useState(generateVercelProjectName(projectName));
   const [deployToVercel, setDeployToVercel] = useState<boolean>(AUTOPUSH_CONFIG.DEFAULT_DEPLOY_TO_VERCEL);
+  const [vercelProjectValidation, setVercelProjectValidation] = useState<{
+    valid: boolean;
+    available: boolean;
+    reason?: string;
+    checking: boolean;
+  }>({ valid: true, available: true, checking: false });
   const [savedUrls, setSavedUrls] = useState<{
     githubRepoUrl?: string;
     vercelDeploymentUrl?: string;
@@ -510,6 +586,37 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
     }
   }, [appId, currentApp]);
 
+  // Update Vercel project name when repository name changes
+  useEffect(() => {
+    setVercelProjectName(generateVercelProjectName(repoName));
+  }, [repoName]);
+
+  // Validate Vercel project name when it changes
+  useEffect(() => {
+    if (deployToVercel && vercelProjectName && vercelToken) {
+      setVercelProjectValidation(prev => ({ ...prev, checking: true }));
+      
+      validateVercelProjectName(vercelProjectName, vercelToken)
+        .then(result => {
+          setVercelProjectValidation({
+            ...result,
+            checking: false
+          });
+        })
+        .catch(error => {
+          console.error("Vercel validation error:", error);
+          setVercelProjectValidation({
+            valid: false,
+            available: false,
+            reason: `Validation error: ${error.message}`,
+            checking: false
+          });
+        });
+    } else {
+      setVercelProjectValidation({ valid: true, available: true, checking: false });
+    }
+  }, [vercelProjectName, vercelToken, deployToVercel]);
+
   // Handle Vercel deployment timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -523,8 +630,8 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
             console.log("🔍 Timer completed, stopping deployment");
             setVercelDeploying(false);
             // Show the Vercel URL after timer completes (only once)
-            if (deployToVercel && repoName && !vercelUrlShown) {
-              const vercelUrl = `https://${repoName}.vercel.app`;
+            if (deployToVercel && vercelProjectName && !vercelUrlShown) {
+              const vercelUrl = `https://${vercelProjectName}.vercel.app`;
               console.log("🔍 Adding Vercel URL to success message:", vercelUrl);
               setSuccessMessage(prev => {
                 console.log("🔍 Previous message:", prev);
@@ -577,28 +684,46 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       console.log("📝 Setting progress message: Creating GitHub repository...");
       setProgressMessage("Creating GitHub repository...");
       
-      const createRepoResponse = await fetch("https://api.github.com/user/repos", {
-        method: "POST",
-        headers: {
-          Authorization: `token ${githubToken}`,
-          Accept: "application/vnd.github.v3+json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: repoName,
-          private: false,
-          description: `Auto-generated repository for ${repoName}`,
-        }),
-      });
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      try {
+        const createRepoResponse = await fetch("https://api.github.com/user/repos", {
+          method: "POST",
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: repoName,
+            private: false,
+            description: `Auto-generated repository for ${repoName}`,
+          }),
+          signal: controller.signal,
+        });
 
-      if (!createRepoResponse.ok) {
-        const errorData = await createRepoResponse.json();
-        if (createRepoResponse.status === 422) {
-          // Repository already exists, that's okay
+        clearTimeout(timeoutId);
+
+        if (!createRepoResponse.ok) {
+          const errorData = await createRepoResponse.json();
+          if (createRepoResponse.status === 422) {
+            // Repository already exists, that's okay
+            console.log("📝 Repository already exists, continuing...");
+          } else {
+            const errorMsg = errorData.message || createRepoResponse.statusText;
+            throw new Error(`Failed to create repository: ${errorMsg}`);
+          }
         } else {
-          const errorMsg = errorData.message || createRepoResponse.statusText;
-          throw new Error(`Failed to create repository: ${errorMsg}`);
+          console.log("📝 Repository created successfully");
         }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error("Repository creation timed out. Please try again.");
+        }
+        throw error;
       }
 
       // 2. Get app files and upload them
@@ -705,7 +830,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   const repoId = repoData.id;
 
                   const deploymentPayload = {
-                    name: repoName,
+                    name: vercelProjectName,
                     target: "production",
                     gitSource: {
                       type: "github",
@@ -737,9 +862,8 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   const deploymentData = await deploymentResponse.json();
                   // Get the production domain instead of deployment URL
                   if (deploymentData.url) {
-                    // Extract the project name from the deployment URL
-                    const projectName = deploymentData.name || repoName;
-                    vercelUrl = `https://${projectName}.vercel.app`;
+                    // Use the validated Vercel project name
+                    vercelUrl = `https://${vercelProjectName}.vercel.app`;
                   } else {
                     vercelUrl = "Deployment in progress...";
                   }
@@ -857,6 +981,67 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
             </Label>
           </div>
 
+          {deployToVercel && (
+            <div>
+              <Label htmlFor="vercel-project-name">Vercel Project Name</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                Automatically generated from repository name. Special characters are removed and converted to lowercase.
+              </p>
+              <div className="relative">
+                <Input
+                  id="vercel-project-name"
+                  value={vercelProjectName}
+                  onChange={(e) => setVercelProjectName(e.target.value)}
+                  placeholder="Enter Vercel project name"
+                  disabled={isPushing}
+                  className={`pr-8 ${
+                    vercelProjectValidation.checking 
+                      ? 'border-yellow-300' 
+                      : !vercelProjectValidation.valid 
+                        ? 'border-red-300' 
+                        : !vercelProjectValidation.available 
+                          ? 'border-orange-300' 
+                          : 'border-green-300'
+                  }`}
+                />
+                {vercelProjectValidation.checking && (
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    <svg className="animate-spin h-4 w-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                )}
+                {!vercelProjectValidation.checking && vercelProjectValidation.valid && vercelProjectValidation.available && (
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  </div>
+                )}
+                {!vercelProjectValidation.checking && (!vercelProjectValidation.valid || !vercelProjectValidation.available) && (
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                  </div>
+                )}
+              </div>
+              {vercelProjectValidation.checking && (
+                <p className="text-xs text-yellow-600 mt-1">Checking availability...</p>
+              )}
+              {!vercelProjectValidation.checking && !vercelProjectValidation.valid && (
+                <p className="text-xs text-red-600 mt-1">
+                  Invalid format: {vercelProjectValidation.reason || "Must be lowercase letters, numbers, and hyphens only, max 52 characters"}
+                </p>
+              )}
+              {!vercelProjectValidation.checking && vercelProjectValidation.valid && !vercelProjectValidation.available && (
+                <p className="text-xs text-orange-600 mt-1">
+                  Project name already exists on Vercel. Please choose a different name.
+                </p>
+              )}
+              {!vercelProjectValidation.checking && vercelProjectValidation.valid && vercelProjectValidation.available && (
+                <p className="text-xs text-green-600 mt-1">✓ Project name is available</p>
+              )}
+            </div>
+          )}
+
           {/* {deployToVercel && (
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-800 dark:text-blue-200">
@@ -876,7 +1061,12 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
 
         <Button 
           onClick={handleAutoPush} 
-          disabled={isPushing || !repoName.trim() || (deployToVercel && !vercelToken.trim())}
+          disabled={
+            isPushing || 
+            !repoName.trim() || 
+            (deployToVercel && !vercelToken.trim()) ||
+            (deployToVercel && (!vercelProjectValidation.valid || !vercelProjectValidation.available || vercelProjectValidation.checking))
+          }
           className="w-full"
         >
           {isPushing ? (
@@ -937,7 +1127,6 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               {progressMessage && (
                 <span className="text-sm text-blue-600 dark:text-blue-400">{progressMessage}</span>
               )}
-              {console.log("🔍 Upload progress display check:", { uploadProgress, condition: uploadProgress && uploadProgress.current < uploadProgress.total })}
               {/* Show uploading if current < total */}
               {uploadProgress && uploadProgress.current < uploadProgress.total && (
                 <span className="text-xs text-blue-500 dark:text-blue-300">
@@ -949,7 +1138,6 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         )}
 
         {/* Vercel deployment loader */}
-        {console.log("🔍 Vercel timer display check:", { vercelDeploying, vercelDeployTimer, deployToVercel })}
         {vercelDeploying && (
           <div className="space-y-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
             <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
@@ -989,12 +1177,6 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         )}
 
         {/* Display saved URLs if they exist */}
-        {console.log("🔍 Rendering check:", { 
-          hasGithubUrl: !!savedUrls.githubRepoUrl, 
-          hasVercelUrl: !!savedUrls.vercelDeploymentUrl, 
-          pushStatus,
-          savedUrls 
-        })}
         {(savedUrls.githubRepoUrl || savedUrls.vercelDeploymentUrl) && pushStatus !== "success" && (
           <div className="space-y-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
