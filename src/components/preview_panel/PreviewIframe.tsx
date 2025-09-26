@@ -24,7 +24,7 @@ import {
   Github,
   Globe,
 } from "lucide-react";
-import { selectedChatIdAtom } from "@/atoms/chatAtoms";
+import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useChats } from "@/hooks/useChats";
 
@@ -41,6 +41,8 @@ import { selectedComponentPreviewAtom } from "@/atoms/previewAtoms";
 import { AutoErrorFixBanner } from "./AutoErrorFixBanner";
 import { useAutoErrorFix } from "@/hooks/useAutoErrorFix";
 import { ComponentSelection } from "@/ipc/ipc_types";
+import { useRandomGame, GameOption } from "@/hooks/useRandomGame";
+import { StreamingGameSelector } from "@/components/StreamingGameSelector";
 import {
   Tooltip,
   TooltipContent,
@@ -136,7 +138,30 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   const [reloadKey, setReloadKey] = useState(0);
   const [errorMessage, setErrorMessage] = useAtom(previewErrorMessageAtom);
   const selectedChatId = useAtomValue(selectedChatIdAtom);
+  const isStreaming = useAtomValue(isStreamingAtom);
   const { streamMessage } = useStreamChat();
+  
+  // Random game selection
+  const { currentGame, selectRandomGame } = useRandomGame();
+  const [selectedGame, setSelectedGame] = useState<GameOption>(() => currentGame);
+  const [showGame, setShowGame] = useState(false);
+  
+  // Update selectedGame only when currentGame actually changes
+  useEffect(() => {
+    setSelectedGame(currentGame);
+  }, [currentGame]);
+
+  // Show game with 10-second delay when streaming starts
+  useEffect(() => {
+    if (isStreaming) {
+      const timer = setTimeout(() => {
+        setShowGame(true);
+      }, 10000); // 10 second delay
+      return () => clearTimeout(timer);
+    } else {
+      setShowGame(false);
+    }
+  }, [isStreaming]);
   // 🚫 DISABLED: Auto-error detection to match Dyad's approach
   // const { detectConsoleErrors } = useAutoErrorFix({ enabled: true });
   const { routes: availableRoutes } = useParseRouter(selectedAppId);
@@ -723,21 +748,51 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
           }}
         />
 
-        {!appUrl ? (
-          <div className="absolute inset-0">
-            {/* Temporary game while preview initializes */}
-            <iframe
-              title="Loading game while preview starts"
-              className="w-full h-full border-none bg-white dark:bg-gray-950"
-              src="https://memory-card-game-nu-ecru.vercel.app/"
-              allow="fullscreen; autoplay; picture-in-picture"
-              referrerPolicy="no-referrer"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
-            />
-            {/* Status overlay */}
-            <div className="absolute top-3 left-3 flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-900/70 text-white text-xs shadow">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Starting your app preview... enjoy a quick game meanwhile</span>
+        {isStreaming ? (
+          <div className="flex flex-col h-full">
+            {/* Game Selector Header */}
+            <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Chat is streaming... enjoy a quick game meanwhile
+                </span>
+              </div>
+              <StreamingGameSelector 
+                currentGame={selectedGame}
+                onGameChange={setSelectedGame}
+              />
+            </div>
+            
+            {/* Game Content Area */}
+            <div className="flex-1 relative">
+              {showGame ? (
+                <iframe
+                  key={`game-${selectedGame.id}`}
+                  title={`${selectedGame.name} while chat is streaming`}
+                  className="w-full h-full border-none bg-white dark:bg-gray-950"
+                  src={selectedGame.url}
+                  allow="fullscreen; autoplay; picture-in-picture"
+                  referrerPolicy="no-referrer"
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
+                />
+              ) : (
+                /* Loading state for 10 seconds */
+                <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-500" />
+                    <p className="text-gray-500 dark:text-gray-400">Chat is streaming...</p>
+                    <p className="text-sm text-gray-400 mt-2">Game will appear in a moment</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : !appUrl ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-500" />
+              <p className="text-gray-500 dark:text-gray-400">Loading your app...</p>
             </div>
           </div>
         ) : (

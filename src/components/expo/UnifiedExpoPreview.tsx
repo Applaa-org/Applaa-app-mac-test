@@ -11,6 +11,7 @@ import { useMetroRecovery } from '../../hooks/useMetroRecovery';
 export function UnifiedExpoPreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const [isRunning, setIsRunning] = useState(false);
+  
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [webUrl, setWebUrl] = useState<string>('');
   const [tunnelUrl, setTunnelUrl] = useState<string>('');
