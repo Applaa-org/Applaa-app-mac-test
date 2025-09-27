@@ -45,6 +45,7 @@ export const apps = sqliteTable("apps", {
   deploymentNotes: text("deployment_notes"),
   chatContext: text("chat_context", { mode: "json" }),
   appType: text("app_type", { enum: ["web", "mobile"] }).default("web"),
+  status: text("status").default("ready"),
 });
 
 export const chats = sqliteTable("chats", {
