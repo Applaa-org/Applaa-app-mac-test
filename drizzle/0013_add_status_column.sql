@@ -5,6 +5,3 @@
 -- Phase 3: COMPLETE (ready) - App fully scaffolded and ready
 
 ALTER TABLE `apps` ADD `status` text DEFAULT 'ready';
-
--- Update any existing apps to 'ready' status (they're already complete)
-UPDATE `apps` SET `status` = 'ready' WHERE `status` IS NULL;
