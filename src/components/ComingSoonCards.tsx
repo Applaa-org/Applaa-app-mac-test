@@ -199,32 +199,21 @@ export function ComingSoonCards({ className = '' }: { className?: string }) {
               className="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full"
             >
               {/* Header with Gradient */}
-              <div className={`relative h-20 bg-gradient-to-br ${item.gradient} p-4 flex items-center justify-between flex-shrink-0`}>
+              <div className={`relative h-20 bg-gradient-to-br ${item.gradient} p-4 flex items-center justify-center flex-shrink-0`}>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                     <IconComponent className="h-6 w-6 text-white" />
                   </div>
+                  <h3 className="text-lg font-bold text-white">
+                    {item.name}
+                  </h3>
                 </div>
-                <div className="flex items-center gap-1 text-white">
-                  <Star className="h-4 w-4 fill-current" />
-                  <span className="text-sm font-semibold">{item.rating}%</span>
-                </div>
-              </div>
-
-              {/* Coming Soon Badge - Positioned to avoid overlap */}
-              <div className="absolute top-1 right-2 z-20">
-                <span className="px-2 py-1 text-xs font-semibold bg-white/90 dark:bg-gray-800/90 text-gray-700 dark:text-gray-300 rounded-full shadow-sm">
-                  Coming Soon
-                </span>
               </div>
 
               {/* Content */}
               <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
-                {/* Title & Description */}
+                {/* Description */}
                 <div className="flex-shrink-0">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                    {item.name}
-                  </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                     {item.description}
                   </p>
@@ -268,7 +257,7 @@ export function ComingSoonCards({ className = '' }: { className?: string }) {
                 <div className="flex-1"></div>
 
                 {/* Difficulty & Time */}
-                <div className="flex items-center justify-between pt-2 flex-shrink-0">
+                {/* <div className="flex items-center justify-between pt-2 flex-shrink-0">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -281,15 +270,15 @@ export function ComingSoonCards({ className = '' }: { className?: string }) {
                       {item.timeRange}
                     </span>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Build Button */}
-                <button
+                {/* <button
                   className={`w-full py-3 px-4 rounded-lg text-white font-medium text-sm flex items-center justify-center gap-2 ${item.buttonColor} hover:opacity-90 transition-opacity flex-shrink-0 mt-4 min-h-[48px]`}
                 >
                   <Rocket className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">Build {item.name}</span>
-                </button>
+                </button> */}
               </CardContent>
 
 
