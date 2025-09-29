@@ -198,16 +198,17 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
                 <span>Checking EAS status...</span>
               </div>
             ) : status?.isLoggedIn ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  <span>Logged in as: <strong>{status.username}</strong></span>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <User className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Logged in as: <strong className="truncate">{status.username}</strong></span>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => refetchStatus()}
                   disabled={statusLoading}
+                  className="flex-shrink-0"
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
@@ -290,11 +291,12 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
               {/* Platform Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Platform</label>
-                <div className="flex gap-2">
+                <div className="flex flex-col  gap-2">
                   <Button
                     variant={selectedPlatform === "all" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedPlatform("all")}
+                    className="w-full sm:w-auto"
                   >
                     All Platforms
                   </Button>
@@ -302,6 +304,7 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
                     variant={selectedPlatform === "ios" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedPlatform("ios")}
+                    className="w-full sm:w-auto"
                   >
                     iOS Only
                   </Button>
@@ -309,6 +312,7 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
                     variant={selectedPlatform === "android" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedPlatform("android")}
+                    className="w-full sm:w-auto"
                   >
                     Android Only
                   </Button>
@@ -481,12 +485,12 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
           <CardContent>
             <div className="space-y-2">
               {projects.projects.map((project) => (
-                <div key={project.id} className="flex items-center justify-between p-2 border rounded">
-                  <div>
-                    <div className="font-medium">{project.name}</div>
-                    <div className="text-sm text-gray-500">{project.slug}</div>
+                <div key={project.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 border rounded">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate">{project.name}</div>
+                    <div className="text-sm text-gray-500 truncate">{project.slug}</div>
                   </div>
-                  <Badge variant="outline">{project.id}</Badge>
+                  <Badge variant="outline" className="flex-shrink-0">{project.id}</Badge>
                 </div>
               ))}
             </div>

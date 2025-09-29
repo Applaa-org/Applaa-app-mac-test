@@ -239,105 +239,80 @@ export function LocalBuildPanel({ appId, appName }: LocalBuildPanelProps) {
       )}
 
       {/* Build Options */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-4">
         {/* Android APK */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Smartphone className="h-4 w-4" />
-              Android APK
-            </CardTitle>
-            {/* <CardDescription className="text-xs">
-              Debug APK for testing
-            </CardDescription> */}
-          </CardHeader>
-          <CardContent>
+        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200/50 dark:border-green-700/50 p-3 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Smartphone className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-md">
+                  Android APK
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Debug APK for testing
+                </p>
+              </div>
+            </div>
             <Button
               onClick={handleBuildAPK}
               disabled={isBuilding}
-              className="w-full"
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
               size="sm"
             >
               {apkMutation.isPending ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Building...
                 </>
               ) : (
                 <>
-                  <Smartphone className="h-3 w-3 mr-1" />
+                  <Smartphone className="h-4 w-4 mr-2" />
                   Build APK
                 </>
               )}
             </Button>
-          </CardContent>
-        </Card>
-
-        {/* Android AAB */}
-        {/* <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Smartphone className="h-4 w-4" />
-              Android AAB
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Release AAB for Play Store
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={handleBuildAAB}
-              disabled={isBuilding}
-              className="w-full"
-              size="sm"
-            >
-              {aabMutation.isPending ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  Building...
-                </>
-              ) : (
-                <>
-                  <Smartphone className="h-3 w-3 mr-1" />
-                  Build AAB
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card> */}
+          </div>
+        </div>
 
         {/* iOS IPA */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Smartphone className="h-4 w-4" />
-              iOS IPA
-            </CardTitle>
-            {/* <CardDescription className="text-xs">
-              Release IPA for App Store
-            </CardDescription> */}
-          </CardHeader>
-          <CardContent>
+        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/50 dark:border-blue-700/50 p-3 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <Smartphone className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-md">
+                  iOS IPA
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Release IPA for App Store
+                </p>
+              </div>
+            </div>
             <Button
               onClick={handleBuildIPA}
               disabled={isBuilding}
-              className="w-full"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
               size="sm"
             >
               {ipaMutation.isPending ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Building...
                 </>
               ) : (
                 <>
-                  <Smartphone className="h-3 w-3 mr-1" />
+                  <Smartphone className="h-4 w-4 mr-2" />
                   Build IPA
                 </>
               )}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Previous Builds */}
