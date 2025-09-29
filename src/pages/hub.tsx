@@ -7,6 +7,7 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { TemplateCard } from "@/components/TemplateCard";
 import { CreateAppDialog } from "@/components/CreateAppDialog";
 import { NeonConnector } from "@/components/NeonConnector";
+import { GamesSection } from "@/components/GamesSection";
 
 const HubPage: React.FC = () => {
   const router = useRouter();
@@ -49,6 +50,9 @@ const HubPage: React.FC = () => {
             {isLoading && " Loading additional templates..."}
           </p>
         </header>
+
+        {/* Games Section */}
+        <GamesSection />
 
         {/* Official Templates Section */}
         {officialTemplates.length > 0 && (
