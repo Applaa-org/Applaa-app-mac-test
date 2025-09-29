@@ -269,6 +269,16 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                 ) : (
                   <Problems />
                 )}
+                
+                {/* Debug fallback - remove this after fixing */}
+                {!app && !loading && (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="text-center">
+                      <p className="text-lg font-medium mb-2">No App Selected</p>
+                      <p className="text-sm">Please select an app from the sidebar to see the preview.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </Panel>
             {(!isExpoApp && isConsoleOpen) && (

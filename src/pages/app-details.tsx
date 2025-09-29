@@ -5,6 +5,7 @@ import {
   appsListAtom,
   selectedAppIdAtom,
 } from "@/atoms/appAtoms";
+import { showError } from "@/lib/toast";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useLoadApps } from "@/hooks/useLoadApps";
 import { useState } from "react";
@@ -32,7 +33,6 @@ import {
 } from "@/components/ui/dialog";
 import { GitHubConnector } from "@/components/GitHubConnector";
 import { SupabaseConnector } from "@/components/SupabaseConnector";
-import { showError } from "@/lib/toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
@@ -49,6 +49,7 @@ export default function AppDetailsPage() {
   const router = useRouter();
   const search = useSearch({ from: "/app-details" as const });
   const [appsList] = useAtom(appsListAtom);
+  const setSelectedAppId = useSetAtom(selectedAppIdAtom);
   const { refreshApps } = useLoadApps();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -67,7 +68,6 @@ export default function AppDetailsPage() {
   const [newCopyAppName, setNewCopyAppName] = useState("");
 
   const queryClient = useQueryClient();
-  const setSelectedAppId = useSetAtom(selectedAppIdAtom);
 
   const debouncedNewCopyAppName = useDebounce(newCopyAppName, 150);
   const { data: checkNameResult, isLoading: isCheckingName } = useCheckName(
@@ -331,12 +331,44 @@ export default function AppDetailsPage() {
         </div>
         <div className="mt-4 flex flex-col gap-2">
           <Button
-            onClick={() => {
+            onClick={async () => {
               if (!appId) {
                 console.error("No app id found");
                 return;
               }
-              navigate({ to: "/chat" });
+              
+              console.log("🚀 Opening chat for app:", appId);
+              
+              try {
+                // Set the selected app ID first
+                setSelectedAppId(appId);
+                
+                // Get or create a chat for this app
+                const ipcClient = IpcClient.getInstance();
+                const chats = await ipcClient.getChats(appId);
+                
+                let chatId: number;
+                if (chats.length > 0) {
+                  // Use existing chat
+                  chatId = chats[0].id;
+                  console.log("📋 Using existing chat:", chatId);
+                } else {
+                  // Create a new chat for this app
+                  console.log("📝 Creating new chat for app:", appId);
+                  const newChat = await ipcClient.createChat({
+                    appId,
+                    title: `Chat for ${selectedApp.name}`,
+                  });
+                  chatId = newChat.id;
+                  console.log("✅ Created new chat:", chatId);
+                }
+                
+                // Navigate to the chat with the proper ID
+                navigate({ to: "/chat", search: { id: chatId } });
+              } catch (error) {
+                console.error("❌ Failed to open chat:", error);
+                showError(`Failed to open chat: ${error instanceof Error ? error.message : String(error)}`);
+              }
             }}
             className="cursor-pointer w-full py-5 flex justify-center items-center gap-2"
             size="lg"

@@ -2401,6 +2401,25 @@ export class IpcClient {
     return this.ipcRenderer.invoke("simple-expo:input", { input });
   }
 
+  public async simpleExpoCheckTools(): Promise<{
+    success: boolean;
+    availability?: {
+      node: boolean;
+      npm: boolean;
+      npx: boolean;
+      expo: boolean;
+      paths: {
+        node: string;
+        npm: string;
+        npx: string;
+        expo: string;
+      };
+    };
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("simple-expo:check-tools");
+  }
+
   // Playwright MCP Integration
   async startPlaywrightMCPServer(port?: number): Promise<{ success: boolean; port: number; error?: string }> {
     return this.ipcRenderer.invoke("playwright-mcp:start-server", { port });

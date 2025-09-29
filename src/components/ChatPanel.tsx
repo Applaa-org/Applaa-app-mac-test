@@ -17,6 +17,11 @@ export function ChatPanel({
   chatId,
 }: ChatPanelProps) {
   const [messages, setMessages] = useAtom(chatMessagesAtom);
+  
+  // Debug messages changes
+  useEffect(() => {
+    console.log(`📋 ChatPanel: Messages updated for chatId ${chatId}: ${messages.length} messages`);
+  }, [messages, chatId]);
   const [isVersionPaneOpen, setIsVersionPaneOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const streamCount = useAtomValue(chatStreamCountAtom);

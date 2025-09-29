@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { execAsync } from "../utils/runShellCommand";
 import log from "electron-log";
 import { unifiedInstallDependencies, areDependenciesInstalled } from "./unified_dependency_manager";
+import { spawnNode, checkNodeToolsAvailability } from "../../lib/node-runtime";
 
 interface SimpleExpoStatus {
   isRunning: boolean;
@@ -37,6 +38,15 @@ let currentStartOptions: { useTunnel: boolean } = { useTunnel: true };
 
 export function registerSimpleExpoHandlers() {
   log.log("🎯 Registering Expo handlers with guaranteed port allocation");
+  
+  // Check Node.js tools availability for diagnostics
+  const toolsAvailability = checkNodeToolsAvailability();
+  log.log("🔧 Node.js tools availability:", toolsAvailability);
+  
+  if (!toolsAvailability.node || !toolsAvailability.npm || !toolsAvailability.npx) {
+    log.warn("⚠️ Some Node.js tools are not available. Expo functionality may be limited.");
+    log.warn("Tool paths:", toolsAvailability.paths);
+  }
 
   // Kill any process using a specific port (Windows/Linux/Mac compatible)
   const killProcessOnPort = async (port: number): Promise<boolean> => {
@@ -619,7 +629,7 @@ export function registerSimpleExpoHandlers() {
         
         try {
           const { spawn } = require('child_process');
-          const installNgrok = spawn('npm', ['install', '-g', '@expo/ngrok@^4.1.0'], {
+          const installNgrok = spawnNode('npm', ['install', '-g', '@expo/ngrok@^4.1.0'], {
             stdio: 'pipe'
           });
           
@@ -664,9 +674,8 @@ export function registerSimpleExpoHandlers() {
       log.log(`🚀 Starting Expo: npx ${args.join(" ")}`);
 
     // Start Expo process with minimal environment to preserve default CLI behavior (prints QR)
-  expoProcess = spawn("npx", args, {
+  expoProcess = spawnNode("npx", args, {
         cwd: appPath,
-        shell: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
@@ -977,6 +986,25 @@ export function registerSimpleExpoHandlers() {
     } catch (error: any) {
       log.error("Failed to send input to Expo:", error);
       return { success: false, error: error?.message ?? String(error) };
+    }
+  });
+
+  // Diagnostic handler to check Node.js tools availability
+  ipcMain.handle("simple-expo:check-tools", async () => {
+    try {
+      const availability = checkNodeToolsAvailability();
+      log.log("🔧 Node.js tools check requested:", availability);
+      return {
+        success: true,
+        availability,
+      };
+    } catch (error: any) {
+      log.error("Failed to check Node.js tools:", error);
+      return {
+        success: false,
+        error: error?.message ?? String(error),
+        availability: null,
+      };
     }
   });
 }

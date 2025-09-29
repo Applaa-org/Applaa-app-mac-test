@@ -20,6 +20,8 @@ import { MessageSquare, Code } from "lucide-react";
 export default function ChatPage() {
   let { id: chatId } = useSearch({ from: "/chat" });
   const navigate = useNavigate();
+  
+  console.log("🏠 ChatPage rendered with chatId:", chatId);
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
   const [isResizing, setIsResizing] = useState(false);
   const [leftPanelView, setLeftPanelView] = useState<"chat" | "code">("chat");
@@ -30,13 +32,16 @@ export default function ChatPage() {
   const { loading: appLoading, app } = useRunApp();
 
   useEffect(() => {
+    console.log("🔄 Chat redirect effect:", { chatId, chatsLength: chats.length, loading, selectedAppId });
+    
     if (!chatId && chats.length && !loading) {
       // Not a real navigation, just a redirect, when the user navigates to /chat
       // without a chatId, we redirect to the first chat
+      console.log("📍 Redirecting to first chat:", chats[0]);
       setSelectedAppId(chats[0].appId);
       navigate({ to: "/chat", search: { id: chats[0].id }, replace: true });
     }
-  }, [chatId, chats, loading, navigate]);
+  }, [chatId, chats, loading, navigate, selectedAppId]);
 
   useEffect(() => {
     if (isPreviewOpen) {

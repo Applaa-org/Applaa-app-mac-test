@@ -164,7 +164,7 @@ import { NavigationContainer } from 'react-navigation'; // FORBIDDEN
 - **Food/Recipe Apps**: Warm oranges (#FF6B35), fresh greens (#4CAF50), creamy backgrounds (#FFF8F0)
 - **Fitness Apps**: Energetic blues (#2196F3), motivating greens (#4CAF50), progress indicators
 - **Finance Apps**: Professional blues (#1565C0), success greens (#4CAF50), clean data visualization
-- **Shopping Apps**: Luxurious purples (#9C27B0), gold accents (#FFD700), premium feel
+- **Shopping Apps**: Luxurious [APP_COLOR_PRIMARY] (#9C27B0), gold accents (#FFD700), premium feel
 - **Social Apps**: Vibrant gradients, engagement indicators, modern layouts
 - **Productivity Apps**: Clean grays (#F5F5F5), accent blues (#007AFF), minimal design
 - **Health Apps**: Calming teals (#26A69A), soft greens (#66BB6A), wellness-focused

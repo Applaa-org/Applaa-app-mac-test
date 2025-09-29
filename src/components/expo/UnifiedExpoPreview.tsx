@@ -25,6 +25,10 @@ export function UnifiedExpoPreview() {
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
   const startHeightRef = useRef(256);
+  
+  // Node.js tools diagnostics
+  const [nodeToolsStatus, setNodeToolsStatus] = useState<any>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Metro recovery hook
   const {
@@ -51,6 +55,19 @@ export function UnifiedExpoPreview() {
       setQrCodeDataUrl(qrDataUrl);
     } catch (error) {
       console.error('❌ QR Code generation failed:', error);
+    }
+  };
+
+  // Check Node.js tools availability
+  const checkNodeTools = async () => {
+    try {
+      const ipcClient = IpcClient.getInstance();
+      const result = await ipcClient.simpleExpoCheckTools();
+      setNodeToolsStatus(result);
+      console.log('🔧 Node.js tools status:', result);
+    } catch (error) {
+      console.error('❌ Failed to check Node.js tools:', error);
+      setNodeToolsStatus({ success: false, error: String(error) });
     }
   };
 
@@ -189,6 +206,11 @@ export function UnifiedExpoPreview() {
     };
   }, []);
 
+  // Check Node.js tools on mount
+  useEffect(() => {
+    checkNodeTools();
+  }, []);
+
   // Auto-scroll terminal
   useEffect(() => {
     if (terminalRef.current) {
@@ -280,6 +302,54 @@ export function UnifiedExpoPreview() {
         
         {/* Right Side - QR Code & Controls */}
         <div className="w-80 p-6 border-l border-gray-200 bg-gray-50">
+          
+          {/* Node.js Tools Diagnostics */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-700">System Status</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDiagnostics(!showDiagnostics)}
+                className="text-xs"
+              >
+                {showDiagnostics ? 'Hide' : 'Show'} Diagnostics
+              </Button>
+            </div>
+            
+            {showDiagnostics && nodeToolsStatus && (
+              <div className="bg-white p-3 rounded border text-xs">
+                {nodeToolsStatus.success ? (
+                  <div>
+                    <div className="mb-2 font-medium">Node.js Tools:</div>
+                    {Object.entries(nodeToolsStatus.availability).map(([tool, available]) => {
+                      if (tool === 'paths') return null;
+                      return (
+                        <div key={tool} className="flex justify-between items-center py-1">
+                          <span className="capitalize">{tool}:</span>
+                          <span className={available ? 'text-green-600' : 'text-red-600'}>
+                            {available ? '✅' : '❌'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={checkNodeTools}
+                      className="mt-2 w-full text-xs"
+                    >
+                      Refresh Status
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-red-600">
+                    Error: {nodeToolsStatus.error}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <h3 className="text-lg font-semibold mb-4">Device Testing</h3>
           
           {/* Status Indicator */}

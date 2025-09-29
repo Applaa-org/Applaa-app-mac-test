@@ -24,7 +24,7 @@ import {
   Github,
   Globe,
 } from "lucide-react";
-import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
+import { selectedChatIdAtom, isStreamingAtom, createAppStreamingAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useChats } from "@/hooks/useChats";
 
@@ -138,8 +138,10 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   const [reloadKey, setReloadKey] = useState(0);
   const [errorMessage, setErrorMessage] = useAtom(previewErrorMessageAtom);
   const selectedChatId = useAtomValue(selectedChatIdAtom);
-  const isStreaming = useAtomValue(isStreamingAtom);
-  const { streamMessage } = useStreamChat();
+  // 🚨 CRITICAL FIX: Use app-specific streaming state instead of global
+  const appStreamingAtom = createAppStreamingAtom(selectedAppId);
+  const isStreaming = useAtomValue(appStreamingAtom);
+  const { streamMessage } = useStreamChat({ hasChatId: false });
   
   // Random game selection
   const { currentGame, selectRandomGame } = useRandomGame();
@@ -731,20 +733,36 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
         <ErrorBanner
           error={errorMessage}
           onDismiss={() => setErrorMessage(undefined)}
-          onAIFix={() => {
+          onAIFix={async () => {
+            console.log("🔧 Fix error with AI button clicked");
+            console.log("🔧 Error message:", errorMessage);
+            console.log("🔧 Selected app ID:", selectedAppId);
+            console.log("🔧 Selected chat ID:", selectedChatId);
+            console.log("🔧 App chat ID:", appChatId);
+            console.log("🔧 Available chats:", chats);
+            
             // 🚀 IMPROVED: Use proper chat lookup - selectedChatId first, then app's main chat
             let chatIdToUse = selectedChatId || appChatId;
             
             if (!chatIdToUse) {
-              console.error("Cannot fix error: No chat ID available - selectedChatId:", selectedChatId, "appChatId:", appChatId, "selectedAppId:", selectedAppId);
+              console.error("❌ Cannot fix error: No chat ID available - selectedChatId:", selectedChatId, "appChatId:", appChatId, "selectedAppId:", selectedAppId);
+              // Try to show an error message to the user
+              alert("No chat available to send the error fix request. Please create a chat first.");
               return;
             }
             
-            console.log("Fixing error with chat ID:", chatIdToUse, "(source:", selectedChatId ? "selectedChat" : "appChat", ")");
-            streamMessage({
-              prompt: `Fix this error: ${errorMessage}. Please analyze the error and provide the corrected code.`,
-              chatId: chatIdToUse,
-            });
+            console.log("✅ Fixing error with chat ID:", chatIdToUse, "(source:", selectedChatId ? "selectedChat" : "appChat", ")");
+            
+            try {
+              await streamMessage({
+                prompt: `Fix this error: ${errorMessage}. Please analyze the error and provide the corrected code.`,
+                chatId: chatIdToUse,
+              });
+              console.log("✅ Error fix request sent successfully");
+            } catch (error) {
+              console.error("❌ Failed to send error fix request:", error);
+              alert(`Failed to send error fix request: ${error instanceof Error ? error.message : String(error)}`);
+            }
           }}
         />
 

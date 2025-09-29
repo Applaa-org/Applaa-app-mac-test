@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAtomValue } from 'jotai';
-import { isStreamingAtom } from '@/atoms/chatAtoms';
+import { createAppStreamingAtom } from '@/atoms/chatAtoms';
 import { selectedAppIdAtom, appUrlAtom } from '@/atoms/appAtoms';
 import { useCheckProblems } from './useCheckProblems';
 import { IpcClient } from '@/ipc/ipc_client';
@@ -14,8 +14,12 @@ interface WebPreviewTimeoutState {
 const TIMEOUT_DURATION = 180000; // 30 seconds
 
 export function useWebPreviewTimeout(): WebPreviewTimeoutState {
-  const isStreaming = useAtomValue(isStreamingAtom);
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  
+  // 🚨 CRITICAL FIX: Use app-specific streaming state instead of global
+  const appStreamingAtom = createAppStreamingAtom(selectedAppId);
+  const isStreaming = useAtomValue(appStreamingAtom);
+  
   const appUrl = useAtomValue(appUrlAtom);
   const { problemReport } = useCheckProblems(selectedAppId);
   
@@ -44,7 +48,7 @@ export function useWebPreviewTimeout(): WebPreviewTimeoutState {
 
   // Main timeout logic
   useEffect(() => {
-    // Don't start timeout if chat is still streaming
+    // Don't start timeout if chat is still streaming for this specific app
     if (isStreaming) {
       resetTimeout();
       return;

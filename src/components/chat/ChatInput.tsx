@@ -78,7 +78,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   const appId = useAtomValue(selectedAppIdAtom);
   const { refreshVersions } = useVersions(appId);
   const { streamMessage, isStreaming, setIsStreaming, error, setError } =
-    useStreamChat();
+    useStreamChat({ hasChatId: false });
   const [showError, setShowError] = useState(true);
   const [isApproving, setIsApproving] = useState(false); // State for approving
   const [isRejecting, setIsRejecting] = useState(false); // State for rejecting
@@ -176,11 +176,18 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   // Voice input disabled for MVP
 
   const handleSubmit = async () => {
+    console.log("🚀 ChatInput handleSubmit called", { inputValue, chatId, isStreaming, attachments });
+    
     if (
       (!inputValue.trim() && attachments.length === 0) ||
       isStreaming ||
       !chatId
     ) {
+      console.log("❌ Submit blocked:", { 
+        noInput: !inputValue.trim() && attachments.length === 0,
+        isStreaming,
+        noChatId: !chatId
+      });
       return;
     }
 
@@ -189,6 +196,8 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     setSelectedComponent(null);
 
     try {
+      console.log("📤 Sending message:", { prompt: currentInput, chatId, attachments: attachments.length });
+      
       // Send message with attachments and clear them after sending
       await streamMessage({
         prompt: currentInput,
@@ -197,6 +206,8 @@ export function ChatInput({ chatId }: { chatId?: number }) {
         redo: false,
         selectedComponent,
       });
+      
+      console.log("✅ Message sent successfully");
       
       // Only clear input and attachments if stream started successfully
       // Add to history before clearing
@@ -212,7 +223,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
       clearAttachments();
       posthog.capture("chat:submit");
     } catch (error) {
-      console.error("Failed to start chat stream:", error);
+      console.error("❌ Failed to start chat stream:", error);
       // Don't clear input on error - user can retry
       showError(`Failed to send message: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -446,21 +457,19 @@ function SuggestionButton({
 }) {
   const { isStreaming } = useStreamChat();
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            disabled={isStreaming}
-            variant="outline"
-            size="sm"
-            onClick={onClick}
-          >
-            {children}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{tooltipText}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          disabled={isStreaming}
+          variant="outline"
+          size="sm"
+          onClick={onClick}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{tooltipText}</TooltipContent>
+    </Tooltip>
   );
 }
 
