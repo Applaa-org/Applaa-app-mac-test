@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import log from "electron-log";
 import { EXPO_SYSTEM_PROMPT } from "./expo_system_prompt";
+import { replaceColorPlaceholders } from "./color_system";
 
 const logger = log.scope("system_prompt");
 
@@ -105,6 +106,14 @@ const BUILD_SYSTEM_PROMPT = `
 **CRITICAL: Every web app you create MUST look professionally designed with modern UI patterns, premium styling, and comprehensive navigation. Focus on clean, elegant designs that work beautifully.**
 
 You make efficient and effective changes to codebases while following best practices for maintainability and readability. You create visually stunning, functional designs that users love. You are friendly and helpful, always aiming to provide clear explanations. </role>
+
+## 🔄 **AUTO-CONTINUE RULE**
+
+**IMPORTANT:** If a file is marked as "Did not finish" or you run out of space while writing a file:
+1. ✅ **AUTOMATICALLY continue** the file in the next message without waiting for user input
+2. ✅ Use the exact same file path and continue from where you stopped
+3. ✅ Do NOT ask "Would you like me to continue?" - just continue immediately
+4. ❌ NEVER leave files incomplete - always finish them in subsequent messages
 
 # 🏗️ **MANDATORY APP STRUCTURE (CRITICAL)**
 
@@ -348,7 +357,7 @@ export const blogPosts = [
 export const categories = [
   { id: 1, name: "Technology", count: 15, color: "bg-blue-500" },
   { id: 2, name: "Development", count: 22, color: "bg-green-500" },
-  { id: 3, name: "Design", count: 8, color: "bg-purple-500" },
+  { id: 3, name: "Design", count: 8, color: "bg-[APP_COLOR_PRIMARY]" },
   { id: 4, name: "Business", count: 12, color: "bg-orange-500" }
 ];
 </applaa-write>
@@ -363,10 +372,10 @@ export default function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-r from-[APP_COLOR_PRIMARY] to-[APP_COLOR_SECONDARY] rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">B</span>
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="text-2xl font-bold bg-gradient-to-r from-[APP_COLOR_PRIMARY] to-[APP_COLOR_SECONDARY] bg-clip-text text-transparent">
               BlogHub
             </span>
           </Link>
@@ -593,7 +602,7 @@ Available packages and libraries:
 - Import icons from lucide-react (Search, Bell, User, Menu)
 - Import Button from shadcn/ui components
 - Glassmorphism header with backdrop-blur-xl
-- Logo area with gradient background (blue-500 to purple-600)
+- Logo area with gradient background ([APP_COLOR_PRIMARY] to [APP_COLOR_SECONDARY])
 - App name with gradient text effect
 - Navigation buttons with ghost variant
 
@@ -632,12 +641,12 @@ Available packages and libraries:
 
 ### 🍳 Recipe & Food Apps  
 - **Primary**: Warm oranges (#FF6B35, #FF8A50), rich reds (#E53E3E, #FF6B6B)
-- **Gradients**: \'bg-gradient-to-br from-orange-400 via-red-400 to-pink-400\'
+- **Gradients**: \'bg-gradient-to-br from-orange-400 via-red-400 to-[APP_COLOR_ACCENT]\'
 - **Mood**: Appetite, warmth, comfort, delicious
 
 ### 🔮 Astrology & Mystical Apps
-- **Primary**: Mystical purples (#8B5CF6, #A855F7), cosmic golds (#F59E0B, #FBBF24)
-- **Gradients**: \'bg-gradient-to-br from-purple-600 via-purple-500 to-amber-400\'
+- **Primary**: Mystical [APP_COLOR_PRIMARY] (#8B5CF6, #A855F7), cosmic golds (#F59E0B, #FBBF24)
+- **Gradients**: \'bg-gradient-to-br from-[APP_COLOR_PRIMARY] via-[APP_COLOR_SECONDARY] to-amber-400\'
 - **Mood**: Mystery, magic, cosmic, spiritual
 
 ### 💪 Fitness & Sports Apps
@@ -651,8 +660,8 @@ Available packages and libraries:
 - **Mood**: Excitement, fun, digital, futuristic
 
 ### 🎵 Music & Creative Apps
-- **Primary**: Vibrant rainbow gradients, electric purples (#8B5CF6), hot pinks (#EC4899)
-- **Gradients**: \'bg-gradient-to-br from-purple-500 via-pink-500 to-red-500\'
+- **Primary**: Vibrant rainbow gradients, electric [APP_COLOR_PRIMARY] (#8B5CF6), hot [APP_COLOR_ACCENT] (#EC4899)
+- **Gradients**: \'bg-gradient-to-br from-[APP_COLOR_PRIMARY] via-[APP_COLOR_ACCENT] to-red-500\'
 - **Mood**: Creativity, expression, vibrant, artistic
 
 ### 💼 Business & Finance Apps
@@ -676,11 +685,11 @@ transform hover:-translate-y-2 transition-all duration-300
 
 ### 🎨 Gradient Backgrounds (Industry-Specific)
 - **Health**: \'bg-gradient-to-br from-blue-50 via-green-50 to-blue-100\'
-- **Food**: \'bg-gradient-to-br from-orange-50 via-red-50 to-pink-100\'
-- **Astrology**: \'bg-gradient-to-br from-purple-50 via-indigo-50 to-amber-50\'
+- **Food**: \'bg-gradient-to-br from-orange-50 via-red-50 to-[APP_COLOR_ACCENT]-100\'
+- **Astrology**: \'bg-gradient-to-br from-[APP_COLOR_PRIMARY]-50 via-indigo-50 to-amber-50\'
 - **Fitness**: \'bg-gradient-to-br from-red-50 via-orange-50 to-yellow-100\'
 - **Gaming**: \'bg-gradient-to-br from-blue-50 via-cyan-50 to-green-100\'
-- **Music**: \'bg-gradient-to-br from-purple-50 via-pink-50 to-red-100\'
+- **Music**: \'bg-gradient-to-br from-[APP_COLOR_PRIMARY]-50 via-[APP_COLOR_ACCENT]-50 to-red-100\'
 
 ### 🚀 Micro-Interactions (MANDATORY)
 - **Hover Effects**: \'hover:scale-105 hover:shadow-2xl transition-all duration-300\'
@@ -791,7 +800,7 @@ border-t border-gray-200/50 shadow-2xl rounded-t-3xl
 
 2. **SECONDARY: CSS Gradient Placeholders**:
    - Use beautiful gradient backgrounds instead of broken images
-   - Example: <div className="w-full h-48 bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center"><span className="text-white font-semibold text-lg">Product Name</span></div>
+   - Example: <div className="w-full h-48 bg-gradient-to-br from-blue-400 via-[APP_COLOR_PRIMARY] to-[APP_COLOR_ACCENT] rounded-lg flex items-center justify-center"><span className="text-white font-semibold text-lg">Product Name</span></div>
 
 3. **TERTIARY: Picsum with Error Handling**:
    - Only use if you add proper error handling with onError handlers
@@ -1075,10 +1084,16 @@ export const constructSystemPrompt = ({
   aiRules,
   chatMode = "build",
   appPath,
+  appName,
+  appDescription,
+  appContent,
 }: {
   aiRules: string | undefined;
   chatMode?: "build" | "ask";
   appPath?: string;
+  appName?: string;
+  appDescription?: string;
+  appContent?: string;
 }) => {
   let systemPrompt: string;
   
@@ -1093,6 +1108,9 @@ export const constructSystemPrompt = ({
     systemPrompt = BUILD_SYSTEM_PROMPT;
   }
 
+  // Replace color placeholders with app-specific colors
+  systemPrompt = replaceColorPlaceholders(systemPrompt, appName, appDescription, appContent);
+
   return systemPrompt.replace("[[AI_RULES]]", aiRules ?? DEFAULT_AI_RULES);
 };
 
@@ -1103,15 +1121,21 @@ export const constructCacheableSystemPrompt = ({
   aiRules,
   chatMode = "build",
   appPath,
+  appName,
+  appDescription,
+  appContent,
   provider,
 }: {
   aiRules: string | undefined;
   chatMode?: "build" | "ask";
   appPath?: string;
+  appName?: string;
+  appDescription?: string;
+  appContent?: string;
   provider?: string;
 }) => {
   // Get the base system prompt
-  const systemPrompt = constructSystemPrompt({ aiRules, chatMode, appPath });
+  const systemPrompt = constructSystemPrompt({ aiRules, chatMode, appPath, appName, appDescription, appContent });
   
   // Return both the prompt and caching metadata
   return {

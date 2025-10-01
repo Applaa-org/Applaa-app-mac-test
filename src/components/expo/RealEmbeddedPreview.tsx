@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Smartphone, 
   Tablet, 
@@ -41,6 +41,7 @@ const DEVICE_PRESETS = {
 
 export const RealEmbeddedPreview: React.FC = () => {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  // 🚨 DYAD PATTERN: Use simple global streaming atom
   const isStreaming = useAtomValue(isStreamingAtom);
   const { checkProblems } = useCheckProblems(selectedAppId);
   const [expoStatus, setExpoStatus] = useState<ExpoStatus>({ isRunning: false });
@@ -368,50 +369,44 @@ export const RealEmbeddedPreview: React.FC = () => {
           
           {/* Device Presets */}
           <div className="flex items-center gap-1">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={deviceType === 'mobile' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setDeviceType('mobile')}
-                  >
-                    <Smartphone className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Mobile (375×667)</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={deviceType === 'mobile' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDeviceType('mobile')}
+                >
+                  <Smartphone className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Mobile (375×667)</p></TooltipContent>
+            </Tooltip>
             
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={deviceType === 'tablet' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setDeviceType('tablet')}
-                  >
-                    <Tablet className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Tablet (768×1024)</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={deviceType === 'tablet' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDeviceType('tablet')}
+                >
+                  <Tablet className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Tablet (768×1024)</p></TooltipContent>
+            </Tooltip>
             
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={deviceType === 'desktop' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setDeviceType('desktop')}
-                  >
-                    <Monitor className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Desktop (1200×800)</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={deviceType === 'desktop' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDeviceType('desktop')}
+                >
+                  <Monitor className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Desktop (1200×800)</p></TooltipContent>
+            </Tooltip>
           </div>
           
           {/* Open in Browser */}

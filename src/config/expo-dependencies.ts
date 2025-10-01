@@ -6,6 +6,7 @@
 export const EXPO_DEPENDENCIES = {
   // Essential packages that are ALWAYS pre-installed in every Expo app
   ESSENTIAL: [
+    "react-dom",                  // Required for web bundling
     "react-native-svg",           // Required for lucide-react-native and most icon libraries
     "lucide-react-native",        // Primary icon library for Applaa apps
     "@expo/vector-icons",         // Expo's built-in icon library

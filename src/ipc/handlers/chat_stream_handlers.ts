@@ -16,6 +16,7 @@ import {
   constructCacheableSystemPrompt,
   readAiRules,
 } from "../../prompts/system_prompt";
+import { detectAppType } from "../utils/preview_integration";
 import { 
   optimizeForProvider,
   costOptimizationService 
@@ -382,9 +383,15 @@ export function registerChatStreamHandlers() {
       activeStreams.set(req.chatId, abortController);
 
       // 🚀 PERFORMANCE: Start intelligent preview preparation during LLM generation
+      // 🚨 TEMPORARY FIX: Disable preview preparation for Expo apps to test chat streaming
       try {
-        await onChatStreamStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
-        await onLLMGenerationStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
+        const { isExpo } = detectAppType(getDyadAppPath(updatedChat.app.path));
+        if (!isExpo) {
+          await onChatStreamStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
+          await onLLMGenerationStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
+        } else {
+          logger.info(`🚨 Skipping preview preparation for Expo app ${updatedChat.app.id} to test chat streaming`);
+        }
       } catch (error) {
         logger.warn(`⚠️ Failed to start preview preparation:`, error);
       }

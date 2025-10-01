@@ -11,7 +11,6 @@ import { Button } from "../ui/button";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
 import { IpcClient } from "@/ipc/ipc_client";
@@ -110,34 +109,32 @@ export function ChatHeader({
             <span>
               {currentBranchName === "<no-branch>" && (
                 <>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center  gap-1">
-                          {isAnyCheckoutVersionInProgress ? (
-                            <>
-                              <span>
-                                Please wait, switching back to latest version...
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <strong>Warning:</strong>
-                              <span>You are not on a branch</span>
-                              <Info size={14} />
-                            </>
-                          )}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          {isAnyCheckoutVersionInProgress
-                            ? "Version checkout is currently in progress"
-                            : "Checkout main branch, otherwise changes will not be saved properly"}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center  gap-1">
+                        {isAnyCheckoutVersionInProgress ? (
+                          <>
+                            <span>
+                              Please wait, switching back to latest version...
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <strong>Warning:</strong>
+                            <span>You are not on a branch</span>
+                            <Info size={14} />
+                          </>
+                        )}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        {isAnyCheckoutVersionInProgress
+                          ? "Version checkout is currently in progress"
+                          : "Checkout main branch, otherwise changes will not be saved properly"}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 </>
               )}
               {currentBranchName && currentBranchName !== "<no-branch>" && (

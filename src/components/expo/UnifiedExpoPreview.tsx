@@ -1,16 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
+import { isStreamingAtom } from '@/atoms/chatAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
 import QRCode, { QRCodeToDataURLOptions } from 'qrcode';
-import { Smartphone, RefreshCw, Play, Square, Globe, ExternalLink, Terminal, Monitor, Command } from 'lucide-react';
+import { Smartphone, RefreshCw, Play, Square, Globe, ExternalLink, Terminal, Monitor, Command, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MetroRecoveryPanel } from './MetroRecoveryPanel';
 import { useMetroRecovery } from '../../hooks/useMetroRecovery';
+import { useAutoErrorFix } from '@/hooks/useAutoErrorFix';
 
 export function UnifiedExpoPreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const [isRunning, setIsRunning] = useState(false);
+  
+  // 🚨 DYAD PATTERN: Use simple global streaming atom
+  const isStreaming = useAtomValue(isStreamingAtom);
+  
+  // 🧪 EXPERIMENT: Toggle between Expo CLI and Snack preview
+  const [useSnackPreview, setUseSnackPreview] = useState(false); // DISABLED - Use Expo CLI by default
+  const [snackUrl, setSnackUrl] = useState<string>('');
   
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [webUrl, setWebUrl] = useState<string>('');
@@ -25,6 +34,10 @@ export function UnifiedExpoPreview() {
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
   const startHeightRef = useRef(256);
+  
+  // Node.js tools diagnostics
+  const [nodeToolsStatus, setNodeToolsStatus] = useState<any>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Metro recovery hook
   const {
@@ -34,6 +47,11 @@ export function UnifiedExpoPreview() {
     hideRecoveryPanel,
     forceShowRecoveryPanel
   } = useMetroRecovery();
+
+  // 🚨 SIMPLE: Auto-fix hook for Expo dependency errors (once per app)
+  const { detectConsoleErrors } = useAutoErrorFix({ 
+    enabled: true 
+  });
 
   // Generate QR code from URL
   const generateQRCode = async (url: string) => {
@@ -54,6 +72,52 @@ export function UnifiedExpoPreview() {
     }
   };
 
+  // Check Node.js tools availability
+  const checkNodeTools = async () => {
+    try {
+      const ipcClient = IpcClient.getInstance();
+      const result = await ipcClient.simpleExpoCheckTools();
+      setNodeToolsStatus(result);
+      console.log('🔧 Node.js tools status:', result);
+    } catch (error) {
+      console.error('❌ Failed to check Node.js tools:', error);
+      // Fallback: Set a default status when IPC handler is not available
+      setNodeToolsStatus({ 
+        success: false, 
+        error: 'IPC handler not available - this is normal in development',
+        availability: {
+          node: true,
+          npm: true, 
+          npx: true,
+          expo: false,
+          paths: {
+            node: 'system',
+            npm: 'system',
+            npx: 'system', 
+            expo: 'not-installed'
+          }
+        }
+      });
+    }
+  };
+
+  // Node.js diagnostics check on mount
+  useEffect(() => {
+    checkNodeTools();
+  }, []);
+  
+  // 🚨 SIMPLE: Auto-detect Expo dependency errors from terminal output (ONCE per app)
+  // This will auto-post to chat once per app to help non-technical users
+  useEffect(() => {
+    if (terminalOutput && selectedAppId) {
+      detectConsoleErrors(terminalOutput);
+    }
+  }, [terminalOutput, selectedAppId, detectConsoleErrors]);
+
+  // 🚨 REMOVED: Auto-start Expo preview logic (user requested manual control)
+  // User: "lets make the Expo Preview for a Newly created app show a Preview button 
+  //        not make that auto sync with chat if that is causing the issue"
+  
   // Start polling for Expo status updates
   const startPolling = () => {
     if (intervalRef.current) {
@@ -189,6 +253,11 @@ export function UnifiedExpoPreview() {
     };
   }, []);
 
+  // Check Node.js tools on mount
+  useEffect(() => {
+    checkNodeTools();
+  }, []);
+
   // Auto-scroll terminal
   useEffect(() => {
     if (terminalRef.current) {
@@ -226,8 +295,166 @@ export function UnifiedExpoPreview() {
     window.removeEventListener('mouseup', onDragEnd);
   };
 
+  // 🧪 EXPERIMENT: Open Snack preview with actual app files
+  const openSnackPreview = async () => {
+    if (!selectedAppId) {
+      console.error('❌ No app selected');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      console.log('📦 Creating Snack from app files...');
+
+      // Create Snack via IPC (main process)
+      const ipcClient = IpcClient.getInstance();
+      const result = await ipcClient.snackCreateFromApp(selectedAppId);
+
+      if (!result.success || !result.webUrl) {
+        throw new Error(result.error || 'Failed to create Snack');
+      }
+
+      console.log('✅ Snack created:', result.webUrl);
+      setSnackUrl(result.webUrl);
+
+      // Generate QR code for the Snack (for Expo Go)
+      if (result.qrUrl) {
+        await generateQRCode(result.qrUrl);
+      }
+
+    } catch (error: any) {
+      console.error('❌ Failed to create Snack:', error);
+      alert(`Failed to create Snack preview: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-white">
+      {/* 🧪 EXPERIMENT TOGGLE - DISABLED */}
+      {/* <div className="p-2 border-b bg-yellow-50 flex items-center justify-between">
+        <span className="text-sm font-medium text-yellow-800">🧪 Experiment Mode</span>
+        <div className="flex items-center gap-2">
+          <Button 
+            size="sm" 
+            variant={useSnackPreview ? "default" : "outline"}
+            onClick={() => setUseSnackPreview(true)}
+          >
+            Snack Preview
+          </Button>
+          <Button 
+            size="sm" 
+            variant={!useSnackPreview ? "default" : "outline"}
+            onClick={() => setUseSnackPreview(false)}
+          >
+            Expo CLI
+          </Button>
+        </div>
+      </div> */}
+
+      {/* SNACK PREVIEW MODE */}
+      {useSnackPreview ? (
+        <div className="flex-1 flex">
+          {/* Left: Snack Iframe */}
+          <div className="flex-1 flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between bg-gray-50">
+              <div>
+                <div className="font-semibold">Snack Preview</div>
+                <div className="text-xs text-gray-500">Your app code loaded in Expo Snack</div>
+              </div>
+              <Button onClick={openSnackPreview} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Creating Snack...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={16} className="mr-2" />
+                    {snackUrl ? "Refresh" : "Load Preview"}
+                  </>
+                )}
+              </Button>
+            </div>
+            {snackUrl ? (
+              <iframe
+                src={`${snackUrl}?preview=true&platform=android`}
+                className="flex-1 w-full border-0"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+                title="Snack Preview"
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                <div className="text-center max-w-md p-6">
+                  <Smartphone size={64} className="mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-semibold mb-2">Snack Preview</h3>
+                  <p className="mb-4">Click "Load Preview" to upload your app to Expo Snack</p>
+                  <ul className="text-sm text-left space-y-2 text-gray-600">
+                    <li>✅ Instant web preview</li>
+                    <li>✅ QR code for Expo Go testing</li>
+                    <li>✅ No local setup required</li>
+                    <li>✅ Share link with others</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: QR Code & Info */}
+          {snackUrl && (
+            <div className="w-80 p-6 border-l border-gray-200 bg-gray-50">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Smartphone size={18} />
+                    Test on Device
+                  </h3>
+                  {qrCodeDataUrl ? (
+                    <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
+                      <img src={qrCodeDataUrl} alt="QR Code" className="w-full" />
+                      <p className="text-xs text-center mt-2 text-gray-600">
+                        Scan with Expo Go app
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-white p-4 rounded-lg border-2 border-gray-200 flex items-center justify-center h-48">
+                      <Loader2 size={32} className="animate-spin text-gray-400" />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Snack Link</h3>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={snackUrl}
+                      readOnly
+                      className="flex-1 text-xs px-2 py-1 border rounded"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(snackUrl, '_blank')}
+                    >
+                      <ExternalLink size={14} />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-600 space-y-1">
+                  <p>✨ Your app is now live on Expo Snack</p>
+                  <p>📱 Install Expo Go from your app store</p>
+                  <p>📸 Scan the QR code to test</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ORIGINAL EXPO CLI MODE */
+        <>
       {/* Main Content Area - RORK Style Layout */}
       <div className="flex-1 flex">
         {/* Left Side - Phone Mockup */}
@@ -280,6 +507,54 @@ export function UnifiedExpoPreview() {
         
         {/* Right Side - QR Code & Controls */}
         <div className="w-80 p-6 border-l border-gray-200 bg-gray-50">
+          
+          {/* Node.js Tools Diagnostics */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-700">System Status</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDiagnostics(!showDiagnostics)}
+                className="text-xs"
+              >
+                {showDiagnostics ? 'Hide' : 'Show'} Diagnostics
+              </Button>
+            </div>
+            
+            {showDiagnostics && nodeToolsStatus && (
+              <div className="bg-white p-3 rounded border text-xs">
+                {nodeToolsStatus.success ? (
+                  <div>
+                    <div className="mb-2 font-medium">Node.js Tools:</div>
+                    {Object.entries(nodeToolsStatus.availability).map(([tool, available]) => {
+                      if (tool === 'paths') return null;
+                      return (
+                        <div key={tool} className="flex justify-between items-center py-1">
+                          <span className="capitalize">{tool}:</span>
+                          <span className={available ? 'text-green-600' : 'text-red-600'}>
+                            {available ? '✅' : '❌'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={checkNodeTools}
+                      className="mt-2 w-full text-xs"
+                    >
+                      Refresh Status
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-red-600">
+                    Error: {nodeToolsStatus.error}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <h3 className="text-lg font-semibold mb-4">Device Testing</h3>
           
           {/* Status Indicator */}
@@ -394,6 +669,7 @@ export function UnifiedExpoPreview() {
           
           {/* Control Buttons */}
           <div className="mt-6 space-y-2">
+            {/* 🚨 REMOVED: isStreaming check - always show Preview button (user control) */}
             {isRunning ? (
               <>
                 <Button 
@@ -470,6 +746,8 @@ export function UnifiedExpoPreview() {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

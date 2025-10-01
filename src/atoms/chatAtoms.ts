@@ -9,7 +9,14 @@ export const chatErrorAtom = atom<string | null>(null);
 // Atom to hold the currently selected chat ID
 export const selectedChatIdAtom = atom<number | null>(null);
 
+// 🚨 DYAD PATTERN: Simple writable streaming atom (not derived!)
+// This is the PROVEN pattern from Dyad that we should NOT deviate from
 export const isStreamingAtom = atom<boolean>(false);
+
+// 🔮 FUTURE: For multi-app support without hijacking, add:
+// export const currentStreamingAppIdAtom = atom<number | null>(null);
+// Then components can check: isStreaming && currentStreamingAppId === myAppId
+
 export const chatInputValueAtom = atom<string>("");
 export const homeChatInputValueAtom = atom<string>("");
 

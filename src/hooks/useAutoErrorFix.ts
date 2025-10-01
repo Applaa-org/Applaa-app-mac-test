@@ -12,7 +12,7 @@ import { AppOutput } from '@/types';
 interface ErrorPattern {
   pattern: RegExp;
   severity: 'error' | 'warning';
-  category: 'syntax' | 'runtime' | 'build' | 'expo' | 'typescript';
+  category: 'syntax' | 'runtime' | 'build' | 'expo' | 'typescript' | 'dependency';
   autoFixable: boolean;
 }
 
@@ -211,12 +211,37 @@ export function useAutoErrorFix(options: UseAutoErrorFixOptions = {}) {
   }
 
   const {
-    enabled = false, // 🚨 DISABLED: Auto-fix is now manual via Problems button
+    enabled = false, // 🚨 DYAD PATTERN: Auto-fix disabled for web apps (manual only via Problems button)
     autoFixThreshold = 5,
     debounceMs = 2000,
   } = options;
-
+  
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  
+  // 🚨 SIMPLE: Only enable auto-fix for Expo console errors
+  // User requested: "People may not technical to Copy paste from Console"
+  // This is MUCH simpler than our previous approach - just dependency errors, posted ONCE
+  const [isExpoApp, setIsExpoApp] = useState(false);
+  
+  // Detect if current app is Expo
+  useEffect(() => {
+    if (!selectedAppId) {
+      setIsExpoApp(false);
+      return;
+    }
+    
+    IpcClient.getInstance()
+      .getApp(selectedAppId)
+      .then(app => {
+        const appType = app?.type || '';
+        setIsExpoApp(appType === 'expo' || appType === 'mobile');
+      })
+      .catch(() => setIsExpoApp(false));
+  }, [selectedAppId]);
+  
+  // 🚨 SIMPLE LOGIC: Only enable for Expo apps
+  const simpleEnabled = enabled && isExpoApp;
+
   const { streamMessage, isStreaming } = useStreamChat();
   const { chats } = useChats(selectedAppId);
   const { problemReport } = useCheckProblems(selectedAppId);
@@ -320,82 +345,54 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     return prompt;
   }, [appCategory]);
 
-  // Detect errors from console messages
-  const detectConsoleErrors = useCallback((appOutput: AppOutput[]) => {
-    if (!enabled || !selectedAppId) return;
+  // 🚨 SIMPLE: Detect only Expo dependency errors from console (string input)
+  const detectConsoleErrors = useCallback((logs: string) => {
+    if (!simpleEnabled || !selectedAppId) return;
+
+    // 🚨 SIMPLE: Only 3 common dependency patterns (what non-technical users hit)
+    const patterns: ErrorPattern[] = [
+      { pattern: /Unable to resolve ["']([^"']+)["']/i, severity: 'error', category: 'dependency', autoFixable: true },
+      { pattern: /Module not found.*["']([^"']+)["']/i, severity: 'error', category: 'dependency', autoFixable: true },
+      { pattern: /Cannot find module ["']([^"']+)["']/i, severity: 'error', category: 'dependency', autoFixable: true },
+    ];
 
     const newErrors: DetectedError[] = [];
-    
-    appOutput.forEach((output) => {
-      if (output.appId !== selectedAppId) return;
-      
-      // Skip if already processed
-      const errorId = `console-${output.timestamp}-${output.message.slice(0, 50)}`;
-      if (processedErrorsRef.current.has(errorId)) return;
-      
-      // Check against error patterns for error/warn messages
-      if (output.type === 'error' || output.type === 'warn') {
-        ERROR_PATTERNS.forEach((pattern) => {
-          if (pattern.pattern.test(output.message)) {
-            newErrors.push({
-              id: errorId,
-              message: output.message,
-              source: 'console',
-              severity: pattern.severity,
-              category: pattern.category,
-              timestamp: output.timestamp,
-              autoFixed: false,
-            });
-            processedErrorsRef.current.add(errorId);
-          }
+
+    for (const errorPattern of patterns) {
+      const match = logs.match(errorPattern.pattern);
+      if (match) {
+        const packageName = match[1] || match[0].slice(0, 30);
+        const errorId = `expo-dep-${packageName}`;
+        
+        // Don't re-process the same error
+        if (processedErrorsRef.current.has(errorId)) continue;
+        
+        processedErrorsRef.current.add(errorId);
+        newErrors.push({
+          id: errorId,
+          message: match[0],
+          source: 'console',
+          severity: errorPattern.severity,
+          category: errorPattern.category,
+          timestamp: Date.now(),
+          autoFixed: false,
         });
       }
-      
-      // Special handling for Expo console messages (even info/log level)
-      if (output.type === 'info' || output.type === 'log') {
-        const message = output.message;
-        
-        // Check for Expo-specific issues in info/log messages
-        const expoPatterns = [
-          /tunnel.*failed|ngrok.*error|ngrok.*not.*found/i,
-          /@expo\/ngrok.*interactive.*prompts/i,
-          /expo.*module.*not.*installed/i,
-          /port.*\d+.*already.*in.*use|EADDRINUSE.*8081/i,
-          /metro.*bundler.*failed|bundler.*cache.*empty.*rebuilding/i,
-          /waiting.*on.*http.*localhost.*8081/i,
-          /logs.*for.*your.*project.*will.*appear.*below/i,
-          /the.*following.*packages.*should.*be.*updated/i,
-        ];
-        
-        expoPatterns.forEach((pattern) => {
-          if (pattern.test(message)) {
-            console.log('🔧 Detected Expo issue in console:', message);
-            
-            newErrors.push({
-              id: errorId,
-              message: `EXPO ISSUE: ${message}`,
-              source: 'console',
-              severity: 'error',
-              category: 'expo',
-              timestamp: output.timestamp,
-              autoFixed: false,
-            });
-            processedErrorsRef.current.add(errorId);
-          }
-        });
-      }
-    });
+    }
 
     if (newErrors.length > 0) {
-      const expoErrors = newErrors.filter(e => e.category === 'expo').length;
-      console.log(`🔍 Auto-fix detected ${newErrors.length} new console errors (${expoErrors} Expo-specific)`);
+      console.log(`🔧 [Expo Helper] Detected ${newErrors.length} dependency errors for non-technical users`);
       setDetectedErrors(prev => [...prev, ...newErrors]);
     }
-  }, [enabled, selectedAppId]);
+  }, [simpleEnabled, selectedAppId]);
 
-  // Detect errors from Problems tab
+  // 🚨 DISABLED: Problems tab auto-fix (Dyad pattern - manual only)
   const detectProblemsErrors = useCallback(() => {
-    if (!enabled || !selectedAppId || !problemReport?.problems) return;
+    // Disabled to match Dyad's approach - only manual "Fix Problems" button
+    return;
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    if (!simpleEnabled || !selectedAppId || !problemReport?.problems) return;
 
     const newErrors: DetectedError[] = [];
     
@@ -422,16 +419,32 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     }
   }, [enabled, selectedAppId, problemReport]);
 
-  // Auto-fix detected errors
+  // Track if we're currently in an auto-fix to prevent re-entry
+  const isAutoFixingRef = useRef(false);
+  
+  // 🚨 SIMPLE: Auto-fix detected Expo dependency errors ONCE
   const autoFixErrors = useCallback(async () => {
-    if (!enabled || !chatId || isStreaming || isAutoFixing || autoFixCount >= autoFixThreshold) {
+    // Prevent multiple simultaneous auto-fixes
+    if (isAutoFixingRef.current) {
+      console.log(`⏸️ Auto-fix already in progress, skipping...`);
+      return;
+    }
+    
+    if (!simpleEnabled || !chatId || isStreaming || isAutoFixing) {
       return;
     }
 
-    const unfixedErrors = detectedErrors.filter(error => !error.autoFixed && error.severity === 'error');
+    // 🚨 SIMPLE: Only fix dependency errors (what non-technical users struggle with)
+    const unfixedErrors = detectedErrors.filter(
+      error => !error.autoFixed && 
+               error.category === 'dependency' && 
+               error.severity === 'error'
+    );
+    
     if (unfixedErrors.length === 0) return;
 
-    console.log(`🔧 Auto-fixing ${unfixedErrors.length} detected errors...`);
+    console.log(`🔧 [Expo Helper] Auto-fixing ${unfixedErrors.length} dependency errors for non-technical users...`);
+    isAutoFixingRef.current = true;
     setIsAutoFixing(true);
 
     try {
@@ -456,19 +469,43 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     } catch (error) {
       console.error('Auto-fix failed:', error);
     } finally {
+      isAutoFixingRef.current = false;
       setIsAutoFixing(false);
     }
-  }, [enabled, chatId, isStreaming, isAutoFixing, autoFixCount, autoFixThreshold, detectedErrors, createAutoFixPrompt, streamMessage]);
+  }, [simpleEnabled, chatId, isStreaming, isAutoFixing, detectedErrors, createAutoFixPrompt, streamMessage]);
 
-  // Debounced auto-fix trigger
+  // 🚨 CRITICAL FIX: Prevent auto-fix spam (5-6 times per error)
+  const lastAutoFixTimeRef = useRef<number>(0);
+  const lastErrorCountRef = useRef<number>(0);
+  
+  // 🚨 SIMPLE: Only auto-fix Expo console errors (dependency issues)
   useEffect(() => {
-    if (!enabled) return;
+    // Only run for Expo apps
+    if (!simpleEnabled) return;
+    
+    // Only if we have unfixed dependency errors
+    const unfixedDependencyErrors = detectedErrors.filter(
+      error => !error.autoFixed && 
+               error.category === 'dependency' && 
+               error.severity === 'error'
+    );
+    
+    if (unfixedDependencyErrors.length === 0) return;
 
+    // 🚨 SIMPLE SPAM PREVENTION: Only auto-fix once per app
+    // (lastAutoFixTimeRef is reset when app changes)
+    if (lastAutoFixTimeRef.current > 0) {
+      console.log(`⏸️ Already auto-fixed for this app, skipping...`);
+      return;
+    }
+
+    // Debounce (wait for errors to settle)
     if (errorDebounceRef.current) {
       clearTimeout(errorDebounceRef.current);
     }
 
     errorDebounceRef.current = setTimeout(() => {
+      lastAutoFixTimeRef.current = Date.now();
       autoFixErrors();
     }, debounceMs);
 
@@ -477,7 +514,7 @@ Please fix these errors immediately and ensure the app runs without issues.`;
         clearTimeout(errorDebounceRef.current);
       }
     };
-  }, [detectedErrors, enabled, debounceMs, autoFixErrors]);
+  }, [detectedErrors, simpleEnabled, debounceMs, autoFixErrors]);
 
   // Monitor Problems tab changes
   useEffect(() => {
@@ -489,6 +526,9 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     setDetectedErrors([]);
     setAutoFixCount(0);
     processedErrorsRef.current.clear();
+    lastAutoFixTimeRef.current = 0; // Reset auto-fix timer
+    lastErrorCountRef.current = 0; // Reset error count
+    isAutoFixingRef.current = false; // Reset auto-fixing flag
   }, [selectedAppId]);
 
   // Clear errors when app successfully starts (no errors for 10 seconds)
@@ -597,11 +637,103 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     return () => clearTimeout(timer);
   }, [problemReport, triggerProblemsAutoFix]);
 
+  // 🚨 NEW: Detect Expo dependency errors from terminal output
+  const detectExpoDependencyErrors = useCallback((terminalOutput: string) => {
+    if (!enabled || !terminalOutput) return;
+    
+    const dependencyPatterns = [
+      /Unable to resolve\s+"([^"]+)"/gi,
+      /Module not found:\s+Can't resolve\s+'([^']+)'/gi,
+      /Cannot find module\s+'([^']+)'/gi,
+      /Error:\s+Cannot find module\s+'([^']+)'/gi,
+    ];
+    
+    const newErrors: DetectedError[] = [];
+    
+    dependencyPatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(terminalOutput)) !== null) {
+        const packageName = match[1] || match[0];
+        const errorId = `expo-dep-${packageName}`;
+        
+        // Don't re-process same error
+        if (processedErrorsRef.current.has(errorId)) continue;
+        
+        processedErrorsRef.current.add(errorId);
+        newErrors.push({
+          id: errorId,
+          message: `Missing Expo dependency: ${packageName}`,
+          severity: 'error',
+          category: 'dependency',
+          autoFixed: false,
+          timestamp: Date.now(),
+        });
+        
+        console.log(`🔍 Detected Expo dependency error: ${packageName}`);
+      }
+    });
+    
+    if (newErrors.length > 0) {
+      setDetectedErrors(prev => [...prev, ...newErrors]);
+    }
+  }, [enabled]);
+
+  // 🚨 NEW: Detect Expo runtime errors from error logs (like Haptic.impactAsync errors)
+  const detectExpoRuntimeErrors = useCallback((errorLog: string) => {
+    if (!enabled || !errorLog) return;
+    
+    const runtimePatterns = [
+      // Haptic/Vibration errors
+      /Haptic\.\w+\s+is not available on web/gi,
+      /Vibration\.\w+\s+is not available/gi,
+      // Native module errors
+      /The method or property\s+(\w+\.\w+)\s+is not available/gi,
+      // Expo module errors
+      /Expo\.\w+\s+is not available/gi,
+      // Platform-specific errors
+      /not available on (web|ios|android)/gi,
+      // General runtime errors
+      /Uncaught Error:\s+(.+)/gi,
+      /TypeError:\s+(.+)/gi,
+    ];
+    
+    const newErrors: DetectedError[] = [];
+    
+    runtimePatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(errorLog)) !== null) {
+        const errorMessage = match[0];
+        const errorId = `expo-runtime-${errorMessage.substring(0, 50)}`;
+        
+        // Don't re-process same error
+        if (processedErrorsRef.current.has(errorId)) continue;
+        
+        processedErrorsRef.current.add(errorId);
+        newErrors.push({
+          id: errorId,
+          message: `Expo runtime error: ${errorMessage}`,
+          severity: 'error',
+          category: 'expo',
+          autoFixed: false,
+          timestamp: Date.now(),
+        });
+        
+        console.log(`🔍 Detected Expo runtime error: ${errorMessage}`);
+      }
+    });
+    
+    if (newErrors.length > 0) {
+      setDetectedErrors(prev => [...prev, ...newErrors]);
+    }
+  }, [enabled]);
+
   return {
     detectedErrors,
     autoFixCount,
     isAutoFixing,
     detectConsoleErrors,
+    detectExpoDependencyErrors, // Export for Expo components
+    detectExpoRuntimeErrors, // Export for Expo runtime error detection
     fixAllErrors,
     triggerProblemsAutoFix,
     canAutoFix: autoFixCount < autoFixThreshold && !isAutoFixing,

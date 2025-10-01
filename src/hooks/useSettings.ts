@@ -53,12 +53,12 @@ export function useSettings() {
     } finally {
       setLoading(false);
     }
-  }, [setSettingsAtom, setEnvVarsAtom]); // CRITICAL: Removed appVersion dependency
+  }, []); // CRITICAL: Removed all dependencies to prevent infinite loop
 
   useEffect(() => {
-    // Only run once on mount, dependencies are stable getters/setters
+    // Only run once on mount
     loadInitialData();
-  }, [loadInitialData]);
+  }, []); // Empty dependency array - run only once
 
   const updateSettings = async (newSettings: Partial<UserSettings>) => {
     setLoading(true);

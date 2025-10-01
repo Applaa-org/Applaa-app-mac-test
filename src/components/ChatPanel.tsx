@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAtom, useAtomValue } from "jotai";
-import { chatMessagesAtom, chatStreamCountAtom } from "../atoms/chatAtoms";
+import { chatMessagesAtom, chatStreamCountAtom, isStreamingAtom } from "../atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 
 import { ChatHeader } from "./chat/ChatHeader";
@@ -17,6 +17,14 @@ export function ChatPanel({
   chatId,
 }: ChatPanelProps) {
   const [messages, setMessages] = useAtom(chatMessagesAtom);
+  
+  // 🚨 CRITICAL: Check if streaming to prevent race conditions
+  const isStreaming = useAtomValue(isStreamingAtom);
+  
+  // Debug messages changes
+  useEffect(() => {
+    console.log(`📋 ChatPanel: Messages updated for chatId ${chatId}: ${messages.length} messages`);
+  }, [messages, chatId]);
   const [isVersionPaneOpen, setIsVersionPaneOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const streamCount = useAtomValue(chatStreamCountAtom);
@@ -76,18 +84,33 @@ export function ChatPanel({
     };
   }, []);
 
-  const fetchChatMessages = useCallback(async () => {
+  // 🚨 DYAD PATTERN: Simple message fetching with minimal dependencies
+  // Only fetch when chatId changes, NOT when isStreaming changes
+  useEffect(() => {
     if (!chatId) {
+      console.log(`📋 ChatPanel: Clearing messages (no chatId)`);
       setMessages([]);
       return;
     }
-    const chat = await IpcClient.getInstance().getChat(chatId);
-    setMessages(chat.messages);
-  }, [chatId, setMessages]);
-
-  useEffect(() => {
-    fetchChatMessages();
-  }, [fetchChatMessages]);
+    
+    // Only fetch if not currently streaming
+    // This prevents overwriting live stream updates with stale DB data
+    if (!isStreaming) {
+      console.log(`📋 ChatPanel: Fetching messages for chatId: ${chatId}`);
+      IpcClient.getInstance()
+        .getChat(chatId)
+        .then(chat => {
+          console.log(`📋 ChatPanel: Loaded ${chat.messages.length} messages`);
+          setMessages(chat.messages);
+        })
+        .catch(error => {
+          console.error(`📋 ChatPanel: Failed to fetch messages:`, error);
+          setMessages([]);
+        });
+    } else {
+      console.log(`📋 ChatPanel: Skipping fetch (stream in progress)`);
+    }
+  }, [chatId, isStreaming]); // ✅ DYAD PATTERN: Simple dependencies, no useCallback
 
   // Auto-scroll effect when messages change
   useEffect(() => {

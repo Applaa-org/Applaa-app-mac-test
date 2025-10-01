@@ -16,10 +16,19 @@ import { useChats } from "@/hooks/useChats";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { useRunApp } from "@/hooks/useRunApp";
 import { MessageSquare, Code } from "lucide-react";
+import { useStreamChat } from "@/hooks/useStreamChat";
+import type { FileAttachment } from "@/ipc/ipc_types";
 
 export default function ChatPage() {
-  let { id: chatId } = useSearch({ from: "/chat" });
+  const search = useSearch({ from: "/chat" });
+  let { id: chatId } = search;
+  const initialPrompt = search.initialPrompt;
+  const initialAttachments = search.initialAttachments;
   const navigate = useNavigate();
+  const { streamMessage } = useStreamChat({ hasChatId: false });
+  const hasAutoSubmitted = useRef(false);
+  
+  console.log("🏠 ChatPage rendered with chatId:", chatId, "initialPrompt:", initialPrompt ? `"${initialPrompt.substring(0, 50)}..."` : "none");
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
   const [isResizing, setIsResizing] = useState(false);
   const [leftPanelView, setLeftPanelView] = useState<"chat" | "code">("chat");
@@ -29,14 +38,57 @@ export default function ChatPage() {
   const { chats, loading } = useChats(selectedAppId);
   const { loading: appLoading, app } = useRunApp();
 
+  // 🚀 FIX: Auto-submit initial prompt after chat panel mounts (Dyad-style)
+  // This ensures callbacks are registered before streaming starts
   useEffect(() => {
+    if (initialPrompt && chatId && !hasAutoSubmitted.current) {
+      console.log(`🚀 [ChatPage] Auto-submitting initial prompt for chatId: ${chatId}`);
+      hasAutoSubmitted.current = true;
+      
+      // Parse attachments if provided
+      let attachments: FileAttachment[] = [];
+      if (initialAttachments) {
+        try {
+          attachments = JSON.parse(initialAttachments);
+        } catch (error) {
+          console.error("Failed to parse initial attachments:", error);
+        }
+      }
+      
+      // Wait 100ms to ensure ChatPanel is mounted and callbacks are registered
+      // This matches Dyad's proven pattern and avoids race conditions
+      setTimeout(() => {
+        streamMessage({
+          prompt: initialPrompt,
+          chatId,
+          attachments
+        }).then(() => {
+          console.log(`✅ [ChatPage] Initial prompt submitted successfully for chatId: ${chatId}`);
+          
+          // Clean up URL to remove initialPrompt/initialAttachments params
+          navigate({
+            to: "/chat",
+            search: { id: chatId },
+            replace: true // Replace history entry to hide params
+          });
+        }).catch((error) => {
+          console.error(`❌ [ChatPage] Failed to submit initial prompt for chatId: ${chatId}:`, error);
+        });
+      }, 100); // Small delay to ensure ChatPanel is ready
+    }
+  }, [initialPrompt, chatId, streamMessage, navigate, initialAttachments]);
+
+  useEffect(() => {
+    console.log("🔄 Chat redirect effect:", { chatId, chatsLength: chats.length, loading, selectedAppId });
+    
     if (!chatId && chats.length && !loading) {
       // Not a real navigation, just a redirect, when the user navigates to /chat
       // without a chatId, we redirect to the first chat
+      console.log("📍 Redirecting to first chat:", chats[0]);
       setSelectedAppId(chats[0].appId);
       navigate({ to: "/chat", search: { id: chats[0].id }, replace: true });
     }
-  }, [chatId, chats, loading, navigate]);
+  }, [chatId, chats, loading, navigate, selectedAppId]);
 
   useEffect(() => {
     if (isPreviewOpen) {

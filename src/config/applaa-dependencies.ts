@@ -94,6 +94,7 @@ export const APPLAA_DEPENDENCIES = {
     // Essential packages pre-installed in every Expo app
     ESSENTIAL: [
       "react",
+      "react-dom",                 // Required for web bundling
       "react-native",
       "expo",
       "expo-router",               // File-based navigation

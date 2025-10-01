@@ -69,6 +69,9 @@ const config: ForgeConfig = {
       "node_modules/onnxruntime-react-native/**",
       "node_modules/react-native-transformers/**",
       "node_modules/better-sqlite3/**",
+      "node_modules/expo/**",
+      "node_modules/@expo/**",
+      "node_modules/.bin/**",
       "drizzle/**"
     ],
     // extraResource: [
@@ -83,7 +86,10 @@ const config: ForgeConfig = {
       "react-native-transformers",
       "@react-native-async-storage/async-storage",
       "expo-sqlite",
-      "react-native-svg"
+      "react-native-svg",
+      "expo",
+      "@expo/cli",
+      "@expo/ngrok"
     ],
     force: true,
   },

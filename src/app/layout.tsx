@@ -13,6 +13,7 @@ import { AIOnboardingManager } from "@/components/onboarding/AIOnboardingManager
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BackgroundTaskStatusBar } from "@/components/BackgroundTaskNotifications";
 import { BackgroundTaskCompletionHandler } from "@/components/BackgroundTaskCompletionHandler";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useBackgroundDependencyInstaller } from "@/hooks/useBackgroundDependencyInstaller";
 
 export default function RootLayout({
@@ -57,32 +58,34 @@ export default function RootLayout({
       <ThemeProvider>
         <DeepLinkProvider>
           <SidebarProvider>
-            {/* 🚀 PERFORMANCE: Semantic Context DISABLED for testing - will re-enable after core fixes */}
-            {/* Semantic context UI removed for MVP */}
-            {/* AIOnboardingManager temporarily disabled for core stability */}
-            {/* 
-            <ErrorBoundary>
-              <AIOnboardingManager />
-            </ErrorBoundary>
-            */}
-            <TitleBar />
-            <ErrorBoundary>
-              <AppSidebar />
-            </ErrorBoundary>
-            {/* Background task status bar */}
-            <ErrorBoundary>
-              <BackgroundTaskStatusBar />
-            </ErrorBoundary>
-            {/* Background task completion handler */}
-            <ErrorBoundary>
-              <BackgroundTaskCompletionHandler />
-            </ErrorBoundary>
-            <div className="flex h-screenish w-full overflow-x-hidden mt-12 mb-4 mr-4 border-t border-l border-border rounded-lg bg-background">
+            <TooltipProvider>
+              {/* 🚀 PERFORMANCE: Semantic Context DISABLED for testing - will re-enable after core fixes */}
+              {/* Semantic context UI removed for MVP */}
+              {/* AIOnboardingManager temporarily disabled for core stability */}
+              {/* 
               <ErrorBoundary>
-                {children}
+                <AIOnboardingManager />
               </ErrorBoundary>
-            </div>
-            <Toaster richColors />
+              */}
+              <TitleBar />
+              <ErrorBoundary>
+                <AppSidebar />
+              </ErrorBoundary>
+              {/* Background task status bar */}
+              <ErrorBoundary>
+                <BackgroundTaskStatusBar />
+              </ErrorBoundary>
+              {/* Background task completion handler */}
+              <ErrorBoundary>
+                <BackgroundTaskCompletionHandler />
+              </ErrorBoundary>
+              <div className="flex h-screenish w-full overflow-x-hidden mt-12 mb-4 mr-4 border-t border-l border-border rounded-lg bg-background">
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
+              </div>
+              <Toaster richColors />
+            </TooltipProvider>
           </SidebarProvider>
         </DeepLinkProvider>
       </ThemeProvider>
