@@ -141,35 +141,14 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     }
   }, [inputHistory, historyIndex, setInputValue]);
 
-  // 🚀 PERFORMANCE: Memoize fetchChatMessages to prevent unnecessary re-renders
-  const fetchChatMessages = useCallback(async () => {
-    if (!chatId) {
-      setMessages([]);
-      return;
-    }
-    try {
-      const chat = await IpcClient.getInstance().getChat(chatId);
-      console.log(`Fetched ${chat.messages.length} messages for chatId: ${chatId}`);
-      setMessages(chat.messages);
-    } catch (error) {
-      console.error(`Failed to fetch messages for chatId ${chatId}:`, error);
-      setMessages([]);
-    }
-  }, [chatId, setMessages]);
+  // 🚨 REMOVED: Don't fetch messages here - ChatPanel handles this
+  // Duplicate fetching causes race conditions with streaming updates
 
   useEffect(() => {
     if (error) {
       setShowError(true);
     }
   }, [error]);
-
-  // 🔧 FIX: Fetch messages when chatId changes to prevent cross-contamination
-  useEffect(() => {
-    if (chatId) {
-      console.log(`ChatInput: Loading messages for chatId: ${chatId}`);
-      fetchChatMessages();
-    }
-  }, [chatId, fetchChatMessages]);
 
   // Prompt optimization handlers removed for app-specific chat
 
@@ -233,7 +212,9 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     if (chatId) {
       IpcClient.getInstance().cancelChatStream(chatId);
     }
-    setIsStreaming(false);
+    // 🚨 DYAD PATTERN: Don't manually set isStreaming here!
+    // The onEnd/onError callbacks in useStreamChat will handle it
+    // This prevents race conditions and state corruption
   };
 
   const dismissError = () => {

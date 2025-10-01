@@ -4,13 +4,12 @@ import type {
   Message,
   FileAttachment,
 } from "@/ipc/ipc_types";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom, useSetAtom, useAtomValue } from "jotai";
 import {
   chatErrorAtom,
   chatMessagesAtom,
   chatStreamCountAtom,
   isStreamingAtom,
-  appStreamingStatesAtom,
 } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { isPreviewOpenAtom } from "@/atoms/viewAtoms";
@@ -36,13 +35,10 @@ export function getRandomNumberId() {
 export function useStreamChat({
   hasChatId = true,
 }: { hasChatId?: boolean } = {}) {
-  // Use global atoms for proper state management across components
+  // 🚨 DYAD PATTERN: Simple state management (no over-engineering!)
   const [, setMessages] = useAtom(chatMessagesAtom);
-  const [isStreaming, setIsStreaming] = useAtom(isStreamingAtom);
   const [error, setError] = useAtom(chatErrorAtom);
-  
-  // 🚨 CRITICAL FIX: App-specific streaming state management
-  const [appStreamingStates, setAppStreamingStates] = useAtom(appStreamingStatesAtom);
+  const [isStreaming, setIsStreaming] = useAtom(isStreamingAtom); // Simple writable atom
   
   const setIsPreviewOpen = useSetAtom(isPreviewOpenAtom);
   const [selectedAppId] = useAtom(selectedAppIdAtom);
@@ -64,31 +60,26 @@ export function useStreamChat({
   }
   let { refreshProposal } = hasChatId ? useProposal(chatId) : useProposal();
 
-  // Helper function to set app-specific streaming state
-  const setAppStreamingState = useCallback((appId: number | null, streaming: boolean) => {
-    if (!appId) return;
-    setAppStreamingStates(prev => ({
-      ...prev,
-      [appId]: streaming
-    }));
-  }, []); // Remove setAppStreamingStates dependency to prevent infinite loop
+  // 🚨 DYAD PATTERN: No complex app-specific state management
+  // Just use simple setIsStreaming(true/false) like Dyad does
 
   // Direct state management with global atoms
 
-  const streamMessage = useCallback(
-    async ({
-      prompt,
-      chatId,
-      redo,
-      attachments,
-      selectedComponent,
-    }: {
-      prompt: string;
-      chatId: number;
-      redo?: boolean;
-      attachments?: FileAttachment[];
-      selectedComponent?: ComponentSelection | null;
-    }) => {
+  // 🚨 CRITICAL: Removed useCallback wrapper - it was causing stale closure issues
+  // The massive dependency array was making the function unstable
+  const streamMessage = async ({
+    prompt,
+    chatId,
+    redo,
+    attachments,
+    selectedComponent,
+  }: {
+    prompt: string;
+    chatId: number;
+    redo?: boolean;
+    attachments?: FileAttachment[];
+    selectedComponent?: ComponentSelection | null;
+  }) => {
       if (
         (!prompt.trim() && (!attachments || attachments.length === 0)) ||
         !chatId
@@ -96,22 +87,17 @@ export function useStreamChat({
         throw new Error("Invalid prompt or chat ID");
       }
 
-      // Prevent multiple concurrent streams
+      // 🚨 DYAD PATTERN: Simple global streaming check
       if (isStreaming) {
         console.log(`Stream already active for chatId: ${chatId}, ignoring new request`);
         throw new Error("Stream already in progress");
       }
 
       console.log(`🚀 Starting stream for chatId: ${chatId}, prompt: "${prompt.substring(0, 50)}..."`);
-      console.log(`🔧 Current messages length: ${messages.length}`);
       setError(null);
+      
+      // 🚨 DYAD PATTERN: Direct setIsStreaming (no complex state management)
       setIsStreaming(true);
-      
-      // 🚨 CRITICAL FIX: Set app-specific streaming state
-      setAppStreamingState(selectedAppId, true);
-      
-      // Small delay to ensure UI updates
-      await new Promise(resolve => setTimeout(resolve, 50));
 
       let hasIncrementedStreamCount = false;
       let streamStarted = false;
@@ -137,20 +123,10 @@ export function useStreamChat({
                 hasIncrementedStreamCount = true;
               }
               
-              // 🚀 PERFORMANCE: Batch message updates to prevent flickering
-              setMessages((prevMessages) => {
-                console.log(`🔄 Updating messages: ${prevMessages.length} -> ${updatedMessages.length}`);
-                // Only update if messages actually changed to prevent unnecessary re-renders
-                // Use length and last message comparison for better performance than JSON.stringify
-                if (prevMessages.length !== updatedMessages.length || 
-                    (updatedMessages.length > 0 && 
-                     prevMessages[prevMessages.length - 1]?.content !== updatedMessages[updatedMessages.length - 1]?.content)) {
-                  console.log("✅ Messages updated successfully");
-                  return updatedMessages;
-                }
-                console.log("⏭️ Messages unchanged, skipping update");
-                return prevMessages;
-              });
+              // 🚨 SIMPLIFIED: Always update messages - React is smart enough to batch updates
+              // The "optimization" of comparing messages was causing silent streaming issues
+              console.log(`🔄 Updating messages: ${updatedMessages.length} messages`);
+              setMessages(updatedMessages);
             },
             onEnd: (response: ChatResponseEnd) => {
               console.log(`✅ Stream ended successfully for chatId: ${chatId}`);
@@ -192,10 +168,8 @@ export function useStreamChat({
 
               refetchUserBudget();
 
-              // Reset streaming state
+              // 🚨 DYAD PATTERN: Direct streaming state reset
               setIsStreaming(false);
-              // 🚨 CRITICAL FIX: Reset app-specific streaming state
-              setAppStreamingState(selectedAppId, false);
               
               refreshChats();
               refreshApp();
@@ -206,10 +180,8 @@ export function useStreamChat({
               console.error(`[CHAT] Stream error for ${chatId}:`, errorMessage);
               setError(errorMessage);
 
-              // Reset streaming state on error
+              // 🚨 DYAD PATTERN: Direct streaming state reset on error
               setIsStreaming(false);
-              // 🚨 CRITICAL FIX: Reset app-specific streaming state on error
-              setAppStreamingState(selectedAppId, false);
               
               refreshChats();
               refreshApp();
@@ -225,39 +197,26 @@ export function useStreamChat({
           // Set a timeout to reject if stream doesn't start within 10 seconds
           setTimeout(() => {
             if (!streamStarted) {
+              // 🚨 DYAD PATTERN: Direct streaming state reset on timeout
               setIsStreaming(false);
-              // 🚨 CRITICAL FIX: Reset app-specific streaming state on timeout
-              setAppStreamingState(selectedAppId, false);
               reject(new Error("Stream failed to start within timeout"));
             }
           }, 10000);
           
         } catch (error) {
           console.error("[CHAT] Exception during streaming setup:", error);
+          // 🚨 DYAD PATTERN: Direct streaming state reset on exception
           setIsStreaming(false);
-          // 🚨 CRITICAL FIX: Reset app-specific streaming state on exception
-          setAppStreamingState(selectedAppId, false);
           setError(error instanceof Error ? error.message : String(error));
           reject(error);
         }
       });
-    },
-    [
-      setMessages,
-      setIsStreaming,
-      setIsPreviewOpen,
-      checkProblems,
-      selectedAppId,
-      refetchUserBudget,
-      setAppStreamingState,
-    ],
-  );
+  };
 
   return {
     streamMessage,
-    isStreaming,
+    isStreaming, // 🚨 DYAD PATTERN: Return global streaming state
     error,
     setError,
-    setIsStreaming,
   };
 }

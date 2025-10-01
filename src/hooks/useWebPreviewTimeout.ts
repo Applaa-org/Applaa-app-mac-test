@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAtomValue } from 'jotai';
-import { createAppStreamingAtom } from '@/atoms/chatAtoms';
+import { isStreamingAtom } from '@/atoms/chatAtoms';
 import { selectedAppIdAtom, appUrlAtom } from '@/atoms/appAtoms';
 import { useCheckProblems } from './useCheckProblems';
 import { IpcClient } from '@/ipc/ipc_client';
@@ -16,9 +16,8 @@ const TIMEOUT_DURATION = 180000; // 30 seconds
 export function useWebPreviewTimeout(): WebPreviewTimeoutState {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   
-  // 🚨 CRITICAL FIX: Use app-specific streaming state instead of global
-  const appStreamingAtom = createAppStreamingAtom(selectedAppId);
-  const isStreaming = useAtomValue(appStreamingAtom);
+  // 🚨 DYAD PATTERN: Use simple global streaming atom
+  const isStreaming = useAtomValue(isStreamingAtom);
   
   const appUrl = useAtomValue(appUrlAtom);
   const { problemReport } = useCheckProblems(selectedAppId);

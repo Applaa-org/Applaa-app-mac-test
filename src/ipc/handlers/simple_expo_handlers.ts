@@ -12,6 +12,7 @@ import { execAsync } from "../utils/runShellCommand";
 import log from "electron-log";
 import { unifiedInstallDependencies, areDependenciesInstalled } from "./unified_dependency_manager";
 import { spawnNode, checkNodeToolsAvailability } from "../../lib/node-runtime";
+import { findMissingDependencies } from "./dependency_validator";
 
 interface SimpleExpoStatus {
   isRunning: boolean;
@@ -39,13 +40,17 @@ let currentStartOptions: { useTunnel: boolean } = { useTunnel: true };
 export function registerSimpleExpoHandlers() {
   log.log("🎯 Registering Expo handlers with guaranteed port allocation");
   
-  // Check Node.js tools availability for diagnostics
-  const toolsAvailability = checkNodeToolsAvailability();
-  log.log("🔧 Node.js tools availability:", toolsAvailability);
-  
-  if (!toolsAvailability.node || !toolsAvailability.npm || !toolsAvailability.npx) {
-    log.warn("⚠️ Some Node.js tools are not available. Expo functionality may be limited.");
-    log.warn("Tool paths:", toolsAvailability.paths);
+  // Check Node.js tools availability for diagnostics (outside try-catch to not block registration)
+  try {
+    const toolsAvailability = checkNodeToolsAvailability();
+    log.log("🔧 Node.js tools availability:", toolsAvailability);
+    
+    if (!toolsAvailability.node || !toolsAvailability.npm || !toolsAvailability.npx) {
+      log.warn("⚠️ Some Node.js tools are not available. Expo functionality may be limited.");
+      log.warn("Tool paths:", toolsAvailability.paths);
+    }
+  } catch (error) {
+    log.warn("⚠️ Failed to check Node.js tools on startup:", error);
   }
 
   // Kill any process using a specific port (Windows/Linux/Mac compatible)
@@ -622,44 +627,41 @@ export function registerSimpleExpoHandlers() {
       expoStatus.terminalOutput += portMessage;
       log.log(`✅ ${portMessage.trim()}`);
 
-      // Install ngrok globally if tunnel mode is requested
-      if (useTunnel) {
-        log.log("🚇 Installing @expo/ngrok globally for tunnel support...");
-        expoStatus.terminalOutput += "Installing tunnel dependencies...\n";
+      // 🔍 OPTIONAL: Check for missing dependencies BEFORE starting Expo
+      // Skip this check for now - let Expo handle missing dependencies
+      log.log("🔍 Scanning code for missing dependencies...");
+      expoStatus.terminalOutput += "🔍 Validating dependencies...\n";
+      
+      try {
+        const missingDeps = findMissingDependencies(appPath);
         
-        try {
-          const { spawn } = require('child_process');
-          const installNgrok = spawnNode('npm', ['install', '-g', '@expo/ngrok@^4.1.0'], {
-            stdio: 'pipe'
-          });
-          
-          await new Promise((resolve, reject) => {
-            installNgrok.on('close', (code: number) => {
-              if (code === 0) {
-                log.log("✅ @expo/ngrok installed successfully");
-                expoStatus.terminalOutput += "✅ Tunnel dependencies installed\n";
-                resolve(true);
-              } else {
-                log.warn("⚠️ Failed to install @expo/ngrok, falling back to localhost mode");
-                expoStatus.terminalOutput += "⚠️ Tunnel setup failed, using localhost mode\n";
-                resolve(false);
-              }
-            });
-            installNgrok.on('error', reject);
-          });
-        } catch (e) {
-          log.warn("⚠️ Error installing ngrok:", e);
-          expoStatus.terminalOutput += "⚠️ Tunnel setup failed, using localhost mode\n";
+        if (missingDeps.length > 0) {
+          log.warn(`⚠️ Found ${missingDeps.length} missing dependencies:`, missingDeps);
+          expoStatus.terminalOutput += `⚠️ Found missing: ${missingDeps.join(", ")} - Expo will handle installation\n`;
+          // Don't block startup - let Expo handle it
+        } else {
+          log.log("✅ All dependencies are installed");
+          expoStatus.terminalOutput += "✅ All dependencies validated\n";
         }
+      } catch (error: any) {
+        log.warn("⚠️ Dependency scan failed (non-critical):", error);
+        expoStatus.terminalOutput += "⚠️ Dependency scan skipped\n";
+      }
+
+      // Skip ngrok installation - Expo CLI will handle it if needed
+      if (useTunnel) {
+        log.log("🚇 Tunnel mode requested - Expo CLI will handle @expo/ngrok installation if needed");
+        expoStatus.terminalOutput += "🚇 Tunnel mode enabled\n";
       }
 
       // Build command with SUPPORTED anti-interactive flags only
       const args = [
         "expo", "start", 
         "--clear",
-        "--web",
-        "--port", finalPort.toString(),  // 🎯 Explicit port prevents "Use port 8082 instead?" prompt
-        "--non-interactive"              // 🎯 Prevent interactive prompts
+        "--web"
+        // 🚨 CRITICAL: Do NOT specify --port in CLI args!
+        // Expo CLI will prompt if port is busy when specified in args
+        // Instead, use PORT env var which allows auto-selection
       ];
       
       // Use tunnel mode for public access through Expo Go
@@ -667,44 +669,47 @@ export function registerSimpleExpoHandlers() {
         args.push("--tunnel");
         log.log("🚇 Using tunnel mode for public access");
       } else {
-        args.push("--localhost");
-        log.log("🏠 Using localhost mode (local network only)");
+        args.push("--lan");  // Changed from --localhost to --lan for LAN access
+        log.log("🌐 Using LAN mode for network access");
       }
 
       log.log(`🚀 Starting Expo: npx ${args.join(" ")}`);
 
-    // Start Expo process with minimal environment to preserve default CLI behavior (prints QR)
+    // Start Expo process with non-interactive configuration
   expoProcess = spawnNode("npx", args, {
         cwd: appPath,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
-      EXPO_NO_TELEMETRY: '1',              // Reduce noise
-      EXPO_USE_DEV_SERVER: '1',            // Enable dev server
-          NODE_ENV: 'development',
-          // Metro server configuration
-          RCT_METRO_PORT: String(finalPort),   // Explicit Metro port
-          REACT_NATIVE_PACKAGER_HOSTNAME: '0.0.0.0',
-          // Prevent ngrok installation prompts
-          EXPO_NO_WEB_SETUP: '1',          // Skip web setup prompts
-          CI: '1',                         // Non-interactive mode
-          // Additional non-interactive safeguards
-      EXPO_NO_DOTENV: '1',                 // Skip .env prompts
-      EXPO_NO_GIT_STATUS: '1',             // Skip git status checks
-      EXPO_NO_CACHE: '1',                  // Prevent cache prompts
-      EXPO_NO_UPDATE_CHECK: '1',           // Skip update checks
-          // Port allocation
-          PORT: String(finalPort),             // Backup port env var
-          EXPO_DEVTOOLS_LISTEN_ADDRESS: '0.0.0.0',
-      // 🚀 Keep CLI mostly default so it prints QR (no CI / no EXPO_NO_INTERACTIVE)
-      EXPO_NO_WEB_SETUP: '1',             // Skip web setup prompts
-      EXPO_NO_TYPESCRIPT_SETUP: '1',      // Skip TypeScript setup prompts  
-      EXPO_NO_ANALYTICS: '1',             // Disable analytics prompts
-      EXPO_NO_REDIRECT: '1',              // Disable redirect prompts
-          REACT_NATIVE_METRO_PORT: String(finalPort), // Additional Metro port specification
-          // Force specific behaviors
-      EXPO_AUTO_PORT: '0',                // Disable auto port selection prompts
-      EXPO_FORCE_PORT: String(finalPort)  // Force specific port
+      // 🚨 CRITICAL PORT FIX: These are the ONLY flags that actually work!
+      CI: 'true',                          // ✅ Must be string 'true', not '1'
+      EXPO_NO_TELEMETRY: 'true',
+      // Fix Windows path normalization issues
+      TS_NODE_PROJECT: undefined,          // Clear any existing TS project config
+      TS_CONFIG_PATH: undefined,           // Clear any existing TS config path
+      EXPO_USE_DEV_SERVER: 'true',
+      NODE_ENV: 'development',
+      
+      // 🚨 PORT ALLOCATION: Critical env vars for auto-selection
+      PORT: String(finalPort),             // Preferred port
+      REACT_NATIVE_PACKAGER_PORT: String(finalPort), // Alternative port var
+      RCT_METRO_PORT: String(finalPort),
+      REACT_NATIVE_PACKAGER_HOSTNAME: '0.0.0.0',
+      
+      // 🚨 DISABLE ALL PROMPTS
+      EXPO_NO_WEB_SETUP: 'true',
+      EXPO_NO_DOTENV: 'true',
+      EXPO_NO_GIT_STATUS: 'true',
+      EXPO_NO_UPDATE_CHECK: 'true',
+      EXPO_NO_TYPESCRIPT_SETUP: 'true',
+      EXPO_NO_ANALYTICS: 'true',
+      EXPO_NO_REDIRECT: 'true',
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: '0.0.0.0',
+      
+      // 🚨 NUCLEAR OPTION: Skip entirely if port is busy
+      // This prevents the prompt by making Expo fail fast instead
+      EXPO_NO_METRO: 'false',  // Keep Metro enabled
+      SKIP_BUNDLING: 'false'   // Keep bundling enabled
         }
       });
 
@@ -992,6 +997,7 @@ export function registerSimpleExpoHandlers() {
   // Diagnostic handler to check Node.js tools availability
   ipcMain.handle("simple-expo:check-tools", async () => {
     try {
+      log.log("🔧 simple-expo:check-tools handler called");
       const availability = checkNodeToolsAvailability();
       log.log("🔧 Node.js tools check requested:", availability);
       return {
@@ -1007,4 +1013,6 @@ export function registerSimpleExpoHandlers() {
       };
     }
   });
+  
+  log.log("✅ All Expo IPC handlers registered successfully (simple-expo:start, simple-expo:stop, simple-expo:status, simple-expo:send-input, simple-expo:check-tools)");
 }

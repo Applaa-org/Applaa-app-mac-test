@@ -24,7 +24,7 @@ type ExpoStatus = Awaited<ReturnType<IpcClient['expoStatus']>>;
 export function SimpleMobilePreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const appOutput = useAtomValue(appOutputAtom);
-  const { detectConsoleErrors } = useAutoErrorFix({ enabled: true });
+  const { detectConsoleErrors, detectExpoRuntimeErrors } = useAutoErrorFix({ enabled: true });
   const [expoStatus, setExpoStatus] = useState<ExpoStatus>({ isRunning: false });
   const [selectedDevice, setSelectedDevice] = useState<string>('iphone-15-pro'); // Default to iPhone 15 Pro
   const [isLandscape, setIsLandscape] = useState<boolean>(false);
@@ -46,8 +46,12 @@ export function SimpleMobilePreview() {
     if (appOutput && appOutput.length > 0) {
       console.log('🔍 Monitoring Expo console output for auto-fix:', appOutput.length, 'messages');
       detectConsoleErrors(appOutput);
+      
+      // Also detect runtime errors from appOutput
+      const outputText = appOutput.map(o => o.message).join('\n');
+      detectExpoRuntimeErrors(outputText);
     }
-  }, [appOutput, detectConsoleErrors]);
+  }, [appOutput, detectConsoleErrors, detectExpoRuntimeErrors]);
 
   // Get current device preset
   const currentDevice = getDevicePreset(selectedDevice) || DEVICE_PRESETS['iphone-15-pro'];

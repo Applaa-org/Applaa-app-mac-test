@@ -20,7 +20,7 @@ import { IpcClient } from '@/ipc/ipc_client';
 import QRCode from 'qrcode';
 import { useAtomValue } from 'jotai';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
-import { isStreamingAtom, createAppStreamingAtom } from '@/atoms/chatAtoms';
+import { isStreamingAtom } from '@/atoms/chatAtoms';
 import { useCheckProblems } from '@/hooks/useCheckProblems';
 
 interface ExpoStatus {
@@ -41,9 +41,8 @@ const DEVICE_PRESETS = {
 
 export const RealEmbeddedPreview: React.FC = () => {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
-  // 🚨 CRITICAL FIX: Use app-specific streaming state instead of global
-  const appStreamingAtom = createAppStreamingAtom(selectedAppId);
-  const isStreaming = useAtomValue(appStreamingAtom);
+  // 🚨 DYAD PATTERN: Use simple global streaming atom
+  const isStreaming = useAtomValue(isStreamingAtom);
   const { checkProblems } = useCheckProblems(selectedAppId);
   const [expoStatus, setExpoStatus] = useState<ExpoStatus>({ isRunning: false });
   const [deviceType, setDeviceType] = useState<DeviceType>('mobile');

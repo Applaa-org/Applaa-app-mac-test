@@ -24,7 +24,7 @@ import {
   Github,
   Globe,
 } from "lucide-react";
-import { selectedChatIdAtom, isStreamingAtom, createAppStreamingAtom } from "@/atoms/chatAtoms";
+import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useChats } from "@/hooks/useChats";
 
@@ -138,9 +138,8 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   const [reloadKey, setReloadKey] = useState(0);
   const [errorMessage, setErrorMessage] = useAtom(previewErrorMessageAtom);
   const selectedChatId = useAtomValue(selectedChatIdAtom);
-  // 🚨 CRITICAL FIX: Use app-specific streaming state instead of global
-  const appStreamingAtom = createAppStreamingAtom(selectedAppId);
-  const isStreaming = useAtomValue(appStreamingAtom);
+  // 🚨 DYAD PATTERN: Use simple global streaming atom
+  const isStreaming = useAtomValue(isStreamingAtom);
   const { streamMessage } = useStreamChat({ hasChatId: false });
   
   // Random game selection

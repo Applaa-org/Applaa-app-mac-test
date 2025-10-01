@@ -44,6 +44,7 @@ import { registerUnifiedExpoPreview } from "./handlers/unified_expo_preview";
 import { registerIntelligentPreviewSystem } from "./handlers/intelligent_preview_system";
 import { registerExpoPerformanceMonitor } from "./handlers/expo_performance_monitor";
 import { registerTerminalHandlers } from "./handlers/terminal_handlers";
+import { registerSnackHandlers } from "./handlers/snack_handlers";
 import { registerPromptOptimizationHandlers } from "./handlers/prompt_optimization_handlers";
 import { registerPromptHandlers } from "./handlers/prompt_handlers";
 import { registerFlutterMobileHandlers } from "./handlers/flutter_mobile_handlers";
@@ -112,11 +113,17 @@ export function registerIpcHandlers() {
 
   // Legacy EXPO PREVIEW option (commented; keep for quick toggle)
   // registerExpoHandlers(); // ✅ ACTIVE - Main expo handlers
-  // registerSimpleExpoHandlers(); // ✅ ACTIVE - Simple expo handlers for frontend compatibility
   // registerUnifiedExpoPreview(); // ✅ ACTIVE - Unified preview system
   // registerIntelligentPreviewSystem(); // DISABLED - conflicts with unified system
   registerExpoPerformanceMonitor();
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
+  console.log('🔵 About to call registerSnackHandlers()...');
+  try {
+    registerSnackHandlers();
+    console.log('🟢 Finished calling registerSnackHandlers()');
+  } catch (error) {
+    console.error('❌ registerSnackHandlers() failed:', error);
+  }
   registerPromptOptimizationHandlers();
   registerPromptHandlers();
   registerFlutterMobileHandlers();

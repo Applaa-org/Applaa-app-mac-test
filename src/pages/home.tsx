@@ -218,20 +218,12 @@ export default function HomePage() {
         readyForChat: result.readyForChat
       });
       
-      // Stream the message with attachments immediately - no waiting!
-      streamMessage({
-        prompt: finalPrompt,
-        chatId: result.chatId,
-        attachments: pendingAttachments
-      });
+      // 🚨 CRITICAL FIX: Set app ID BEFORE navigation
+      setSelectedAppId(result.app.id);
       
-      // No waiting needed - chat is ready immediately!
-      
+      // Clear input and pending state
       setInputValue("");
       setSelectedIdea(null); // Clear selected idea after submission
-      setPendingPrompt('');
-      setPendingAttachments([]);
-      setSelectedAppId(result.app.id);
       
       // 🚀 AUTO-OPEN PREVIEW: Show preview immediately for fast user experience
       setPreviewMode("preview");
@@ -250,8 +242,22 @@ export default function HomePage() {
       // Reset loading state BEFORE navigation for instant UI response
       setIsLoading(false);
       
-      // Navigate to the chat - streaming is already in progress
-      navigate({ to: "/chat", search: { id: result.chatId } });
+      // Clear pending state after using them
+      setPendingPrompt('');
+      setPendingAttachments([]);
+      
+      // 🚀 FIX: Navigate to chat with initialPrompt param (Dyad-style)
+      // This ensures ChatPanel is mounted and callbacks are registered BEFORE streaming starts
+      // The chat page will auto-submit the prompt after a 100ms delay
+      console.log(`[Home] 🚀 Navigating to chat with initialPrompt for chatId: ${result.chatId}`);
+      navigate({ 
+        to: "/chat", 
+        search: { 
+          id: result.chatId,
+          initialPrompt: finalPrompt,
+          initialAttachments: pendingAttachments.length > 0 ? JSON.stringify(pendingAttachments) : undefined
+        } 
+      });
     } catch (error) {
       console.error("Failed to create chat:", error);
       
