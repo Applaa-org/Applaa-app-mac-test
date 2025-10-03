@@ -2420,17 +2420,6 @@ export class IpcClient {
     return this.ipcRenderer.invoke("simple-expo:check-tools");
   }
 
-  // Snack Integration
-  public async snackCreateFromApp(appId: number): Promise<{
-    success: boolean;
-    snackId?: string;
-    webUrl?: string;
-    qrUrl?: string;
-    error?: string;
-  }> {
-    return this.ipcRenderer.invoke("snack:create-from-app", { appId });
-  }
-
   // Playwright MCP Integration
   async startPlaywrightMCPServer(port?: number): Promise<{ success: boolean; port: number; error?: string }> {
     return this.ipcRenderer.invoke("playwright-mcp:start-server", { port });

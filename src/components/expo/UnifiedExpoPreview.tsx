@@ -17,10 +17,6 @@ export function UnifiedExpoPreview() {
   // 🚨 DYAD PATTERN: Use simple global streaming atom
   const isStreaming = useAtomValue(isStreamingAtom);
   
-  // 🧪 EXPERIMENT: Toggle between Expo CLI and Snack preview
-  const [useSnackPreview, setUseSnackPreview] = useState(false); // DISABLED - Use Expo CLI by default
-  const [snackUrl, setSnackUrl] = useState<string>('');
-  
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [webUrl, setWebUrl] = useState<string>('');
   const [tunnelUrl, setTunnelUrl] = useState<string>('');
@@ -295,166 +291,9 @@ export function UnifiedExpoPreview() {
     window.removeEventListener('mouseup', onDragEnd);
   };
 
-  // 🧪 EXPERIMENT: Open Snack preview with actual app files
-  const openSnackPreview = async () => {
-    if (!selectedAppId) {
-      console.error('❌ No app selected');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      console.log('📦 Creating Snack from app files...');
-
-      // Create Snack via IPC (main process)
-      const ipcClient = IpcClient.getInstance();
-      const result = await ipcClient.snackCreateFromApp(selectedAppId);
-
-      if (!result.success || !result.webUrl) {
-        throw new Error(result.error || 'Failed to create Snack');
-      }
-
-      console.log('✅ Snack created:', result.webUrl);
-      setSnackUrl(result.webUrl);
-
-      // Generate QR code for the Snack (for Expo Go)
-      if (result.qrUrl) {
-        await generateQRCode(result.qrUrl);
-      }
-
-    } catch (error: any) {
-      console.error('❌ Failed to create Snack:', error);
-      alert(`Failed to create Snack preview: ${error?.message || 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* 🧪 EXPERIMENT TOGGLE - DISABLED */}
-      {/* <div className="p-2 border-b bg-yellow-50 flex items-center justify-between">
-        <span className="text-sm font-medium text-yellow-800">🧪 Experiment Mode</span>
-        <div className="flex items-center gap-2">
-          <Button 
-            size="sm" 
-            variant={useSnackPreview ? "default" : "outline"}
-            onClick={() => setUseSnackPreview(true)}
-          >
-            Snack Preview
-          </Button>
-          <Button 
-            size="sm" 
-            variant={!useSnackPreview ? "default" : "outline"}
-            onClick={() => setUseSnackPreview(false)}
-          >
-            Expo CLI
-          </Button>
-        </div>
-      </div> */}
-
-      {/* SNACK PREVIEW MODE */}
-      {useSnackPreview ? (
-        <div className="flex-1 flex">
-          {/* Left: Snack Iframe */}
-          <div className="flex-1 flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between bg-gray-50">
-              <div>
-                <div className="font-semibold">Snack Preview</div>
-                <div className="text-xs text-gray-500">Your app code loaded in Expo Snack</div>
-              </div>
-              <Button onClick={openSnackPreview} disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 size={16} className="mr-2 animate-spin" />
-                    Creating Snack...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={16} className="mr-2" />
-                    {snackUrl ? "Refresh" : "Load Preview"}
-                  </>
-                )}
-              </Button>
-            </div>
-            {snackUrl ? (
-              <iframe
-                src={`${snackUrl}?preview=true&platform=android`}
-                className="flex-1 w-full border-0"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
-                title="Snack Preview"
-              />
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                <div className="text-center max-w-md p-6">
-                  <Smartphone size={64} className="mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-lg font-semibold mb-2">Snack Preview</h3>
-                  <p className="mb-4">Click "Load Preview" to upload your app to Expo Snack</p>
-                  <ul className="text-sm text-left space-y-2 text-gray-600">
-                    <li>✅ Instant web preview</li>
-                    <li>✅ QR code for Expo Go testing</li>
-                    <li>✅ No local setup required</li>
-                    <li>✅ Share link with others</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right: QR Code & Info */}
-          {snackUrl && (
-            <div className="w-80 p-6 border-l border-gray-200 bg-gray-50">
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Smartphone size={18} />
-                    Test on Device
-                  </h3>
-                  {qrCodeDataUrl ? (
-                    <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
-                      <img src={qrCodeDataUrl} alt="QR Code" className="w-full" />
-                      <p className="text-xs text-center mt-2 text-gray-600">
-                        Scan with Expo Go app
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="bg-white p-4 rounded-lg border-2 border-gray-200 flex items-center justify-center h-48">
-                      <Loader2 size={32} className="animate-spin text-gray-400" />
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-2">Snack Link</h3>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={snackUrl}
-                      readOnly
-                      className="flex-1 text-xs px-2 py-1 border rounded"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.open(snackUrl, '_blank')}
-                    >
-                      <ExternalLink size={14} />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="text-xs text-gray-600 space-y-1">
-                  <p>✨ Your app is now live on Expo Snack</p>
-                  <p>📱 Install Expo Go from your app store</p>
-                  <p>📸 Scan the QR code to test</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* ORIGINAL EXPO CLI MODE */
-        <>
       {/* Main Content Area - RORK Style Layout */}
       <div className="flex-1 flex">
         {/* Left Side - Phone Mockup */}
@@ -746,8 +585,6 @@ export function UnifiedExpoPreview() {
           </div>
         </div>
       </div>
-      </>
-      )}
     </div>
   );
 }
