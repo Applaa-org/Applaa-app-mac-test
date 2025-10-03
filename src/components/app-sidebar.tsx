@@ -32,9 +32,9 @@ import { AppList } from "./AppList";
 import { HelpDialog } from "./HelpDialog"; // Import the new dialog
 import { SettingsList } from "./SettingsList";
 // Advanced features temporarily disabled for core stability
-import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { AuthDialog } from "@/components/auth/AuthDialog";
-import { UserDropdown } from "@/components/UserDropdown";
+import { useWordPressAuth } from "@/hooks/useWordPressAuth";
+import { WordPressAuthDialog } from "@/components/auth/WordPressAuthDialog";
+import { WordPressUserProfile } from "@/components/auth/WordPressUserProfile";
 // import { UserProfile } from "@/components/auth/UserProfile";
 
 // Menu items with dynamic colors - blue for active, gray for inactive
@@ -90,7 +90,7 @@ export function AppSidebar() {
   
   // Authentication state
   // Advanced features temporarily disabled for core stability
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useSupabaseAuth();
+  const { isAuthenticated, user, isLoading: isAuthLoading } = useWordPressAuth();
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const navigate = useNavigate();
@@ -208,9 +208,9 @@ export function AppSidebar() {
                 </div>
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                   {isAuthLoading ? "..." : isAuthenticated ? (
-                    user?.fullName 
-                      ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                      : user?.email?.[0].toUpperCase() || "U"
+                    user?.display_name 
+                      ? user.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                      : user?.username?.[0].toUpperCase() || "U"
                   ) : "Sign In"}
                 </span>
               </SidebarMenuButton>
@@ -234,7 +234,7 @@ export function AppSidebar() {
           </div>
 
           {/* Dialogs */}
-          <AuthDialog
+          <WordPressAuthDialog
             open={isAuthDialogOpen}
             onOpenChange={setIsAuthDialogOpen}
           />
@@ -242,7 +242,7 @@ export function AppSidebar() {
             isOpen={isHelpDialogOpen}
             onClose={() => setIsHelpDialogOpen(false)}
           />
-          <UserDropdown
+          <WordPressUserProfile
             isOpen={isUserDropdownOpen}
             onClose={() => setIsUserDropdownOpen(false)}
           />

@@ -267,13 +267,13 @@ export function registerSupabaseAuthHandlers() {
   // Initialize from environment variables only
   ipcMain.handle('supabase:initialize-from-settings', async () => {
     try {
-      // Only use environment variables
-      const envUrl = process.env.SUPABASE_URL;
-      const envAnonKey = process.env.SUPABASE_ANON_KEY;
-      const envServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      // Use AUTH environment variables (separate from Supabase integration)
+      const envUrl = process.env.AUTH_SUPABASE_URL;
+      const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY;
+      const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY;
       
       if (!envUrl || !envAnonKey) {
-        return { success: false, error: 'Supabase credentials not configured in environment variables. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file.' };
+        return { success: false, error: 'Authentication credentials not configured. Please set AUTH_SUPABASE_URL and AUTH_SUPABASE_ANON_KEY in your .env file.' };
       }
       
       const config: SupabaseConfig = {
@@ -336,10 +336,47 @@ export function registerSupabaseAuthHandlers() {
   // Check if Supabase is configured via environment variables
   ipcMain.handle('supabase:check-configuration', async () => {
     try {
-      // Only check environment variables
-      const envUrl = process.env.SUPABASE_URL;
-      const envAnonKey = process.env.SUPABASE_ANON_KEY;
-      const envServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      // Try to load .env file if environment variables are not set
+      if (!process.env.AUTH_SUPABASE_URL || !process.env.AUTH_SUPABASE_ANON_KEY) {
+        try {
+          const dotenv = require('dotenv');
+          const path = require('path');
+          const fs = require('fs');
+          
+          // Try multiple possible locations for the .env file
+          const possibleEnvPaths = [
+            path.join(process.cwd(), '.env'),
+            path.join(__dirname, '../../.env'),
+            path.join(__dirname, '../../../.env'),
+            path.join(process.resourcesPath || '', '.env'),
+          ];
+          
+          for (const envPath of possibleEnvPaths) {
+            if (fs.existsSync(envPath)) {
+              dotenv.config({ path: envPath });
+              console.log('✅ Loaded .env from:', envPath);
+              break;
+            }
+          }
+        } catch (error) {
+          console.log('⚠️ Failed to load .env file:', error);
+        }
+      }
+      
+      // Check AUTH environment variables (separate from Supabase integration)
+      const envUrl = process.env.AUTH_SUPABASE_URL;
+      const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY;
+      const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY;
+      
+      console.log('🔍 Checking Supabase configuration:');
+      console.log('SUPABASE_URL:', envUrl ? 'SET' : 'NOT SET');
+      console.log('SUPABASE_ANON_KEY:', envAnonKey ? 'SET' : 'NOT SET');
+      console.log('SUPABASE_SERVICE_ROLE_KEY:', envServiceRoleKey ? 'SET' : 'NOT SET');
+      
+      log.info('Checking Supabase configuration:');
+      log.info('SUPABASE_URL:', envUrl ? 'SET' : 'NOT SET');
+      log.info('SUPABASE_ANON_KEY:', envAnonKey ? 'SET' : 'NOT SET');
+      log.info('SUPABASE_SERVICE_ROLE_KEY:', envServiceRoleKey ? 'SET' : 'NOT SET');
       
       if (envUrl && envAnonKey) {
         return {

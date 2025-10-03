@@ -2756,6 +2756,75 @@ export class IpcClient {
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("url:delete-deployment", params);
   }
+
+  // WordPress Authentication Methods
+  public async wordpressCheckConfiguration(): Promise<{
+    isConfigured: boolean;
+    source: 'environment' | 'none' | 'error';
+    hasUrl?: boolean;
+    hasApplicationPassword?: boolean;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:check-configuration");
+  }
+
+  public async wordpressLogin(params: { username: string; password: string }): Promise<{
+    success: boolean;
+    user?: any;
+    token?: string;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:login", params);
+  }
+
+  public async wordpressRegister(params: { username: string; email: string; password: string; first_name: string; last_name: string }): Promise<{
+    success: boolean;
+    user_id?: number;
+    username?: string;
+    email?: string;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:register", params);
+  }
+
+  public async wordpressLogout(): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:logout");
+  }
+
+  public async wordpressGetCurrentUser(): Promise<{
+    isAuthenticated: boolean;
+    user: any;
+    token: string | null;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:get-current-user");
+  }
+
+  public async wordpressCheckCapability(params: { capability: string }): Promise<{
+    hasCapability: boolean;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:check-capability", params);
+  }
+
+  public async wordpressValidateSession(): Promise<{
+    isValid: boolean;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:validate-session");
+  }
+
+  public async wordpressOAuthLogin(params: { provider: string }): Promise<{
+    success: boolean;
+    oauthUrl?: string;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:oauth-login", params);
+  }
 }
 
 // Export singleton instance
