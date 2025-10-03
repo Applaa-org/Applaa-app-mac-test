@@ -13,6 +13,8 @@ import { registerDebugHandlers } from "./handlers/debug_handlers";
 // Supabase integration for database and auth
 import { registerSupabaseHandlers } from "./handlers/supabase_handlers";
 import { registerSupabaseAuthHandlers } from "./handlers/supabase_auth_handlers";
+// WordPress authentication
+import { registerWordPressAuthHandlers } from "./handlers/wordpress_auth_handlers";
 // import { registerR2StorageHandlers } from "./handlers/r2_storage_handlers";
 // import { registerAnalyticsHandlers } from "./handlers/analytics_handlers";
 
@@ -82,6 +84,8 @@ export function registerIpcHandlers() {
   // Supabase integration for database and auth
   registerSupabaseHandlers();
   registerSupabaseAuthHandlers();
+  // WordPress authentication
+  registerWordPressAuthHandlers();
   // registerR2StorageHandlers();
   // registerAnalyticsHandlers();
 

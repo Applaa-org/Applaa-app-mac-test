@@ -242,6 +242,22 @@ export const UserSettingsSchema = z.object({
   // Chat Stream Performance Settings
   enableStreamAutosave: z.boolean().optional(),
 
+  // WordPress Authentication Settings
+  wordpressAuth: z.object({
+    isAuthenticated: z.boolean(),
+    user: z.object({
+      id: z.number(),
+      username: z.string(),
+      email: z.string(),
+      display_name: z.string(),
+      roles: z.array(z.string()),
+      avatar_url: z.string().optional(),
+      capabilities: z.array(z.string()),
+    }).optional(),
+    token: z.string().optional(),
+    lastLogin: z.string().optional(),
+  }).optional(),
+
   ////////////////////////////////
   // E2E TESTING ONLY.
   ////////////////////////////////

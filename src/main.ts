@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, session } from "electron";
 import * as path from "node:path";
+import * as fs from "node:fs";
 import { registerIpcHandlers } from "./ipc/ipc_host";
 import dotenv from "dotenv";
 // @ts-ignore
@@ -51,7 +52,39 @@ try {
 const logger = log.scope("main");
 
 // Load environment variables from .env file
-dotenv.config();
+// Try multiple possible locations for the .env file
+const possibleEnvPaths = [
+  path.join(process.cwd(), '.env'),
+  path.join(__dirname, '../../.env'),
+  path.join(__dirname, '../../../.env'),
+  path.join(app.getAppPath(), '.env'),
+];
+
+let envLoaded = false;
+for (const envPath of possibleEnvPaths) {
+  try {
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      console.log('✅ Loaded .env from:', envPath);
+      envLoaded = true;
+      break;
+    }
+  } catch (error) {
+    console.log('❌ Failed to load .env from:', envPath, error);
+  }
+}
+
+if (!envLoaded) {
+  console.log('⚠️ No .env file found in any of the expected locations');
+}
+
+console.log('🚀 App startup - Environment variables status:');
+console.log('SUPABASE_URL loaded:', !!process.env.SUPABASE_URL);
+console.log('SUPABASE_ANON_KEY loaded:', !!process.env.SUPABASE_ANON_KEY);
+console.log('SUPABASE_SERVICE_ROLE_KEY loaded:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+if (process.env.SUPABASE_URL) {
+  console.log('SUPABASE_URL value:', process.env.SUPABASE_URL);
+}
 
 // Register IPC handlers before app is ready
 registerIpcHandlers();

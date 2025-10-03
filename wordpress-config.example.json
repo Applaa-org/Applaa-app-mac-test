@@ -1,0 +1,8 @@
+{
+  "url": "https://your-wordpress-site.com",
+  "apiEndpoint": "https://your-wordpress-site.com/wp-json/wp/v2",
+  "authEndpoint": "https://your-wordpress-site.com/wp-json/wp/v2/users/me",
+  "customHeaders": {
+    "X-Custom-Header": "value"
+  }
+}
