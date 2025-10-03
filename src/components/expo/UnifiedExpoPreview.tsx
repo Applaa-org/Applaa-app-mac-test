@@ -75,8 +75,19 @@ export function UnifiedExpoPreview() {
       const result = await ipcClient.simpleExpoCheckTools();
       setNodeToolsStatus(result);
       console.log('🔧 Node.js tools status:', result);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Failed to check Node.js tools:', error);
+      
+      // Check if this is an "Invalid channel" error (IPC not ready yet)
+      if (error?.message?.includes('Invalid channel')) {
+        console.log('⏳ IPC handlers not ready yet, will retry...');
+        // Retry after a short delay to allow IPC handlers to register
+        setTimeout(() => {
+          checkNodeTools();
+        }, 500);
+        return;
+      }
+      
       // Fallback: Set a default status when IPC handler is not available
       setNodeToolsStatus({ 
         success: false, 
@@ -97,9 +108,14 @@ export function UnifiedExpoPreview() {
     }
   };
 
-  // Node.js diagnostics check on mount
+  // Node.js diagnostics check on mount (with delay to ensure IPC is ready)
   useEffect(() => {
-    checkNodeTools();
+    // Add small delay to ensure IPC handlers are registered
+    const timer = setTimeout(() => {
+      checkNodeTools();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
   
   // 🚨 SIMPLE: Auto-detect Expo dependency errors from terminal output (ONCE per app)
