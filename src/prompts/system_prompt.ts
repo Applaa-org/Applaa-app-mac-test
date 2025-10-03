@@ -1102,6 +1102,29 @@ export const constructSystemPrompt = ({
   } else if (appPath && isExpoApp(appPath)) {
     // Use Expo-specific system prompt for mobile apps
     systemPrompt = EXPO_SYSTEM_PROMPT;
+    
+    // 🚀 CRITICAL FIX: Add AsyncStorage prevention instructions
+    const asyncStorageWarning = `
+
+## ⚠️ CRITICAL WARNING: DO NOT USE AsyncStorage BY DEFAULT
+- ❌ **NEVER import @react-native-async-storage/async-storage** unless user explicitly asks for data persistence
+- ❌ **NEVER create utils/storage.ts** unless user specifically requests local storage
+- ❌ **NEVER add AsyncStorage to package.json** unless user asks for it
+- ❌ **NEVER assume data persistence is needed** - start with simple state management
+- ✅ **USE ONLY pre-installed packages** - react, react-native, expo, expo-router, @expo/vector-icons, etc.
+
+## 🔄 AUTO-CONTINUE RULE FOR FILE COMPLETION
+**IMPORTANT:** If a file is marked as "Did not finish" or you run out of space while writing a file:
+1. ✅ **AUTOMATICALLY continue** the file in the next message without waiting for user input
+2. ✅ Use the exact same file path and continue from where you stopped
+3. ✅ Do NOT ask "Would you like me to continue?" - just continue immediately
+4. ❌ NEVER leave files incomplete - always finish them in subsequent messages
+5. ✅ **CRITICAL**: Always close all file tags properly (e.g., \`</applaa-write>\`)
+6. ✅ **CRITICAL**: Complete all code blocks, functions, and components before closing tags
+
+`;
+    
+    systemPrompt = asyncStorageWarning + systemPrompt;
     logger.log(`Using Expo system prompt for app at: ${appPath}`);
   } else {
     // Default to web system prompt
