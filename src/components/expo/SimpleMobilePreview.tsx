@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Smartphone, Tablet, ExternalLink, RefreshCw, QrCode as QrCodeIcon, Search, RotateCcw } from "lucide-react";
+import { Smartphone, Tablet, ExternalLink, RefreshCw, QrCode as QrCodeIcon, Search, RotateCcw, AlertTriangle, Loader2 } from "lucide-react";
 import QRCode from "qrcode";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useAtomValue } from "jotai";
 import { selectedAppIdAtom, appOutputAtom } from "@/atoms/appAtoms";
 import { AutoErrorFixBanner } from "../preview_panel/AutoErrorFixBanner";
 import { useAutoErrorFix } from "@/hooks/useAutoErrorFix";
+import { useCheckProblems } from "@/hooks/useCheckProblems";
+import { useStreamChat } from "@/hooks/useStreamChat";
 import { 
   DEVICE_PRESETS, 
   DEVICE_CATEGORIES, 
@@ -25,6 +27,8 @@ export function SimpleMobilePreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const appOutput = useAtomValue(appOutputAtom);
   const { detectConsoleErrors, detectExpoRuntimeErrors } = useAutoErrorFix({ enabled: true });
+  const { problemReport } = useCheckProblems(selectedAppId);
+  const { isStreaming } = useStreamChat();
   const [expoStatus, setExpoStatus] = useState<ExpoStatus>({ isRunning: false });
   const [selectedDevice, setSelectedDevice] = useState<string>('iphone-15-pro'); // Default to iPhone 15 Pro
   const [isLandscape, setIsLandscape] = useState<boolean>(false);
@@ -497,9 +501,21 @@ export function SimpleMobilePreview() {
                 )}
               </>
             ) : (
-              <Button onClick={startExpoServer} disabled={isStarting || !selectedAppId}>
-                {isStarting ? "🚀 Starting..." : selectedAppId ? "🔄 Restart Preview" : "Select an App"}
-              </Button>
+              <>
+                <Button 
+                  onClick={startExpoServer} 
+                  disabled={isStarting || !selectedAppId || (problemReport?.problems?.length ?? 0) > 0}
+                  className="relative"
+                >
+                  {isStarting ? "🚀 Starting..." : selectedAppId ? "🔄 Start Preview" : "Select an App"}
+                </Button>
+                {(problemReport?.problems?.length ?? 0) > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-orange-600 dark:text-orange-400">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span>Fix {problemReport.problems.length} error{problemReport.problems.length > 1 ? 's' : ''} first</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -515,6 +531,23 @@ export function SimpleMobilePreview() {
             }}
           >
             <div className="bg-white rounded-xl overflow-hidden flex-1 relative">
+              {/* Loading overlay when chat is streaming */}
+              {isStreaming && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-2xl flex flex-col items-center gap-4">
+                    <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
+                    <div className="text-center">
+                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        Generating Code...
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Please wait while the AI creates your app
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {expoStatus.isRunning && webUrl && webUrl !== 'about:blank' ? (
                 <iframe
                   key={`${webUrl}-${iframeKey}`} // Force re-render on URL change OR hot reload
