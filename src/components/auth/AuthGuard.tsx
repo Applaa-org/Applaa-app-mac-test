@@ -43,7 +43,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Applaa authentication is not configured. Please set WORDPRESS_URL in your .env file.
+              Applaa authentication is not configured. Please contact support or configure WordPress authentication in settings.
             </AlertDescription>
           </Alert>
           {fallback}
