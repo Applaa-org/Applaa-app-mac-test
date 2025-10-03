@@ -21,6 +21,12 @@ const ignore = (file: string) => {
   if (file.startsWith("/webapp-templates")) {
     return false;
   }
+  if (file.startsWith("/expo-templates")) {
+    return false; // ✅ Include expo templates in EXE
+  }
+  if (file.startsWith("/src/prompts")) {
+    return false; // ✅ Include all system prompts (including expo_system_prompt.ts)
+  }
   if (file.startsWith("/userData")) {
     return false;
   }

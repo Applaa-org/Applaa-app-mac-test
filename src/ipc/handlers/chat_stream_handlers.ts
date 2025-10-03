@@ -312,6 +312,16 @@ async function processStreamChunks({
       }
 
       chunk += escapeDyadTags(part.textDelta);
+    } else if (part.type === "tool-call") {
+      // Handle tool calls - these are critical for file creation
+      logger.log(`🔧 Tool call received: ${part.toolName} with args:`, part.args);
+      // Don't add tool calls to the response text, but log them for debugging
+      continue;
+    } else if (part.type === "tool-result") {
+      // Handle tool results - these complete the tool execution
+      logger.log(`✅ Tool result received for ${part.toolCallId}:`, part.result);
+      // Don't add tool results to the response text, but log them for debugging
+      continue;
     }
 
     if (!chunk) {
@@ -1068,6 +1078,20 @@ This conversation includes one or more image attachments. When the user uploads 
             settings.selectedChatMode !== "ask" &&
             hasUnclosedDyadWrite(fullResponse)
           ) {
+            // 🚀 CRITICAL FIX: Invalidate system prompt cache when detecting unclosed tags
+            // This ensures the LLM gets fresh instructions about file completion
+            logger.warn(`🔄 Invalidating system prompt cache due to unclosed tags`);
+            systemPromptCache.delete(cacheKey);
+            
+            // Also invalidate application-level prompt cache to ensure fresh system prompt
+            try {
+              const { applicationCache } = await import("../utils/prompt_caching");
+              applicationCache.clear();
+              logger.warn(`🔄 Cleared application-level prompt cache`);
+            } catch (error) {
+              logger.warn(`⚠️ Failed to clear application cache:`, error);
+            }
+            
             let continuationAttempts = 0;
             while (
               hasUnclosedDyadWrite(fullResponse) &&
@@ -1077,15 +1101,36 @@ This conversation includes one or more image attachments. When the user uploads 
               logger.warn(
                 `Received unclosed dyad-write or applaa-write tag, attempting to continue, attempt #${continuationAttempts + 1}`,
               );
+              
+              // Extract the unclosed tag information for better continuation
+              const unclosedTagMatch = fullResponse.match(/<(?:dyad-write|applaa-write)[^>]*>/g);
+              const lastUnclosedTag = unclosedTagMatch?.[unclosedTagMatch.length - 1];
+              const tagType = lastUnclosedTag?.includes("applaa-write") ? "applaa-write" : "dyad-write";
+              
+              logger.info(`🔧 Continuation attempt ${continuationAttempts}: Found unclosed ${tagType} tag: ${lastUnclosedTag}`);
+              logger.info(`📝 Full response length: ${fullResponse.length} characters`);
+              logger.info(`📝 Last 200 characters of response: ${fullResponse.slice(-200)}`);
               continuationAttempts++;
 
+              // 🚀 CRITICAL FIX: Rebuild system prompt with fresh file completion instructions
+              const freshSystemPrompt = constructSystemPrompt({
+                aiRules: await readAiRules(appPath),
+                chatMode: settings.selectedChatMode,
+                appPath: appPath,
+              });
+              
               const { fullStream: contStream } = await simpleStreamText({
                 // Build messages: replay history then pre-fill assistant with current partial.
                 chatMessages: [
                   ...chatMessages,
                   { role: "assistant", content: fullResponse },
+                  { 
+                    role: "user", 
+                    content: `Please continue and complete the file. You have an unclosed ${tagType} tag that needs to be finished. Complete the file content and add the closing </${tagType}> tag. Make sure to complete any incomplete code blocks, functions, or components. IMPORTANT: Only continue the current file, do not create new files.` 
+                  },
                 ],
                 modelClient,
+                systemPrompt: freshSystemPrompt, // Use fresh system prompt
               });
               for await (const part of contStream) {
                 // If the stream was aborted, exit early
@@ -1093,13 +1138,26 @@ This conversation includes one or more image attachments. When the user uploads 
                   logger.log(`Stream for chat ${req.chatId} was aborted`);
                   break;
                 }
-                if (part.type !== "text-delta") continue; // ignore reasoning for continuation
+                if (part.type === "tool-call") {
+                  // Handle tool calls in continuation
+                  logger.log(`🔧 Continuation tool call: ${part.toolName} with args:`, part.args);
+                  continue;
+                } else if (part.type === "tool-result") {
+                  // Handle tool results in continuation
+                  logger.log(`✅ Continuation tool result for ${part.toolCallId}:`, part.result);
+                  continue;
+                } else if (part.type !== "text-delta") {
+                  // ignore reasoning for continuation
+                  continue;
+                }
                 fullResponse += part.textDelta;
                 fullResponse = cleanFullResponse(fullResponse);
                 fullResponse = await processResponseChunkUpdate({
                   fullResponse,
                 });
               }
+              
+              logger.info(`✅ Continuation attempt ${continuationAttempts} completed. Response length: ${fullResponse.length}`);
             }
           }
           // Process dyad-write tags to actually write files to disk
