@@ -23,7 +23,6 @@ export default defineConfig({
         "googleapis",
         "google-auth-library",
         "@google/generative-ai",
-        "snack-sdk", // Add snack-sdk as external
         "electron",
         "child_process",
         "fs",
