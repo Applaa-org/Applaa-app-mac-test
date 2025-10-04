@@ -65,10 +65,11 @@ export class ExpoTemplateCreator {
       const configContent = fs.readFileSync(configPath, "utf-8");
       this.templateConfig = JSON.parse(configContent);
       logger.info(`✅ Template configuration loaded from: ${configPath}`);
-      return this.templateConfig;
+      return this.templateConfig!;
     } catch (error) {
       logger.error("❌ Failed to load template configuration:", error);
-      throw new Error(`Template configuration not found: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Template configuration not found: ${errorMessage}`);
     }
   }
 
@@ -121,16 +122,27 @@ export class ExpoTemplateCreator {
       await this.createEnvFile(params.fullAppPath);
 
       // 7. Rebuild native modules if AI features are included
+      // Note: rebuildNativeModules is not available in current hermetic-runtime
+      // AI features will install dependencies during npm install phase
       const hasAIFeatures = features.some(f => 
         ['transformers-ai', 'snapai-icons', 'superdesign-ui'].includes(f)
       );
       if (hasAIFeatures) {
-        try {
-          const { rebuildNativeModules } = await import('../../lib/hermetic-runtime');
-          await rebuildNativeModules(params.fullAppPath);
-        } catch (error) {
-          logger.warn('⚠️ Native module rebuild failed, but continuing:', error);
+        logger.info('📦 AI features detected - dependencies will be installed automatically');
+      }
+
+      // 8. 📱 EXPO BUILD FIX: Apply automatic fixes for SDK 53 compatibility
+      logger.info('📱 [EXPO-FIX] Applying automatic build fixes for SDK 53 compatibility...');
+      try {
+        const { fixExpoProjectDependencies } = await import('../../lib/hermetic-runtime');
+        const dependenciesFixed = await fixExpoProjectDependencies(params.fullAppPath);
+        if (dependenciesFixed) {
+          logger.info('✅ [EXPO-FIX] Dependencies automatically fixed for SDK 53 compatibility');
+        } else {
+          logger.warn('⚠️ [EXPO-FIX] Could not fix dependencies automatically, user may need to run expo install --fix');
         }
+      } catch (error) {
+        logger.warn('⚠️ [EXPO-FIX] Dependency fix failed, but continuing:', error);
       }
 
       const totalTime = performance.now() - startTime;

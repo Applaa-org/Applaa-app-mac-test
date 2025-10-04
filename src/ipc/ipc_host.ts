@@ -67,6 +67,7 @@ import { registerURLHandlers } from "./handlers/url_handlers";
 import { registerLocalBuildHandlers } from "./handlers/local_build_handlers";
 import { registerAndroidDependencyHandlers } from "./handlers/android_dependency_checker";
 import { registerAutoInstallerHandlers } from "./handlers/auto_installer";
+import { registerPrerequisiteInstallerHandlers } from "./handlers/prerequisite_installer";
 
 
 export function registerIpcHandlers() {
@@ -158,6 +159,10 @@ export function registerIpcHandlers() {
   // 🔧 Auto-Installer
   console.log('🔧 Registering auto-installer handlers...');
   registerAutoInstallerHandlers();
+  
+  // 🚀 Prerequisite Installer
+  console.log('🚀 Registering prerequisite installer handlers...');
+  registerPrerequisiteInstallerHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

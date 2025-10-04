@@ -105,10 +105,20 @@ async function checkAndroidSdk(): Promise<{
       sdkPath = androidHome;
       installed = true;
       
-      // Try to get SDK version
-      const versionFile = path.join(androidHome, 'sources', 'android-34', 'AndroidManifest.xml');
+      // Try to get SDK version from source.properties
+      const versionFile = path.join(androidHome, 'sources', 'android-34', 'source.properties');
       if (fs.existsSync(versionFile)) {
-        version = 'API 34';
+        try {
+          const content = fs.readFileSync(versionFile, 'utf8');
+          const apiLevelMatch = content.match(/AndroidVersion\.ApiLevel=(\d+)/);
+          if (apiLevelMatch) {
+            version = `API ${apiLevelMatch[1]}`;
+          } else {
+            version = 'API 34'; // Default fallback
+          }
+        } catch (error) {
+          version = 'API 34'; // Default fallback
+        }
       }
     } else {
       issues.push('ANDROID_HOME environment variable not set');
@@ -232,6 +242,9 @@ async function checkJava(): Promise<{
       '/opt/homebrew/opt/openjdk@11',
       '/opt/homebrew/opt/openjdk@17',
       '/opt/homebrew/opt/openjdk@21',
+      '/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home',
+      '/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home',
+      '/Library/Java/JavaVirtualMachines/temurin-11.jdk/Contents/Home',
       '/usr/libexec/java_home'
     ].filter(Boolean);
 
@@ -435,7 +448,8 @@ async function checkGradle(): Promise<{
   let version: string | undefined;
 
   try {
-    const gradleVersion = await new Promise<string>((resolve) => {
+    // First try global gradle command
+    let gradleVersion = await new Promise<string>((resolve) => {
       const gradle = spawn('gradle', ['--version'], { stdio: 'pipe' });
       let output = '';
       
@@ -455,6 +469,48 @@ async function checkGradle(): Promise<{
         resolve('');
       });
     });
+
+    // If global gradle not found, check for gradle wrapper in common project locations
+    if (!gradleVersion) {
+      const commonProjectPaths = [
+        process.cwd(), // Current working directory
+        path.join(os.homedir(), 'applaa-workspace'), // Applaa workspace
+        path.join(os.homedir(), 'applaa-workspace', 'apps', 'mobile'), // Mobile apps
+      ];
+      
+      for (const projectPath of commonProjectPaths) {
+        const gradlewPath = path.join(projectPath, 'gradlew');
+        if (fs.existsSync(gradlewPath)) {
+          gradleVersion = await new Promise<string>((resolve) => {
+            const gradlew = spawn(gradlewPath, ['--version'], { 
+              stdio: 'pipe',
+              cwd: projectPath 
+            });
+            let output = '';
+            
+            gradlew.stdout?.on('data', (data) => {
+              output += data.toString();
+            });
+            
+            gradlew.on('close', (code) => {
+              if (code === 0) {
+                resolve(output);
+              } else {
+                resolve('');
+              }
+            });
+            
+            gradlew.on('error', () => {
+              resolve('');
+            });
+          });
+          
+          if (gradleVersion) {
+            break; // Found gradle wrapper, stop searching
+          }
+        }
+      }
+    }
 
     if (gradleVersion) {
       installed = true;

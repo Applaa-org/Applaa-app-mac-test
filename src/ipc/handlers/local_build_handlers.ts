@@ -1187,8 +1187,24 @@ async function runExpoPrebuild(appPath: string, logs: string[], platform?: 'ios'
       logs.push(`ERROR: ${text.trim()}`);
     });
 
-    prebuildProcess.on('close', (code: any) => {
+    prebuildProcess.on('close', async (code: any) => {
       if (code === 0) {
+        // 📱 EXPO BUILD FIX: Automatically apply gradle configuration fix
+        if (platform === 'android') {
+          try {
+            logs.push('🔧 Applying automatic gradle configuration fix...');
+            const { fixExpoGradleConfig } = await import('../../lib/hermetic-runtime');
+            const gradleFixed = await fixExpoGradleConfig(appPath);
+            if (gradleFixed) {
+              logs.push('✅ Gradle configuration fixed automatically (newArchEnabled=false)');
+            } else {
+              logs.push('⚠️ Could not fix gradle configuration automatically');
+            }
+          } catch (error) {
+            logs.push(`⚠️ Gradle fix failed, but continuing: ${error}`);
+            logger.warn('Gradle fix failed:', error);
+          }
+        }
         resolve({ success: true, output });
       } else {
         resolve({ success: false, error: errorOutput || `Process exited with code ${code}` });

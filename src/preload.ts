@@ -280,6 +280,10 @@ const validInvokeChannels = [
   "build:check-all-dependencies",
   "auto-installer:install-android",
   "auto-installer:install-ios",
+  "prerequisites:check",
+  "prerequisites:install",
+  "prerequisites:status",
+  "prerequisites:progress",
 ];
 
 // Add valid receive channels

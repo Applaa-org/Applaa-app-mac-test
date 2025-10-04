@@ -2749,6 +2749,30 @@ export class IpcClient {
     return this.ipcRenderer.invoke("auto-installer:install-ios");
   }
 
+  // 🚀 Prerequisite Installer Methods
+  public async checkPrerequisites(): Promise<any> {
+    return this.ipcRenderer.invoke("prerequisites:check");
+  }
+
+  public async installPrerequisites(options?: {
+    skipSystem?: boolean;
+    skipDevelopment?: boolean;
+    skipAndroid?: boolean;
+    skipIOS?: boolean;
+    skipExpo?: boolean;
+    forceReinstall?: boolean;
+  }): Promise<any> {
+    return this.ipcRenderer.invoke("prerequisites:install", options);
+  }
+
+  public async getPrerequisitesStatus(): Promise<any> {
+    return this.ipcRenderer.invoke("prerequisites:status");
+  }
+
+  public async getPrerequisitesProgress(): Promise<any> {
+    return this.ipcRenderer.invoke("prerequisites:progress");
+  }
+
 
   // URL Management
   public async saveDeploymentUrl(params: {

@@ -8,6 +8,7 @@ import { AutoPush } from "@/components/AutoPush";
 import { EASDeploymentPanel } from "@/components/EASDeploymentPanel";
 import { DeploymentUrls } from "@/components/DeploymentUrls";
 import { BuildDependencyChecker } from "@/components/settings/BuildDependencyChecker";
+import { PrerequisiteInstaller } from "@/components/settings/PrerequisiteInstaller";
 import { IpcClient } from "@/ipc/ipc_client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -93,6 +94,9 @@ export const PublishPanel = () => {
 
         {/* Build Dependencies Checker */}
         <BuildDependencyChecker />
+
+        {/* Prerequisite Installer */}
+        <PrerequisiteInstaller />
 
         {/* Check if this is a mobile/Expo app or web app */}
         {(() => {
