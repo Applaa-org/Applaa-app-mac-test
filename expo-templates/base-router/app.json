@@ -37,15 +37,7 @@
     },
     "scheme": "applaa-app",
     "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/splash.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#4F46E5"
-        }
-      ]
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true

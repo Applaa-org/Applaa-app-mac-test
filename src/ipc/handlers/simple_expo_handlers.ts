@@ -462,12 +462,14 @@ export function registerSimpleExpoHandlers() {
         terminalOutput: ""
       };
 
-      // Ensure expo module is installed first
+      // Ensure expo module AND @expo/ngrok are installed first (if tunnel mode)
       log.log("📦 Checking expo module installation...");
       const packageJsonPath = path.join(appPath, 'package.json');
       const nodeModulesPath = path.join(appPath, 'node_modules');
       const expoModulePath = path.join(nodeModulesPath, 'expo');
+      const ngrokModulePath = path.join(nodeModulesPath, '@expo', 'ngrok');
       let needsExpoInstall = false;
+      let needsNgrokInstall = useTunnel && !fs.existsSync(ngrokModulePath);
       
       // Check if node_modules exists and expo is actually installed
       if (!fs.existsSync(nodeModulesPath)) {
@@ -606,6 +608,32 @@ export function registerSimpleExpoHandlers() {
         }
       } else {
         log.log("✅ expo module already present");
+      }
+
+      // Install @expo/ngrok if tunnel mode is enabled and it's not installed
+      if (needsNgrokInstall) {
+        log.log("🚇 Installing @expo/ngrok for tunnel mode...");
+        expoStatus.terminalOutput += "🚇 Installing tunnel dependencies...\n";
+        try {
+          await execAsync("npm install @expo/ngrok@^4.1.0 --save", {
+            cwd: appPath,
+            timeout: 120000 // 2 minutes
+          });
+          
+          if (fs.existsSync(ngrokModulePath)) {
+            log.log("✅ @expo/ngrok successfully installed");
+            expoStatus.terminalOutput += "✅ Tunnel module installed\n";
+          } else {
+            log.warn("⚠️ @expo/ngrok installation verification failed, but continuing...");
+            expoStatus.terminalOutput += "⚠️ Tunnel module may not be available\n";
+          }
+        } catch (ngrokError) {
+          log.error("❌ @expo/ngrok installation error:", ngrokError);
+          expoStatus.terminalOutput += `⚠️ Tunnel setup failed, continuing without tunnel\n`;
+          // Don't throw - continue without tunnel support
+        }
+      } else if (useTunnel) {
+        log.log("✅ @expo/ngrok already present");
       }
 
       // NON-INTERACTIVE PORT SELECTION: pick the first free port starting at 8081
