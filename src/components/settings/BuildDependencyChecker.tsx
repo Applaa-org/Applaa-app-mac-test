@@ -41,6 +41,7 @@ export function BuildDependencyChecker() {
   const [instructions, setInstructions] = useState<any>(null);
   const [installing, setInstalling] = useState<{ android: boolean; ios: boolean }>({ android: false, ios: false });
   const [installResults, setInstallResults] = useState<{ android: any; ios: any } | null>(null);
+  const [installProgress, setInstallProgress] = useState<{ android: string[]; ios: string[] }>({ android: [], ios: [] });
 
   const checkDependencies = async () => {
     if (!selectedAppId) return;
@@ -87,19 +88,56 @@ export function BuildDependencyChecker() {
   const autoInstallAndroid = async () => {
     setInstalling(prev => ({ ...prev, android: true }));
     setError(null);
+    setInstallProgress(prev => ({ ...prev, android: ['🚀 Starting Android dependencies installation...'] }));
     
     try {
       const ipcClient = IpcClient.getInstance();
+      
+      // Show progress updates
+      setInstallProgress(prev => ({ 
+        ...prev, 
+        android: [...prev.android, '📦 Checking package managers...', '🔍 Detecting system environment...'] 
+      }));
+      
       const result = await ipcClient.autoInstallAndroidDependencies();
       
       if (result.success) {
+        setInstallProgress(prev => ({ 
+          ...prev, 
+          android: [...prev.android, '✅ Installation completed successfully!'] 
+        }));
         setInstallResults(prev => ({ ...prev, android: result.result }));
+        
+        // Show backend logs if available
+        if (result.result?.logs) {
+          setInstallProgress(prev => ({ 
+            ...prev, 
+            android: [...prev.android, ...result.result.logs] 
+          }));
+        }
+        
+        // Show installed packages
+        if (result.result?.installed) {
+          setInstallProgress(prev => ({ 
+            ...prev, 
+            android: [...prev.android, `📋 Installed: ${result.result.installed.join(', ')}`] 
+          }));
+        }
+        
         // Refresh dependency status after installation
         await checkDependencies();
       } else {
+        setInstallProgress(prev => ({ 
+          ...prev, 
+          android: [...prev.android, `❌ Installation failed: ${result.error}`] 
+        }));
         setError(result.error || 'Failed to install Android dependencies');
       }
     } catch (err: any) {
+      setInstallProgress(prev => ({ 
+        ...prev, 
+        android: [...prev.android, `❌ Error: ${err.message}`] 
+      }));
       setError(err.message || 'Failed to install Android dependencies');
     } finally {
       setInstalling(prev => ({ ...prev, android: false }));
@@ -109,19 +147,56 @@ export function BuildDependencyChecker() {
   const autoInstallIOS = async () => {
     setInstalling(prev => ({ ...prev, ios: true }));
     setError(null);
+    setInstallProgress(prev => ({ ...prev, ios: ['🍎 Starting iOS dependencies installation...'] }));
     
     try {
       const ipcClient = IpcClient.getInstance();
+      
+      // Show progress updates
+      setInstallProgress(prev => ({ 
+        ...prev, 
+        ios: [...prev.ios, '🔍 Checking macOS environment...', '📦 Preparing iOS build tools...'] 
+      }));
+      
       const result = await ipcClient.autoInstallIOSDependencies();
       
       if (result.success) {
+        setInstallProgress(prev => ({ 
+          ...prev, 
+          ios: [...prev.ios, '✅ Installation completed successfully!'] 
+        }));
         setInstallResults(prev => ({ ...prev, ios: result.result }));
+        
+        // Show backend logs if available
+        if (result.result?.logs) {
+          setInstallProgress(prev => ({ 
+            ...prev, 
+            ios: [...prev.ios, ...result.result.logs] 
+          }));
+        }
+        
+        // Show installed packages
+        if (result.result?.installed) {
+          setInstallProgress(prev => ({ 
+            ...prev, 
+            ios: [...prev.ios, `📋 Installed: ${result.result.installed.join(', ')}`] 
+          }));
+        }
+        
         // Refresh dependency status after installation
         await checkDependencies();
       } else {
+        setInstallProgress(prev => ({ 
+          ...prev, 
+          ios: [...prev.ios, `❌ Installation failed: ${result.error}`] 
+        }));
         setError(result.error || 'Failed to install iOS dependencies');
       }
     } catch (err: any) {
+      setInstallProgress(prev => ({ 
+        ...prev, 
+        ios: [...prev.ios, `❌ Error: ${err.message}`] 
+      }));
       setError(err.message || 'Failed to install iOS dependencies');
     } finally {
       setInstalling(prev => ({ ...prev, ios: false }));
@@ -343,6 +418,20 @@ export function BuildDependencyChecker() {
                                 </>
                               )}
                             </Button>
+                            
+                            {/* Android Installation Progress */}
+                            {installProgress.android.length > 0 && (
+                              <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <h4 className="text-sm font-medium mb-2">Installation Progress:</h4>
+                                <div className="space-y-1 max-h-32 overflow-y-auto">
+                                  {installProgress.android.map((line, index) => (
+                                    <div key={index} className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                                      {line}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </AlertDescription>
@@ -441,6 +530,20 @@ export function BuildDependencyChecker() {
                                 </>
                               )}
                             </Button>
+                            
+                            {/* iOS Installation Progress */}
+                            {installProgress.ios.length > 0 && (
+                              <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <h4 className="text-sm font-medium mb-2">Installation Progress:</h4>
+                                <div className="space-y-1 max-h-32 overflow-y-auto">
+                                  {installProgress.ios.map((line, index) => (
+                                    <div key={index} className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                                      {line}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </AlertDescription>

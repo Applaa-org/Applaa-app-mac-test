@@ -226,42 +226,185 @@ async function checkJava(): Promise<{
   let javaPath: string | undefined;
 
   try {
-    // Check JAVA_HOME environment variable
-    const javaHome = process.env.JAVA_HOME;
-    if (javaHome && fs.existsSync(javaHome)) {
-      javaPath = javaHome;
+    // Check multiple possible Java installations
+    const possibleJavaPaths = [
+      process.env.JAVA_HOME,
+      '/opt/homebrew/opt/openjdk@11',
+      '/opt/homebrew/opt/openjdk@17',
+      '/opt/homebrew/opt/openjdk@21',
+      '/usr/libexec/java_home'
+    ].filter(Boolean);
+
+    // First, try to find Java via java_home (macOS specific)
+    try {
+      const javaHomeResult = await new Promise<string>((resolve) => {
+        const javaHome = spawn('/usr/libexec/java_home', [], { stdio: 'pipe' });
+        let output = '';
+        
+        javaHome.stdout?.on('data', (data) => {
+          output += data.toString();
+        });
+        
+        javaHome.on('close', (code) => {
+          if (code === 0) {
+            resolve(output.trim());
+          } else {
+            resolve('');
+          }
+        });
+        
+        javaHome.on('error', () => {
+          resolve('');
+        });
+      });
+      
+      if (javaHomeResult) {
+        javaPath = javaHomeResult;
+        installed = true;
+        
+        // Get version from the found Java
+        try {
+          const versionResult = await new Promise<string>((resolve) => {
+            const java = spawn(path.join(javaHomeResult, 'bin', 'java'), ['-version'], { stdio: 'pipe' });
+            let output = '';
+            
+            java.stderr?.on('data', (data) => {
+              output += data.toString();
+            });
+            
+            java.on('close', (code) => {
+              if (code === 0) {
+                resolve(output);
+              } else {
+                resolve('');
+              }
+            });
+            
+            java.on('error', () => {
+              resolve('');
+            });
+          });
+          
+          if (versionResult) {
+            const versionMatch = versionResult.match(/version "([^"]+)"/);
+            if (versionMatch) {
+              version = versionMatch[1];
+            }
+          }
+        } catch (error) {
+          issues.push('Could not determine Java version');
+        }
+      }
+    } catch (error) {
+      // java_home not available, continue with other methods
     }
 
-    // Try to run java -version
-    const javaVersion = await new Promise<string>((resolve) => {
-      const java = spawn('java', ['-version'], { stdio: 'pipe' });
-      let output = '';
-      
-      java.stderr?.on('data', (data) => {
-        output += data.toString();
-      });
-      
-      java.on('close', (code) => {
-        if (code === 0) {
-          resolve(output);
-        } else {
-          resolve('');
-        }
-      });
-      
-      java.on('error', () => {
-        resolve('');
-      });
-    });
-
-    if (javaVersion) {
+    // If not found via java_home, check JAVA_HOME
+    if (!installed && process.env.JAVA_HOME && fs.existsSync(process.env.JAVA_HOME)) {
+      javaPath = process.env.JAVA_HOME;
       installed = true;
-      const versionMatch = javaVersion.match(/version "([^"]+)"/);
-      if (versionMatch) {
-        version = versionMatch[1];
+      
+      try {
+        const versionResult = await new Promise<string>((resolve) => {
+          const java = spawn(path.join(process.env.JAVA_HOME!, 'bin', 'java'), ['-version'], { stdio: 'pipe' });
+          let output = '';
+          
+          java.stderr?.on('data', (data) => {
+            output += data.toString();
+          });
+          
+          java.on('close', (code) => {
+            if (code === 0) {
+              resolve(output);
+            } else {
+              resolve('');
+            }
+          });
+          
+          java.on('error', () => {
+            resolve('');
+          });
+        });
+        
+        if (versionResult) {
+          const versionMatch = versionResult.match(/version "([^"]+)"/);
+          if (versionMatch) {
+            version = versionMatch[1];
+          }
+        }
+      } catch (error) {
+        issues.push('Could not determine Java version from JAVA_HOME');
       }
-    } else {
-      issues.push('Java not found in PATH');
+    }
+
+    // If still not found, try PATH
+    if (!installed) {
+      try {
+        const javaVersion = await new Promise<string>((resolve) => {
+          const java = spawn('java', ['-version'], { stdio: 'pipe' });
+          let output = '';
+          
+          java.stderr?.on('data', (data) => {
+            output += data.toString();
+          });
+          
+          java.on('close', (code) => {
+            if (code === 0) {
+              resolve(output);
+            } else {
+              resolve('');
+            }
+          });
+          
+          java.on('error', () => {
+            resolve('');
+          });
+        });
+
+        if (javaVersion) {
+          installed = true;
+          const versionMatch = javaVersion.match(/version "([^"]+)"/);
+          if (versionMatch) {
+            version = versionMatch[1];
+          }
+          
+          // Try to find the actual path
+          try {
+            const whichResult = await new Promise<string>((resolve) => {
+              const which = spawn('which', ['java'], { stdio: 'pipe' });
+              let output = '';
+              
+              which.stdout?.on('data', (data) => {
+                output += data.toString();
+              });
+              
+              which.on('close', (code) => {
+                if (code === 0) {
+                  resolve(output.trim());
+                } else {
+                  resolve('');
+                }
+              });
+              
+              which.on('error', () => {
+                resolve('');
+              });
+            });
+            
+            if (whichResult) {
+              javaPath = whichResult;
+            }
+          } catch (error) {
+            // Ignore which command errors
+          }
+        }
+      } catch (error) {
+        issues.push('Java not found in PATH');
+      }
+    }
+
+    if (!installed) {
+      issues.push('Java Development Kit not found');
     }
 
     // Check if it's a supported version (Java 8, 11, or 17)

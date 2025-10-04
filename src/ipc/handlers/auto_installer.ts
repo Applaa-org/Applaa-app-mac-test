@@ -45,23 +45,34 @@ export class AutoInstaller {
     try {
       logger.info('🚀 Starting Android dependencies auto-installation...');
       this.logs.push('🚀 Starting Android dependencies auto-installation...');
+      this.logs.push(`🖥️ Detected platform: ${this.platform}`);
 
       if (this.platform === 'darwin') {
+        this.logs.push('🍎 Installing on macOS...');
         await this.installAndroidOnMacOS(installed, errors);
       } else if (this.platform === 'linux') {
+        this.logs.push('🐧 Installing on Linux...');
         await this.installAndroidOnLinux(installed, errors);
       } else if (this.platform === 'win32') {
+        this.logs.push('🪟 Installing on Windows...');
         await this.installAndroidOnWindows(installed, errors);
       } else {
-        errors.push(`Unsupported platform: ${this.platform}`);
+        const errorMsg = `Unsupported platform: ${this.platform}`;
+        errors.push(errorMsg);
+        this.logs.push(`❌ ${errorMsg}`);
       }
 
       // Set up environment variables
+      this.logs.push('🔧 Setting up environment variables...');
       await this.setupAndroidEnvironment();
+      this.logs.push('✅ Environment variables configured');
+
+      const success = errors.length === 0;
+      this.logs.push(success ? '🎉 Android installation completed successfully!' : '❌ Android installation failed');
 
       return {
-        success: errors.length === 0,
-        message: errors.length > 0 ? errors.join('; ') : 'Android dependencies installed successfully',
+        success,
+        message: success ? 'Android dependencies installed successfully' : errors.join('; '),
         installed,
         errors,
         logs: this.logs
@@ -69,6 +80,7 @@ export class AutoInstaller {
 
     } catch (error: any) {
       logger.error('Failed to install Android dependencies:', error);
+      this.logs.push(`❌ Installation failed: ${error.message}`);
       return {
         success: false,
         message: error.message,
@@ -88,28 +100,36 @@ export class AutoInstaller {
     const errors: string[] = [];
 
     if (this.platform !== 'darwin') {
+      const errorMsg = 'iOS builds are only supported on macOS';
+      this.logs.push(`❌ ${errorMsg}`);
       return {
         success: false,
-        message: 'iOS builds are only supported on macOS',
+        message: errorMsg,
         installed: [],
-        errors: ['iOS builds are only supported on macOS'],
-        logs: ['iOS builds are only supported on macOS']
+        errors: [errorMsg],
+        logs: this.logs
       };
     }
 
     try {
       logger.info('🍎 Starting iOS dependencies auto-installation...');
       this.logs.push('🍎 Starting iOS dependencies auto-installation...');
+      this.logs.push('🖥️ Detected platform: macOS');
 
       // Install Xcode Command Line Tools
+      this.logs.push('🔧 Installing Xcode Command Line Tools...');
       await this.installXcodeCommandLineTools(installed, errors);
 
       // Install CocoaPods
+      this.logs.push('📦 Installing CocoaPods...');
       await this.installCocoaPods(installed, errors);
 
+      const success = errors.length === 0;
+      this.logs.push(success ? '🎉 iOS installation completed successfully!' : '❌ iOS installation failed');
+
       return {
-        success: errors.length === 0,
-        message: errors.length > 0 ? errors.join('; ') : 'iOS dependencies installed successfully',
+        success,
+        message: success ? 'iOS dependencies installed successfully' : errors.join('; '),
         installed,
         errors,
         logs: this.logs
@@ -117,6 +137,7 @@ export class AutoInstaller {
 
     } catch (error: any) {
       logger.error('Failed to install iOS dependencies:', error);
+      this.logs.push(`❌ Installation failed: ${error.message}`);
       return {
         success: false,
         message: error.message,
@@ -133,27 +154,66 @@ export class AutoInstaller {
   private async installAndroidOnMacOS(installed: string[], errors: string[]): Promise<void> {
     try {
       // Check if Homebrew is available
+      this.logs.push('🔍 Checking for Homebrew...');
       if (!await this.isCommandAvailable('brew')) {
-        this.logs.push('Installing Homebrew...');
+        this.logs.push('📦 Homebrew not found, installing...');
         await this.installHomebrew();
+        this.logs.push('✅ Homebrew installed successfully');
         installed.push('Homebrew');
+      } else {
+        this.logs.push('✅ Homebrew already installed');
       }
 
-      // Install Java
-      this.logs.push('Installing Java (OpenJDK 11)...');
-      await this.runCommand('brew', ['install', 'openjdk@11']);
-      installed.push('Java (OpenJDK 11)');
+      // Check if Java is already installed
+      this.logs.push('☕ Checking for Java (OpenJDK 11)...');
+      const javaInstalled = await this.isCommandAvailable('java');
+      if (javaInstalled) {
+        this.logs.push('✅ Java already installed');
+        installed.push('Java (OpenJDK 11)');
+      } else {
+        this.logs.push('☕ Installing Java (OpenJDK 11)...');
+        this.logs.push('📥 Running: brew install openjdk@11');
+        await this.runCommand('brew', ['install', 'openjdk@11']);
+        this.logs.push('✅ Java (OpenJDK 11) installed successfully');
+        installed.push('Java (OpenJDK 11)');
+      }
 
-      // Install Android Studio
-      this.logs.push('Installing Android Studio...');
-      await this.runCommand('brew', ['install', '--cask', 'android-studio']);
-      installed.push('Android Studio');
+      // Check if Android Studio is already installed
+      this.logs.push('📱 Checking for Android Studio...');
+      if (fs.existsSync('/Applications/Android Studio.app')) {
+        this.logs.push('✅ Android Studio already installed');
+        installed.push('Android Studio');
+      } else {
+        this.logs.push('📱 Installing Android Studio...');
+        this.logs.push('📥 Running: brew install --cask android-studio');
+        
+        try {
+          await this.runCommand('brew', ['install', '--cask', 'android-studio']);
+          this.logs.push('✅ Android Studio installed successfully');
+          installed.push('Android Studio');
+        } catch (error: any) {
+          if (error.message.includes('already locked')) {
+            this.logs.push('⚠️ Another brew process is running. Waiting for it to complete...');
+            this.logs.push('⏳ Please wait for the current installation to finish, then try again.');
+            this.logs.push('💡 You can also run: brew install --cask android-studio manually');
+            this.logs.push('🔧 Or try: brew cleanup && brew install --cask android-studio');
+            
+            // Don't fail the entire installation for this
+            this.logs.push('⚠️ Skipping Android Studio installation due to lock conflict');
+          } else {
+            throw error;
+          }
+        }
+      }
 
       // Note: User needs to manually open Android Studio to install SDK/NDK
-      this.logs.push('⚠️ Please open Android Studio and install SDK/NDK through SDK Manager');
+      this.logs.push('⚠️ Next step: Open Android Studio and install SDK/NDK through SDK Manager');
+      this.logs.push('📋 SDK Manager → SDK Tools → Check "Android SDK Build-Tools" and "NDK"');
 
     } catch (error: any) {
-      errors.push(`macOS installation failed: ${error.message}`);
+      const errorMsg = `macOS installation failed: ${error.message}`;
+      errors.push(errorMsg);
+      this.logs.push(`❌ ${errorMsg}`);
     }
   }
 
@@ -237,11 +297,23 @@ export class AutoInstaller {
    */
   private async installXcodeCommandLineTools(installed: string[], errors: string[]): Promise<void> {
     try {
-      this.logs.push('Installing Xcode Command Line Tools...');
+      this.logs.push('🔧 Checking for Xcode Command Line Tools...');
+      
+      // Check if already installed
+      if (await this.isCommandAvailable('xcodebuild')) {
+        this.logs.push('✅ Xcode Command Line Tools already installed');
+        return;
+      }
+      
+      this.logs.push('📦 Installing Xcode Command Line Tools...');
+      this.logs.push('📥 Running: sudo xcode-select --install');
       await this.runCommand('sudo', ['xcode-select', '--install']);
+      this.logs.push('✅ Xcode Command Line Tools installed successfully');
       installed.push('Xcode Command Line Tools');
     } catch (error: any) {
-      errors.push(`Xcode Command Line Tools installation failed: ${error.message}`);
+      const errorMsg = `Xcode Command Line Tools installation failed: ${error.message}`;
+      errors.push(errorMsg);
+      this.logs.push(`❌ ${errorMsg}`);
     }
   }
 
@@ -250,11 +322,23 @@ export class AutoInstaller {
    */
   private async installCocoaPods(installed: string[], errors: string[]): Promise<void> {
     try {
-      this.logs.push('Installing CocoaPods...');
+      this.logs.push('📦 Checking for CocoaPods...');
+      
+      // Check if already installed
+      if (await this.isCommandAvailable('pod')) {
+        this.logs.push('✅ CocoaPods already installed');
+        return;
+      }
+      
+      this.logs.push('📦 Installing CocoaPods...');
+      this.logs.push('📥 Running: sudo gem install cocoapods');
       await this.runCommand('sudo', ['gem', 'install', 'cocoapods']);
+      this.logs.push('✅ CocoaPods installed successfully');
       installed.push('CocoaPods');
     } catch (error: any) {
-      errors.push(`CocoaPods installation failed: ${error.message}`);
+      const errorMsg = `CocoaPods installation failed: ${error.message}`;
+      errors.push(errorMsg);
+      this.logs.push(`❌ ${errorMsg}`);
     }
   }
 
@@ -336,24 +420,37 @@ export PATH="$PATH:$JAVA_HOME/bin"
       child.stdout?.on('data', (data) => {
         const text = data.toString();
         output += text;
-        this.logs.push(text.trim());
+        // Show real-time output
+        const lines = text.split('\n').filter(line => line.trim());
+        lines.forEach(line => {
+          this.logs.push(`📤 ${line.trim()}`);
+        });
       });
 
       child.stderr?.on('data', (data) => {
         const text = data.toString();
         errorOutput += text;
-        this.logs.push(`ERROR: ${text.trim()}`);
+        // Show real-time error output
+        const lines = text.split('\n').filter(line => line.trim());
+        lines.forEach(line => {
+          this.logs.push(`⚠️ ${line.trim()}`);
+        });
       });
 
       child.on('close', (code) => {
         if (code === 0) {
+          this.logs.push(`✅ Command completed successfully`);
           resolve();
         } else {
-          reject(new Error(`Command failed with code ${code}: ${errorOutput}`));
+          const errorMsg = `Command failed with code ${code}: ${errorOutput}`;
+          this.logs.push(`❌ ${errorMsg}`);
+          reject(new Error(errorMsg));
         }
       });
 
       child.on('error', (error) => {
+        const errorMsg = `Command error: ${error.message}`;
+        this.logs.push(`❌ ${errorMsg}`);
         reject(error);
       });
     });
