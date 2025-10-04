@@ -729,6 +729,39 @@ export async function setupHermeticGlobal(): Promise<{
 }
 
 /**
+ * Check build dependencies for Android and iOS
+ * Note: This is a simplified check - full dependency checking is done via IPC
+ */
+async function checkBuildDependencies(): Promise<{
+  android: boolean;
+  ios: boolean;
+  overall: boolean;
+}> {
+  try {
+    // Simple environment checks without full dependency validation
+    const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+    const javaHome = process.env.JAVA_HOME;
+    const isMacOS = process.platform === 'darwin';
+    
+    const android = !!(androidHome && javaHome);
+    const ios = isMacOS && fs.existsSync('/Applications/Xcode.app');
+    
+    return {
+      android,
+      ios,
+      overall: android && (isMacOS ? ios : true)
+    };
+  } catch (error) {
+    logger.warn('Failed to check build dependencies:', error);
+    return {
+      android: false,
+      ios: false,
+      overall: false
+    };
+  }
+}
+
+/**
  * Get comprehensive hermetic runtime status including workspace capabilities
  */
 export async function getHermeticStatus(): Promise<{
@@ -739,6 +772,11 @@ export async function getHermeticStatus(): Promise<{
     workspaceDetected: boolean;
     spaceSavingsEnabled: boolean;
   };
+  buildDependencies: {
+    android: boolean;
+    ios: boolean;
+    overall: boolean;
+  };
 }> {
   const status = await verifyHermeticRuntime();
   const pnpmAvailable = await ensurePnpmAvailable();
@@ -746,6 +784,9 @@ export async function getHermeticStatus(): Promise<{
   // Check if we're in a workspace environment
   const workspaceDetected = fs.existsSync(path.join(process.cwd(), "pnpm-workspace.yaml")) ||
                            fs.existsSync(path.join(process.cwd(), "..", "pnpm-workspace.yaml"));
+  
+  // Check build dependencies
+  const buildDeps = await checkBuildDependencies();
   
   return {
     initialized: true,
@@ -758,6 +799,11 @@ export async function getHermeticStatus(): Promise<{
       pnpmAvailable,
       workspaceDetected,
       spaceSavingsEnabled: pnpmAvailable && workspaceDetected
+    },
+    buildDependencies: {
+      android: buildDeps.android,
+      ios: buildDeps.ios,
+      overall: buildDeps.overall
     }
   };
 }

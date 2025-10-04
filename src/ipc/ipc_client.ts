@@ -2721,6 +2721,34 @@ export class IpcClient {
     return this.ipcRenderer.invoke("local-build:cancel");
   }
 
+  // Android dependency checking
+  public async checkAndroidDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("android:check-dependencies");
+  }
+
+  public async getAndroidInstallationInstructions(): Promise<any> {
+    return this.ipcRenderer.invoke("android:get-installation-instructions");
+  }
+
+  // iOS dependency checking
+  public async checkIOSDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("ios:check-dependencies");
+  }
+
+  // All build dependencies checking
+  public async checkAllBuildDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("build:check-all-dependencies");
+  }
+
+  // Auto-installer methods
+  public async autoInstallAndroidDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("auto-installer:install-android");
+  }
+
+  public async autoInstallIOSDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("auto-installer:install-ios");
+  }
+
 
   // URL Management
   public async saveDeploymentUrl(params: {

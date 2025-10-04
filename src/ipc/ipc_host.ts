@@ -65,6 +65,8 @@ import { registerParallelPrebuildSystem } from "./handlers/parallel_prebuild_sys
 import { registerEASHandlers } from "./handlers/eas_handlers";
 import { registerURLHandlers } from "./handlers/url_handlers";
 import { registerLocalBuildHandlers } from "./handlers/local_build_handlers";
+import { registerAndroidDependencyHandlers } from "./handlers/android_dependency_checker";
+import { registerAutoInstallerHandlers } from "./handlers/auto_installer";
 
 
 export function registerIpcHandlers() {
@@ -148,6 +150,14 @@ export function registerIpcHandlers() {
   
   // 🔨 Local Build System for APK/IPA generation
   registerLocalBuildHandlers();
+  
+  // 🔍 Android Dependency Checker
+  console.log('🔍 Registering Android dependency handlers...');
+  registerAndroidDependencyHandlers();
+  
+  // 🔧 Auto-Installer
+  console.log('🔧 Registering auto-installer handlers...');
+  registerAutoInstallerHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

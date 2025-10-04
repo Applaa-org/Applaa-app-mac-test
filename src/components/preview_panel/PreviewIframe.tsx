@@ -5,6 +5,7 @@ import {
   previewErrorMessageAtom,
   globalPublishStateAtom,
 } from "@/atoms/appAtoms";
+import { useExpoUrl } from "@/hooks/useExpoUrl";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -132,6 +133,7 @@ const ErrorBanner = ({ error, onDismiss, onAIFix }: ErrorBannerProps) => {
 export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const { appUrl, originalUrl } = useAtomValue(appUrlAtom);
+  const { expoUrl } = useExpoUrl();
   const setAppOutput = useSetAtom(appOutputAtom);
   const appOutput = useAtomValue(appOutputAtom);
   // State to trigger iframe reload
@@ -805,7 +807,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
               )}
             </div>
           </div>
-        ) : !appUrl ? (
+        ) : !appUrl && !expoUrl ? (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-500" />
@@ -816,18 +818,20 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
           <iframe
             data-testid="preview-iframe-element"
             onLoad={(e) => {
-              console.log(`✅ Preview iframe loaded successfully: ${appUrl}`);
+              const url = appUrl || expoUrl;
+              console.log(`✅ Preview iframe loaded successfully: ${url}`);
               setErrorMessage(undefined);
             }}
             onError={(e) => {
-              console.error(`❌ Preview iframe failed to load: ${appUrl}`, e);
-              setErrorMessage(`Failed to load preview: ${appUrl}. The app server might not be running or there could be a CORS issue.`);
+              const url = appUrl || expoUrl;
+              console.error(`❌ Preview iframe failed to load: ${url}`, e);
+              setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
             }}
             ref={iframeRef}
             key={reloadKey}
             title={`Preview for App ${selectedAppId}`}
             className="w-full h-full border-none bg-white dark:bg-gray-950"
-            src={appUrl}
+            src={appUrl || expoUrl}
             allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
           />
         )}

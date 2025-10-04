@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAtom } from "jotai";
+import { useQueryClient } from "@tanstack/react-query";
 import { userSettingsAtom, envVarsAtom } from "@/atoms/appAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { type UserSettings } from "@/lib/schemas";
 import { usePostHog } from "posthog-js/react";
 import { useAppVersion } from "./useAppVersion";
+import { invalidateSettingsCaches } from "@/lib/cache-utils";
 
 const TELEMETRY_CONSENT_KEY = "dyadTelemetryConsent";
 const TELEMETRY_USER_ID_KEY = "dyadTelemetryUserId";
@@ -21,6 +23,7 @@ let isInitialLoad = false;
 
 export function useSettings() {
   const posthog = usePostHog();
+  const queryClient = useQueryClient();
   const [settings, setSettingsAtom] = useAtom(userSettingsAtom);
   const [envVars, setEnvVarsAtom] = useAtom(envVarsAtom);
   const [loading, setLoading] = useState(true);
@@ -68,6 +71,9 @@ export function useSettings() {
       setSettingsAtom(updatedSettings);
       processSettingsForTelemetry(updatedSettings);
 
+      // 🚀 CACHE FIX: Invalidate all settings-related caches
+      invalidateSettingsCaches(queryClient);
+
       setError(null);
       return updatedSettings;
     } catch (error) {
@@ -79,12 +85,29 @@ export function useSettings() {
     }
   };
 
+  const invalidateAllCaches = useCallback(async () => {
+    try {
+      // Invalidate main process cache
+      await IpcClient.getInstance().invalidateSettingsCache();
+      
+      // Invalidate TanStack Query caches
+      invalidateSettingsCaches(queryClient);
+      
+      // Reload settings from main process
+      await loadInitialData();
+    } catch (error) {
+      console.error("Error invalidating caches:", error);
+      setError(error instanceof Error ? error : new Error(String(error)));
+    }
+  }, [queryClient, loadInitialData]);
+
   return {
     settings,
     envVars,
     loading,
     error,
     updateSettings,
+    invalidateAllCaches,
 
     refreshSettings: () => {
       return loadInitialData();

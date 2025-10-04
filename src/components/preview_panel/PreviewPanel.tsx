@@ -25,6 +25,8 @@ import { IpcClient } from "@/ipc/ipc_client";
 import { ExpoTerminalPanel } from "../expo/ExpoTerminalPanel";
 import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
 import { WebPreviewTimeoutPopup } from "../WebPreviewTimeoutPopup";
+import { useExpoUrl } from "@/hooks/useExpoUrl";
+import { isStreamingAtom } from "@/atoms/chatAtoms";
 // DesignTab removed for MVP
 
 interface ConsoleHeaderProps {
@@ -72,6 +74,8 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [showProblemsPanel, setShowProblemsPanel] = useState(false);
   const { runApp, stopApp, loading, app, refreshAppIframe, restartApp } = useRunApp();
   const { problemReport } = useCheckProblems(selectedAppId);
+  const { expoUrl } = useExpoUrl();
+  const isStreaming = useAtomValue(isStreamingAtom);
 
   // Web preview timeout hook (only for non-Expo apps)
   const {
@@ -256,8 +260,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             <Panel id="content" minSize={30}>
               <div className="h-full overflow-y-auto">
                 {previewMode === "preview" ? (
-                  // Show BattleTestedExpoPreview for Expo apps, regular PreviewIframe for web apps
-                  isExpoApp ? (
+                  // Show PreviewIframe for both Expo and web apps when streaming, otherwise show appropriate component
+                  (isExpoApp && isStreaming && expoUrl) ? (
+                    <PreviewIframe key={key} loading={loading} />
+                  ) : isExpoApp ? (
                     <UnifiedExpoPreview />
                   ) : (
                     <PreviewIframe key={key} loading={loading} />
