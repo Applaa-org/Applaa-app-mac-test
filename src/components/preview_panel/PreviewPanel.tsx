@@ -276,12 +276,22 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                   <Problems />
                 )}
                 
-                {/* Debug fallback - remove this after fixing */}
-                {!app && !loading && (
+                {/* Debug fallback - improved logic to handle loading states */}
+                {!app && !loading && !selectedAppId && (
                   <div className="flex items-center justify-center h-full text-gray-500">
                     <div className="text-center">
                       <p className="text-lg font-medium mb-2">No App Selected</p>
                       <p className="text-sm">Please select an app from the sidebar to see the preview.</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Show loading state when we have selectedAppId but app is still loading */}
+                {!app && loading && selectedAppId && (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="text-center">
+                      <p className="text-lg font-medium mb-2">Loading App...</p>
+                      <p className="text-sm">Please wait while the app is being loaded.</p>
                     </div>
                   </div>
                 )}
