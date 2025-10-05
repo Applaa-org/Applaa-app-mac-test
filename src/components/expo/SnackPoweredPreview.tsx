@@ -12,8 +12,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { selectedAppIdAtom } from '@/atoms/appAtoms';
-import { previewModeAtom } from '@/atoms/previewAtoms';
+import { selectedAppIdAtom, previewModeAtom } from '@/atoms/appAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
 import { Loader2, QrCode, RefreshCw, ExternalLink, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
