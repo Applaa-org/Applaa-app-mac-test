@@ -76,20 +76,23 @@ export function registerProblemsHandlers() {
 
       // 2. Run platform validation (new CodeValidator)
       let platformProblems: Problem[] = [];
+      let autoFixableProblemsFromValidator: any[] = [];
+      
       try {
         const validator = new CodeValidator(appPath);
-        const validationResult = await validator.validate();
+        const validationResult = await validator.validateApp();
         
-        // Convert validation problems to the format expected by the UI
+        // Store auto-fixable problems for later
+        autoFixableProblemsFromValidator = validationResult.problems.filter(p => p.autoFixable);
+        
+        // Convert validation problems to the format expected by the UI (shared/tsc_types.ts)
         platformProblems = validationResult.problems.map(p => ({
           file: p.file,
           line: p.line || 0,
           column: p.column || 0,
           message: `[${p.category.toUpperCase()}] ${p.message}`,
-          severity: p.type === 'error' ? 'error' : 'warning' as const,
-          code: p.code || '',
-          category: p.category,
-          autoFixable: p.autoFixable
+          code: p.type === 'error' ? 2000 : 1000, // Use numeric codes: 2000 for errors, 1000 for warnings
+          snippet: p.code || '' // Use the code snippet if available
         }));
         
         logger.info(`[ProblemsHandler] Found ${platformProblems.length} platform-specific issues`);
@@ -101,17 +104,17 @@ export function registerProblemsHandlers() {
       const mergedProblems = [...tscReport.problems, ...platformProblems];
       
       // 4. Auto-fix any auto-fixable platform problems (Scenario B)
-      const autoFixableProblems = platformProblems.filter(p => p.autoFixable);
-      if (autoFixableProblems.length > 0) {
-        logger.info(`[ProblemsHandler] Auto-fixing ${autoFixableProblems.length} platform issues...`);
+      if (autoFixableProblemsFromValidator.length > 0) {
+        logger.info(`[ProblemsHandler] Auto-fixing ${autoFixableProblemsFromValidator.length} platform issues...`);
         try {
           const autoFixer = new AutoFixer(appPath);
-          for (const problem of autoFixableProblems) {
-            const fixResult = await autoFixer.fixProblem(problem as any);
+          for (const problem of autoFixableProblemsFromValidator) {
+            const fixResult = await autoFixer.fixProblem(problem);
             if (fixResult.success) {
               logger.info(`[ProblemsHandler] ✅ Auto-fixed: ${problem.message}`);
-              // Remove fixed problem from the list
-              const index = mergedProblems.findIndex(p => p === problem);
+              // Remove fixed problem from the merged list
+              const messageToRemove = `[${problem.category.toUpperCase()}] ${problem.message}`;
+              const index = mergedProblems.findIndex(p => p.message === messageToRemove);
               if (index > -1) {
                 mergedProblems.splice(index, 1);
               }
@@ -122,12 +125,11 @@ export function registerProblemsHandlers() {
         }
       }
 
-      logger.info(`[ProblemsHandler] Total problems: ${mergedProblems.length} (${mergedProblems.filter(p => p.severity === 'error').length} errors)`);
+      logger.info(`[ProblemsHandler] Total problems: ${mergedProblems.length} (${mergedProblems.filter(p => p.code >= 2000).length} errors)`);
 
       return {
         ...tscReport,
-        problems: mergedProblems,
-        timestamp: Date.now()
+        problems: mergedProblems
       };
     } catch (error) {
       logger.error("Error checking problems:", error);

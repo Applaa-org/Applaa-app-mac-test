@@ -204,9 +204,13 @@ export function SnackPoweredPreview() {
     
     setValidationStatus('validating');
     
-    // Run validation check
+    // Run validation check with error handling
     checkProblems().then(() => {
       console.log('✅ Validation complete');
+    }).catch((error) => {
+      console.error('❌ Validation failed:', error);
+      // Don't block preview if validation fails
+      setValidationStatus('valid');
     });
   }, [selectedAppId, checkProblems]);
   
@@ -215,7 +219,8 @@ export function SnackPoweredPreview() {
     if (isChecking) {
       setValidationStatus('validating');
     } else if (problemReport) {
-      const errorCount = problemReport.problems?.filter(p => p.severity === 'error').length || 0;
+      // Errors have code >= 2000, warnings have code < 2000
+      const errorCount = problemReport.problems?.filter(p => p.code >= 2000).length || 0;
       
       if (errorCount === 0) {
         // Scenario A: Valid code - ready for preview
@@ -301,7 +306,7 @@ export function SnackPoweredPreview() {
           {validationStatus === 'has-errors' && problemReport && (
             <div className="flex items-center gap-2 text-xs text-red-600">
               <AlertTriangle className="w-3 h-3" />
-              <span>{problemReport.problems.filter(p => p.severity === 'error').length} Problems</span>
+              <span>{problemReport.problems.filter(p => p.code >= 2000).length} Problems</span>
             </div>
           )}
           
@@ -391,8 +396,8 @@ export function SnackPoweredPreview() {
                 Cannot Start Preview
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Found {problemReport.problems.filter(p => p.severity === 'error').length} error{problemReport.problems.filter(p => p.severity === 'error').length !== 1 ? 's' : ''} in your code. 
-                Please fix {problemReport.problems.filter(p => p.severity === 'error').length === 1 ? 'it' : 'them'} to continue.
+                Found {problemReport.problems.filter(p => p.code >= 2000).length} error{problemReport.problems.filter(p => p.code >= 2000).length !== 1 ? 's' : ''} in your code. 
+                Please fix {problemReport.problems.filter(p => p.code >= 2000).length === 1 ? 'it' : 'them'} to continue.
               </p>
               <Button
                 onClick={() => setPreviewMode('problems')}
