@@ -85,6 +85,7 @@ export function SnackPoweredPreview() {
   const [showDeviceMenu, setShowDeviceMenu] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [expoStatus, setExpoStatus] = useState<ExpoStatus>({ isRunning: false });
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
   const [isLoading, setIsLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
@@ -124,21 +125,23 @@ export function SnackPoweredPreview() {
         native: false
       });
       
-      console.log('📊 Expo result:', result);
+      console.log('📊 Expo result:', JSON.stringify(result, null, 2));
+      console.log('🔍 Has webUrl?', !!result.webUrl, 'URL:', result.webUrl);
+      console.log('🔍 Is running?', result.isRunning);
       
-      if (result.isRunning && result.webUrl) {
+      // Try to use webUrl if available, regardless of isRunning status
+      if (result.webUrl) {
         setPreviewUrl(result.webUrl);
         setExpoStatus(result);
+        setConnectionStatus('connected');
         hasStartedRef.current = true;
-        console.log('✅ Preview started:', result.webUrl);
+        console.log('✅ Preview URL set:', result.webUrl);
         
         if (result.tunnelUrl || result.qrUrl || result.lanUrl) {
           await generateQRCode(result.tunnelUrl || result.qrUrl || result.lanUrl || '');
         }
-      } else if (result.webUrl) {
-        setPreviewUrl(result.webUrl);
-        setExpoStatus(result);
-        hasStartedRef.current = true;
+      } else {
+        console.warn('⚠️ No webUrl in result:', result);
       }
     } catch (error) {
       console.error('❌ Failed to start:', error);
@@ -407,8 +410,16 @@ export function SnackPoweredPreview() {
               ) : (
                 <div className="flex items-center justify-center h-full bg-gray-900 text-white">
                   <div className="text-center p-8">
-                    <button className="px-6 py-3 bg-white text-black rounded-full font-medium hover:bg-gray-100 transition-colors">
-                      Launch Snack
+                    <button 
+                      onClick={() => {
+                        hasStartedRef.current = false;
+                        startingRef.current = false;
+                        startExpoPreview();
+                      }}
+                      disabled={isLoading}
+                      className="px-6 py-3 bg-white text-black rounded-full font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                    >
+                      {isLoading ? 'Starting...' : 'Launch Snack'}
                     </button>
                   </div>
                 </div>
