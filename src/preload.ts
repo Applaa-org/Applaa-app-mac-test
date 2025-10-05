@@ -171,6 +171,12 @@ const validInvokeChannels = [
   "snack:update-options",
   "snack:get-options",
   
+  // Code Validation channels
+  "code:validate",
+  "code:auto-fix",
+  "code:auto-fix-all",
+  "code:validate-and-fix",
+  
   // Design Generation
     "generate-app-icons",
   "generate-gemini-icons",

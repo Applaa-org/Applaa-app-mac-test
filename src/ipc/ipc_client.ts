@@ -1570,6 +1570,76 @@ export class IpcClient {
     return this.ipcRenderer.invoke("snack:get-options");
   }
 
+  // Code Validation Methods
+  public async validateCode(params: { appId: number }): Promise<{
+    total: number;
+    errors: number;
+    warnings: number;
+    info: number;
+    problems: Array<{
+      type: 'error' | 'warning' | 'info';
+      category: 'syntax' | 'dependency' | 'runtime' | 'platform';
+      file: string;
+      line?: number;
+      column?: number;
+      message: string;
+      fix?: string;
+      autoFixable: boolean;
+      code?: string;
+    }>;
+    isValidForPreview: boolean;
+    timestamp: number;
+  }> {
+    return this.ipcRenderer.invoke("code:validate", params);
+  }
+
+  public async autoFixProblem(params: { 
+    appId: number; 
+    problem: {
+      type: 'error' | 'warning' | 'info';
+      category: 'syntax' | 'dependency' | 'runtime' | 'platform';
+      file: string;
+      message: string;
+      fix?: string;
+      autoFixable: boolean;
+      code?: string;
+    };
+  }): Promise<{
+    success: boolean;
+    message: string;
+    filesModified: string[];
+  }> {
+    return this.ipcRenderer.invoke("code:auto-fix", params);
+  }
+
+  public async autoFixAll(params: { 
+    appId: number; 
+    problems: Array<any>;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    filesModified: string[];
+  }> {
+    return this.ipcRenderer.invoke("code:auto-fix-all", params);
+  }
+
+  public async validateAndFix(params: { appId: number }): Promise<{
+    validation: {
+      total: number;
+      errors: number;
+      warnings: number;
+      isValidForPreview: boolean;
+      problems: Array<any>;
+    };
+    fix: {
+      success: boolean;
+      message: string;
+      filesModified: string[];
+    };
+  }> {
+    return this.ipcRenderer.invoke("code:validate-and-fix", params);
+  }
+
   // Supabase Authentication Methods
   public async supabaseInitialize(config: {
     url: string;
