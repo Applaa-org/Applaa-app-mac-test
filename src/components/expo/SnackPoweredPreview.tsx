@@ -131,23 +131,48 @@ export function SnackPoweredPreview() {
         native: false
       });
       
-      console.log('📊 Expo result:', JSON.stringify(result, null, 2));
-      console.log('🔍 Has webUrl?', !!result.webUrl, 'URL:', result.webUrl);
-      console.log('🔍 Is running?', result.isRunning);
+      console.log('📊 Expo start result:', JSON.stringify(result, null, 2));
       
-      // Try to use webUrl if available, regardless of isRunning status
-      if (result.webUrl) {
-        setPreviewUrl(result.webUrl);
-        setExpoStatus(result);
-        setConnectionStatus('connected');
-        hasStartedRef.current = true;
-        console.log('✅ Preview URL set:', result.webUrl);
+      // ✅ FIX: Expo returns isRunning=true but empty URLs initially
+      // URLs are populated asynchronously as Expo output is parsed
+      // Poll expo:status to wait for URLs
+      if (result.isRunning) {
+        console.log('⏳ Expo started, polling for URLs...');
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds max wait
         
-        if (result.tunnelUrl || result.qrUrl || result.lanUrl) {
-          await generateQRCode(result.tunnelUrl || result.qrUrl || result.lanUrl || '');
-        }
+        const pollForUrl = async (): Promise<boolean> => {
+          attempts++;
+          const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
+          
+          console.log(`🔍 Poll attempt ${attempts}: webUrl=${status.webUrl || 'empty'}`);
+          
+          if (status.webUrl) {
+            setPreviewUrl(status.webUrl);
+            setExpoStatus(status);
+            setConnectionStatus('connected');
+            hasStartedRef.current = true;
+            console.log('✅ Preview URL ready:', status.webUrl);
+            
+            if (status.tunnelUrl || status.qrUrl || status.lanUrl) {
+              await generateQRCode(status.tunnelUrl || status.qrUrl || status.lanUrl || '');
+            }
+            return true;
+          }
+          
+          if (attempts >= maxAttempts) {
+            console.warn('⚠️ Timeout waiting for Expo URL');
+            return false;
+          }
+          
+          // Wait 1 second before next poll
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return pollForUrl();
+        };
+        
+        await pollForUrl();
       } else {
-        console.warn('⚠️ No webUrl in result:', result);
+        console.warn('⚠️ Expo did not start');
       }
     } catch (error) {
       console.error('❌ Failed to start:', error);
