@@ -39,7 +39,7 @@ import { registerProblemsHandlers } from "./handlers/problems_handlers";
 import { registerAppEnvVarsHandlers } from "./handlers/app_env_vars_handlers";
 import { registerTemplateHandlers } from "./handlers/template_handlers";
 import { registerPortalHandlers } from "./handlers/portal_handlers";
-// import { registerExpoHandlers } from "./handlers/expo_handlers"; // unused when unified preview is active
+import { registerExpoHandlers } from "./handlers/expo_handlers"; // ✅ REQUIRED for SnackPoweredPreview
 // import { registerDualExpoHandlers } from "./handlers/expo_dual_handlers"; // unused when unified preview is active
 import { registerSimpleExpoHandlers } from "./handlers/simple_expo_handlers";
 import { registerUnifiedExpoPreview } from "./handlers/unified_expo_preview";
@@ -114,11 +114,11 @@ export function registerIpcHandlers() {
   registerAppEnvVarsHandlers();
   registerTemplateHandlers();
   registerPortalHandlers();
-  // 🚀 UNIFIED PREVIEW: Only register the unified preview system for Dyad-like performance
-  // registerExpoHandlers(); // DISABLED - conflicts with unified system
-  // registerDualExpoHandlers(); // DISABLED - conflicts with unified system  
+  // 🚀 EXPO PREVIEW: Register Expo handlers for SnackPoweredPreview
+  registerExpoHandlers(); // ✅ ENABLED - Required for expo:start, expo:stop, expo:status
+  // registerDualExpoHandlers(); // DISABLED - not needed
   registerSimpleExpoHandlers(); // ✅ ENABLED - Required for frontend compatibility
-  registerUnifiedExpoPreview(); // ✅ ACTIVE - Single, optimized preview system
+  registerUnifiedExpoPreview(); // ✅ ACTIVE - Unified preview system (legacy, may remove later)
 
   // Legacy EXPO PREVIEW option (commented; keep for quick toggle)
   // registerExpoHandlers(); // ✅ ACTIVE - Main expo handlers
