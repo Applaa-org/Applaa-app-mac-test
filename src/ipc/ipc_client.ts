@@ -1520,6 +1520,56 @@ export class IpcClient {
     return this.ipcRenderer.invoke("expo:reset");
   }
 
+  // Snack Preview Methods (Hot Reload & File Watching)
+  public async snackStartHotReload(params: { appId: number }): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("snack:start-hot-reload", params);
+  }
+
+  public async snackStopHotReload(params: { appId: number }): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("snack:stop-hot-reload", params);
+  }
+
+  public async snackIsWatching(params: { appId: number }): Promise<{
+    isWatching: boolean;
+  }> {
+    return this.ipcRenderer.invoke("snack:is-watching", params);
+  }
+
+  public async snackGetWatchedApps(): Promise<{
+    watchedApps: number[];
+  }> {
+    return this.ipcRenderer.invoke("snack:get-watched-apps");
+  }
+
+  public async snackManualTrigger(params: { appId: number; reason?: string }): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("snack:manual-trigger", params);
+  }
+
+  public async snackUpdateOptions(params: { options: any }): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("snack:update-options", params);
+  }
+
+  public async snackGetOptions(): Promise<{
+    options: any;
+  }> {
+    return this.ipcRenderer.invoke("snack:get-options");
+  }
+
   // Supabase Authentication Methods
   public async supabaseInitialize(config: {
     url: string;

@@ -47,6 +47,7 @@ import { registerIntelligentPreviewSystem } from "./handlers/intelligent_preview
 import { registerExpoPerformanceMonitor } from "./handlers/expo_performance_monitor";
 import { registerTerminalHandlers } from "./handlers/terminal_handlers";
 // import { registerSnackHandlers } from "./handlers/snack_handlers"; // DISABLED - snack-sdk dependency
+import { registerSnackPreviewHandlers } from "./handlers/snack_preview_handlers"; // NEW: Snack-powered preview
 import { registerPromptOptimizationHandlers } from "./handlers/prompt_optimization_handlers";
 import { registerPromptHandlers } from "./handlers/prompt_handlers";
 import { registerFlutterMobileHandlers } from "./handlers/flutter_mobile_handlers";
@@ -125,9 +126,9 @@ export function registerIpcHandlers() {
   // registerIntelligentPreviewSystem(); // DISABLED - conflicts with unified system
   registerExpoPerformanceMonitor();
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
-  // registerSnackHandlers(); // DISABLED - snack-sdk not included in EXE package
-  // Snack preview is experimental - users can use Expo CLI preview instead
-  console.log('⚠️ Snack handlers disabled (snack-sdk not in package)');
+  // registerSnackHandlers(); // DISABLED - old snack-sdk not included in EXE package
+  registerSnackPreviewHandlers(); // ✅ NEW: Snack-powered preview with hot reload
+  console.log('🚀 Snack preview handlers enabled');
   registerPromptOptimizationHandlers();
   registerPromptHandlers();
   registerFlutterMobileHandlers();

@@ -208,6 +208,7 @@
     "remark-gfm": "^4.0.1",
     "shell-env": "^4.0.1",
     "shiki": "^3.2.1",
+    "snack-sdk": "^6.5.1",
     "sonner": "^2.0.3",
     "stacktrace-js": "^2.0.2",
     "tailwind-merge": "^3.1.0",

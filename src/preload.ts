@@ -162,6 +162,15 @@ const validInvokeChannels = [
   "simple-expo:metro-recovery",
   "simple-expo:update-packages",
   
+  // Snack Preview channels (Hot Reload & File Watching)
+  "snack:start-hot-reload",
+  "snack:stop-hot-reload",
+  "snack:is-watching",
+  "snack:get-watched-apps",
+  "snack:manual-trigger",
+  "snack:update-options",
+  "snack:get-options",
+  
   // Design Generation
     "generate-app-icons",
   "generate-gemini-icons",
