@@ -11,12 +11,14 @@
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
+import { previewModeAtom } from '@/atoms/previewAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
-import { Loader2, QrCode, RefreshCw, ExternalLink } from 'lucide-react';
+import { Loader2, QrCode, RefreshCw, ExternalLink, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import QRCode from 'qrcode';
+import { useCheckProblems } from '@/hooks/useCheckProblems';
 
 interface ExpoStatus {
   isRunning: boolean;
@@ -78,6 +80,10 @@ const DEVICES: DeviceOption[] = [
 
 export function SnackPoweredPreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  const setPreviewMode = useSetAtom(previewModeAtom);
+  
+  // ✅ Integrate with existing Problems system
+  const { problemReport, checkProblems, isChecking } = useCheckProblems(selectedAppId);
   
   // State
   const [activeTab, setActiveTab] = useState<PreviewTab>('web');
@@ -90,6 +96,7 @@ export function SnackPoweredPreview() {
   const [showQR, setShowQR] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [iframeKey, setIframeKey] = useState(0);
+  const [validationStatus, setValidationStatus] = useState<'validating' | 'valid' | 'has-errors' | 'auto-fixed'>('validating');
   
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -192,9 +199,40 @@ export function SnackPoweredPreview() {
     }
   }, [selectedAppId, expoStatus.lastHotReload]);
   
-  // Auto-start
+  // ✅ SCENARIO A, B, C: Auto-validate on app selection
   useEffect(() => {
-    if (selectedAppId) {
+    if (!selectedAppId) return;
+    
+    setValidationStatus('validating');
+    
+    // Run validation check
+    checkProblems().then(() => {
+      console.log('✅ Validation complete');
+    });
+  }, [selectedAppId, checkProblems]);
+  
+  // Update validation status based on problem report
+  useEffect(() => {
+    if (isChecking) {
+      setValidationStatus('validating');
+    } else if (problemReport) {
+      const errorCount = problemReport.problems?.filter(p => p.severity === 'error').length || 0;
+      
+      if (errorCount === 0) {
+        // Scenario A: Valid code - ready for preview
+        setValidationStatus('valid');
+        console.log('✅ SCENARIO A: No problems, ready for preview');
+      } else {
+        // Scenario C: Has errors - block preview
+        setValidationStatus('has-errors');
+        console.log(`⚠️ SCENARIO C: ${errorCount} errors found, preview blocked`);
+      }
+    }
+  }, [problemReport, isChecking]);
+  
+  // Auto-start ONLY if validation passed
+  useEffect(() => {
+    if (selectedAppId && validationStatus === 'valid') {
       hasStartedRef.current = false;
       startingRef.current = false;
       startExpoPreview();
@@ -207,7 +245,7 @@ export function SnackPoweredPreview() {
       hasStartedRef.current = false;
       startingRef.current = false;
     };
-  }, [selectedAppId, startExpoPreview]);
+  }, [selectedAppId, validationStatus, startExpoPreview]);
   
   // Poll status
   useEffect(() => {
@@ -242,15 +280,35 @@ export function SnackPoweredPreview() {
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
       {/* Top Bar - Exact Snack Style */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-3">
           {/* Status Indicator */}
-          <div className={`w-2 h-2 rounded-full mr-2 ${
+          <div className={`w-2 h-2 rounded-full ${
             expoStatus.isRunning ? 'bg-green-500' : 'bg-red-500'
           }`} />
           
+          {/* Validation Status */}
+          {validationStatus === 'validating' && (
+            <div className="flex items-center gap-2 text-xs text-blue-600">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Validating code...</span>
+            </div>
+          )}
+          {validationStatus === 'valid' && (
+            <div className="flex items-center gap-2 text-xs text-green-600">
+              <CheckCircle className="w-3 h-3" />
+              <span>0 Problems - Ready</span>
+            </div>
+          )}
+          {validationStatus === 'has-errors' && problemReport && (
+            <div className="flex items-center gap-2 text-xs text-red-600">
+              <AlertTriangle className="w-3 h-3" />
+              <span>{problemReport.problems.filter(p => p.severity === 'error').length} Problems</span>
+            </div>
+          )}
+          
           {/* Build Status */}
           {expoStatus.buildStatus === 'error' && (
-            <span className="text-xs text-red-600 dark:text-red-400 mr-2">
+            <span className="text-xs text-red-600 dark:text-red-400">
               Build Failed
             </span>
           )}
@@ -325,7 +383,35 @@ export function SnackPoweredPreview() {
       
       {/* Preview Area */}
       <div className="flex-1 relative bg-gray-100 dark:bg-gray-900 overflow-hidden">
-        {isLoading ? (
+        {/* ✅ SCENARIO C: Block preview if validation failed */}
+        {validationStatus === 'has-errors' && problemReport ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">
+            <div className="text-center max-w-md p-8">
+              <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Cannot Start Preview
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Found {problemReport.problems.filter(p => p.severity === 'error').length} error{problemReport.problems.filter(p => p.severity === 'error').length !== 1 ? 's' : ''} in your code. 
+                Please fix {problemReport.problems.filter(p => p.severity === 'error').length === 1 ? 'it' : 'them'} to continue.
+              </p>
+              <Button
+                onClick={() => setPreviewMode('problems')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                View Problems & Fix
+              </Button>
+            </div>
+          </div>
+        ) : validationStatus === 'validating' ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">Validating code...</p>
+            </div>
+          </div>
+        ) : isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />

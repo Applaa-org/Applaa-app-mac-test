@@ -6,6 +6,9 @@ import { generateProblemReport } from "../processors/tsc";
 import { getDyadAppPath } from "@/paths/paths";
 import log from "electron-log";
 import { createLoggedHandler } from "./safe_handle";
+import { CodeValidator } from "../../services/code-validator";
+import { AutoFixer } from "../../services/auto-fixer";
+import type { Problem } from "../ipc_types";
 
 const logger = log.scope("problems_handlers");
 const handle = createLoggedHandler(logger);
@@ -62,13 +65,70 @@ export function registerProblemsHandlers() {
 
       const appPath = getDyadAppPath(app.path);
 
-      // Call autofix with empty full response to just run TypeScript checking
-      const problemReport = await generateProblemReport({
+      // 🚀 ENHANCED: Run both TypeScript checking AND platform validation
+      logger.info(`[ProblemsHandler] Running comprehensive checks for app ${params.appId}`);
+
+      // 1. Run TypeScript checking (existing)
+      const tscReport = await generateProblemReport({
         fullResponse: "",
         appPath,
       });
 
-      return problemReport;
+      // 2. Run platform validation (new CodeValidator)
+      let platformProblems: Problem[] = [];
+      try {
+        const validator = new CodeValidator(appPath);
+        const validationResult = await validator.validate();
+        
+        // Convert validation problems to the format expected by the UI
+        platformProblems = validationResult.problems.map(p => ({
+          file: p.file,
+          line: p.line || 0,
+          column: p.column || 0,
+          message: `[${p.category.toUpperCase()}] ${p.message}`,
+          severity: p.type === 'error' ? 'error' : 'warning' as const,
+          code: p.code || '',
+          category: p.category,
+          autoFixable: p.autoFixable
+        }));
+        
+        logger.info(`[ProblemsHandler] Found ${platformProblems.length} platform-specific issues`);
+      } catch (error) {
+        logger.warn(`[ProblemsHandler] Platform validation failed:`, error);
+      }
+
+      // 3. Merge both problem sets
+      const mergedProblems = [...tscReport.problems, ...platformProblems];
+      
+      // 4. Auto-fix any auto-fixable platform problems (Scenario B)
+      const autoFixableProblems = platformProblems.filter(p => p.autoFixable);
+      if (autoFixableProblems.length > 0) {
+        logger.info(`[ProblemsHandler] Auto-fixing ${autoFixableProblems.length} platform issues...`);
+        try {
+          const autoFixer = new AutoFixer(appPath);
+          for (const problem of autoFixableProblems) {
+            const fixResult = await autoFixer.fixProblem(problem as any);
+            if (fixResult.success) {
+              logger.info(`[ProblemsHandler] ✅ Auto-fixed: ${problem.message}`);
+              // Remove fixed problem from the list
+              const index = mergedProblems.findIndex(p => p === problem);
+              if (index > -1) {
+                mergedProblems.splice(index, 1);
+              }
+            }
+          }
+        } catch (error) {
+          logger.warn(`[ProblemsHandler] Auto-fix failed:`, error);
+        }
+      }
+
+      logger.info(`[ProblemsHandler] Total problems: ${mergedProblems.length} (${mergedProblems.filter(p => p.severity === 'error').length} errors)`);
+
+      return {
+        ...tscReport,
+        problems: mergedProblems,
+        timestamp: Date.now()
+      };
     } catch (error) {
       logger.error("Error checking problems:", error);
       throw error;
