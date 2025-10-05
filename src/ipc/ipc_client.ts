@@ -653,12 +653,14 @@ export class IpcClient {
   // Method to cancel an ongoing stream
   public cancelChatStream(chatId: number): void {
     this.ipcRenderer.invoke("chat:cancel", chatId);
+    // 🚨 CRITICAL FIX: Don't delete callbacks here!
+    // The backend will send chat:response:end, which will handle cleanup
+    // Deleting callbacks here causes "No callbacks found" error
     const callbacks = this.chatStreams.get(chatId);
-    if (callbacks) {
-      this.chatStreams.delete(chatId);
-    } else {
+    if (!callbacks) {
       console.error("Tried canceling chat that doesn't exist");
     }
+    // Callbacks will be cleaned up when chat:response:end event arrives
   }
 
   // 🚀 NEW: Detect interrupted streams
