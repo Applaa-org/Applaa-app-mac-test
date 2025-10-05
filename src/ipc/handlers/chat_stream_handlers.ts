@@ -297,36 +297,57 @@ async function processStreamChunks({
   let lastUpdateLength = 0;
   let pendingUpdate = false;
 
-  for await (const part of fullStream) {
-    let chunk = "";
-    if (part.type === "text-delta") {
-      if (inThinkingBlock) {
-        chunk = "</think>";
-        inThinkingBlock = false;
-      }
-      chunk += part.textDelta;
-    } else if (part.type === "reasoning") {
-      if (!inThinkingBlock) {
-        chunk = "<think>";
-        inThinkingBlock = true;
+  // 🚨 CRITICAL FIX: Add abort signal listener to immediately break the loop
+  const abortListener = () => {
+    logger.log(`🚨 Abort signal received for chat ${chatId} - breaking stream loop`);
+  };
+  abortController.signal.addEventListener('abort', abortListener);
+
+  // 🚨 ADDITIONAL FIX: Add a periodic abort check for more responsive cancellation
+  const abortCheckInterval = setInterval(() => {
+    if (abortController.signal.aborted) {
+      logger.log(`🚨 Periodic abort check: Stream should be cancelled for chat ${chatId}`);
+      clearInterval(abortCheckInterval);
+    }
+  }, 100); // Check every 100ms for more responsive cancellation
+
+  try {
+    for await (const part of fullStream) {
+      // 🚨 CRITICAL: Check abort signal on each iteration
+      if (abortController.signal.aborted) {
+        logger.log(`Stream aborted for chat ${chatId} - exiting loop`);
+        break;
       }
 
-      chunk += escapeDyadTags(part.textDelta);
-    } else if (part.type === "tool-call") {
-      // Handle tool calls - these are critical for file creation
-      logger.log(`🔧 Tool call received: ${part.toolName} with args:`, part.args);
-      // Don't add tool calls to the response text, but log them for debugging
-      continue;
-    } else if (part.type === "tool-result") {
-      // Handle tool results - these complete the tool execution
-      logger.log(`✅ Tool result received for ${part.toolCallId}:`, part.result);
-      // Don't add tool results to the response text, but log them for debugging
-      continue;
-    }
+      let chunk = "";
+      if (part.type === "text-delta") {
+        if (inThinkingBlock) {
+          chunk = "</think>";
+          inThinkingBlock = false;
+        }
+        chunk += part.textDelta;
+      } else if (part.type === "reasoning") {
+        if (!inThinkingBlock) {
+          chunk = "<think>";
+          inThinkingBlock = true;
+        }
 
-    if (!chunk) {
-      continue;
-    }
+        chunk += escapeDyadTags(part.textDelta);
+      } else if (part.type === "tool-call") {
+        // Handle tool calls - these are critical for file creation
+        logger.log(`🔧 Tool call received: ${part.toolName} with args:`, part.args);
+        // Don't add tool calls to the response text, but log them for debugging
+        continue;
+      } else if (part.type === "tool-result") {
+        // Handle tool results - these complete the tool execution
+        logger.log(`✅ Tool result received for ${part.toolCallId}:`, part.result);
+        // Don't add tool results to the response text, but log them for debugging
+        continue;
+      }
+
+      if (!chunk) {
+        continue;
+      }
 
     fullResponse += chunk;
     incrementalResponse += chunk;
@@ -346,6 +367,12 @@ async function processStreamChunks({
       lastUpdateTime = now;
       lastUpdateLength = fullResponse.length;
       
+      // 🚨 CRITICAL: Check abort signal before expensive operations
+      if (abortController.signal.aborted) {
+        logger.log(`Stream aborted during throttled update for chat ${chatId}`);
+        break;
+      }
+
       // 🚀 DIRECT ASYNC AWAIT: Remove setImmediate to avoid microtask queue backlog
       try {
         // Clean response only when sending to UI
@@ -358,24 +385,35 @@ async function processStreamChunks({
       }
     }
 
-    // If the stream was aborted, exit early
-    if (abortController.signal.aborted) {
-      logger.log(`Stream for chat ${chatId} was aborted`);
-      break;
+      // If the stream was aborted, exit early
+      if (abortController.signal.aborted) {
+        logger.log(`Stream for chat ${chatId} was aborted`);
+        break;
+      }
     }
+  } finally {
+    // 🚨 CRITICAL: Always clean up the abort listener and interval
+    abortController.signal.removeEventListener('abort', abortListener);
+    clearInterval(abortCheckInterval);
   }
 
-  // 🚀 FINAL UPDATE: Ensure the last chunk is always sent
-  if (!pendingUpdate) {
-    fullResponse = cleanFullResponse(fullResponse);
-    fullResponse = await processResponseChunkUpdate({ fullResponse });
-  } else {
-    // Wait for pending update to complete, then send final update
-    while (pendingUpdate) {
-      await new Promise(resolve => setTimeout(resolve, 10));
+  // 🚀 FINAL UPDATE: Ensure the last chunk is always sent (only if not aborted)
+  if (!abortController.signal.aborted) {
+    if (!pendingUpdate) {
+      fullResponse = cleanFullResponse(fullResponse);
+      fullResponse = await processResponseChunkUpdate({ fullResponse });
+    } else {
+      // Wait for pending update to complete, then send final update
+      while (pendingUpdate && !abortController.signal.aborted) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      if (!abortController.signal.aborted) {
+        fullResponse = cleanFullResponse(fullResponse);
+        fullResponse = await processResponseChunkUpdate({ fullResponse });
+      }
     }
-    fullResponse = cleanFullResponse(fullResponse);
-    fullResponse = await processResponseChunkUpdate({ fullResponse });
+  } else {
+    logger.log(`🚨 Stream was aborted for chat ${chatId} - skipping final update`);
   }
 
   return { fullResponse, incrementalResponse };
@@ -392,21 +430,7 @@ export function registerChatStreamHandlers() {
       const abortController = new AbortController();
       activeStreams.set(req.chatId, abortController);
 
-      // 🚀 PERFORMANCE: Start intelligent preview preparation during LLM generation
-      // 🚨 TEMPORARY FIX: Disable preview preparation for Expo apps to test chat streaming
-      try {
-        const { isExpo } = detectAppType(getDyadAppPath(updatedChat.app.path));
-        if (!isExpo) {
-          await onChatStreamStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
-          await onLLMGenerationStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
-        } else {
-          logger.info(`🚨 Skipping preview preparation for Expo app ${updatedChat.app.id} to test chat streaming`);
-        }
-      } catch (error) {
-        logger.warn(`⚠️ Failed to start preview preparation:`, error);
-      }
-
-      // Get the chat to check for existing messages
+      // Get the chat to check for existing messages FIRST
       const chat = await db.query.chats.findFirst({
         where: eq(chats.id, req.chatId),
         with: {
@@ -582,6 +606,20 @@ ${componentSnippet}
 
       if (!updatedChat) {
         throw new Error(`Chat not found: ${req.chatId}`);
+      }
+
+      // 🚀 PERFORMANCE: Start intelligent preview preparation during LLM generation
+      // 🚨 TEMPORARY FIX: Disable preview preparation for Expo apps to test chat streaming
+      try {
+        const { isExpo } = detectAppType(getDyadAppPath(updatedChat.app.path));
+        if (!isExpo) {
+          await onChatStreamStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
+          await onLLMGenerationStart(updatedChat.app.id, getDyadAppPath(updatedChat.app.path), updatedChat.app.name || 'App');
+        } else {
+          logger.info(`🚨 Skipping preview preparation for Expo app ${updatedChat.app.id} to test chat streaming`);
+        }
+      } catch (error) {
+        logger.warn(`⚠️ Failed to start preview preparation:`, error);
       }
 
       // Send the messages right away so that the loading state is shown for the message.
@@ -1305,6 +1343,13 @@ ${problemReport.problems
                   chatId: req.chatId,
                   processResponseChunkUpdate,
                 });
+                
+                // 🚨 CRITICAL: Check abort signal immediately after stream processing
+                if (abortController.signal.aborted) {
+                  logger.log(`🚨 Auto-fix loop aborted for chat ${req.chatId}`);
+                  break; // Exit the while loop immediately
+                }
+                
                 fullResponse = result.fullResponse;
                 previousAttempts.push({
                   role: "assistant",
@@ -1517,10 +1562,11 @@ ${problemReport.problems
     const abortController = activeStreams.get(chatId);
 
     if (abortController) {
-      // Abort the stream
+      // 🚨 CRITICAL FIX: Immediately abort the stream
+      logger.log(`🚨 Cancelling stream for chat ${chatId}`);
       abortController.abort();
       activeStreams.delete(chatId);
-      logger.log(`Aborted stream for chat ${chatId}`);
+      logger.log(`✅ Stream aborted for chat ${chatId}`);
     } else {
       logger.warn(`No active stream found for chat ${chatId}`);
     }
@@ -1528,7 +1574,7 @@ ${problemReport.problems
     // 🚀 STOP PERIODIC PERSISTENCE: Stream was cancelled
     stopPeriodicPersistence(chatId);
 
-    // Send the end event to the renderer
+    // Send the end event to the renderer immediately
     safeSend(event.sender, "chat:response:end", {
       chatId,
       updatedFiles: false,

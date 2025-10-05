@@ -653,12 +653,14 @@ export class IpcClient {
   // Method to cancel an ongoing stream
   public cancelChatStream(chatId: number): void {
     this.ipcRenderer.invoke("chat:cancel", chatId);
+    // 🚨 CRITICAL FIX: Don't delete callbacks here!
+    // The backend will send chat:response:end, which will handle cleanup
+    // Deleting callbacks here causes "No callbacks found" error
     const callbacks = this.chatStreams.get(chatId);
-    if (callbacks) {
-      this.chatStreams.delete(chatId);
-    } else {
+    if (!callbacks) {
       console.error("Tried canceling chat that doesn't exist");
     }
+    // Callbacks will be cleaned up when chat:response:end event arrives
   }
 
   // 🚀 NEW: Detect interrupted streams
@@ -2719,6 +2721,58 @@ export class IpcClient {
 
   public async cancelLocalBuild(): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("local-build:cancel");
+  }
+
+  // Android dependency checking
+  public async checkAndroidDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("android:check-dependencies");
+  }
+
+  public async getAndroidInstallationInstructions(): Promise<any> {
+    return this.ipcRenderer.invoke("android:get-installation-instructions");
+  }
+
+  // iOS dependency checking
+  public async checkIOSDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("ios:check-dependencies");
+  }
+
+  // All build dependencies checking
+  public async checkAllBuildDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("build:check-all-dependencies");
+  }
+
+  // Auto-installer methods
+  public async autoInstallAndroidDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("auto-installer:install-android");
+  }
+
+  public async autoInstallIOSDependencies(): Promise<any> {
+    return this.ipcRenderer.invoke("auto-installer:install-ios");
+  }
+
+  // 🚀 Prerequisite Installer Methods
+  public async checkPrerequisites(): Promise<any> {
+    return this.ipcRenderer.invoke("prerequisites:check");
+  }
+
+  public async installPrerequisites(options?: {
+    skipSystem?: boolean;
+    skipDevelopment?: boolean;
+    skipAndroid?: boolean;
+    skipIOS?: boolean;
+    skipExpo?: boolean;
+    forceReinstall?: boolean;
+  }): Promise<any> {
+    return this.ipcRenderer.invoke("prerequisites:install", options);
+  }
+
+  public async getPrerequisitesStatus(): Promise<any> {
+    return this.ipcRenderer.invoke("prerequisites:status");
+  }
+
+  public async getPrerequisitesProgress(): Promise<any> {
+    return this.ipcRenderer.invoke("prerequisites:progress");
   }
 
 

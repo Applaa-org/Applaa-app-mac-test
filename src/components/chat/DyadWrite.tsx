@@ -1,6 +1,6 @@
 import type React from "react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
@@ -10,10 +10,13 @@ import {
 } from "lucide-react";
 import { CodeHighlight } from "./CodeHighlight";
 import { CustomTagState } from "./stateTypes";
+import { IpcClient } from "../../ipc/ipc_client";
+import { useAtomValue } from "jotai";
+import { selectedChatIdAtom } from "../../atoms/chatAtoms";
 
 interface DyadWriteProps {
   children?: ReactNode;
-  node?: any;
+  node?: { properties?: Record<string, unknown> };
   path?: string;
   description?: string;
 }
@@ -27,14 +30,38 @@ export const DyadWrite: React.FC<DyadWriteProps> = ({
   const [isContentVisible, setIsContentVisible] = useState(false);
 
   // Use props directly if provided, otherwise extract from node
-  const path = pathProp || node?.properties?.path || "";
-  const description = descriptionProp || node?.properties?.description || "";
+  const path: string = (pathProp ?? (node?.properties?.path as string) ?? "");
+  const description: string = (descriptionProp ?? (node?.properties?.description as string) ?? "");
   const state = node?.properties?.state as CustomTagState;
   const inProgress = state === "pending";
   const aborted = state === "aborted";
 
   // Extract filename from path
-  const fileName = path ? path.split("/").pop() : "";
+  const fileName = path ? String(path).split("/").pop() : "";
+
+  const chatId = useAtomValue(selectedChatIdAtom);
+
+  const handleContinue = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!chatId) return;
+    try {
+      const ipc = IpcClient.getInstance();
+      const detect = await ipc.detectInterruptedStream(chatId);
+      if (detect.interrupted && detect.messageId) {
+        await ipc.resumeInterruptedStream({
+          chatId,
+          messageId: detect.messageId,
+          continuePrompt: path
+            ? `Please continue and complete the file at path: ${path}. Resume exactly where you stopped.`
+            : undefined,
+        });
+      } else {
+        // Nothing to resume; user can press Keep Going or send a continue prompt
+      }
+    } catch (err) {
+      console.error("Failed to resume interrupted stream:", err);
+    }
+  }, [chatId, path]);
 
   return (
     <div
@@ -62,9 +89,17 @@ export const DyadWrite: React.FC<DyadWriteProps> = ({
             </div>
           )}
           {aborted && (
-            <div className="flex items-center text-red-600 text-xs">
-              <CircleX size={14} className="mr-1" />
-              <span>Did not finish</span>
+            <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center text-red-600">
+                <CircleX size={14} className="mr-1" />
+                <span>Did not finish</span>
+              </div>
+              <button
+                onClick={handleContinue}
+                className="px-2 py-1 rounded bg-(--sidebar-accent) text-(--sidebar-accent-fg) hover:opacity-90"
+              >
+                Continue
+              </button>
             </div>
           )}
         </div>

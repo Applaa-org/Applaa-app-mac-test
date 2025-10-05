@@ -38,6 +38,40 @@ export default function ChatPage() {
   const { chats, loading } = useChats(selectedAppId);
   const { loading: appLoading, app } = useRunApp();
 
+  // 🚀 CRITICAL FIX: Auto-sync selectedAppId with current chat's appId
+  // This ensures the preview panel shows the correct app when user navigates to /chat?id=123
+  useEffect(() => {
+    const syncAppIdWithChat = async () => {
+      if (chatId) {
+        try {
+          // First try to find the chat in the already loaded chats
+          let currentChat = chats.find(chat => chat.id === chatId);
+          
+          // If not found in loaded chats, get it directly from the database
+          if (!currentChat) {
+            console.log(`🔍 [ChatPage] Chat ${chatId} not found in loaded chats, fetching directly...`);
+            const { IpcClient } = await import("@/ipc/ipc_client");
+            const ipcClient = IpcClient.getInstance();
+            const chatData = await ipcClient.getChat(chatId);
+            
+            // Get all chats to find the appId (since getChat doesn't return appId directly)
+            const allChats = await ipcClient.getChats();
+            currentChat = allChats.find(chat => chat.id === chatId);
+          }
+          
+          if (currentChat && currentChat.appId !== selectedAppId) {
+            console.log(`🔄 [ChatPage] Syncing selectedAppId: ${selectedAppId} -> ${currentChat.appId} for chatId: ${chatId}`);
+            setSelectedAppId(currentChat.appId);
+          }
+        } catch (error) {
+          console.error(`❌ [ChatPage] Failed to sync appId for chatId ${chatId}:`, error);
+        }
+      }
+    };
+
+    syncAppIdWithChat();
+  }, [chatId, chats, selectedAppId, setSelectedAppId]);
+
   // 🚀 FIX: Auto-submit initial prompt after chat panel mounts (Dyad-style)
   // This ensures callbacks are registered before streaming starts
   useEffect(() => {

@@ -26,6 +26,7 @@ import { ReleaseChannelSelector } from "@/components/ReleaseChannelSelector";
 import { CustomAppsDirectorySelector } from "@/components/CustomAppsDirectorySelector";
 import { NeonIntegration } from "@/components/NeonIntegration";
 import { CloudServicesSettings } from "@/components/settings/CloudServicesSettings";
+import { CacheDebugPanel } from "@/components/settings/CacheDebugPanel";
 
 // Temporary Pro Toggle for Development
 function DevProToggle() {
@@ -134,6 +135,11 @@ export default function SettingsPage() {
           >
             <CloudServicesSettings />
           </div>
+
+          {/* Cache Debug Panel - only show in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <CacheDebugPanel />
+          )}
 
           <div
             id="supabase-auth"

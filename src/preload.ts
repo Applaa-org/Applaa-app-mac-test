@@ -274,6 +274,16 @@ const validInvokeChannels = [
   "local-build:ios-ipa",
   "local-build:status",
   "local-build:cancel",
+  "android:check-dependencies",
+  "android:get-installation-instructions",
+  "ios:check-dependencies",
+  "build:check-all-dependencies",
+  "auto-installer:install-android",
+  "auto-installer:install-ios",
+  "prerequisites:check",
+  "prerequisites:install",
+  "prerequisites:status",
+  "prerequisites:progress",
 ];
 
 // Add valid receive channels

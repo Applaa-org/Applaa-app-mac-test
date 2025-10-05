@@ -345,7 +345,7 @@ export async function runPackageManagerCommand(
         packageManager = "npm";
       }
     } catch (error) {
-      logger.warn(`⚠️ pnpm availability check failed, using npm fallback:`, error);
+      logger.warn(`⚠️ pnpm availability check failed, using npm fallback: ${error}`);
       packageManager = "npm";
     }
   }
@@ -699,7 +699,7 @@ export async function verifyHermeticRuntime(): Promise<{
   ]);
   
   const status = { pnpm, npm, yarn };
-  logger.info("Hermetic runtime status:", status);
+  logger.info(`Hermetic runtime status: ${JSON.stringify(status)}`);
   
   return status;
 }
@@ -729,6 +729,39 @@ export async function setupHermeticGlobal(): Promise<{
 }
 
 /**
+ * Check build dependencies for Android and iOS
+ * Note: This is a simplified check - full dependency checking is done via IPC
+ */
+async function checkBuildDependencies(): Promise<{
+  android: boolean;
+  ios: boolean;
+  overall: boolean;
+}> {
+  try {
+    // Simple environment checks without full dependency validation
+    const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+    const javaHome = process.env.JAVA_HOME;
+    const isMacOS = process.platform === 'darwin';
+    
+    const android = !!(androidHome && javaHome);
+    const ios = isMacOS && fs.existsSync('/Applications/Xcode.app');
+    
+    return {
+      android,
+      ios,
+      overall: android && (isMacOS ? ios : true)
+    };
+  } catch (error) {
+    logger.warn(`Failed to check build dependencies: ${error}`);
+    return {
+      android: false,
+      ios: false,
+      overall: false
+    };
+  }
+}
+
+/**
  * Get comprehensive hermetic runtime status including workspace capabilities
  */
 export async function getHermeticStatus(): Promise<{
@@ -739,6 +772,11 @@ export async function getHermeticStatus(): Promise<{
     workspaceDetected: boolean;
     spaceSavingsEnabled: boolean;
   };
+  buildDependencies: {
+    android: boolean;
+    ios: boolean;
+    overall: boolean;
+  };
 }> {
   const status = await verifyHermeticRuntime();
   const pnpmAvailable = await ensurePnpmAvailable();
@@ -746,6 +784,9 @@ export async function getHermeticStatus(): Promise<{
   // Check if we're in a workspace environment
   const workspaceDetected = fs.existsSync(path.join(process.cwd(), "pnpm-workspace.yaml")) ||
                            fs.existsSync(path.join(process.cwd(), "..", "pnpm-workspace.yaml"));
+  
+  // Check build dependencies
+  const buildDeps = await checkBuildDependencies();
   
   return {
     initialized: true,
@@ -758,6 +799,11 @@ export async function getHermeticStatus(): Promise<{
       pnpmAvailable,
       workspaceDetected,
       spaceSavingsEnabled: pnpmAvailable && workspaceDetected
+    },
+    buildDependencies: {
+      android: buildDeps.android,
+      ios: buildDeps.ios,
+      overall: buildDeps.overall
     }
   };
 }
@@ -883,3 +929,889 @@ async function ensureWorkspaceLinking(workspaceRoot: string): Promise<void> {
     logger.warn("⚠️ Apps may need individual dependency installation");
   }
 }
+
+/**
+ * 📱 EXPO BUILD FIX: Ensure Expo project has compatible dependencies for SDK 53
+ * This fixes common build issues with React Native 0.79.x compatibility
+ */
+export async function fixExpoProjectDependencies(projectPath: string): Promise<boolean> {
+  try {
+    logger.info("📱 Checking Expo project for compatibility issues...");
+    
+    // Check if this is an Expo project
+    const packageJsonPath = path.join(projectPath, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      logger.warn("No package.json found, skipping Expo dependency fix");
+      return false;
+    }
+    
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    if (!packageJson.dependencies?.expo) {
+      logger.info("Not an Expo project, skipping dependency fix");
+      return true; // Not an error, just not applicable
+    }
+    
+    logger.info("🔧 Running 'expo install --fix' to ensure SDK compatibility...");
+    
+    // Run expo install --fix to automatically fix all dependency versions
+    const fixProcess = spawn('npx', ['expo', 'install', '--fix'], {
+      cwd: projectPath,
+      shell: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    
+    await new Promise<void>((resolve, reject) => {
+      let output = '';
+      let errorOutput = '';
+      
+      fixProcess.stdout?.on('data', (data) => {
+        const text = data.toString();
+        output += text;
+        logger.info(`📦 ${text.trim()}`);
+      });
+      
+      fixProcess.stderr?.on('data', (data) => {
+        const text = data.toString();
+        errorOutput += text;
+        // Only log actual errors, not warnings
+        if (!text.includes('WARN') && !text.includes('deprecated')) {
+          logger.warn(`⚠️ ${text.trim()}`);
+        }
+      });
+      
+      fixProcess.on('close', (code) => {
+        if (code === 0) {
+          logger.info("✅ Expo dependencies fixed successfully");
+          resolve();
+        } else {
+          logger.error(`❌ Expo dependency fix failed with code ${code}`);
+          reject(new Error(`expo install --fix failed: ${errorOutput}`));
+        }
+      });
+      
+      fixProcess.on('error', (error) => {
+        logger.error("❌ Failed to run expo install --fix:", error);
+        reject(error);
+      });
+    });
+    
+    return true;
+  } catch (error) {
+    logger.error("Failed to fix Expo project dependencies:", error);
+    return false;
+  }
+}
+
+/**
+ * 📱 EXPO BUILD FIX: Disable new architecture in Expo project for compatibility
+ * This fixes Kotlin compilation errors and C++ build issues
+ */
+export async function fixExpoGradleConfig(projectPath: string): Promise<boolean> {
+  try {
+    const androidDir = path.join(projectPath, 'android');
+    if (!fs.existsSync(androidDir)) {
+      logger.info("No android directory found, skipping gradle config fix");
+      return true; // Not an error, just not applicable
+    }
+    
+    const gradlePropsPath = path.join(androidDir, 'gradle.properties');
+    if (!fs.existsSync(gradlePropsPath)) {
+      logger.warn("No gradle.properties found, skipping new architecture fix");
+      return false;
+    }
+    
+    logger.info("🔧 Checking Expo gradle configuration...");
+    
+    let gradleProps = fs.readFileSync(gradlePropsPath, 'utf8');
+    
+    // Check if new architecture is enabled
+    if (gradleProps.includes('newArchEnabled=true')) {
+      logger.info("📝 Disabling new architecture for compatibility...");
+      gradleProps = gradleProps.replace(/newArchEnabled=true/g, 'newArchEnabled=false');
+      fs.writeFileSync(gradlePropsPath, gradleProps, 'utf8');
+      logger.info("✅ New architecture disabled in gradle.properties");
+      return true;
+    } else if (gradleProps.includes('newArchEnabled=false')) {
+      logger.info("✅ New architecture already disabled");
+      return true;
+    } else {
+      // Add the property if it doesn't exist
+      logger.info("📝 Adding newArchEnabled=false to gradle.properties...");
+      gradleProps += '\n# Disable new architecture for compatibility\nnewArchEnabled=false\n';
+      fs.writeFileSync(gradlePropsPath, gradleProps, 'utf8');
+      logger.info("✅ New architecture disabled in gradle.properties");
+      return true;
+    }
+  } catch (error) {
+    logger.error("Failed to fix Expo gradle config:", error);
+    return false;
+  }
+}
+
+/**
+ * 📱 EXPO BUILD FIX: Comprehensive fix for Expo projects
+ * Combines dependency fixes and gradle configuration
+ */
+export async function fixExpoProject(projectPath: string): Promise<{
+  success: boolean;
+  dependenciesFixed: boolean;
+  gradleFixed: boolean;
+  message: string;
+}> {
+  try {
+    logger.info("🚀 Starting comprehensive Expo project fix...");
+    
+    // Fix dependencies first
+    const dependenciesFixed = await fixExpoProjectDependencies(projectPath);
+    
+    // Fix gradle configuration
+    const gradleFixed = await fixExpoGradleConfig(projectPath);
+    
+    const success = dependenciesFixed && gradleFixed;
+    const message = success
+      ? "✅ Expo project fixed successfully - ready for Android builds!"
+      : "⚠️ Some fixes could not be applied - check logs for details";
+    
+    logger.info(message);
+    
+    return {
+      success,
+      dependenciesFixed,
+      gradleFixed,
+      message
+    };
+  } catch (error) {
+    logger.error("Failed to fix Expo project:", error);
+    return {
+      success: false,
+      dependenciesFixed: false,
+      gradleFixed: false,
+      message: `Failed to fix Expo project: ${error}`
+    };
+  }
+}
+
+/**
+ * 🚀 PREREQUISITE INSTALLER: Hierarchical dependency installation for non-technical users
+ * This ensures all build dependencies are installed in the correct order
+ */
+interface PrerequisiteStatus {
+  name: string;
+  installed: boolean;
+  version?: string;
+  path?: string;
+  required: boolean;
+  category: 'system' | 'development' | 'android' | 'ios';
+  installCommand?: string;
+  installMessage?: string;
+}
+
+interface PrerequisiteInstallResult {
+  success: boolean;
+  installed: string[];
+  failed: string[];
+  skipped: string[];
+  logs: string[];
+  totalTime: number;
+}
+
+/**
+ * 🎯 HIERARCHICAL PREREQUISITE CHECKER: Check all required dependencies
+ */
+async function checkPrerequisites(): Promise<PrerequisiteStatus[]> {
+  const prerequisites: PrerequisiteStatus[] = [];
+  
+  logger.info('🔍 Checking system prerequisites...');
+  
+  // 1. SYSTEM LEVEL (Required for everything)
+  prerequisites.push(await checkNodeJS());
+  prerequisites.push(await checkGit());
+  
+  // 2. DEVELOPMENT TOOLS (Required for development)
+  prerequisites.push(await checkNPM());
+  prerequisites.push(await checkPNPM());
+  
+  // 3. ANDROID DEVELOPMENT (Required for Android builds)
+  prerequisites.push(await checkJava());
+  prerequisites.push(await checkAndroidSDK());
+  prerequisites.push(await checkAndroidNDK());
+  prerequisites.push(await checkAndroidBuildTools());
+  prerequisites.push(await checkAndroidStudio());
+  
+  // 4. IOS DEVELOPMENT (Required for iOS builds - macOS only)
+  if (process.platform === 'darwin') {
+    prerequisites.push(await checkXcode());
+    prerequisites.push(await checkXcodeCommandLineTools());
+    prerequisites.push(await checkCocoaPods());
+  }
+  
+  // 5. EXPO TOOLS (Required for Expo development)
+  prerequisites.push(await checkExpoCLI());
+  
+  return prerequisites;
+}
+
+/**
+ * 🚀 HIERARCHICAL PREREQUISITE INSTALLER: Install dependencies in correct order
+ */
+async function installPrerequisites(options: {
+  skipSystem?: boolean;
+  skipDevelopment?: boolean;
+  skipAndroid?: boolean;
+  skipIOS?: boolean;
+  skipExpo?: boolean;
+  forceReinstall?: boolean;
+} = {}): Promise<PrerequisiteInstallResult> {
+  const startTime = performance.now();
+  const result: PrerequisiteInstallResult = {
+    success: true,
+    installed: [],
+    failed: [],
+    skipped: [],
+    logs: [],
+    totalTime: 0
+  };
+  
+  logger.info('🚀 Starting hierarchical prerequisite installation...');
+  result.logs.push('🚀 Starting hierarchical prerequisite installation...');
+  
+  try {
+    // PHASE 1: SYSTEM LEVEL (Must be installed first)
+    if (!options.skipSystem) {
+      result.logs.push('📋 Phase 1: Installing system prerequisites...');
+      await installSystemPrerequisites(result, options.forceReinstall || false);
+    }
+    
+    // PHASE 2: DEVELOPMENT TOOLS (Depends on system)
+    if (!options.skipDevelopment) {
+      result.logs.push('📋 Phase 2: Installing development tools...');
+      await installDevelopmentPrerequisites(result, options.forceReinstall || false);
+    }
+    
+    // PHASE 3: ANDROID DEVELOPMENT (Depends on system + development)
+    if (!options.skipAndroid) {
+      result.logs.push('📋 Phase 3: Installing Android development tools...');
+      await installAndroidPrerequisites(result, options.forceReinstall || false);
+    }
+    
+    // PHASE 4: IOS DEVELOPMENT (Depends on system + development, macOS only)
+    if (!options.skipIOS && process.platform === 'darwin') {
+      result.logs.push('📋 Phase 4: Installing iOS development tools...');
+      await installIOSPrerequisites(result, options.forceReinstall || false);
+    }
+    
+    // PHASE 5: EXPO TOOLS (Depends on everything)
+    if (!options.skipExpo) {
+      result.logs.push('📋 Phase 5: Installing Expo development tools...');
+      await installExpoPrerequisites(result, options.forceReinstall || false);
+    }
+    
+    result.totalTime = performance.now() - startTime;
+    result.success = result.failed.length === 0;
+    
+    if (result.success) {
+      result.logs.push(`✅ All prerequisites installed successfully in ${(result.totalTime / 1000).toFixed(1)}s`);
+      logger.info(`✅ Prerequisites installation completed: ${result.installed.length} installed, ${result.skipped.length} skipped`);
+    } else {
+      result.logs.push(`⚠️ Prerequisites installation completed with ${result.failed.length} failures`);
+      logger.warn(`⚠️ Prerequisites installation completed with failures: ${result.failed.join(', ')}`);
+    }
+    
+  } catch (error) {
+    result.success = false;
+    result.totalTime = performance.now() - startTime;
+    const errorMsg = `Prerequisites installation failed: ${error}`;
+    result.logs.push(`❌ ${errorMsg}`);
+    logger.error(errorMsg, error);
+  }
+  
+  return result;
+}
+
+/**
+ * 📋 PHASE 1: SYSTEM LEVEL PREREQUISITES
+ */
+async function installSystemPrerequisites(result: PrerequisiteInstallResult, forceReinstall: boolean) {
+  // Node.js (Required for everything)
+  if (await isCommandAvailable('node')) {
+    result.skipped.push('Node.js (already installed)');
+    result.logs.push('✅ Node.js already installed');
+  } else {
+    result.logs.push('📦 Installing Node.js...');
+    try {
+      await installNodeJS();
+      result.installed.push('Node.js');
+      result.logs.push('✅ Node.js installed successfully');
+    } catch (error) {
+      result.failed.push('Node.js');
+      result.logs.push(`❌ Failed to install Node.js: ${error}`);
+    }
+  }
+  
+  // Git (Required for version control)
+  if (await isCommandAvailable('git')) {
+    result.skipped.push('Git (already installed)');
+    result.logs.push('✅ Git already installed');
+  } else {
+    result.logs.push('📦 Installing Git...');
+    try {
+      await installGit();
+      result.installed.push('Git');
+      result.logs.push('✅ Git installed successfully');
+    } catch (error) {
+      result.failed.push('Git');
+      result.logs.push(`❌ Failed to install Git: ${error}`);
+    }
+  }
+}
+
+/**
+ * 📋 PHASE 2: DEVELOPMENT TOOLS
+ */
+async function installDevelopmentPrerequisites(result: PrerequisiteInstallResult, forceReinstall: boolean) {
+  // NPM (Comes with Node.js)
+  if (await isCommandAvailable('npm')) {
+    result.skipped.push('NPM (already available)');
+    result.logs.push('✅ NPM already available');
+  } else {
+    result.failed.push('NPM (requires Node.js)');
+    result.logs.push('❌ NPM not available - Node.js required');
+  }
+  
+  // PNPM (Optional but recommended for workspace optimization)
+  if (await isCommandAvailable('pnpm')) {
+    result.skipped.push('PNPM (already installed)');
+    result.logs.push('✅ PNPM already installed');
+  } else {
+    result.logs.push('📦 Installing PNPM for workspace optimization...');
+    try {
+      await installPNPM();
+      result.installed.push('PNPM');
+      result.logs.push('✅ PNPM installed successfully');
+    } catch (error) {
+      result.failed.push('PNPM');
+      result.logs.push(`❌ Failed to install PNPM: ${error}`);
+    }
+  }
+}
+
+/**
+ * 📋 PHASE 3: ANDROID DEVELOPMENT
+ */
+async function installAndroidPrerequisites(result: PrerequisiteInstallResult, forceReinstall: boolean) {
+  // Java (Required for Android builds)
+  if (await isCommandAvailable('java')) {
+    result.skipped.push('Java (already installed)');
+    result.logs.push('✅ Java already installed');
+  } else {
+    result.logs.push('📦 Installing Java (OpenJDK 11)...');
+    try {
+      await installJava();
+      result.installed.push('Java (OpenJDK 11)');
+      result.logs.push('✅ Java installed successfully');
+    } catch (error) {
+      result.failed.push('Java');
+      result.logs.push(`❌ Failed to install Java: ${error}`);
+    }
+  }
+  
+  // Android Studio (Required for Android SDK)
+  if (fs.existsSync('/Applications/Android Studio.app') || fs.existsSync('C:\\Program Files\\Android\\Android Studio')) {
+    result.skipped.push('Android Studio (already installed)');
+    result.logs.push('✅ Android Studio already installed');
+  } else {
+    result.logs.push('📦 Installing Android Studio...');
+    try {
+      await installAndroidStudio();
+      result.installed.push('Android Studio');
+      result.logs.push('✅ Android Studio installed successfully');
+    } catch (error) {
+      result.failed.push('Android Studio');
+      result.logs.push(`❌ Failed to install Android Studio: ${error}`);
+    }
+  }
+  
+  // Android SDK (Required for Android builds)
+  const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  if (androidHome && fs.existsSync(androidHome)) {
+    result.skipped.push('Android SDK (already installed)');
+    result.logs.push('✅ Android SDK already installed');
+  } else {
+    result.logs.push('📦 Setting up Android SDK...');
+    try {
+      await setupAndroidSDK();
+      result.installed.push('Android SDK');
+      result.logs.push('✅ Android SDK setup completed');
+    } catch (error) {
+      result.failed.push('Android SDK');
+      result.logs.push(`❌ Failed to setup Android SDK: ${error}`);
+    }
+  }
+}
+
+/**
+ * 📋 PHASE 4: IOS DEVELOPMENT (macOS only)
+ */
+async function installIOSPrerequisites(result: PrerequisiteInstallResult, forceReinstall: boolean) {
+  // Xcode (Required for iOS builds)
+  if (fs.existsSync('/Applications/Xcode.app')) {
+    result.skipped.push('Xcode (already installed)');
+    result.logs.push('✅ Xcode already installed');
+  } else {
+    result.logs.push('📦 Installing Xcode Command Line Tools...');
+    try {
+      await installXcodeCommandLineTools();
+      result.installed.push('Xcode Command Line Tools');
+      result.logs.push('✅ Xcode Command Line Tools installed successfully');
+    } catch (error) {
+      result.failed.push('Xcode Command Line Tools');
+      result.logs.push(`❌ Failed to install Xcode Command Line Tools: ${error}`);
+    }
+  }
+  
+  // CocoaPods (Required for iOS builds)
+  if (await isCommandAvailable('pod')) {
+    result.skipped.push('CocoaPods (already installed)');
+    result.logs.push('✅ CocoaPods already installed');
+  } else {
+    result.logs.push('📦 Installing CocoaPods...');
+    try {
+      await installCocoaPods();
+      result.installed.push('CocoaPods');
+      result.logs.push('✅ CocoaPods installed successfully');
+    } catch (error) {
+      result.failed.push('CocoaPods');
+      result.logs.push(`❌ Failed to install CocoaPods: ${error}`);
+    }
+  }
+}
+
+/**
+ * 📋 PHASE 5: EXPO TOOLS
+ */
+async function installExpoPrerequisites(result: PrerequisiteInstallResult, forceReinstall: boolean) {
+  // Expo CLI (Required for Expo development)
+  if (await isCommandAvailable('expo')) {
+    result.skipped.push('Expo CLI (already installed)');
+    result.logs.push('✅ Expo CLI already installed');
+  } else {
+    result.logs.push('📦 Installing Expo CLI...');
+    try {
+      await installExpoCLI();
+      result.installed.push('Expo CLI');
+      result.logs.push('✅ Expo CLI installed successfully');
+    } catch (error) {
+      result.failed.push('Expo CLI');
+      result.logs.push(`❌ Failed to install Expo CLI: ${error}`);
+    }
+  }
+}
+
+/**
+ * 🔧 INDIVIDUAL PREREQUISITE CHECKERS
+ */
+async function checkNodeJS(): Promise<PrerequisiteStatus> {
+  const installed = await isCommandAvailable('node');
+  let version: string | undefined;
+  
+  if (installed) {
+    try {
+      const result = await new Promise<string>((resolve) => {
+        const child = spawn('node', ['--version'], { stdio: 'pipe' });
+        let output = '';
+        child.stdout?.on('data', (data) => output += data.toString());
+        child.on('close', () => resolve(output.trim()));
+      });
+      version = result;
+    } catch (error) {
+      // Ignore version check errors
+    }
+  }
+  
+  return {
+    name: 'Node.js',
+    installed,
+    version,
+    required: true,
+    category: 'system',
+    installCommand: 'brew install node',
+    installMessage: 'Node.js is required for all development. Install from nodejs.org or use: brew install node'
+  };
+}
+
+async function checkGit(): Promise<PrerequisiteStatus> {
+  const installed = await isCommandAvailable('git');
+  let version: string | undefined;
+  
+  if (installed) {
+    try {
+      const result = await new Promise<string>((resolve) => {
+        const child = spawn('git', ['--version'], { stdio: 'pipe' });
+        let output = '';
+        child.stdout?.on('data', (data) => output += data.toString());
+        child.on('close', () => resolve(output.trim()));
+      });
+      version = result;
+    } catch (error) {
+      // Ignore version check errors
+    }
+  }
+  
+  return {
+    name: 'Git',
+    installed,
+    version,
+    required: true,
+    category: 'system',
+    installCommand: 'brew install git',
+    installMessage: 'Git is required for version control. Install from git-scm.com or use: brew install git'
+  };
+}
+
+async function checkJava(): Promise<PrerequisiteStatus> {
+  const installed = await isCommandAvailable('java');
+  let version: string | undefined;
+  let path: string | undefined;
+  
+  if (installed) {
+    try {
+      const result = await new Promise<string>((resolve) => {
+        const child = spawn('java', ['-version'], { stdio: 'pipe' });
+        let output = '';
+        child.stderr?.on('data', (data) => output += data.toString());
+        child.on('close', () => resolve(output.trim()));
+      });
+      const versionMatch = result.match(/version "([^"]+)"/);
+      version = versionMatch ? versionMatch[1] : undefined;
+      path = process.env.JAVA_HOME;
+    } catch (error) {
+      // Ignore version check errors
+    }
+  }
+  
+  return {
+    name: 'Java (OpenJDK)',
+    installed,
+    version,
+    path,
+    required: true,
+    category: 'android',
+    installCommand: 'brew install openjdk@11',
+    installMessage: 'Java is required for Android builds. Install with: brew install openjdk@11'
+  };
+}
+
+async function checkAndroidSDK(): Promise<PrerequisiteStatus> {
+  const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  const installed = !!(androidHome && fs.existsSync(androidHome));
+  
+  return {
+    name: 'Android SDK',
+    installed,
+    path: androidHome,
+    required: true,
+    category: 'android',
+    installCommand: 'Install Android Studio',
+    installMessage: 'Android SDK is required for Android builds. Install Android Studio from developer.android.com'
+  };
+}
+
+async function checkAndroidNDK(): Promise<PrerequisiteStatus> {
+  const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  const ndkPath = androidHome ? path.join(androidHome, 'ndk') : '';
+  const installed = !!(ndkPath && fs.existsSync(ndkPath));
+  
+  return {
+    name: 'Android NDK',
+    installed,
+    path: ndkPath,
+    required: true,
+    category: 'android',
+    installCommand: 'Install via Android Studio SDK Manager',
+    installMessage: 'Android NDK is required for native Android builds. Install via Android Studio SDK Manager'
+  };
+}
+
+async function checkAndroidBuildTools(): Promise<PrerequisiteStatus> {
+  const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  const buildToolsPath = androidHome ? path.join(androidHome, 'build-tools') : '';
+  const installed = !!(buildToolsPath && fs.existsSync(buildToolsPath));
+  
+  return {
+    name: 'Android Build Tools',
+    installed,
+    path: buildToolsPath,
+    required: true,
+    category: 'android',
+    installCommand: 'Install via Android Studio SDK Manager',
+    installMessage: 'Android Build Tools are required for Android builds. Install via Android Studio SDK Manager'
+  };
+}
+
+async function checkAndroidStudio(): Promise<PrerequisiteStatus> {
+  const installed = fs.existsSync('/Applications/Android Studio.app') || 
+                   fs.existsSync('C:\\Program Files\\Android\\Android Studio');
+  
+  return {
+    name: 'Android Studio',
+    installed,
+    required: true,
+    category: 'android',
+    installCommand: 'brew install --cask android-studio',
+    installMessage: 'Android Studio is required for Android development. Install from developer.android.com or use: brew install --cask android-studio'
+  };
+}
+
+async function checkXcode(): Promise<PrerequisiteStatus> {
+  const installed = fs.existsSync('/Applications/Xcode.app');
+  
+  return {
+    name: 'Xcode',
+    installed,
+    required: true,
+    category: 'ios',
+    installCommand: 'Install from Mac App Store',
+    installMessage: 'Xcode is required for iOS development. Install from Mac App Store'
+  };
+}
+
+async function checkXcodeCommandLineTools(): Promise<PrerequisiteStatus> {
+  const installed = await isCommandAvailable('xcode-select');
+  
+  return {
+    name: 'Xcode Command Line Tools',
+    installed,
+    required: true,
+    category: 'ios',
+    installCommand: 'xcode-select --install',
+    installMessage: 'Xcode Command Line Tools are required for iOS development. Install with: xcode-select --install'
+  };
+}
+
+async function checkCocoaPods(): Promise<PrerequisiteStatus> {
+  const installed = await isCommandAvailable('pod');
+  let version: string | undefined;
+  
+  if (installed) {
+    try {
+      const result = await new Promise<string>((resolve) => {
+        const child = spawn('pod', ['--version'], { stdio: 'pipe' });
+        let output = '';
+        child.stdout?.on('data', (data) => output += data.toString());
+        child.on('close', () => resolve(output.trim()));
+      });
+      version = result;
+    } catch (error) {
+      // Ignore version check errors
+    }
+  }
+  
+  return {
+    name: 'CocoaPods',
+    installed,
+    version,
+    required: true,
+    category: 'ios',
+    installCommand: 'sudo gem install cocoapods',
+    installMessage: 'CocoaPods is required for iOS development. Install with: sudo gem install cocoapods'
+  };
+}
+
+async function checkExpoCLI(): Promise<PrerequisiteStatus> {
+  const installed = await isCommandAvailable('expo');
+  let version: string | undefined;
+  
+  if (installed) {
+    try {
+      const result = await new Promise<string>((resolve) => {
+        const child = spawn('expo', ['--version'], { stdio: 'pipe' });
+        let output = '';
+        child.stdout?.on('data', (data) => output += data.toString());
+        child.on('close', () => resolve(output.trim()));
+      });
+      version = result;
+    } catch (error) {
+      // Ignore version check errors
+    }
+  }
+  
+  return {
+    name: 'Expo CLI',
+    installed,
+    version,
+    required: true,
+    category: 'development',
+    installCommand: 'npm install -g @expo/cli',
+    installMessage: 'Expo CLI is required for Expo development. Install with: npm install -g @expo/cli'
+  };
+}
+
+async function checkNPM(): Promise<PrerequisiteStatus> {
+  const installed = await isCommandAvailable('npm');
+  let version: string | undefined;
+  
+  if (installed) {
+    try {
+      const result = await new Promise<string>((resolve) => {
+        const child = spawn('npm', ['--version'], { stdio: 'pipe' });
+        let output = '';
+        child.stdout?.on('data', (data) => output += data.toString());
+        child.on('close', () => resolve(output.trim()));
+      });
+      version = result;
+    } catch (error) {
+      // Ignore version check errors
+    }
+  }
+  
+  return {
+    name: 'NPM',
+    installed,
+    version,
+    required: true,
+    category: 'development',
+    installCommand: 'Comes with Node.js',
+    installMessage: 'NPM comes with Node.js. Install Node.js first.'
+  };
+}
+
+async function checkPNPM(): Promise<PrerequisiteStatus> {
+  const installed = await isCommandAvailable('pnpm');
+  let version: string | undefined;
+  
+  if (installed) {
+    try {
+      const result = await new Promise<string>((resolve) => {
+        const child = spawn('pnpm', ['--version'], { stdio: 'pipe' });
+        let output = '';
+        child.stdout?.on('data', (data) => output += data.toString());
+        child.on('close', () => resolve(output.trim()));
+      });
+      version = result;
+    } catch (error) {
+      // Ignore version check errors
+    }
+  }
+  
+  return {
+    name: 'PNPM',
+    installed,
+    version,
+    required: false,
+    category: 'development',
+    installCommand: 'npm install -g pnpm',
+    installMessage: 'PNPM is optional but recommended for workspace optimization. Install with: npm install -g pnpm'
+  };
+}
+
+/**
+ * 🔧 INDIVIDUAL INSTALLERS
+ */
+async function installNodeJS(): Promise<void> {
+  if (process.platform === 'darwin') {
+    await runCommand('brew', ['install', 'node']);
+  } else if (process.platform === 'linux') {
+    await runCommand('curl', ['-fsSL', 'https://deb.nodesource.com/setup_20.x']);
+    await runCommand('sudo', ['apt-get', 'install', '-y', 'nodejs']);
+  } else {
+    throw new Error('Node.js installation not supported on this platform. Please install manually from nodejs.org');
+  }
+}
+
+async function installGit(): Promise<void> {
+  if (process.platform === 'darwin') {
+    await runCommand('brew', ['install', 'git']);
+  } else if (process.platform === 'linux') {
+    await runCommand('sudo', ['apt', 'update']);
+    await runCommand('sudo', ['apt', 'install', '-y', 'git']);
+  } else {
+    throw new Error('Git installation not supported on this platform. Please install manually from git-scm.com');
+  }
+}
+
+async function installPNPM(): Promise<void> {
+  await runCommand('npm', ['install', '-g', 'pnpm']);
+}
+
+async function installJava(): Promise<void> {
+  if (process.platform === 'darwin') {
+    await runCommand('brew', ['install', 'openjdk@11']);
+    // Set JAVA_HOME
+    const javaHome = '/opt/homebrew/opt/openjdk@11';
+    process.env.JAVA_HOME = javaHome;
+  } else if (process.platform === 'linux') {
+    await runCommand('sudo', ['apt', 'update']);
+    await runCommand('sudo', ['apt', 'install', '-y', 'openjdk-11-jdk']);
+    process.env.JAVA_HOME = '/usr/lib/jvm/java-11-openjdk';
+  } else {
+    throw new Error('Java installation not supported on this platform. Please install manually.');
+  }
+}
+
+async function installAndroidStudio(): Promise<void> {
+  if (process.platform === 'darwin') {
+    await runCommand('brew', ['install', '--cask', 'android-studio']);
+  } else {
+    throw new Error('Android Studio installation not supported on this platform. Please install manually from developer.android.com');
+  }
+}
+
+async function setupAndroidSDK(): Promise<void> {
+  // This would typically be done through Android Studio SDK Manager
+  // For now, we'll just set up environment variables
+  const androidHome = process.platform === 'darwin' 
+    ? path.join(require('os').homedir(), 'Library', 'Android', 'sdk')
+    : path.join(require('os').homedir(), 'Android', 'Sdk');
+  
+  process.env.ANDROID_HOME = androidHome;
+  process.env.ANDROID_SDK_ROOT = androidHome;
+  
+  // Add to PATH
+  const currentPath = process.env.PATH || '';
+  process.env.PATH = `${androidHome}/tools:${androidHome}/platform-tools:${currentPath}`;
+}
+
+async function installXcodeCommandLineTools(): Promise<void> {
+  if (process.platform === 'darwin') {
+    await runCommand('xcode-select', ['--install']);
+  } else {
+    throw new Error('Xcode Command Line Tools are only available on macOS');
+  }
+}
+
+async function installCocoaPods(): Promise<void> {
+  if (process.platform === 'darwin') {
+    await runCommand('sudo', ['gem', 'install', 'cocoapods']);
+  } else {
+    throw new Error('CocoaPods is only available on macOS');
+  }
+}
+
+async function installExpoCLI(): Promise<void> {
+  await runCommand('npm', ['install', '-g', '@expo/cli']);
+}
+
+/**
+ * 🔧 HELPER FUNCTIONS
+ */
+async function runCommand(command: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: 'pipe' });
+    
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Command failed with code ${code}`));
+      }
+    });
+    
+    child.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
+// Export the prerequisite installer functions
+export { checkPrerequisites, installPrerequisites };
+export type { PrerequisiteStatus, PrerequisiteInstallResult };

@@ -25,6 +25,8 @@ import { IpcClient } from "@/ipc/ipc_client";
 import { ExpoTerminalPanel } from "../expo/ExpoTerminalPanel";
 import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
 import { WebPreviewTimeoutPopup } from "../WebPreviewTimeoutPopup";
+import { useExpoUrl } from "@/hooks/useExpoUrl";
+import { isStreamingAtom } from "@/atoms/chatAtoms";
 // DesignTab removed for MVP
 
 interface ConsoleHeaderProps {
@@ -72,6 +74,8 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [showProblemsPanel, setShowProblemsPanel] = useState(false);
   const { runApp, stopApp, loading, app, refreshAppIframe, restartApp } = useRunApp();
   const { problemReport } = useCheckProblems(selectedAppId);
+  const { expoUrl } = useExpoUrl();
+  const isStreaming = useAtomValue(isStreamingAtom);
 
   // Web preview timeout hook (only for non-Expo apps)
   const {
@@ -256,8 +260,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             <Panel id="content" minSize={30}>
               <div className="h-full overflow-y-auto">
                 {previewMode === "preview" ? (
-                  // Show BattleTestedExpoPreview for Expo apps, regular PreviewIframe for web apps
-                  isExpoApp ? (
+                  // Show PreviewIframe for both Expo and web apps when streaming, otherwise show appropriate component
+                  (isExpoApp && isStreaming && expoUrl) ? (
+                    <PreviewIframe key={key} loading={loading} />
+                  ) : isExpoApp ? (
                     <UnifiedExpoPreview />
                   ) : (
                     <PreviewIframe key={key} loading={loading} />
@@ -270,12 +276,22 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                   <Problems />
                 )}
                 
-                {/* Debug fallback - remove this after fixing */}
-                {!app && !loading && (
+                {/* Debug fallback - improved logic to handle loading states */}
+                {!app && !loading && !selectedAppId && (
                   <div className="flex items-center justify-center h-full text-gray-500">
                     <div className="text-center">
                       <p className="text-lg font-medium mb-2">No App Selected</p>
                       <p className="text-sm">Please select an app from the sidebar to see the preview.</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Show loading state when we have selectedAppId but app is still loading */}
+                {!app && loading && selectedAppId && (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="text-center">
+                      <p className="text-lg font-medium mb-2">Loading App...</p>
+                      <p className="text-sm">Please wait while the app is being loaded.</p>
                     </div>
                   </div>
                 )}
