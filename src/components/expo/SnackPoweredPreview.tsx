@@ -64,14 +64,29 @@ export function SnackPoweredPreview() {
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const hasStartedRef = useRef<boolean>(false);
+  const startingRef = useRef<boolean>(false);
   
   /**
    * Start Expo server and get preview URL
    */
   const startExpoPreview = useCallback(async () => {
-    if (!selectedAppId || isLoading) return;
+    if (!selectedAppId) return;
+    
+    // Prevent multiple simultaneous starts
+    if (startingRef.current) {
+      console.log('⏭️ Already starting, skipping duplicate call');
+      return;
+    }
+    
+    // If already started successfully, just check status
+    if (hasStartedRef.current && previewUrl) {
+      console.log('✅ Already started, checking status...');
+      return;
+    }
     
     try {
+      startingRef.current = true;
       setIsLoading(true);
       console.log('🚀 Starting Snack-powered Expo preview for app:', selectedAppId);
       
@@ -86,18 +101,33 @@ export function SnackPoweredPreview() {
       
       console.log('📊 Expo start result:', result);
       
+      // Accept both newly started and already running servers
       if (result.isRunning && result.webUrl) {
         setPreviewUrl(result.webUrl);
         setExpoStatus(result);
         setConnectionStatus('connected');
+        hasStartedRef.current = true;
         console.log('✅ Expo preview started successfully:', result.webUrl);
         
         // Generate QR code for mobile testing
-        if (result.tunnelUrl || result.qrUrl) {
-          await generateQRCode(result.tunnelUrl || result.qrUrl || '');
+        if (result.tunnelUrl || result.qrUrl || result.lanUrl) {
+          await generateQRCode(result.tunnelUrl || result.qrUrl || result.lanUrl || '');
         }
+      } else if (result.webUrl) {
+        // Server might be starting, use the URL anyway
+        console.log('⚠️ Server starting, using URL:', result.webUrl);
+        setPreviewUrl(result.webUrl);
+        setExpoStatus(result);
+        setConnectionStatus('connected');
+        hasStartedRef.current = true;
       } else {
-        throw new Error('Failed to start Expo server');
+        console.warn('⚠️ Expo server response unclear, retrying in 3s...', result);
+        // Don't throw error immediately, server might still be starting
+        setTimeout(() => {
+          if (!hasStartedRef.current) {
+            startExpoPreview();
+          }
+        }, 3000);
       }
     } catch (error) {
       console.error('❌ Failed to start Expo preview:', error);
@@ -109,8 +139,9 @@ export function SnackPoweredPreview() {
       }));
     } finally {
       setIsLoading(false);
+      startingRef.current = false;
     }
-  }, [selectedAppId, isLoading]);
+  }, [selectedAppId, previewUrl]);
   
   /**
    * Generate QR code for mobile testing
@@ -188,6 +219,10 @@ export function SnackPoweredPreview() {
   // Auto-start preview when app is selected
   useEffect(() => {
     if (selectedAppId) {
+      // Reset refs when app changes
+      hasStartedRef.current = false;
+      startingRef.current = false;
+      
       startExpoPreview();
     }
     
@@ -195,6 +230,9 @@ export function SnackPoweredPreview() {
       if (statusCheckInterval.current) {
         clearInterval(statusCheckInterval.current);
       }
+      // Reset refs on cleanup
+      hasStartedRef.current = false;
+      startingRef.current = false;
     };
   }, [selectedAppId, startExpoPreview]);
   
