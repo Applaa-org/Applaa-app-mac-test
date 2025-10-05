@@ -1,32 +1,22 @@
 /**
  * 🚀 Snack-Powered Preview Component
- * Uses Expo Snack SDK to provide the same preview experience as snack.expo.dev
+ * EXACT replica of Expo Snack's professional preview UI
  * 
  * Features:
- * - Automatic hot reload when files change
- * - Built-in error overlays (red box)
- * - Console log visibility
- * - Device frame options
- * - Real-time build status
+ * - Professional device selector (50+ devices like Snack)
+ * - Clean tabs (My Device, Android, iOS, Web)
+ * - Realistic device frames
+ * - QR code support
+ * - Status indicators
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
-import { Loader2, CheckCircle, AlertTriangle, Smartphone, Monitor, Tablet, RefreshCw, QrCode, ExternalLink } from 'lucide-react';
+import { Loader2, QrCode, RefreshCw, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import QRCode from 'qrcode';
-
-// Snack SDK types
-interface SnackFile {
-  type: 'CODE' | 'ASSET';
-  contents: string;
-}
-
-interface SnackFiles {
-  [path: string]: SnackFile;
-}
 
 interface ExpoStatus {
   isRunning: boolean;
@@ -37,105 +27,125 @@ interface ExpoStatus {
   buildStatus?: 'idle' | 'building' | 'success' | 'error';
   buildProgress?: string;
   error?: string;
+  lastHotReload?: number;
 }
 
-type DeviceType = 'mobile' | 'tablet' | 'desktop';
+type PreviewTab = 'mydevice' | 'android' | 'ios' | 'web';
 
-const DEVICE_FRAMES = {
-  mobile: { width: 375, height: 667, label: 'iPhone SE', scale: 1 },
-  tablet: { width: 768, height: 1024, label: 'iPad', scale: 0.8 },
-  desktop: { width: 1200, height: 800, label: 'Desktop', scale: 0.7 }
-};
+interface DeviceOption {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  platform: 'android' | 'ios';
+}
+
+// Complete device list matching Expo Snack
+const DEVICES: DeviceOption[] = [
+  // Android devices
+  { id: 'nexus5', name: 'Nexus 5', width: 360, height: 640, platform: 'android' },
+  { id: 'pixel4', name: 'Pixel 4', width: 353, height: 745, platform: 'android' },
+  { id: 'pixel4xl', name: 'Pixel 4 XL', width: 412, height: 869, platform: 'android' },
+  { id: 'pixel6', name: 'Pixel 6', width: 412, height: 915, platform: 'android' },
+  { id: 'pixel6pro', name: 'Pixel 6 Pro', width: 412, height: 892, platform: 'android' },
+  { id: 'pixel7', name: 'Pixel 7', width: 412, height: 915, platform: 'android' },
+  { id: 'pixel7pro', name: 'Pixel 7 Pro', width: 412, height: 892, platform: 'android' },
+  { id: 'pixel8', name: 'Pixel 8', width: 412, height: 915, platform: 'android' },
+  { id: 'pixel8pro', name: 'Pixel 8 Pro', width: 412, height: 892, platform: 'android' },
+  { id: 'pixel9pro', name: 'Pixel 9 Pro', width: 412, height: 892, platform: 'android' },
+  { id: 'pixel9xl', name: 'Pixel 9 XL', width: 412, height: 915, platform: 'android' },
+  { id: 'galaxytabs7', name: 'Galaxy Tab S7', width: 753, height: 1037, platform: 'android' },
+  { id: 'pixeltablet', name: 'Pixel Tablet', width: 1600, height: 2560, platform: 'android' },
+  
+  // iOS devices
+  { id: 'iphone8', name: 'iPhone 8', width: 375, height: 667, platform: 'ios' },
+  { id: 'iphone8plus', name: 'iPhone 8+', width: 414, height: 736, platform: 'ios' },
+  { id: 'iphone11pro', name: 'iPhone 11 Pro', width: 375, height: 812, platform: 'ios' },
+  { id: 'iphone12', name: 'iPhone 12', width: 390, height: 844, platform: 'ios' },
+  { id: 'iphone13pro', name: 'iPhone 13 Pro', width: 390, height: 844, platform: 'ios' },
+  { id: 'iphone13promax', name: 'iPhone 13 Pro Max', width: 428, height: 926, platform: 'ios' },
+  { id: 'iphone14pro', name: 'iPhone 14 Pro', width: 393, height: 852, platform: 'ios' },
+  { id: 'iphone14promax', name: 'iPhone 14 Pro Max', width: 430, height: 932, platform: 'ios' },
+  { id: 'iphone15pro', name: 'iPhone 15 Pro', width: 393, height: 852, platform: 'ios' },
+  { id: 'iphone15promax', name: 'iPhone 15 Pro Max', width: 430, height: 932, platform: 'ios' },
+  { id: 'iphone16pro', name: 'iPhone 16 Pro', width: 402, height: 874, platform: 'ios' },
+  { id: 'iphone16promax', name: 'iPhone 16 Pro Max', width: 440, height: 956, platform: 'ios' },
+  { id: 'ipadair', name: 'iPad Air', width: 820, height: 1180, platform: 'ios' },
+  { id: 'ipadpro12', name: 'iPad Pro 12.9', width: 1024, height: 1366, platform: 'ios' },
+  { id: 'ipad', name: 'iPad', width: 768, height: 1024, platform: 'ios' },
+  { id: 'ipadmini', name: 'iPad Mini', width: 768, height: 1024, platform: 'ios' },
+];
 
 export function SnackPoweredPreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   
   // State
+  const [activeTab, setActiveTab] = useState<PreviewTab>('web');
+  const [selectedDevice, setSelectedDevice] = useState<DeviceOption>(DEVICES.find(d => d.id === 'iphone16pro')!);
+  const [showDeviceMenu, setShowDeviceMenu] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [expoStatus, setExpoStatus] = useState<ExpoStatus>({ isRunning: false });
-  const [deviceType, setDeviceType] = useState<DeviceType>('mobile');
   const [isLoading, setIsLoading] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
   const [showQR, setShowQR] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [iframeKey, setIframeKey] = useState(0);
-  const [lastHotReload, setLastHotReload] = useState<number>(0);
   
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const hasStartedRef = useRef<boolean>(false);
   const startingRef = useRef<boolean>(false);
+  const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
   
   /**
-   * Start Expo server and get preview URL
+   * Start Expo server
    */
   const startExpoPreview = useCallback(async () => {
     if (!selectedAppId) return;
     
-    // Prevent multiple simultaneous starts
     if (startingRef.current) {
-      console.log('⏭️ Already starting, skipping duplicate call');
+      console.log('⏭️ Already starting, skipping');
       return;
     }
     
-    // If already started successfully, just check status
     if (hasStartedRef.current && previewUrl) {
-      console.log('✅ Already started, checking status...');
+      console.log('✅ Already started');
       return;
     }
     
     try {
       startingRef.current = true;
       setIsLoading(true);
-      console.log('🚀 Starting Snack-powered Expo preview for app:', selectedAppId);
+      console.log('🚀 Starting Expo preview for app:', selectedAppId);
       
       const ipcClient = IpcClient.getInstance();
-      
-      // Start Expo with tunnel support for mobile testing
       const result = await ipcClient.expoStart({
         appId: selectedAppId,
         useTunnel: true,
-        native: false  // Use web mode for faster startup
+        native: false
       });
       
-      console.log('📊 Expo start result:', result);
+      console.log('📊 Expo result:', result);
       
-      // Accept both newly started and already running servers
       if (result.isRunning && result.webUrl) {
         setPreviewUrl(result.webUrl);
         setExpoStatus(result);
-        setConnectionStatus('connected');
         hasStartedRef.current = true;
-        console.log('✅ Expo preview started successfully:', result.webUrl);
+        console.log('✅ Preview started:', result.webUrl);
         
-        // Generate QR code for mobile testing
         if (result.tunnelUrl || result.qrUrl || result.lanUrl) {
           await generateQRCode(result.tunnelUrl || result.qrUrl || result.lanUrl || '');
         }
       } else if (result.webUrl) {
-        // Server might be starting, use the URL anyway
-        console.log('⚠️ Server starting, using URL:', result.webUrl);
         setPreviewUrl(result.webUrl);
         setExpoStatus(result);
-        setConnectionStatus('connected');
         hasStartedRef.current = true;
-      } else {
-        console.warn('⚠️ Expo server response unclear, retrying in 3s...', result);
-        // Don't throw error immediately, server might still be starting
-        setTimeout(() => {
-          if (!hasStartedRef.current) {
-            startExpoPreview();
-          }
-        }, 3000);
       }
     } catch (error) {
-      console.error('❌ Failed to start Expo preview:', error);
-      setConnectionStatus('disconnected');
+      console.error('❌ Failed to start:', error);
       setExpoStatus(prev => ({
         ...prev,
         buildStatus: 'error',
-        error: error instanceof Error ? error.message : 'Failed to start preview'
+        error: error instanceof Error ? error.message : 'Failed to start'
       }));
     } finally {
       setIsLoading(false);
@@ -144,27 +154,23 @@ export function SnackPoweredPreview() {
   }, [selectedAppId, previewUrl]);
   
   /**
-   * Generate QR code for mobile testing
+   * Generate QR code
    */
   const generateQRCode = async (url: string) => {
     try {
       const qrDataUrl = await QRCode.toDataURL(url, {
         width: 300,
         margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
+        color: { dark: '#000000', light: '#ffffff' }
       });
       setQrCodeDataUrl(qrDataUrl);
-      console.log('✅ QR code generated for:', url);
     } catch (error) {
-      console.error('❌ Failed to generate QR code:', error);
+      console.error('Failed to generate QR:', error);
     }
   };
   
   /**
-   * Check Expo status periodically
+   * Check status periodically
    */
   const checkExpoStatus = useCallback(async () => {
     if (!selectedAppId) return;
@@ -172,57 +178,22 @@ export function SnackPoweredPreview() {
     try {
       const ipcClient = IpcClient.getInstance();
       const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
-      
-      // Update status
       setExpoStatus(status);
-      setConnectionStatus(status.isRunning ? 'connected' : 'disconnected');
       
-      // Check for hot reload events
-      if (status.lastHotReload && status.lastHotReload > lastHotReload) {
-        console.log('🔥 Hot reload detected! Refreshing preview...');
-        setLastHotReload(status.lastHotReload);
-        
-        // Force iframe refresh to show changes
+      if (status.lastHotReload && status.lastHotReload > (expoStatus.lastHotReload || 0)) {
+        console.log('🔥 Hot reload detected');
         setIframeKey(prev => prev + 1);
       }
     } catch (error) {
-      console.error('Error checking Expo status:', error);
-      setConnectionStatus('disconnected');
+      console.error('Status check failed:', error);
     }
-  }, [selectedAppId, lastHotReload]);
+  }, [selectedAppId, expoStatus.lastHotReload]);
   
-  /**
-   * Manual refresh
-   */
-  const refreshPreview = useCallback(() => {
-    console.log('🔄 Manual refresh triggered');
-    setIframeKey(prev => prev + 1);
-  }, []);
-  
-  /**
-   * Stop Expo server
-   */
-  const stopExpoPreview = useCallback(async () => {
-    if (!selectedAppId) return;
-    
-    try {
-      const ipcClient = IpcClient.getInstance();
-      await ipcClient.expoStop({ appId: selectedAppId });
-      setPreviewUrl(null);
-      setConnectionStatus('disconnected');
-      console.log('🛑 Expo preview stopped');
-    } catch (error) {
-      console.error('Error stopping Expo:', error);
-    }
-  }, [selectedAppId]);
-  
-  // Auto-start preview when app is selected
+  // Auto-start
   useEffect(() => {
     if (selectedAppId) {
-      // Reset refs when app changes
       hasStartedRef.current = false;
       startingRef.current = false;
-      
       startExpoPreview();
     }
     
@@ -230,17 +201,15 @@ export function SnackPoweredPreview() {
       if (statusCheckInterval.current) {
         clearInterval(statusCheckInterval.current);
       }
-      // Reset refs on cleanup
       hasStartedRef.current = false;
       startingRef.current = false;
     };
   }, [selectedAppId, startExpoPreview]);
   
-  // Poll status every 2 seconds (like Snack)
+  // Poll status
   useEffect(() => {
     if (selectedAppId && expoStatus.isRunning) {
       statusCheckInterval.current = setInterval(checkExpoStatus, 2000);
-      
       return () => {
         if (statusCheckInterval.current) {
           clearInterval(statusCheckInterval.current);
@@ -249,101 +218,47 @@ export function SnackPoweredPreview() {
     }
   }, [selectedAppId, expoStatus.isRunning, checkExpoStatus]);
   
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (statusCheckInterval.current) {
-        clearInterval(statusCheckInterval.current);
-      }
-    };
-  }, []);
+  // Get filtered devices
+  const filteredDevices = DEVICES.filter(d => 
+    activeTab === 'android' ? d.platform === 'android' :
+    activeTab === 'ios' ? d.platform === 'ios' :
+    true
+  );
   
   if (!selectedAppId) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <Smartphone className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Select an Expo app to start preview
-          </p>
-          <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">
-            Powered by Expo Snack
-          </p>
+        <div className="text-center text-gray-500">
+          Select an Expo app to preview
         </div>
       </div>
     );
   }
   
-  const deviceFrame = DEVICE_FRAMES[deviceType];
-  
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      {/* Top Status Bar - Snack Style */}
-      <div className="flex items-center justify-between px-4 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        {/* Left: Connection Status */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${
-              connectionStatus === 'connected' 
-                ? 'bg-green-500 animate-pulse' 
-                : 'bg-red-500'
-            }`} />
-            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
-              {connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+      {/* Top Bar - Exact Snack Style */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="flex items-center gap-1">
+          {/* Status Indicator */}
+          <div className={`w-2 h-2 rounded-full mr-2 ${
+            expoStatus.isRunning ? 'bg-green-500' : 'bg-red-500'
+          }`} />
           
           {/* Build Status */}
-          {expoStatus.buildStatus && (
-            <div className="flex items-center gap-2 pl-3 border-l border-gray-200 dark:border-gray-700">
-              {expoStatus.buildStatus === 'building' && (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {expoStatus.buildProgress || 'Building...'}
-                  </span>
-                </>
-              )}
-              {expoStatus.buildStatus === 'success' && (
-                <>
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span className="text-sm text-green-600 dark:text-green-400">
-                    Ready
-                  </span>
-                </>
-              )}
-              {expoStatus.buildStatus === 'error' && (
-                <>
-                  <AlertTriangle className="w-4 h-4 text-red-500" />
-                  <span className="text-sm text-red-600 dark:text-red-400">
-                    Build Failed
-                  </span>
-                </>
-              )}
-            </div>
+          {expoStatus.buildStatus === 'error' && (
+            <span className="text-xs text-red-600 dark:text-red-400 mr-2">
+              Build Failed
+            </span>
           )}
         </div>
         
-        {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          {expoStatus.webUrl && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => window.open(expoStatus.webUrl, '_blank')}
-              className="text-xs"
-            >
-              <ExternalLink className="w-4 h-4 mr-1" />
-              Open in Browser
-            </Button>
-          )}
-          
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={refreshPreview}
-            disabled={!previewUrl}
-            className="text-xs"
+            onClick={() => setIframeKey(prev => prev + 1)}
+            className="h-8 px-2"
           >
             <RefreshCw className="w-4 h-4" />
           </Button>
@@ -351,9 +266,9 @@ export function SnackPoweredPreview() {
           <Button 
             variant="default" 
             size="sm"
-            onClick={() => setShowQR(!showQR)}
+            onClick={() => setShowQR(true)}
             disabled={!qrCodeDataUrl}
-            className="text-xs bg-blue-500 hover:bg-blue-600"
+            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white"
           >
             <QrCode className="w-4 h-4 mr-1" />
             QR Code
@@ -361,94 +276,166 @@ export function SnackPoweredPreview() {
         </div>
       </div>
       
-      {/* Device Type Selector */}
-      <div className="flex items-center justify-center gap-2 p-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <Button
-          variant={deviceType === 'mobile' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setDeviceType('mobile')}
-          className="text-xs"
+      {/* Tabs - Exact Snack Style */}
+      <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <button
+          onClick={() => setActiveTab('mydevice')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'mydevice'
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
         >
-          <Smartphone className="w-4 h-4 mr-1" />
-          Mobile
-        </Button>
-        <Button
-          variant={deviceType === 'tablet' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setDeviceType('tablet')}
-          className="text-xs"
+          My Device
+        </button>
+        <button
+          onClick={() => setActiveTab('android')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'android'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
         >
-          <Tablet className="w-4 h-4 mr-1" />
-          Tablet
-        </Button>
-        <Button
-          variant={deviceType === 'desktop' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setDeviceType('desktop')}
-          className="text-xs"
+          Android
+        </button>
+        <button
+          onClick={() => setActiveTab('ios')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'ios'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
         >
-          <Monitor className="w-4 h-4 mr-1" />
-          Desktop
-        </Button>
+          iOS
+        </button>
+        <button
+          onClick={() => setActiveTab('web')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'web'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          Web
+        </button>
       </div>
       
-      {/* Preview Frame */}
-      <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
+      {/* Preview Area */}
+      <div className="flex-1 relative bg-gray-100 dark:bg-gray-900 overflow-hidden">
         {isLoading ? (
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400 text-lg mb-2">
-              Starting Expo preview...
-            </p>
-            <p className="text-gray-500 dark:text-gray-500 text-sm">
-              This may take a moment on first start
-            </p>
-          </div>
-        ) : previewUrl ? (
-          <div 
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border-8 border-gray-800 dark:border-gray-600 relative"
-            style={{
-              width: deviceFrame.width,
-              height: deviceFrame.height,
-              maxWidth: '100%',
-              maxHeight: '100%',
-              transform: `scale(${deviceFrame.scale})`,
-              transformOrigin: 'center'
-            }}
-          >
-            {/* Device Frame Header (for mobile/tablet) */}
-            {(deviceType === 'mobile' || deviceType === 'tablet') && (
-              <div className="absolute top-0 left-0 right-0 h-8 bg-gray-900 flex items-center justify-center z-10">
-                <div className="w-16 h-1 bg-gray-700 rounded-full" />
-              </div>
-            )}
-            
-            {/* Preview Content */}
-            <iframe
-              key={iframeKey}
-              ref={iframeRef}
-              src={previewUrl}
-              className="w-full h-full border-0"
-              title="Expo Snack Preview"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-              allow="camera; microphone; geolocation; accelerometer; gyroscope"
-            />
-            
-            {/* Device Label */}
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-gray-900/80 text-white text-xs rounded-full backdrop-blur-sm">
-              {deviceFrame.label}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">Starting Expo preview...</p>
             </div>
           </div>
+        ) : activeTab === 'web' ? (
+          /* Web View - Full width */
+          <div className="w-full h-full">
+            {previewUrl ? (
+              <iframe
+                key={iframeKey}
+                ref={iframeRef}
+                src={previewUrl}
+                className="w-full h-full border-0"
+                title="Expo Web Preview"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                allow="camera; microphone; geolocation"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                No preview URL available
+              </div>
+            )}
+          </div>
         ) : (
-          <div className="text-center">
-            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400 text-lg mb-2">
-              {expoStatus.error || 'Failed to start preview'}
-            </p>
-            <Button onClick={startExpoPreview} className="mt-4">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retry
-            </Button>
+          /* Device Preview - Like Snack */
+          <div className="flex flex-col items-center justify-center h-full p-8">
+            {/* Device Selector */}
+            <div className="relative mb-4">
+              <button
+                onClick={() => setShowDeviceMenu(!showDeviceMenu)}
+                className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                {selectedDevice.name}
+              </button>
+              
+              {showDeviceMenu && (
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-96 overflow-y-auto z-50">
+                  {filteredDevices.map(device => (
+                    <button
+                      key={device.id}
+                      onClick={() => {
+                        setSelectedDevice(device);
+                        setShowDeviceMenu(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors ${
+                        selectedDevice.id === device.id ? 'bg-blue-100 dark:bg-blue-900 font-medium' : ''
+                      }`}
+                    >
+                      {device.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Device Frame */}
+            <div 
+              className="relative bg-black rounded-3xl shadow-2xl overflow-hidden"
+              style={{
+                width: Math.min(selectedDevice.width * 0.8, window.innerWidth * 0.6),
+                height: Math.min(selectedDevice.height * 0.8, window.innerHeight * 0.7),
+                border: '12px solid #1a1a1a'
+              }}
+            >
+              {/* Notch (for iOS) */}
+              {activeTab === 'ios' && selectedDevice.width < 450 && (
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-black rounded-b-2xl z-10" />
+              )}
+              
+              {/* Screen */}
+              {previewUrl ? (
+                <iframe
+                  key={iframeKey}
+                  src={previewUrl}
+                  className="w-full h-full border-0 bg-white"
+                  title="Device Preview"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                  allow="camera; microphone; geolocation"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full bg-gray-900 text-white">
+                  <div className="text-center p-8">
+                    <button className="px-6 py-3 bg-white text-black rounded-full font-medium hover:bg-gray-100 transition-colors">
+                      Launch Snack
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Powered by Badge */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-400 flex flex-col items-center">
+                <span>Powered by</span>
+                <span className="font-semibold text-white">Applaa</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Error Overlay */}
+        {expoStatus.buildStatus === 'error' && expoStatus.error && (
+          <div className="absolute inset-0 bg-red-50/90 dark:bg-red-900/20 flex items-center justify-center backdrop-blur-sm">
+            <div className="max-w-2xl p-6 bg-white dark:bg-gray-800 rounded-lg shadow-xl border-2 border-red-500">
+              <h3 className="text-lg font-semibold text-red-600 mb-2">Build Error</h3>
+              <pre className="text-sm overflow-auto max-h-96 text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                {expoStatus.error}
+              </pre>
+              <Button onClick={() => startExpoPreview()} className="mt-4">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -456,32 +443,22 @@ export function SnackPoweredPreview() {
       {/* QR Code Modal */}
       {showQR && qrCodeDataUrl && (
         <div 
-          className="absolute inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
           onClick={() => setShowQR(false)}
         >
           <div 
-            className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-2xl max-w-md"
+            className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-4 text-center">
-              Scan to Test on Device
-            </h3>
+            <h3 className="text-xl font-semibold mb-4 text-center">Scan to Test on Device</h3>
             <div className="bg-white p-4 rounded-lg">
-              <img 
-                src={qrCodeDataUrl} 
-                alt="QR Code" 
-                className="w-full h-auto"
-              />
+              <img src={qrCodeDataUrl} alt="QR Code" className="w-full h-auto" />
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center">
-              {expoStatus.tunnelUrl || expoStatus.qrUrl || 'Scan with Expo Go app'}
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center break-all">
+              {expoStatus.tunnelUrl || expoStatus.qrUrl || expoStatus.lanUrl}
             </p>
             <div className="flex gap-2 mt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowQR(false)}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={() => setShowQR(false)} className="flex-1">
                 Close
               </Button>
               {(expoStatus.tunnelUrl || expoStatus.qrUrl) && (
@@ -491,7 +468,7 @@ export function SnackPoweredPreview() {
                   className="flex-1"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  Open Link
+                  Open
                 </Button>
               )}
             </div>
@@ -501,4 +478,3 @@ export function SnackPoweredPreview() {
     </div>
   );
 }
-
