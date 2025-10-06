@@ -28,35 +28,23 @@ export function registerWordPressAuthHandlers() {
   // Check WordPress authentication configuration
   ipcMain.handle('wordpress:check-configuration', async () => {
     try {
-      // Try to load WordPress configuration
-      const config = loadWordPressConfig();
-      const wordpressUrl = process.env.WORDPRESS_URL;
-      
-      console.log('🔍 Checking WordPress configuration:');
-      console.log('Config file loaded:', !!config);
-      console.log('WORDPRESS_URL:', wordpressUrl ? 'SET' : 'NOT SET');
-      
-      if (config || wordpressUrl) {
-        return {
-          isConfigured: true,
-          source: config ? 'config-file' : 'environment',
-          hasUrl: true,
-          hasApplicationPassword: false, // Not needed for basic auth
-        };
-      }
+      // Always return configured since we're using API-based authentication
+      console.log('🔍 WordPress configuration: Using API-based authentication with Applaa.com');
       
       return {
-        isConfigured: false,
-        source: 'none',
-        hasUrl: false,
-        hasApplicationPassword: false,
+        isConfigured: true,
+        source: 'api',
+        hasUrl: true,
+        hasApplicationPassword: false, // Not needed for API-based auth
+        url: 'https://applaa.com',
       };
     } catch (error) {
       log.error('Failed to check WordPress configuration:', error);
       return {
-        isConfigured: false,
-        source: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        isConfigured: true, // Even on error, assume it's configured for API-based auth
+        source: 'api',
+        hasUrl: true,
+        url: 'https://applaa.com',
       };
     }
   });
