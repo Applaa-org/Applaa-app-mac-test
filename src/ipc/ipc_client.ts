@@ -1669,6 +1669,29 @@ export class IpcClient {
     return this.ipcRenderer.invoke("chrome-devtools:status");
   }
 
+  // App Repair Methods
+  async repairApp(appPath: string): Promise<{
+    success: boolean;
+    repaired: boolean;
+    issues: string[];
+    fixes: string[];
+    warnings: string[];
+    updatedDependencies: string[];
+    installedPackages: string[];
+  }> {
+    return this.ipcRenderer.invoke("app:repair", { appPath });
+  }
+
+  async checkRepairNeeded(appPath: string): Promise<{
+    needsRepair: boolean;
+    issues: string[];
+    warnings: string[];
+    missingDependencies: string[];
+    outdatedDependencies: string[];
+  }> {
+    return this.ipcRenderer.invoke("app:check-repair-needed", { appPath });
+  }
+
   // Supabase Authentication Methods
   public async supabaseInitialize(config: {
     url: string;

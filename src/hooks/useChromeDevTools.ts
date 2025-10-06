@@ -30,6 +30,7 @@ export function useChromeDevTools(previewUrl?: string) {
   const [errors, setErrors] = useState<DevToolsMessage[]>([]);
   
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+  const hasNavigated = useRef<boolean>(false);
   const ipcClient = IpcClient.getInstance();
 
   // Start Chrome DevTools MCP
@@ -107,21 +108,27 @@ export function useChromeDevTools(previewUrl?: string) {
     }
   }, [status]);
 
+  // Reset navigation flag when preview URL changes
+  useEffect(() => {
+    hasNavigated.current = false;
+  }, [previewUrl]);
+
   // Auto-start when preview URL is available
   useEffect(() => {
     if (previewUrl && !isConnected && !startMutation.isPending) {
       console.log('🚀 Auto-starting Chrome DevTools for preview:', previewUrl);
       startMutation.mutate();
     }
-  }, [previewUrl, isConnected, startMutation]);
+  }, [previewUrl, isConnected]); // Removed startMutation from dependencies to prevent infinite loop
 
   // Auto-navigate when both connected and URL available
   useEffect(() => {
-    if (isConnected && previewUrl && !navigateMutation.isPending) {
+    if (isConnected && previewUrl && !navigateMutation.isPending && !hasNavigated.current) {
       console.log('🌐 Auto-navigating to preview:', previewUrl);
+      hasNavigated.current = true;
       navigateMutation.mutate(previewUrl);
     }
-  }, [isConnected, previewUrl, navigateMutation]);
+  }, [isConnected, previewUrl]); // Removed navigateMutation from dependencies to prevent infinite loop
 
   // Polling functions
   const startPolling = useCallback(() => {

@@ -15,9 +15,31 @@ export interface FixResult {
 
 export class AutoFixer {
   private appPath: string;
+  private appType: 'mobile' | 'web' | 'flutter' | 'capacitor';
 
-  constructor(appPath: string) {
+  constructor(appPath: string, appInfo?: { appType?: string; files?: string[] }) {
     this.appPath = appPath;
+    
+    // Detect app type for conditional fixes
+    if (appInfo) {
+      this.appType = this.detectAppType(appInfo);
+    } else {
+      this.appType = 'web'; // Default fallback
+    }
+  }
+
+  /**
+   * Detect app type from app info
+   */
+  private detectAppType(appInfo: { appType?: string; files?: string[] }): 'mobile' | 'web' | 'flutter' | 'capacitor' {
+    // Use appType from database if available
+    if (appInfo.appType === 'mobile') {
+      return 'mobile';
+    } else if (appInfo.appType === 'web') {
+      return 'web';
+    }
+    
+    return 'web'; // Default fallback
   }
 
   /**
@@ -38,6 +60,16 @@ export class AutoFixer {
       
       case 'MISSING_DEPENDENCY':
         return await this.fixMissingDependency(problem);
+      
+      case 'UNDICI_CORRUPTION':
+      case 'INVALID_MAIN_ENTRY':
+        return await this.fixCorruptedNodeModules(problem);
+      
+      case 'MODULE_NOT_FOUND':
+        return await this.fixModuleNotFound(problem);
+      
+      case 'CORRUPTED_ASSET_FILE':
+        return await this.fixCorruptedAssetFile(problem);
       
       default:
         return {
@@ -231,6 +263,156 @@ export class AutoFixer {
     } catch (error) {
       console.error('[AutoFixer] Error adding Platform import:', error);
       return false;
+    }
+  }
+
+  /**
+   * 🚀 NEW: Fix corrupted node_modules (undici corruption, invalid main entries)
+   * Only for mobile apps (Expo) since web apps don't use expo start
+   */
+  private async fixCorruptedNodeModules(problem: Problem): Promise<FixResult> {
+    try {
+      if (this.appType !== 'mobile') {
+        console.log(`[AutoFixer] Skipping node_modules fix for ${this.appType} app - not needed`);
+        return {
+          success: false,
+          message: `Node_modules corruption fix only applies to mobile (Expo) apps`,
+          filesModified: []
+        };
+      }
+
+      console.log('[AutoFixer] Fixing corrupted node_modules for mobile app...');
+      
+      const nodeModulesPath = path.join(this.appPath, 'node_modules');
+      const packageLockPath = path.join(this.appPath, 'package-lock.json');
+      
+      // Remove corrupted files
+      if (await fs.pathExists(nodeModulesPath)) {
+        await fs.remove(nodeModulesPath);
+        console.log('[AutoFixer] Removed corrupted node_modules');
+      }
+      
+      if (await fs.pathExists(packageLockPath)) {
+        await fs.remove(packageLockPath);
+        console.log('[AutoFixer] Removed corrupted package-lock.json');
+      }
+      
+      return {
+        success: true,
+        message: 'Corrupted node_modules removed - will reinstall dependencies',
+        filesModified: ['REMOVE_NODE_MODULES', 'REMOVE_PACKAGE_LOCK']
+      };
+    } catch (error) {
+      console.error('[AutoFixer] Error fixing corrupted node_modules:', error);
+      return {
+        success: false,
+        message: `Failed to fix corrupted node_modules: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        filesModified: []
+      };
+    }
+  }
+
+  /**
+   * 🚀 NEW: Fix module not found issues
+   */
+  private async fixModuleNotFound(problem: Problem): Promise<FixResult> {
+    try {
+      // Extract module name from problem message
+      const match = problem.message.match(/Missing or corrupted module: ([\w@/-]+)/);
+      if (!match) {
+        return {
+          success: false,
+          message: 'Could not extract module name from error',
+          filesModified: []
+        };
+      }
+
+      const moduleName = match[1];
+      console.log(`[AutoFixer] Fixing module not found: ${moduleName}`);
+
+      return {
+        success: true,
+        message: `Need to reinstall module: ${moduleName}`,
+        filesModified: [`REINSTALL_MODULE:${moduleName}`]
+      };
+    } catch (error) {
+      console.error('[AutoFixer] Error fixing module not found:', error);
+      return {
+        success: false,
+        message: `Failed to fix module not found: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        filesModified: []
+      };
+    }
+  }
+
+  /**
+   * 🚀 NEW: Fix corrupted asset files (empty files that cause Metro bundling errors)
+   */
+  private async fixCorruptedAssetFile(problem: Problem): Promise<FixResult> {
+    try {
+      console.log('[AutoFixer] Fixing corrupted asset file...');
+      
+      // Extract file path from problem message or file property
+      let assetPath = problem.file;
+      if (assetPath === 'Unknown asset' && problem.message.includes('file:')) {
+        const pathMatch = problem.message.match(/file:\s*([^)]+)/);
+        if (pathMatch) {
+          assetPath = pathMatch[1];
+        }
+      }
+      
+      if (!assetPath || assetPath === 'Unknown asset') {
+        return {
+          success: false,
+          message: 'Could not determine asset file path from error',
+          filesModified: []
+        };
+      }
+
+      // Check if file exists and is empty (0 bytes)
+      const fullPath = path.join(this.appPath, assetPath);
+      if (await fs.pathExists(fullPath)) {
+        const stats = await fs.stat(fullPath);
+        if (stats.size === 0) {
+          console.log(`[AutoFixer] Found empty asset file: ${assetPath} (${stats.size} bytes)`);
+          
+          // Create a placeholder 1x1 pixel PNG file
+          const placeholderPng = Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+            'base64'
+          );
+          
+          await fs.writeFile(fullPath, placeholderPng);
+          console.log(`[AutoFixer] Replaced empty file with placeholder PNG: ${assetPath}`);
+          
+          return {
+            success: true,
+            message: `Replaced empty asset file with placeholder: ${assetPath}`,
+            filesModified: [assetPath]
+          };
+        } else {
+          console.log(`[AutoFixer] Asset file is not empty: ${assetPath} (${stats.size} bytes)`);
+          return {
+            success: false,
+            message: `Asset file is not empty: ${assetPath} (${stats.size} bytes)`,
+            filesModified: []
+          };
+        }
+      } else {
+        console.log(`[AutoFixer] Asset file does not exist: ${assetPath}`);
+        return {
+          success: false,
+          message: `Asset file does not exist: ${assetPath}`,
+          filesModified: []
+        };
+      }
+    } catch (error) {
+      console.error('[AutoFixer] Error fixing corrupted asset file:', error);
+      return {
+        success: false,
+        message: `Failed to fix corrupted asset file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        filesModified: []
+      };
     }
   }
 }

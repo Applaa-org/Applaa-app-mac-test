@@ -290,6 +290,7 @@ export function SnackPoweredPreview() {
       const totalProblems = problemReport.problems?.length || 0;
       
       console.log(`📊 Problem Report: ${totalProblems} problems found`);
+      console.log(`📋 Problems details:`, problemReport.problems);
       
       if (totalProblems === 0) {
         // Scenario A: Valid code - ready for preview
@@ -299,6 +300,17 @@ export function SnackPoweredPreview() {
         // Scenario C: Has problems - block preview
         setValidationStatus('has-errors');
         console.log(`⚠️ SCENARIO C: ${totalProblems} problems found, preview blocked`);
+        
+        // Log problem details for debugging
+        problemReport.problems?.forEach((problem, index) => {
+          console.log(`  Problem ${index + 1}:`, {
+            message: problem.message,
+            code: problem.code,
+            severity: problem.severity,
+            file: problem.file,
+            line: problem.line
+          });
+        });
       }
     }
   }, [problemReport, isChecking]);
@@ -471,20 +483,97 @@ export function SnackPoweredPreview() {
                 Found {problemReport.problems?.length || 0} problem{(problemReport.problems?.length || 0) !== 1 ? 's' : ''} in your code. 
                 Please fix {(problemReport.problems?.length || 0) === 1 ? 'it' : 'them'} to continue.
               </p>
-              <Button
-                onClick={() => setPreviewMode('problems')}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                View Problems & Fix
-              </Button>
+              <div className="flex gap-3 justify-center">
+                <Button
+                  onClick={() => setPreviewMode('problems')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  View Problems & Fix
+                </Button>
+                <Button
+                  onClick={async () => {
+                    console.log('🔧 Manual auto-fix triggered');
+                    setValidationStatus('validating');
+                    
+                    try {
+                      // Try to trigger auto-fix by calling the problems handler directly
+                      const ipcClient = IpcClient.getInstance();
+                      await ipcClient.checkProblems({ appId: selectedAppId });
+                      
+                      // Re-check problems after auto-fix attempt
+                      await checkProblems();
+                      console.log('✅ Re-validation after manual auto-fix trigger');
+                    } catch (error) {
+                      console.error('❌ Auto-fix failed:', error);
+                      setValidationStatus('has-errors');
+                    }
+                  }}
+                  variant="outline"
+                  className="border-green-500 text-green-600 hover:bg-green-50"
+                  disabled={isChecking}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isChecking ? 'animate-spin' : ''}`} />
+                  {isChecking ? 'Auto-Fixing...' : 'Try Auto-Fix'}
+                </Button>
+              </div>
+              
+              {/* Waiting Activity Section */}
+              <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  While you wait, try this:
+                </h4>
+                <div className="text-xs text-gray-600 dark:text-gray-400 space-y-2">
+                  <p>• Check your code for missing imports</p>
+                  <p>• Verify all dependencies are installed</p>
+                  <p>• Look for syntax errors in your components</p>
+                  <p>• Ensure Platform.OS checks for native APIs</p>
+                </div>
+              </div>
             </div>
           </div>
         ) : validationStatus === 'validating' ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">Validating code...</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">
+            <div className="text-center max-w-md p-8">
+              <Loader2 className="w-16 h-16 animate-spin text-blue-500 mx-auto mb-6" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                Validating Code...
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Checking for syntax errors, dependencies, and platform issues
+              </p>
+              
+              {/* Progress Steps */}
+              <div className="space-y-2 mb-6">
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                  </div>
+                  <span className="text-gray-600 dark:text-gray-400">Checking TypeScript...</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                  </div>
+                  <span className="text-gray-600 dark:text-gray-400">Validating platform APIs...</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                  </div>
+                  <span className="text-gray-600 dark:text-gray-400">Checking dependencies...</span>
+                </div>
+              </div>
+              
+              {/* Fun Activity While Waiting */}
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
+                  💡 Did you know?
+                </h4>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  Expo apps can run on iOS, Android, and Web with the same codebase!
+                </p>
+              </div>
             </div>
           </div>
         ) : isLoading ? (
@@ -496,6 +585,13 @@ export function SnackPoweredPreview() {
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 This may take 10-30 seconds on first launch
+              </p>
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4">
+                <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Setting up development server...
               </p>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                 <div className="bg-blue-500 h-full rounded-full animate-pulse" style={{ width: '60%' }}></div>

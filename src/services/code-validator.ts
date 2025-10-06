@@ -6,6 +6,7 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { glob } from 'glob';
+import { detectAppCategory } from '../utils/appTypeDetection';
 
 export interface Problem {
   type: 'error' | 'warning' | 'info';
@@ -31,9 +32,52 @@ export interface ValidationResult {
 
 export class CodeValidator {
   private appPath: string;
+  private appType: 'mobile' | 'web' | 'flutter' | 'capacitor';
 
-  constructor(appPath: string) {
+  constructor(appPath: string, appInfo?: { appType?: string; files?: string[] }) {
     this.appPath = appPath;
+    
+    // Detect app type for conditional validation
+    if (appInfo) {
+      this.appType = this.detectAppType(appInfo);
+    } else {
+      // Fallback: detect from filesystem
+      this.appType = this.detectAppTypeFromFilesystem();
+    }
+  }
+
+  /**
+   * Detect app type from app info
+   */
+  private detectAppType(appInfo: { appType?: string; files?: string[] }): 'mobile' | 'web' | 'flutter' | 'capacitor' {
+    // Use appType from database if available
+    if (appInfo.appType === 'mobile') {
+      return 'mobile';
+    } else if (appInfo.appType === 'web') {
+      return 'web';
+    }
+    
+    // Fallback to file-based detection
+    if (appInfo.files) {
+      const mockApp = { id: 0, files: appInfo.files } as any;
+      return detectAppCategory(mockApp);
+    }
+    
+    return 'web'; // Default fallback
+  }
+
+  /**
+   * Detect app type from filesystem (fallback method)
+   */
+  private detectAppTypeFromFilesystem(): 'mobile' | 'web' | 'flutter' | 'capacitor' {
+    try {
+      const files = fs.readdirSync(this.appPath, { recursive: true }) as string[];
+      const mockApp = { id: 0, files } as any;
+      return detectAppCategory(mockApp);
+    } catch (error) {
+      console.warn('[CodeValidator] Could not detect app type from filesystem, defaulting to web:', error);
+      return 'web';
+    }
   }
 
   /**
@@ -186,6 +230,30 @@ export class CodeValidator {
    */
   private async checkDependencies(): Promise<Problem[]> {
     const problems: Problem[] = [];
+
+    try {
+      // 1. Static analysis of imports (existing logic)
+      problems.push(...await this.checkStaticDependencies());
+
+      // 2. 🚀 NEW: Run expo start to catch real dependency issues (ONLY for mobile apps)
+      if (this.appType === 'mobile') {
+        console.log('[CodeValidator] Detected mobile app - running expo start dependency check...');
+        problems.push(...await this.checkDependenciesWithExpoStart());
+      } else {
+        console.log(`[CodeValidator] Detected ${this.appType} app - skipping expo start check (not needed)`);
+      }
+    } catch (error) {
+      console.error('[CodeValidator] Error checking dependencies:', error);
+    }
+
+    return problems;
+  }
+
+  /**
+   * Static analysis of imports (original logic)
+   */
+  private async checkStaticDependencies(): Promise<Problem[]> {
+    const problems: Problem[] = [];
     
     try {
       const packageJsonPath = path.join(this.appPath, 'package.json');
@@ -242,10 +310,189 @@ export class CodeValidator {
         }
       }
     } catch (error) {
-      console.error('[CodeValidator] Error checking dependencies:', error);
+      console.error('[CodeValidator] Error in static dependency check:', error);
     }
 
     return problems;
+  }
+
+  /**
+   * 🚀 NEW: Run expo start to catch real dependency issues (like undici corruption)
+   */
+  private async checkDependenciesWithExpoStart(): Promise<Problem[]> {
+    const problems: Problem[] = [];
+
+    try {
+      console.log('[CodeValidator] Running expo start to check for dependency issues...');
+      
+      // Import spawn dynamically to avoid issues
+      const { spawn } = await import('child_process');
+      
+      return new Promise((resolve) => {
+        const expoProcess = spawn('npx', ['expo', 'start', '--web'], {
+          cwd: this.appPath,
+          shell: true,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: {
+            ...process.env,
+            EXPO_NO_DOCTOR: '1',
+            EXPO_NO_UPDATE_CHECK: '1',
+            EXPO_NO_TYPESCRIPT_SETUP: '1',
+            EXPO_NO_WEB_SETUP: '1',
+            METRO_NO_INTERACTIVE: '1',
+            CI: '1'
+          }
+        });
+
+        let stdout = '';
+        let stderr = '';
+        let hasError = false;
+
+        // Set a timeout to kill the process
+        const timeout = setTimeout(() => {
+          if (!expoProcess.killed) {
+            expoProcess.kill('SIGTERM');
+            console.log('[CodeValidator] Expo start timeout - process killed');
+          }
+        }, 10000); // 10 second timeout
+
+
+        expoProcess.stderr?.on('data', (data) => {
+          stderr += data.toString();
+          
+          // Check for specific dependency errors
+          const errorOutput = data.toString();
+          
+          // Check for undici corruption
+          if (errorOutput.includes("Cannot find module") && errorOutput.includes("undici")) {
+            problems.push({
+              type: 'error',
+              category: 'dependency',
+              file: 'node_modules/undici',
+              message: 'Undici module is corrupted - missing index.js file',
+              fix: 'Remove node_modules and package-lock.json, then run npm install',
+              autoFixable: true,
+              code: 'UNDICI_CORRUPTION'
+            });
+            hasError = true;
+          }
+          
+          // Check for other module not found errors
+          const moduleNotFoundMatch = errorOutput.match(/Cannot find module ['"]([^'"]+)['"]/);
+          if (moduleNotFoundMatch) {
+            const missingModule = moduleNotFoundMatch[1];
+            problems.push({
+              type: 'error',
+              category: 'dependency',
+              file: `node_modules/${missingModule}`,
+              message: `Missing or corrupted module: ${missingModule}`,
+              fix: `Reinstall module: npm install ${missingModule}`,
+              autoFixable: true,
+              code: 'MODULE_NOT_FOUND'
+            });
+            hasError = true;
+          }
+          
+          // Check for package.json main entry issues
+          if (errorOutput.includes('Please verify that the package.json has a valid "main" entry')) {
+            problems.push({
+              type: 'error',
+              category: 'dependency',
+              file: 'node_modules',
+              message: 'Corrupted node_modules - invalid package.json main entries',
+              fix: 'Remove node_modules and package-lock.json, then run npm install',
+              autoFixable: true,
+              code: 'INVALID_MAIN_ENTRY'
+            });
+            hasError = true;
+          }
+        });
+
+        expoProcess.stdout?.on('data', (data) => {
+          stdout += data.toString();
+          const output = data.toString();
+          
+          // Look for successful startup indicators
+          if (output.includes('Metro waiting on') || 
+              output.includes('Ready!') ||
+              output.includes('Starting Metro Bundler')) {
+            clearTimeout(timeout);
+            expoProcess.kill('SIGTERM');
+            console.log('[CodeValidator] ✅ Expo start successful - no dependency issues detected');
+            resolve(problems);
+          }
+          
+          // 🚀 NEW: Check for Metro bundling errors in stdout
+          if (output.includes('error') || output.includes('Error') || output.includes('ERROR')) {
+            console.log('[CodeValidator] Metro bundling error detected in stdout:', output);
+            
+            // Check for specific asset errors
+            if (output.includes('unsupported file type') || output.includes('asset')) {
+              const assetErrorMatch = output.match(/assets[^:]+:\s*unsupported file type:\s*(\w+)/);
+              const assetPathMatch = output.match(/file:\s*([^)]+)/);
+              
+              if (assetErrorMatch || assetPathMatch) {
+                const assetPath = assetPathMatch ? assetPathMatch[1] : 'Unknown asset';
+                const fileType = assetErrorMatch ? assetErrorMatch[1] : 'undefined';
+                
+                problems.push({
+                  type: 'error',
+                  category: 'runtime',
+                  file: assetPath,
+                  message: `Asset file has unsupported file type: ${fileType} (likely corrupted or empty file)`,
+                  fix: 'Replace the corrupted/empty asset file with a valid image file',
+                  autoFixable: false,
+                  code: 'CORRUPTED_ASSET_FILE'
+                });
+              } else {
+                problems.push({
+                  type: 'error',
+                  category: 'runtime',
+                  file: 'Metro Bundler',
+                  message: 'Metro bundler encountered an asset processing error',
+                  fix: 'Check for corrupted, empty, or unsupported asset files',
+                  autoFixable: false,
+                  code: 'METRO_ASSET_ERROR'
+                });
+              }
+            } else {
+              problems.push({
+                type: 'error',
+                category: 'runtime',
+                file: 'Metro Bundler',
+                message: 'Metro bundler encountered an error during compilation',
+                fix: 'Check for missing dependencies, syntax errors, or asset issues',
+                autoFixable: false,
+                code: 'METRO_BUNDLING_ERROR'
+              });
+            }
+            hasError = true;
+          }
+        });
+
+        expoProcess.on('close', (code) => {
+          clearTimeout(timeout);
+          if (hasError) {
+            console.log('[CodeValidator] ❌ Expo start failed - dependency issues detected');
+          } else if (code !== 0) {
+            console.log('[CodeValidator] ⚠️ Expo start exited with code:', code);
+          } else {
+            console.log('[CodeValidator] ✅ Expo start completed successfully');
+          }
+          resolve(problems);
+        });
+
+        expoProcess.on('error', (error) => {
+          clearTimeout(timeout);
+          console.log('[CodeValidator] ❌ Expo start process error:', error.message);
+          resolve(problems);
+        });
+      });
+
+    } catch (error) {
+      console.error('[CodeValidator] Error running expo start check:', error);
+      return problems;
+    }
   }
 
   /**
