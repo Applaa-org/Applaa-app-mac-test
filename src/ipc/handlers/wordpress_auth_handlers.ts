@@ -104,12 +104,12 @@ export function registerWordPressAuthHandlers() {
 
       const userData = await userResponse.json();
       
-      // Store user data
+      // Store user data with proper validation and fallbacks
       currentUser = {
-        id: userData.id,
-        username: userData.username,
-        email: userData.email,
-        display_name: userData.name,
+        id: userData.id || 0,
+        username: userData.username || 'unknown',
+        email: userData.email || 'unknown@example.com',
+        display_name: userData.name || userData.username || 'User',
         roles: userData.roles || ['subscriber'],
         avatar_url: userData.avatar_urls?.['96'],
         capabilities: userData.capabilities || [],
@@ -118,15 +118,20 @@ export function registerWordPressAuthHandlers() {
       authToken = authData.token;
       isAuthenticated = true;
       
-      // Save to settings
-      const settings = readSettings();
-      settings.wordpressAuth = {
-        isAuthenticated: true,
-        user: currentUser,
-        token: authData.token,
-        lastLogin: new Date().toISOString(),
-      };
-      writeSettings(settings);
+      // Save to settings with proper validation
+      try {
+        const settings = readSettings();
+        settings.wordpressAuth = {
+          isAuthenticated: true,
+          user: currentUser,
+          token: authData.token,
+          lastLogin: new Date().toISOString(),
+        };
+        writeSettings(settings);
+      } catch (error) {
+        log.warn('Failed to save WordPress auth to settings:', error);
+        // Continue without saving to settings - authentication still works
+      }
       
       log.info('WordPress user authenticated successfully:', currentUser.username);
       return { 
@@ -208,15 +213,20 @@ export function registerWordPressAuthHandlers() {
       authToken = null;
       isAuthenticated = false;
       
-      // Clear from settings
-      const settings = readSettings();
-      settings.wordpressAuth = {
-        isAuthenticated: false,
-        user: undefined,
-        token: undefined,
-        lastLogin: undefined,
-      };
-      writeSettings(settings);
+      // Clear from settings with proper error handling
+      try {
+        const settings = readSettings();
+        settings.wordpressAuth = {
+          isAuthenticated: false,
+          user: undefined,
+          token: undefined,
+          lastLogin: undefined,
+        };
+        writeSettings(settings);
+      } catch (error) {
+        log.warn('Failed to clear WordPress auth from settings:', error);
+        // Continue with logout even if settings update fails
+      }
       
       log.info('WordPress user logged out successfully');
       return { success: true, message: 'Logged out successfully' };
@@ -230,12 +240,21 @@ export function registerWordPressAuthHandlers() {
   ipcMain.handle('wordpress:get-current-user', async () => {
     try {
       if (!isAuthenticated || !currentUser) {
-        // Try to restore from settings
-        const settings = readSettings();
-        if (settings.wordpressAuth?.isAuthenticated && settings.wordpressAuth?.user) {
-          currentUser = settings.wordpressAuth.user;
-          authToken = settings.wordpressAuth.token || null;
-          isAuthenticated = true;
+        // Try to restore from settings with proper validation
+        try {
+          const settings = readSettings();
+          if (settings.wordpressAuth?.isAuthenticated && settings.wordpressAuth?.user) {
+            const user = settings.wordpressAuth.user;
+            // Validate that user has required fields
+            if (user.username && user.email) {
+              currentUser = user;
+              authToken = settings.wordpressAuth.token || null;
+              isAuthenticated = true;
+            }
+          }
+        } catch (error) {
+          log.warn('Failed to restore WordPress auth from settings:', error);
+          // Continue with unauthenticated state
         }
       }
       
