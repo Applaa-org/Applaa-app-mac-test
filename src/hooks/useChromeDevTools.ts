@@ -24,7 +24,7 @@ export interface NetworkRequest {
   type: string;
 }
 
-export function useChromeDevTools(previewUrl?: string) {
+export function useChromeDevTools(previewUrl?: string, appId?: number) {
   const [isConnected, setIsConnected] = useState(false);
   const [consoleMessages, setConsoleMessages] = useState<DevToolsMessage[]>([]);
   const [networkRequests, setNetworkRequests] = useState<NetworkRequest[]>([]);
@@ -169,6 +169,30 @@ export function useChromeDevTools(previewUrl?: string) {
                 
                 // Send error report to chat stream
                 console.log('🚨 Auto-reporting error to chat stream:', errorReport);
+                
+                // 🚨 CRITICAL: Convert runtime error to Problems Tab format
+                // This bridges the gap between runtime errors and static analysis
+                const runtimeProblem = {
+                  file: error.url || 'runtime',
+                  line: 1,
+                  column: 1,
+                  message: error.message,
+                  severity: analysis.severity === 'critical' ? 'error' : 
+                           analysis.severity === 'high' ? 'error' :
+                           analysis.severity === 'medium' ? 'warning' : 'info',
+                  code: analysis.type.toUpperCase(),
+                  autoFixable: analysis.autoFixable,
+                  source: 'runtime',
+                  timestamp: error.timestamp
+                };
+
+                // Trigger Problems Tab update with runtime error
+                if (appId) {
+                  ipcClient.addRuntimeProblem({
+                    ...runtimeProblem,
+                    appId
+                  }).catch(console.error);
+                }
                 
                 // TODO: Integrate with chat stream system
                 // This would send the error report as a system message to the chat

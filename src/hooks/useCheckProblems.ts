@@ -17,7 +17,32 @@ export function useCheckProblems(appId: number | null) {
         throw new Error("App ID is required");
       }
       const ipcClient = IpcClient.getInstance();
-      return ipcClient.checkProblems({ appId });
+      
+      // Get static analysis problems
+      const staticReport = await ipcClient.checkProblems({ appId });
+      
+      // Get runtime problems from Chrome DevTools
+      const runtimeProblems = await ipcClient.getRuntimeProblems(appId);
+      
+      // Merge static and runtime problems
+      const mergedReport: ProblemReport = {
+        ...staticReport,
+        problems: [
+          ...staticReport.problems,
+          ...runtimeProblems.map(rp => ({
+            file: rp.file,
+            line: rp.line,
+            column: rp.column,
+            message: rp.message,
+            severity: rp.severity,
+            code: rp.code,
+            autoFixable: rp.autoFixable,
+            source: rp.source
+          }))
+        ]
+      };
+      
+      return mergedReport;
     },
     enabled: !!appId && settings?.enableAutoFixProblems,
     // DO NOT SHOW ERROR TOAST.

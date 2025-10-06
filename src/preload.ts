@@ -182,9 +182,12 @@ const validInvokeChannels = [
   "chrome-devtools:console-messages",
   "chrome-devtools:network-requests",
   "chrome-devtools:screenshot",
-  "chrome-devtools:status",
-  "app:repair",
-  "app:check-repair-needed",
+    "chrome-devtools:status",
+    "app:repair",
+    "app:check-repair-needed",
+    "problems:add-runtime",
+    "problems:get-runtime",
+    "problems:clear-runtime",
   
   // Design Generation
     "generate-app-icons",

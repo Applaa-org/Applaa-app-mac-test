@@ -10,6 +10,7 @@ interface PreviewWithDevToolsProps {
   className?: string;
   showDevToolsToggle?: boolean;
   defaultDevToolsOpen?: boolean;
+  appId?: number;
 }
 
 export function PreviewWithDevTools({
@@ -18,12 +19,13 @@ export function PreviewWithDevTools({
   devToolsEnabled = true,
   className = '',
   showDevToolsToggle = true,
-  defaultDevToolsOpen = false
+  defaultDevToolsOpen = false,
+  appId
 }: PreviewWithDevToolsProps) {
   const [showDevTools, setShowDevTools] = useState(defaultDevToolsOpen);
 
   return (
-    <ChromeDevToolsProvider previewUrl={previewUrl} enabled={devToolsEnabled}>
+    <ChromeDevToolsProvider previewUrl={previewUrl} appId={appId} enabled={devToolsEnabled}>
       <div className={`flex flex-col h-full ${className}`}>
         {/* Preview Content */}
         <div className="flex-1 relative">

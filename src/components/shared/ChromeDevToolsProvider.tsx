@@ -33,15 +33,17 @@ const ChromeDevToolsContext = createContext<ChromeDevToolsContextType | null>(nu
 interface ChromeDevToolsProviderProps {
   children: ReactNode;
   previewUrl?: string;
+  appId?: number;
   enabled?: boolean;
 }
 
 export function ChromeDevToolsProvider({ 
   children, 
   previewUrl, 
+  appId,
   enabled = true 
 }: ChromeDevToolsProviderProps) {
-  const devTools = useChromeDevTools(previewUrl);
+  const devTools = useChromeDevTools(previewUrl, appId);
 
   // Only provide context if enabled
   if (!enabled) {

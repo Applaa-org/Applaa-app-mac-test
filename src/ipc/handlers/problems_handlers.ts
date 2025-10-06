@@ -9,6 +9,7 @@ import { createLoggedHandler } from "./safe_handle";
 import { CodeValidator } from "../../services/code-validator";
 import { AutoFixer } from "../../services/auto-fixer";
 import type { Problem } from "../ipc_types";
+import { ipcMain } from "electron";
 
 const logger = log.scope("problems_handlers");
 const handle = createLoggedHandler(logger);
@@ -239,6 +240,106 @@ export function registerProblemsHandlers() {
     } catch (error) {
       logger.error("Error checking problems:", error);
       throw error;
+    }
+  });
+}
+
+// 🚨 CRITICAL: Runtime Error Integration with Problems Tab
+// This bridges the gap between Chrome DevTools runtime errors and static analysis
+
+// Store runtime problems in memory (could be enhanced to persist to DB)
+const runtimeProblems = new Map<number, Problem[]>();
+
+export function registerRuntimeProblemHandlers() {
+  // Add runtime problem to Problems Tab
+  ipcMain.handle("problems:add-runtime", async (event, problem: {
+    file: string;
+    line: number;
+    column: number;
+    message: string;
+    severity: 'error' | 'warning' | 'info';
+    code: string;
+    autoFixable: boolean;
+    source: string;
+    timestamp: number;
+    appId?: number;
+  }) => {
+    try {
+      // Use appId from the problem parameter, fallback to 1 if not provided
+      const appId = problem.appId || 1;
+      
+      logger.info(`🚨 Adding runtime problem: ${problem.message}`);
+      
+      // Convert to Problem format
+      const runtimeProblem: Problem = {
+        file: problem.file,
+        line: problem.line,
+        column: problem.column,
+        message: problem.message,
+        severity: problem.severity,
+        code: problem.code,
+        autoFixable: problem.autoFixable,
+        source: 'runtime'
+      };
+      
+      // Store runtime problem
+      if (!runtimeProblems.has(appId)) {
+        runtimeProblems.set(appId, []);
+      }
+      
+      const existingProblems = runtimeProblems.get(appId) || [];
+      existingProblems.push(runtimeProblem);
+      runtimeProblems.set(appId, existingProblems);
+      
+      // Trigger Problems Tab refresh by invalidating the query
+      // This will cause useCheckProblems to refetch and include runtime problems
+      logger.info(`✅ Runtime problem added: ${existingProblems.length} total runtime problems for app ${appId}`);
+      
+      // TODO: Trigger auto-fix if the problem is auto-fixable
+      if (problem.autoFixable) {
+        logger.info(`🔧 Runtime problem is auto-fixable, triggering auto-fix...`);
+        // Trigger auto-fix for this runtime problem
+        try {
+          const autoFixer = new AutoFixer();
+          const fixResult = await autoFixer.fixProblem(runtimeProblem);
+          if (fixResult.success) {
+            logger.info(`✅ Runtime problem auto-fixed: ${fixResult.message}`);
+            // Remove the fixed problem
+            const updatedProblems = existingProblems.filter(p => p !== runtimeProblem);
+            runtimeProblems.set(appId, updatedProblems);
+          } else {
+            logger.warn(`❌ Runtime problem auto-fix failed: ${fixResult.message}`);
+          }
+        } catch (error) {
+          logger.error("Error auto-fixing runtime problem:", error);
+        }
+      }
+      
+    } catch (error) {
+      logger.error("Error adding runtime problem:", error);
+      throw error;
+    }
+  });
+  
+  // Get runtime problems for an app
+  ipcMain.handle("problems:get-runtime", async (event, appId: number) => {
+    try {
+      const problems = runtimeProblems.get(appId) || [];
+      logger.info(`📋 Retrieved ${problems.length} runtime problems for app ${appId}`);
+      return problems;
+    } catch (error) {
+      logger.error("Error getting runtime problems:", error);
+      return [];
+    }
+  });
+  
+  // Clear runtime problems for an app
+  ipcMain.handle("problems:clear-runtime", async (event, appId: number) => {
+    try {
+      runtimeProblems.delete(appId);
+      logger.info(`🗑️ Cleared runtime problems for app ${appId}`);
+    } catch (error) {
+      logger.error("Error clearing runtime problems:", error);
     }
   });
 }

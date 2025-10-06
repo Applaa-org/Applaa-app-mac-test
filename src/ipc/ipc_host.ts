@@ -51,6 +51,7 @@ import { registerSnackPreviewHandlers } from "./handlers/snack_preview_handlers"
 import { registerCodeValidationHandlers } from "./handlers/code_validation_handlers";
 import { registerChromeDevToolsHandlers } from "./handlers/chrome_devtools_handlers";
 import { registerAppRepairHandlers } from "./handlers/app_repair_handlers"; // NEW: Code validation and auto-fix
+import { registerRuntimeProblemHandlers } from "./handlers/problems_handlers"; // NEW: Runtime error integration
 import { registerPromptOptimizationHandlers } from "./handlers/prompt_optimization_handlers";
 import { registerPromptHandlers } from "./handlers/prompt_handlers";
 import { registerFlutterMobileHandlers } from "./handlers/flutter_mobile_handlers";
@@ -135,6 +136,7 @@ export function registerIpcHandlers() {
   registerCodeValidationHandlers(); // ✅ NEW: Code validation and auto-fix
   registerChromeDevToolsHandlers();
   registerAppRepairHandlers(); // ✅ NEW: Chrome DevTools MCP integration
+  registerRuntimeProblemHandlers(); // ✅ NEW: Runtime error integration with Problems Tab
   console.log('✅ Code validation handlers enabled');
   registerPromptOptimizationHandlers();
   registerPromptHandlers();

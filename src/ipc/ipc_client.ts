@@ -1692,6 +1692,39 @@ export class IpcClient {
     return this.ipcRenderer.invoke("app:check-repair-needed", { appPath });
   }
 
+  // Runtime Error Integration with Problems Tab
+  async addRuntimeProblem(problem: {
+    file: string;
+    line: number;
+    column: number;
+    message: string;
+    severity: 'error' | 'warning' | 'info';
+    code: string;
+    autoFixable: boolean;
+    source: string;
+    timestamp: number;
+    appId?: number;
+  }): Promise<void> {
+    return this.ipcRenderer.invoke("problems:add-runtime", problem);
+  }
+
+  async getRuntimeProblems(appId: number): Promise<Array<{
+    file: string;
+    line: number;
+    column: number;
+    message: string;
+    severity: 'error' | 'warning' | 'info';
+    code: string;
+    autoFixable: boolean;
+    source: string;
+  }>> {
+    return this.ipcRenderer.invoke("problems:get-runtime", appId);
+  }
+
+  async clearRuntimeProblems(appId: number): Promise<void> {
+    return this.ipcRenderer.invoke("problems:clear-runtime", appId);
+  }
+
   // Supabase Authentication Methods
   public async supabaseInitialize(config: {
     url: string;

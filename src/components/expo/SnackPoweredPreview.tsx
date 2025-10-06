@@ -362,6 +362,7 @@ export function SnackPoweredPreview() {
   return (
     <PreviewWithDevTools 
       previewUrl={previewUrl}
+      appId={selectedAppId}
       devToolsEnabled={true}
       className="bg-white dark:bg-gray-900"
     >
