@@ -96,6 +96,7 @@ export function SnackPoweredPreview() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [iframeKey, setIframeKey] = useState(0);
   const [validationStatus, setValidationStatus] = useState<'validating' | 'valid' | 'has-errors' | 'auto-fixed'>('validating');
+  const [startupProgress, setStartupProgress] = useState<string>('');
   
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -122,6 +123,7 @@ export function SnackPoweredPreview() {
     try {
       startingRef.current = true;
       setIsLoading(true);
+      setStartupProgress('Starting Expo server...');
       console.log('🚀 Starting Expo preview for app:', selectedAppId);
       
       const ipcClient = IpcClient.getInstance();
@@ -137,6 +139,7 @@ export function SnackPoweredPreview() {
       // URLs are populated asynchronously as Expo output is parsed
       // Poll expo:status to wait for URLs
       if (result.isRunning) {
+        setStartupProgress('Expo started, waiting for preview URL...');
         console.log('⏳ Expo started, polling for URLs...');
         let attempts = 0;
         const maxAttempts = 30; // 30 seconds max wait
@@ -145,9 +148,19 @@ export function SnackPoweredPreview() {
           attempts++;
           const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
           
+          // Update progress message
+          if (attempts <= 5) {
+            setStartupProgress(`Initializing Expo... (${attempts}s)`);
+          } else if (attempts <= 15) {
+            setStartupProgress(`Building app bundle... (${attempts}s)`);
+          } else {
+            setStartupProgress(`Almost ready... (${attempts}s)`);
+          }
+          
           console.log(`🔍 Poll attempt ${attempts}: webUrl=${status.webUrl || 'empty'}`);
           
           if (status.webUrl) {
+            setStartupProgress('Preview ready! Loading...');
             setPreviewUrl(status.webUrl);
             setExpoStatus(status);
             setConnectionStatus('connected');
@@ -157,11 +170,18 @@ export function SnackPoweredPreview() {
             if (status.tunnelUrl || status.qrUrl || status.lanUrl) {
               await generateQRCode(status.tunnelUrl || status.qrUrl || status.lanUrl || '');
             }
+            setStartupProgress('');
             return true;
           }
           
           if (attempts >= maxAttempts) {
             console.warn('⚠️ Timeout waiting for Expo URL');
+            setStartupProgress('');
+            setExpoStatus(prev => ({
+              ...prev,
+              buildStatus: 'error',
+              error: 'Timeout: Expo server did not provide preview URL. Try restarting.'
+            }));
             return false;
           }
           
@@ -173,9 +193,16 @@ export function SnackPoweredPreview() {
         await pollForUrl();
       } else {
         console.warn('⚠️ Expo did not start');
+        setStartupProgress('');
+        setExpoStatus(prev => ({
+          ...prev,
+          buildStatus: 'error',
+          error: 'Failed to start Expo server'
+        }));
       }
     } catch (error) {
       console.error('❌ Failed to start:', error);
+      setStartupProgress('');
       setExpoStatus(prev => ({
         ...prev,
         buildStatus: 'error',
@@ -444,10 +471,18 @@ export function SnackPoweredPreview() {
             </div>
           </div>
         ) : isLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">Starting Expo preview...</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">
+            <div className="text-center max-w-md p-8">
+              <Loader2 className="w-16 h-16 animate-spin text-blue-500 mx-auto mb-6" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                {startupProgress || 'Starting Expo preview...'}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                This may take 10-30 seconds on first launch
+              </p>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div className="bg-blue-500 h-full rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              </div>
             </div>
           </div>
         ) : activeTab === 'web' ? (
