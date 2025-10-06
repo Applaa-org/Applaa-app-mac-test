@@ -5,16 +5,20 @@ import { chromeDevToolsMCP, DevToolsMessage, NetworkRequest } from '../../servic
 const logger = log.scope("chrome_devtools_handlers");
 
 export function registerChromeDevToolsHandlers() {
+  console.log('🔧 REGISTERING Chrome DevTools MCP handlers - FUNCTION CALLED');
   logger.info('🔧 Registering Chrome DevTools MCP handlers');
 
   // Start Chrome DevTools MCP server
   ipcMain.handle("chrome-devtools:start", async (): Promise<{ success: boolean; error?: string }> => {
+    console.log('🚀 chrome-devtools:start handler called - IPC HANDLER TRIGGERED');
     logger.info('🚀 chrome-devtools:start handler called');
     try {
       await chromeDevToolsMCP.start();
+      console.log('✅ Chrome DevTools MCP started successfully - RETURNING SUCCESS');
       logger.info('✅ Chrome DevTools MCP started successfully');
       return { success: true };
     } catch (error) {
+      console.error('❌ Failed to start Chrome DevTools MCP:', error);
       logger.error('Failed to start Chrome DevTools MCP:', error);
       return { 
         success: false, 
