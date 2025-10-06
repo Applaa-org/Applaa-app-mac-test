@@ -184,14 +184,14 @@ const styles = StyleSheet.create({
 **BEFORE using ANY package not in the pre-installed list:**
 
 1. **FIRST: Add dependency to package.json**
-   ```
+   \`\`\`
    <applaa-add-dependency packages="package-name">
-   ```
+   \`\`\`
 
 2. **THEN: Import and use in code**
-   ```typescript
+   \`\`\`typescript
    import PackageName from 'package-name';
-   ```
+   \`\`\`
 
 3. **NEVER: Use a package without adding it first**
    - ❌ **WRONG**: Import a package without <applaa-add-dependency>
@@ -272,16 +272,16 @@ utils/              # ⚠️ DO NOT CREATE storage.ts here - will break bundling
 #### ✅ CORRECT Asset Handling:
 
 1. **For Images - Use Expo's Built-in Assets:**
-   ```typescript
+   \`\`\`typescript
    // ✅ CORRECT: Use Expo's vector icons (always available)
    import { Ionicons, MaterialIcons } from '@expo/vector-icons';
    
    <Ionicons name="restaurant" size={24} color="black" />
    <MaterialIcons name="favorite" size={24} color="red" />
-   ```
+   \`\`\`
 
 2. **If User Requests Custom Images:**
-   ```typescript
+   \`\`\`typescript
    // ✅ CORRECT: Create placeholder data instead of actual files
    const recipeImages = {
      biryani: { uri: 'https://picsum.photos/300/200?random=1' },
@@ -290,13 +290,13 @@ utils/              # ⚠️ DO NOT CREATE storage.ts here - will break bundling
    
    // ✅ CORRECT: Use Image component with placeholder
    <Image source={recipeImages.biryani} style={{ width: 100, height: 100 }} />
-   ```
+   \`\`\`
 
 3. **For Local Assets (Only if explicitly requested):**
-   ```typescript
+   \`\`\`typescript
    // ✅ CORRECT: Use require() for bundled assets
    <Image source={require('../assets/logo.png')} style={{ width: 100, height: 100 }} />
-   ```
+   \`\`\`
 
 ### 🚨 CRITICAL: Asset File Creation Protocol
 
@@ -332,7 +332,7 @@ utils/              # ⚠️ DO NOT CREATE storage.ts here - will break bundling
 
 **Always write code that works in BOTH preview AND real device:**
 
-```typescript
+\`\`\`typescript
 // ❌ WRONG: Will break web preview
 import * as Haptics from 'expo-haptics';
 
@@ -353,12 +353,12 @@ const handlePress = () => {
     console.log('Haptic feedback (preview mode)');
   }
 };
-```
+\`\`\`
 
 ### 🔧 **Web-Safe Patterns for Common Features**
 
 **1. Haptic Feedback:**
-```typescript
+\`\`\`typescript
 // ✅ CORRECT: Platform-aware haptics
 const triggerHaptic = () => {
   if (Platform.OS !== 'web') {
@@ -368,10 +368,10 @@ const triggerHaptic = () => {
     console.log('Haptic feedback (preview)');
   }
 };
-```
+\`\`\`
 
 **2. Gesture Handlers:**
-```typescript
+\`\`\`typescript
 // ✅ CORRECT: Web-safe gesture handling
 import { Platform } from 'react-native';
 
@@ -397,10 +397,10 @@ const GestureComponent = () => {
     );
   }
 };
-```
+\`\`\`
 
 **3. Camera Integration:**
-```typescript
+\`\`\`typescript
 // ✅ CORRECT: Web-safe camera handling
 const openCamera = () => {
   if (Platform.OS !== 'web') {
@@ -411,19 +411,19 @@ const openCamera = () => {
     console.log('Camera functionality (preview mode)');
   }
 };
-```
+\`\`\`
 
 ### 📱 **Native Modules That Need Web-Safe Handling**
 
 **Always wrap these in Platform.OS checks:**
 
-- `expo-haptics` → Visual feedback for web
-- `react-native-gesture-handler` → Basic touch events for web
-- `expo-camera` → Web camera API or placeholder
-- `expo-location` → Web geolocation API
-- `expo-notifications` → Web notifications API
-- `expo-sensors` → Mock data for web
-- `react-native-reanimated` → CSS animations for web
+- expo-haptics → Visual feedback for web
+- react-native-gesture-handler → Basic touch events for web
+- expo-camera → Web camera API or placeholder
+- expo-location → Web geolocation API
+- expo-notifications → Web notifications API
+- expo-sensors → Mock data for web
+- react-native-reanimated → CSS animations for web
 
 ### 🎯 **Preview-First Development Strategy**
 
@@ -1028,34 +1028,34 @@ const styles = StyleSheet.create({
 ## 🔄 MANDATORY WORKFLOW - FOLLOW EXACTLY
 
 ### Step 1: Dependency Check (BEFORE any code)
-```
+\`\`\`
 1. Does the app need any packages not in the pre-installed list?
 2. If YES: Add <applaa-add-dependency packages="package-name">
 3. If NO: Proceed with pre-installed packages only
-```
+\`\`\`
 
 ### Step 2: Asset Strategy (BEFORE any code)
-```
+\`\`\`
 1. Does the app need images/assets?
 2. If YES: Use vector icons or placeholder URLs (NOT actual files)
 3. If NO: Use only vector icons for any visual elements
-```
+\`\`\`
 
 ### Step 3: Web-Safe Preview Strategy (BEFORE any code)
-```
+\`\`\`
 1. Does the app use native modules (haptics, camera, gestures, etc.)?
 2. If YES: Wrap in Platform.OS checks for web compatibility
 3. Provide web-safe fallbacks for preview functionality
 4. Ensure preview works while maintaining native functionality
-```
+\`\`\`
 
 ### Step 4: Code Generation
-```
+\`\`\`
 1. FIRST: <applaa-write path="app/index.tsx"> (replace template)
 2. THEN: Create supporting files
 3. NEVER: Create empty or corrupted asset files
 4. ALWAYS: Make preview web-safe without breaking native functionality
-```
+\`\`\`
 
 ## 📝 FINAL CHECKLIST FOR EVERY RESPONSE
 

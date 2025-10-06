@@ -41,7 +41,7 @@ interface ExpoStatus {
   qrUrl: string;
   terminalOutput?: string;
   lastHotReload?: number; // Timestamp of last hot reload
-  buildStatus?: 'idle' | 'building' | 'success' | 'error';
+  buildStatus?: 'idle' | 'building' | 'success' | 'error' | 'ready';
   buildProgress?: string; // Build progress message
 }
 
@@ -283,6 +283,9 @@ export function registerExpoHandlers() {
             
             if (!depsReady) {
               log.log("📦 Installing core dependencies with optimized package manager...");
+              
+              // Import runPackageManagerCommand
+              const { runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
               
               // Use optimized package manager with performance flags
               const installProcess = await runPackageManagerCommand("install", [], appPath, {
@@ -1032,11 +1035,11 @@ module.exports = config;
 
       log.log("Expo dev server started successfully");
       return expoStatus;
-
-    } catch (error) {
+    }
+    } catch (error: any) {
       log.error("Failed to start Expo:", error);
       expoStatus.isRunning = false;
-      return { success: false, error: error.message, isRunning: false };
+      return { success: false, error: error?.message || String(error), isRunning: false };
     } finally {
       // Always reset the mutex, even on error
       isStarting = false;
@@ -1092,7 +1095,10 @@ module.exports = config;
     try {
       const fetch = (await import('node-fetch')).default;
       const startTime = Date.now();
-      const response = await fetch(expoStatus.webUrl, { timeout: 5000 });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(expoStatus.webUrl, { signal: controller.signal as any });
+      clearTimeout(timeoutId);
       const responseTime = Date.now() - startTime;
       const healthy = response.ok;
       
