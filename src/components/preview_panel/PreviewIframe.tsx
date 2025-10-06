@@ -40,7 +40,6 @@ import {
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { selectedComponentPreviewAtom } from "@/atoms/previewAtoms";
 import { AutoErrorFixBanner } from "./AutoErrorFixBanner";
-import { useAutoErrorFix } from "@/hooks/useAutoErrorFix";
 import { ComponentSelection } from "@/ipc/ipc_types";
 import { useRandomGame, GameOption } from "@/hooks/useRandomGame";
 import { StreamingGameSelector } from "@/components/StreamingGameSelector";
@@ -51,6 +50,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useRunApp } from "@/hooks/useRunApp";
+import { GamePopupWindow } from '@/components/GamePopupWindow';
+import { isGamePopupOpenAtom } from '@/atoms/gamePopupAtom';
 
 interface ErrorBannerProps {
   error: string | undefined;
@@ -145,26 +146,25 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   const { streamMessage } = useStreamChat({ hasChatId: false });
   
   // Random game selection
-  const { currentGame, selectRandomGame } = useRandomGame();
+  const { currentGame } = useRandomGame();
   const [selectedGame, setSelectedGame] = useState<GameOption>(() => currentGame);
-  const [showGame, setShowGame] = useState(false);
+  
+  // Game popup state
+  const [isGamePopupOpen, setIsGamePopupOpen] = useAtom(isGamePopupOpenAtom);
   
   // Update selectedGame only when currentGame actually changes
   useEffect(() => {
     setSelectedGame(currentGame);
   }, [currentGame]);
 
-  // Show game with 10-second delay when streaming starts
+  // Show game popup immediately when streaming starts (only once)
   useEffect(() => {
-    if (isStreaming) {
-      const timer = setTimeout(() => {
-        setShowGame(true);
-      }, 10000); // 10 second delay
-      return () => clearTimeout(timer);
-    } else {
-      setShowGame(false);
+    if (isStreaming && !isGamePopupOpen) {
+      setIsGamePopupOpen(true);
     }
-  }, [isStreaming]);
+    // Note: We don't close the popup when streaming stops
+    // User must close it manually
+  }, [isStreaming, isGamePopupOpen]);
   // 🚫 DISABLED: Auto-error detection to match Dyad's approach
   // const { detectConsoleErrors } = useAutoErrorFix({ enabled: true });
   const { routes: availableRoutes } = useParseRouter(selectedAppId);
@@ -769,12 +769,12 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
 
         {isStreaming ? (
           <div className="flex flex-col h-full">
-            {/* Game Selector Header */}
+            {/* Game Selector Header - Keep this for user control */}
             <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Chat is streaming... enjoy a quick game meanwhile
+                  Chat is streaming... game opened in popup window
                 </span>
               </div>
               <StreamingGameSelector 
@@ -783,27 +783,35 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
               />
             </div>
             
-            {/* Game Content Area */}
+            {/* Show regular app preview instead of game */}
             <div className="flex-1 relative">
-              {showGame ? (
-                <iframe
-                  key={`game-${selectedGame.id}`}
-                  title={`${selectedGame.name} while chat is streaming`}
-                  className="w-full h-full border-none bg-white dark:bg-gray-950"
-                  src={selectedGame.url}
-                  allow="fullscreen; autoplay; picture-in-picture"
-                  referrerPolicy="no-referrer"
-                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
-                />
-              ) : (
-                /* Loading state for 10 seconds */
+              {!appUrl && !expoUrl ? (
                 <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
                   <div className="text-center">
                     <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-500" />
-                    <p className="text-gray-500 dark:text-gray-400">Chat is streaming...</p>
-                    <p className="text-sm text-gray-400 mt-2">Game will appear in a moment</p>
+                    <p className="text-gray-500 dark:text-gray-400">Loading your app...</p>
                   </div>
                 </div>
+              ) : (
+                <iframe
+                  data-testid="preview-iframe-element"
+                  onLoad={(e) => {
+                    const url = appUrl || expoUrl;
+                    console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                    setErrorMessage(undefined);
+                  }}
+                  onError={(e) => {
+                    const url = appUrl || expoUrl;
+                    console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                    setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
+                  }}
+                  ref={iframeRef}
+                  key={reloadKey}
+                  title={`Preview for App ${selectedAppId}`}
+                  className="w-full h-full border-none bg-white dark:bg-gray-950"
+                  src={appUrl || expoUrl}
+                  allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
+                />
               )}
             </div>
           </div>
@@ -861,6 +869,14 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
           </div>
         </div>
       )}
+
+      {/* Game Popup Window - Independent of preview reload */}
+      <GamePopupWindow
+        isOpen={isGamePopupOpen}
+        onClose={() => setIsGamePopupOpen(false)}
+        game={selectedGame}
+        onGameChange={setSelectedGame}
+      />
     </div>
   );
 };

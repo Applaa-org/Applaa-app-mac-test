@@ -261,7 +261,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
               <div className="h-full overflow-y-auto">
                 {previewMode === "preview" ? (
                   // Show PreviewIframe for both Expo and web apps when streaming, otherwise show appropriate component
-                  (isExpoApp && isStreaming && expoUrl) ? (
+                  (isExpoApp && isStreaming) ? (
                     <PreviewIframe key={key} loading={loading} />
                   ) : isExpoApp ? (
                     <UnifiedExpoPreview />
