@@ -17,9 +17,9 @@ export function invalidateSettingsCaches(queryClient: QueryClient) {
   // Invalidate any provider-specific queries
   queryClient.invalidateQueries({ queryKey: ["languageModels"] });
   
-  // Invalidate auth-related queries that might depend on settings
-  queryClient.invalidateQueries({ queryKey: ["auth"] });
-  queryClient.invalidateQueries({ queryKey: ["wordpress"] });
+  // Don't invalidate auth-related queries as they might interfere with settings updates
+  // queryClient.invalidateQueries({ queryKey: ["auth"] });
+  // queryClient.invalidateQueries({ queryKey: ["wordpress"] });
 }
 
 /**

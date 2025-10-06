@@ -28,8 +28,17 @@ import { ChevronDown, Brain } from "lucide-react";
 
 export function ModelPicker() {
   const { settings, updateSettings } = useSettings();
+  
+  // Debug: Log current settings
+  console.log('ModelPicker: Current settings:', settings);
+  console.log('ModelPicker: Selected model:', settings?.selectedModel);
   const onModelSelect = (model: LargeLanguageModel) => {
-    updateSettings({ selectedModel: model });
+    console.log('ModelPicker: Selecting model:', model);
+    updateSettings({ selectedModel: model }).then(() => {
+      console.log('ModelPicker: Settings updated successfully');
+    }).catch((error) => {
+      console.error('ModelPicker: Failed to update settings:', error);
+    });
   };
 
   const [open, setOpen] = useState(false);

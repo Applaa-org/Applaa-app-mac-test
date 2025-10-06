@@ -83,6 +83,18 @@ export function useWordPressAuth() {
       toast.success(data.message || 'Login successful');
       queryClient.invalidateQueries({ queryKey: ['wordpress'] });
       refetchAuth();
+      // Force refresh authentication state
+      setTimeout(() => {
+        refetchAuth();
+      }, 100);
+      // Immediately update local state
+      setAuthState(prev => ({
+        ...prev,
+        isAuthenticated: true,
+        user: data.user || prev.user,
+        session: data.session || prev.session,
+        error: null,
+      }));
     },
     onError: (error: Error) => {
       toast.error(error.message);
