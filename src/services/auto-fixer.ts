@@ -58,6 +58,11 @@ export class AutoFixer {
       case 'PLATFORM_HAPTICS':
         return await this.fixPlatformHaptics(problem);
       
+      case 'WEB_PREVIEW_NATIVE_MODULE':
+      case 'WEB_PREVIEW_PLATFORM_API':
+      case 'WEB_PREVIEW_GESTURE':
+        return await this.fixWebCompatibility(problem);
+      
       case 'MISSING_DEPENDENCY':
         return await this.fixMissingDependency(problem);
       
@@ -411,6 +416,61 @@ export class AutoFixer {
       return {
         success: false,
         message: `Failed to fix corrupted asset file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        filesModified: []
+      };
+    }
+  }
+
+  /**
+   * Fix web compatibility issues for preview
+   */
+  private async fixWebCompatibility(problem: Problem): Promise<FixResult> {
+    try {
+      const filePath = path.join(this.appPath, problem.file);
+      
+      if (!fs.existsSync(filePath)) {
+        return {
+          success: false,
+          message: `File not found: ${problem.file}`,
+          filesModified: []
+        };
+      }
+
+      const originalContent = await fs.readFile(filePath, 'utf-8');
+      
+      // Generate web-safe replacement code
+      const { webSafePreviewValidator } = await import('./web-safe-preview');
+      const webSafeContent = webSafePreviewValidator.generateWebSafeCode(originalContent, [
+        {
+          type: problem.code.replace('WEB_PREVIEW_', '').toLowerCase() as any,
+          severity: problem.severity,
+          module: problem.message.split(': ')[1] || 'unknown',
+          replacement: 'Web-safe alternative',
+          description: problem.message,
+          autoFixable: true
+        }
+      ]);
+
+      if (webSafeContent !== originalContent) {
+        await fs.writeFile(filePath, webSafeContent, 'utf-8');
+        
+        return {
+          success: true,
+          message: `Applied web-safe replacements for preview compatibility`,
+          filesModified: [problem.file]
+        };
+      } else {
+        return {
+          success: false,
+          message: `No web-safe replacements needed for ${problem.file}`,
+          filesModified: []
+        };
+      }
+    } catch (error) {
+      console.error('[AutoFixer] Error fixing web compatibility:', error);
+      return {
+        success: false,
+        message: `Failed to fix web compatibility: ${error instanceof Error ? error.message : 'Unknown error'}`,
         filesModified: []
       };
     }

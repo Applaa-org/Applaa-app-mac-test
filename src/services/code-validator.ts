@@ -7,6 +7,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import { glob } from 'glob';
 import { detectAppCategory } from '../utils/appTypeDetection';
+import { webSafePreviewValidator } from './web-safe-preview';
 
 export interface Problem {
   type: 'error' | 'warning' | 'info';
@@ -89,6 +90,7 @@ export class CodeValidator {
     try {
       // Run all validators
       problems.push(...await this.checkPlatformAPIs());
+      problems.push(...await this.checkWebCompatibility()); // NEW: Web compatibility check
       problems.push(...await this.checkDependencies());
       problems.push(...await this.checkCommonPatterns());
     } catch (error) {
@@ -115,6 +117,40 @@ export class CodeValidator {
       isValidForPreview: errors === 0, // Only block on errors, not warnings
       timestamp: Date.now()
     };
+  }
+
+  /**
+   * Check for web compatibility issues in preview mode
+   * This ensures native modules don't break web preview
+   */
+  private async checkWebCompatibility(): Promise<Problem[]> {
+    const problems: Problem[] = [];
+    const files = await this.getAllSourceFiles();
+
+    for (const file of files) {
+      try {
+        const content = await fs.readFile(file, 'utf-8');
+        const relativePath = path.relative(this.appPath, file);
+        
+        // Skip if file should be excluded from web preview
+        if (webSafePreviewValidator.shouldExcludeFromWebPreview(relativePath)) {
+          continue;
+        }
+
+        // Check for web compatibility issues
+        const webIssues = webSafePreviewValidator.checkWebCompatibility(relativePath, content);
+        
+        if (webIssues.length > 0) {
+          // Convert to Problem format
+          const webProblems = webSafePreviewValidator.convertToProblems(relativePath, webIssues);
+          problems.push(...webProblems);
+        }
+      } catch (error) {
+        console.warn(`Failed to check web compatibility for ${file}:`, error);
+      }
+    }
+
+    return problems;
   }
 
   /**

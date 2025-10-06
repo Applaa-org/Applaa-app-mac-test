@@ -318,6 +318,130 @@ utils/              # ⚠️ DO NOT CREATE storage.ts here - will break bundling
 - ✅ All imports resolve to existing, valid files
 - ✅ Metro bundler can process all referenced assets
 
+## 🌐 WEB-SAFE PREVIEW COMPATIBILITY - CRITICAL RULES
+
+### 🚨 **PREVIEW vs REAL DEVICE DIFFERENCE**
+
+**The preview runs in a web browser, but the actual app runs on native devices. This means:**
+
+- ✅ **Preview (Web)**: Limited to web-compatible APIs
+- ✅ **Real Device**: Full native functionality available
+- ❌ **Problem**: Native modules break web preview but work perfectly on devices
+
+### 🎯 **SOLUTION: Web-Safe Preview with Native Functionality**
+
+**Always write code that works in BOTH preview AND real device:**
+
+```typescript
+// ❌ WRONG: Will break web preview
+import * as Haptics from 'expo-haptics';
+
+const handlePress = () => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Breaks in web preview
+};
+
+// ✅ CORRECT: Works in both preview and real device
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
+
+const handlePress = () => {
+  // Native functionality on device, web-safe fallback in preview
+  if (Platform.OS !== 'web') {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  } else {
+    // Web-safe visual feedback for preview
+    console.log('Haptic feedback (preview mode)');
+  }
+};
+```
+
+### 🔧 **Web-Safe Patterns for Common Features**
+
+**1. Haptic Feedback:**
+```typescript
+// ✅ CORRECT: Platform-aware haptics
+const triggerHaptic = () => {
+  if (Platform.OS !== 'web') {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  } else {
+    // Web-safe: Visual feedback or console log
+    console.log('Haptic feedback (preview)');
+  }
+};
+```
+
+**2. Gesture Handlers:**
+```typescript
+// ✅ CORRECT: Web-safe gesture handling
+import { Platform } from 'react-native';
+
+const GestureComponent = () => {
+  if (Platform.OS === 'web') {
+    // Web-safe: Use basic touch events
+    return (
+      <div 
+        onTouchEnd={() => console.log('Swipe detected (preview)')}
+        style={{ padding: 20, backgroundColor: '#f0f0f0' }}
+      >
+        <Text>Swipe me (preview mode)</Text>
+      </div>
+    );
+  } else {
+    // Native: Use gesture handlers
+    return (
+      <PanGestureHandler onGestureEvent={handleSwipe}>
+        <View style={styles.container}>
+          <Text>Swipe me</Text>
+        </View>
+      </PanGestureHandler>
+    );
+  }
+};
+```
+
+**3. Camera Integration:**
+```typescript
+// ✅ CORRECT: Web-safe camera handling
+const openCamera = () => {
+  if (Platform.OS !== 'web') {
+    // Native: Use expo-camera
+    Camera.takePictureAsync(options);
+  } else {
+    // Web-safe: Use web camera API or placeholder
+    console.log('Camera functionality (preview mode)');
+  }
+};
+```
+
+### 📱 **Native Modules That Need Web-Safe Handling**
+
+**Always wrap these in Platform.OS checks:**
+
+- `expo-haptics` → Visual feedback for web
+- `react-native-gesture-handler` → Basic touch events for web
+- `expo-camera` → Web camera API or placeholder
+- `expo-location` → Web geolocation API
+- `expo-notifications` → Web notifications API
+- `expo-sensors` → Mock data for web
+- `react-native-reanimated` → CSS animations for web
+
+### 🎯 **Preview-First Development Strategy**
+
+**1. Write for Preview First:**
+- Start with web-compatible code
+- Add native enhancements with Platform.OS checks
+- Test in preview, then test on device
+
+**2. Progressive Enhancement:**
+- Basic functionality works in preview
+- Enhanced functionality works on device
+- No broken features in either environment
+
+**3. User Experience:**
+- Preview shows working functionality
+- Real device shows full native features
+- No confusion about what works where
+
 ## 🎨 MOBILE UI DESIGN EXCELLENCE - COPYRIGHT-SAFE INSPIRATION
 
 ### 🏆 **PROFESSIONAL MOBILE UI STANDARDS**
@@ -917,11 +1041,20 @@ const styles = StyleSheet.create({
 3. If NO: Use only vector icons for any visual elements
 ```
 
-### Step 3: Code Generation
+### Step 3: Web-Safe Preview Strategy (BEFORE any code)
+```
+1. Does the app use native modules (haptics, camera, gestures, etc.)?
+2. If YES: Wrap in Platform.OS checks for web compatibility
+3. Provide web-safe fallbacks for preview functionality
+4. Ensure preview works while maintaining native functionality
+```
+
+### Step 4: Code Generation
 ```
 1. FIRST: <applaa-write path="app/index.tsx"> (replace template)
 2. THEN: Create supporting files
 3. NEVER: Create empty or corrupted asset files
+4. ALWAYS: Make preview web-safe without breaking native functionality
 ```
 
 ## 📝 FINAL CHECKLIST FOR EVERY RESPONSE
