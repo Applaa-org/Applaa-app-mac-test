@@ -13,7 +13,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   children, 
   fallback 
 }) => {
-  const { isAuthenticated, isLoading, configStatus } = useWordPressAuth();
+  const { isAuthenticated, isLoading } = useWordPressAuth();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
 
   useEffect(() => {
@@ -35,22 +35,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     );
   }
 
-  // Show configuration error if WordPress is not configured
-  if (!configStatus?.isConfigured) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="max-w-md w-full space-y-4">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Applaa authentication is not configured. Please contact support or configure WordPress authentication in settings.
-            </AlertDescription>
-          </Alert>
-          {fallback}
-        </div>
-      </div>
-    );
-  }
+  // No configuration check needed for API-based authentication
+  // Authentication is always available via API
 
   // Show auth dialog if not authenticated - but keep the app layout in background
   if (!isAuthenticated) {

@@ -32,28 +32,14 @@ export function loadWordPressConfig(): WordPressConfig | null {
       return JSON.parse(configData);
     }
 
-    // Fallback to environment variables (only works in development)
-    const wordpressUrl = process.env.WORDPRESS_URL;
-    if (wordpressUrl) {
-      console.log('[WordPress Config] Using WORDPRESS_URL from environment:', wordpressUrl);
-      return {
-        url: wordpressUrl,
-        apiEndpoint: `${wordpressUrl}/wp-json/wp/v2`,
-        authEndpoint: `${wordpressUrl}/wp-json/wp/v2/users/me`,
-      };
-    }
-
-    // For packaged apps without config, provide a default placeholder
-    if (app.isPackaged) {
-      console.log('[WordPress Config] No config found in packaged app - will prompt for setup');
-      return {
-        url: 'https://applaa.io', // Default placeholder - user will be prompted to change
-        apiEndpoint: 'https://applaa.io/wp-json/wp/v2',
-        authEndpoint: 'https://applaa.io/wp-json/wp/v2/users/me',
-      };
-    }
-
-    return null;
+    // Hardcoded default configuration - always use Applaa.com
+    const wordpressUrl = 'https://applaa.com';
+    console.log('[WordPress Config] Using hardcoded Applaa.com URL:', wordpressUrl);
+    return {
+      url: wordpressUrl,
+      apiEndpoint: `${wordpressUrl}/wp-json/wp/v2`,
+      authEndpoint: `${wordpressUrl}/wp-json/wp/v2/users/me`,
+    };
   } catch (error) {
     console.error('Failed to load WordPress config:', error);
     return null;
@@ -81,10 +67,10 @@ export function saveWordPressConfig(config: WordPressConfig): boolean {
 
 export function getWordPressAuthEndpoint(): string {
   const config = loadWordPressConfig();
-  return config?.authEndpoint || `${config?.url || process.env.WORDPRESS_URL}/wp-json/wp/v2/users/me`;
+  return config?.authEndpoint || 'https://applaa.com/wp-json/wp/v2/users/me';
 }
 
 export function getWordPressApiEndpoint(): string {
   const config = loadWordPressConfig();
-  return config?.apiEndpoint || `${config?.url || process.env.WORDPRESS_URL}/wp-json/wp/v2`;
+  return config?.apiEndpoint || 'https://applaa.com/wp-json/wp/v2';
 }
