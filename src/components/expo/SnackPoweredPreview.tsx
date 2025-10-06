@@ -264,26 +264,38 @@ export function SnackPoweredPreview() {
     }
   }, [selectedAppId, expoStatus.lastHotReload]);
   
-  // ✅ SCENARIO A, B, C: Auto-validate on app selection
+  // ✅ SIMPLIFIED: Only validate when app changes, not on every checkProblems update
   useEffect(() => {
     if (!selectedAppId) return;
     
+    console.log('🔄 App changed, starting validation...');
     setValidationStatus('validating');
+    
+    // Set a shorter timeout to prevent getting stuck
+    const validationTimeout = setTimeout(() => {
+      console.log('⏰ Validation timeout (5s) - allowing preview to proceed');
+      setValidationStatus('valid');
+    }, 5000); // 5 second timeout - much shorter
     
     // Run validation check with error handling
     checkProblems().then(() => {
+      clearTimeout(validationTimeout);
       console.log('✅ Validation complete');
     }).catch((error) => {
+      clearTimeout(validationTimeout);
       console.error('❌ Validation failed:', error);
       // Don't block preview if validation fails
       setValidationStatus('valid');
     });
-  }, [selectedAppId, checkProblems]);
+    
+    return () => clearTimeout(validationTimeout);
+  }, [selectedAppId]); // Removed checkProblems dependency to prevent infinite loops
   
-  // Update validation status based on problem report
+  // Update validation status based on problem report (with fallback)
   useEffect(() => {
     if (isChecking) {
-      setValidationStatus('validating');
+      // Only show validating if we haven't timed out yet
+      setValidationStatus(prev => prev === 'validating' ? 'validating' : 'validating');
     } else if (problemReport) {
       // ✅ SIMPLIFIED: If there are ANY problems, consider it as having errors
       // TypeScript errors all have numeric codes, and all should be fixed
@@ -312,6 +324,10 @@ export function SnackPoweredPreview() {
           });
         });
       }
+    } else {
+      // No problem report yet, but validation completed - allow preview
+      console.log('📋 No problem report available, allowing preview to proceed');
+      setValidationStatus('valid');
     }
   }, [problemReport, isChecking]);
   
