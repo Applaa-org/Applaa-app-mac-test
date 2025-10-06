@@ -39,6 +39,8 @@ export class ChromeDevToolsMCPService {
    * Start Chrome DevTools MCP server
    */
   async start(): Promise<void> {
+    logger.info('🔧 ChromeDevToolsMCPService.start() called');
+    
     if (this.mcpProcess) {
       logger.warn('⚠️ Chrome DevTools MCP already running');
       return;
