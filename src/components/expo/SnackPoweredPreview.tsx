@@ -244,17 +244,20 @@ export function SnackPoweredPreview() {
     if (isChecking) {
       setValidationStatus('validating');
     } else if (problemReport) {
-      // Errors have code >= 2000, warnings have code < 2000
-      const errorCount = problemReport.problems?.filter(p => p.code >= 2000).length || 0;
+      // ✅ SIMPLIFIED: If there are ANY problems, consider it as having errors
+      // TypeScript errors all have numeric codes, and all should be fixed
+      const totalProblems = problemReport.problems?.length || 0;
       
-      if (errorCount === 0) {
+      console.log(`📊 Problem Report: ${totalProblems} problems found`);
+      
+      if (totalProblems === 0) {
         // Scenario A: Valid code - ready for preview
         setValidationStatus('valid');
         console.log('✅ SCENARIO A: No problems, ready for preview');
       } else {
-        // Scenario C: Has errors - block preview
+        // Scenario C: Has problems - block preview
         setValidationStatus('has-errors');
-        console.log(`⚠️ SCENARIO C: ${errorCount} errors found, preview blocked`);
+        console.log(`⚠️ SCENARIO C: ${totalProblems} problems found, preview blocked`);
       }
     }
   }, [problemReport, isChecking]);
@@ -331,7 +334,7 @@ export function SnackPoweredPreview() {
           {validationStatus === 'has-errors' && problemReport && (
             <div className="flex items-center gap-2 text-xs text-red-600">
               <AlertTriangle className="w-3 h-3" />
-              <span>{problemReport.problems.filter(p => p.code >= 2000).length} Problems</span>
+              <span>{problemReport.problems?.length || 0} Problems - Fix to Continue</span>
             </div>
           )}
           
@@ -421,8 +424,8 @@ export function SnackPoweredPreview() {
                 Cannot Start Preview
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Found {problemReport.problems.filter(p => p.code >= 2000).length} error{problemReport.problems.filter(p => p.code >= 2000).length !== 1 ? 's' : ''} in your code. 
-                Please fix {problemReport.problems.filter(p => p.code >= 2000).length === 1 ? 'it' : 'them'} to continue.
+                Found {problemReport.problems?.length || 0} problem{(problemReport.problems?.length || 0) !== 1 ? 's' : ''} in your code. 
+                Please fix {(problemReport.problems?.length || 0) === 1 ? 'it' : 'them'} to continue.
               </p>
               <Button
                 onClick={() => setPreviewMode('problems')}
