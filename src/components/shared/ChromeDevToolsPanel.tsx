@@ -1,30 +1,38 @@
 import React, { useState } from 'react';
-import { Terminal, Network, AlertTriangle, CheckCircle, X, Maximize2, Minimize2 } from 'lucide-react';
-import { useChromeDevTools, DevToolsMessage, NetworkRequest } from '@/hooks/useChromeDevTools';
+import { Terminal, Network, AlertTriangle, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useOptionalChromeDevTools } from './ChromeDevToolsProvider';
 
 interface ChromeDevToolsPanelProps {
-  previewUrl?: string;
   className?: string;
+  defaultExpanded?: boolean;
 }
 
-export function ChromeDevToolsPanel({ previewUrl, className = '' }: ChromeDevToolsPanelProps) {
+export function ChromeDevToolsPanel({ 
+  className = '',
+  defaultExpanded = false 
+}: ChromeDevToolsPanelProps) {
+  const devTools = useOptionalChromeDevTools();
+  const [activeTab, setActiveTab] = useState<'console' | 'network' | 'errors'>('console');
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  // If DevTools not available, don't render anything
+  if (!devTools) {
+    return null;
+  }
+
   const {
     isConnected,
     consoleMessages,
     networkRequests,
     errors,
     isStarting,
-    isNavigating,
     hasErrors,
     hasNetworkIssues,
     totalMessages,
     totalRequests,
     clearMessages
-  } = useChromeDevTools(previewUrl);
-
-  const [activeTab, setActiveTab] = useState<'console' | 'network' | 'errors'>('console');
-  const [isExpanded, setIsExpanded] = useState(false);
+  } = devTools;
 
   const getMessageIcon = (level?: string) => {
     switch (level) {

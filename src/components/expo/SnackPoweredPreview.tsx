@@ -18,7 +18,7 @@ import { Loader2, QrCode, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, T
 import { Button } from '@/components/ui/button';
 import QRCode from 'qrcode';
 import { useCheckProblems } from '@/hooks/useCheckProblems';
-import { ChromeDevToolsPanel } from './ChromeDevToolsPanel';
+import { PreviewWithDevTools } from '@/components/shared/PreviewWithDevTools';
 
 interface ExpoStatus {
   isRunning: boolean;
@@ -98,7 +98,6 @@ export function SnackPoweredPreview() {
   const [iframeKey, setIframeKey] = useState(0);
   const [validationStatus, setValidationStatus] = useState<'validating' | 'valid' | 'has-errors' | 'auto-fixed'>('validating');
   const [startupProgress, setStartupProgress] = useState<string>('');
-  const [showDevTools, setShowDevTools] = useState(false);
   
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -349,7 +348,11 @@ export function SnackPoweredPreview() {
   }
   
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <PreviewWithDevTools 
+      previewUrl={previewUrl}
+      devToolsEnabled={true}
+      className="bg-white dark:bg-gray-900"
+    >
       {/* Top Bar - Exact Snack Style */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="flex items-center gap-3">
@@ -407,15 +410,6 @@ export function SnackPoweredPreview() {
             QR Code
           </Button>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDevTools(!showDevTools)}
-            className={`h-8 px-3 ${showDevTools ? 'bg-blue-100 text-blue-700 border-blue-300' : ''}`}
-          >
-            <Terminal className="w-4 h-4 mr-1" />
-            DevTools
-          </Button>
         </div>
       </div>
       
@@ -662,14 +656,6 @@ export function SnackPoweredPreview() {
           </div>
         </div>
       )}
-
-      {/* Chrome DevTools Panel */}
-      {showDevTools && (
-        <ChromeDevToolsPanel 
-          previewUrl={previewUrl}
-          className="border-t border-gray-200 dark:border-gray-700"
-        />
-      )}
-    </div>
+    </PreviewWithDevTools>
   );
 }
