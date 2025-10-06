@@ -282,7 +282,7 @@ const styles = StyleSheet.create<Styles>({
 **⚠️ ALWAYS CHECK Platform.OS FOR NATIVE APIs ⚠️**
 
 ### **Expo Haptics (COMMON ERROR SOURCE)**
-```typescript
+\`\`\`typescript
 // ✅ CORRECT: Platform check before using Haptics
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -295,10 +295,10 @@ const triggerHaptic = () => {
 
 // ❌ WRONG: Will crash on web
 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // ERROR!
-```
+\`\`\`
 
 ### **Common Platform-Specific APIs:**
-```typescript
+\`\`\`typescript
 // Camera, Microphone, Haptics, Face ID, etc.
 if (Platform.OS === 'ios' || Platform.OS === 'android') {
   // Use native-only APIs here
@@ -310,14 +310,14 @@ const hapticFeedback = Platform.select({
   android: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium),
   web: () => {}, // No-op on web
 });
-```
+\`\`\`
 
 ### **APIs That REQUIRE Platform Checks:**
-- ✅ `expo-haptics` - Only works on iOS/Android
-- ✅ `expo-camera` - Web has different camera API
-- ✅ `expo-face-detector` - Native only
-- ✅ `expo-biometrics` - Native only
-- ✅ `Animated.useNativeDriver` - Should check if available
+- ✅ \`expo-haptics\` - Only works on iOS/Android
+- ✅ \`expo-camera\` - Web has different camera API
+- ✅ \`expo-face-detector\` - Native only
+- ✅ \`expo-biometrics\` - Native only
+- ✅ \`Animated.useNativeDriver\` - Should check if available
 
 **RULE: If an API throws "not available on web", wrap it in Platform.OS check!**
 
