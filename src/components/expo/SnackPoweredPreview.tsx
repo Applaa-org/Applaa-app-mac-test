@@ -116,9 +116,12 @@ export function SnackPoweredPreview() {
     }
     
     if (hasStartedRef.current && previewUrl) {
-      console.log('✅ Already started');
+      console.log('✅ Already started and has URL');
       return;
     }
+    
+    // ✅ CRITICAL: Prevent multiple simultaneous starts
+    console.log('🔒 Locking startExpoPreview to prevent duplicates');
     
     try {
       startingRef.current = true;
@@ -157,7 +160,12 @@ export function SnackPoweredPreview() {
             setStartupProgress(`Almost ready... (${attempts}s)`);
           }
           
-          console.log(`🔍 Poll attempt ${attempts}: webUrl=${status.webUrl || 'empty'}`);
+          console.log(`🔍 Poll attempt ${attempts}:`, {
+            webUrl: status.webUrl || 'empty',
+            tunnelUrl: status.tunnelUrl || 'empty', 
+            qrUrl: status.qrUrl || 'empty',
+            lanUrl: status.lanUrl || 'empty'
+          });
           
           if (status.webUrl) {
             setStartupProgress('Preview ready! Loading...');
@@ -167,8 +175,13 @@ export function SnackPoweredPreview() {
             hasStartedRef.current = true;
             console.log('✅ Preview URL ready:', status.webUrl);
             
-            if (status.tunnelUrl || status.qrUrl || status.lanUrl) {
-              await generateQRCode(status.tunnelUrl || status.qrUrl || status.lanUrl || '');
+            // ✅ FIX: Generate QR code for tunnel or LAN URL
+            const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
+            if (qrUrl) {
+              console.log('📱 Generating QR code for:', qrUrl);
+              await generateQRCode(qrUrl);
+            } else {
+              console.warn('⚠️ No QR URL available for My Device tab');
             }
             setStartupProgress('');
             return true;
@@ -289,20 +302,18 @@ export function SnackPoweredPreview() {
     }
   }, [problemReport, isChecking]);
   
-  // Auto-start ONLY if validation passed
+  // Auto-start ONLY if validation passed and not already started
   useEffect(() => {
-    if (selectedAppId && validationStatus === 'valid') {
-      hasStartedRef.current = false;
-      startingRef.current = false;
+    if (selectedAppId && validationStatus === 'valid' && !hasStartedRef.current && !startingRef.current) {
+      console.log('🎯 Auto-starting Expo preview after validation passed');
       startExpoPreview();
     }
-    
+
     return () => {
       if (statusCheckInterval.current) {
         clearInterval(statusCheckInterval.current);
       }
-      hasStartedRef.current = false;
-      startingRef.current = false;
+      // ✅ Don't reset refs on cleanup - they should persist across re-renders
     };
   }, [selectedAppId, validationStatus, startExpoPreview]);
   
@@ -572,7 +583,7 @@ export function SnackPoweredPreview() {
                       disabled={isLoading}
                       className="px-6 py-3 bg-white text-black rounded-full font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
                     >
-                      {isLoading ? 'Starting...' : 'Launch Snack'}
+                      {isLoading ? 'Starting...' : 'Start with Tunnel'}
                     </button>
                   </div>
                 </div>
