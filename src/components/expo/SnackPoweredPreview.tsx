@@ -14,10 +14,11 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { selectedAppIdAtom, previewModeAtom } from '@/atoms/appAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
-import { Loader2, QrCode, RefreshCw, ExternalLink, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Loader2, QrCode, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import QRCode from 'qrcode';
 import { useCheckProblems } from '@/hooks/useCheckProblems';
+import { ChromeDevToolsPanel } from './ChromeDevToolsPanel';
 
 interface ExpoStatus {
   isRunning: boolean;
@@ -97,6 +98,7 @@ export function SnackPoweredPreview() {
   const [iframeKey, setIframeKey] = useState(0);
   const [validationStatus, setValidationStatus] = useState<'validating' | 'valid' | 'has-errors' | 'auto-fixed'>('validating');
   const [startupProgress, setStartupProgress] = useState<string>('');
+  const [showDevTools, setShowDevTools] = useState(false);
   
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -394,7 +396,7 @@ export function SnackPoweredPreview() {
             <RefreshCw className="w-4 h-4" />
           </Button>
           
-          <Button 
+          <Button
             variant="default" 
             size="sm"
             onClick={() => setShowQR(true)}
@@ -403,6 +405,16 @@ export function SnackPoweredPreview() {
           >
             <QrCode className="w-4 h-4 mr-1" />
             QR Code
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDevTools(!showDevTools)}
+            className={`h-8 px-3 ${showDevTools ? 'bg-blue-100 text-blue-700 border-blue-300' : ''}`}
+          >
+            <Terminal className="w-4 h-4 mr-1" />
+            DevTools
           </Button>
         </div>
       </div>
@@ -649,6 +661,14 @@ export function SnackPoweredPreview() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Chrome DevTools Panel */}
+      {showDevTools && (
+        <ChromeDevToolsPanel 
+          previewUrl={previewUrl}
+          className="border-t border-gray-200 dark:border-gray-700"
+        />
       )}
     </div>
   );

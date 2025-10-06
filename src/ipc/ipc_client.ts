@@ -1640,6 +1640,35 @@ export class IpcClient {
     return this.ipcRenderer.invoke("code:validate-and-fix", params);
   }
 
+  // Chrome DevTools MCP methods
+  async startChromeDevTools(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("chrome-devtools:start");
+  }
+
+  async stopChromeDevTools(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("chrome-devtools:stop");
+  }
+
+  async navigateChromeDevTools(params: { url: string }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("chrome-devtools:navigate", params);
+  }
+
+  async getConsoleMessages(): Promise<any[]> {
+    return this.ipcRenderer.invoke("chrome-devtools:console-messages");
+  }
+
+  async getNetworkRequests(): Promise<any[]> {
+    return this.ipcRenderer.invoke("chrome-devtools:network-requests");
+  }
+
+  async takeScreenshot(): Promise<{ success: boolean; data?: string; error?: string }> {
+    return this.ipcRenderer.invoke("chrome-devtools:screenshot");
+  }
+
+  async getChromeDevToolsStatus(): Promise<{ connected: boolean }> {
+    return this.ipcRenderer.invoke("chrome-devtools:status");
+  }
+
   // Supabase Authentication Methods
   public async supabaseInitialize(config: {
     url: string;

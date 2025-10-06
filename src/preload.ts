@@ -176,6 +176,13 @@ const validInvokeChannels = [
   "code:auto-fix",
   "code:auto-fix-all",
   "code:validate-and-fix",
+  "chrome-devtools:start",
+  "chrome-devtools:stop",
+  "chrome-devtools:navigate",
+  "chrome-devtools:console-messages",
+  "chrome-devtools:network-requests",
+  "chrome-devtools:screenshot",
+  "chrome-devtools:status",
   
   // Design Generation
     "generate-app-icons",

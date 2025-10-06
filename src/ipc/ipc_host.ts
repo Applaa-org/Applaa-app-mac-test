@@ -48,7 +48,8 @@ import { registerExpoPerformanceMonitor } from "./handlers/expo_performance_moni
 import { registerTerminalHandlers } from "./handlers/terminal_handlers";
 // import { registerSnackHandlers } from "./handlers/snack_handlers"; // DISABLED - snack-sdk dependency
 import { registerSnackPreviewHandlers } from "./handlers/snack_preview_handlers"; // NEW: Snack-powered preview
-import { registerCodeValidationHandlers } from "./handlers/code_validation_handlers"; // NEW: Code validation and auto-fix
+import { registerCodeValidationHandlers } from "./handlers/code_validation_handlers";
+import { registerChromeDevToolsHandlers } from "./handlers/chrome_devtools_handlers"; // NEW: Code validation and auto-fix
 import { registerPromptOptimizationHandlers } from "./handlers/prompt_optimization_handlers";
 import { registerPromptHandlers } from "./handlers/prompt_handlers";
 import { registerFlutterMobileHandlers } from "./handlers/flutter_mobile_handlers";
@@ -131,6 +132,7 @@ export function registerIpcHandlers() {
   registerSnackPreviewHandlers(); // ✅ NEW: Snack-powered preview with hot reload
   console.log('🚀 Snack preview handlers enabled');
   registerCodeValidationHandlers(); // ✅ NEW: Code validation and auto-fix
+  registerChromeDevToolsHandlers(); // ✅ NEW: Chrome DevTools MCP integration
   console.log('✅ Code validation handlers enabled');
   registerPromptOptimizationHandlers();
   registerPromptHandlers();
