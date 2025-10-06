@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { IpcClient } from '@/ipc/ipc_client';
+import { errorDetector, ErrorAnalysis } from '../services/error-detector';
 
 export interface DevToolsMessage {
   type: 'console' | 'network' | 'error' | 'performance';
@@ -153,12 +154,27 @@ export function useChromeDevTools(previewUrl?: string) {
             return [...prev, ...newMessages].slice(-100); // Keep last 100 messages
           });
 
-          // Separate errors
+          // Separate errors and analyze them
           const errorMessages = messages.filter(msg => 
             msg.type === 'error' || msg.level === 'error'
           );
           if (errorMessages.length > 0) {
             setErrors(prev => [...prev, ...errorMessages].slice(-50));
+            
+            // Analyze new errors and report to chat stream
+            errorMessages.forEach(error => {
+              const analysis = errorDetector.analyzeError(error);
+              if (analysis && errorDetector.shouldReportToChat(error, analysis)) {
+                const errorReport = errorDetector.generateErrorReport(error, analysis);
+                
+                // Send error report to chat stream
+                console.log('🚨 Auto-reporting error to chat stream:', errorReport);
+                
+                // TODO: Integrate with chat stream system
+                // This would send the error report as a system message to the chat
+                // ipcClient.sendChatMessage(errorReport);
+              }
+            });
           }
         }
 

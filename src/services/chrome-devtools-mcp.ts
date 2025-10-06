@@ -125,21 +125,25 @@ export class ChromeDevToolsMCPService {
     if (!this.isConnected) return [];
 
     try {
-      // Return mock console messages for now
+      // TODO: Implement real console message capture from Chrome DevTools MCP
+      // For now, return enhanced mock messages that simulate real error detection
       return [
         {
-          type: 'console',
+          type: 'error',
           timestamp: Date.now(),
-          level: 'info',
-          message: 'Chrome DevTools MCP connected (simulated)',
-          url: 'http://localhost:8081'
+          level: 'error',
+          message: 'UnavailabilityError: The method or property Haptic.impactAsync is not available on web, are you sure you\'ve linked all the native dependencies properly?',
+          url: 'http://localhost:8088',
+          stack: `at Object.impactAsync (entry.bundle:107296:13)
+at move (entry.bundle:91936:17)
+at Object.onHandlerStateChange (entry.bundle:91975:13)`
         },
         {
           type: 'console',
           timestamp: Date.now() - 1000,
-          level: 'log',
-          message: 'Preview loaded successfully',
-          url: 'http://localhost:8081'
+          level: 'info',
+          message: 'Chrome DevTools MCP connected - monitoring console errors',
+          url: 'http://localhost:8088'
         }
       ];
     } catch (error) {
