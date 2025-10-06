@@ -1,18 +1,18 @@
 import { ipcMain } from 'electron';
 import log from 'electron-log';
 import { chromeDevToolsMCP, DevToolsMessage, NetworkRequest } from '../../services/chrome-devtools-mcp';
-import { createLoggedHandler } from './safe_handle';
 
 const logger = log.scope("chrome_devtools_handlers");
-const handle = createLoggedHandler(logger);
 
 export function registerChromeDevToolsHandlers() {
   logger.info('🔧 Registering Chrome DevTools MCP handlers');
 
   // Start Chrome DevTools MCP server
-  handle("chrome-devtools:start", async (): Promise<{ success: boolean; error?: string }> => {
+  ipcMain.handle("chrome-devtools:start", async (): Promise<{ success: boolean; error?: string }> => {
+    logger.info('🚀 chrome-devtools:start handler called');
     try {
       await chromeDevToolsMCP.start();
+      logger.info('✅ Chrome DevTools MCP started successfully');
       return { success: true };
     } catch (error) {
       logger.error('Failed to start Chrome DevTools MCP:', error);
@@ -24,7 +24,7 @@ export function registerChromeDevToolsHandlers() {
   });
 
   // Stop Chrome DevTools MCP server
-  handle("chrome-devtools:stop", async (): Promise<{ success: boolean; error?: string }> => {
+  ipcMain.handle("chrome-devtools:stop", async (): Promise<{ success: boolean; error?: string }> => {
     try {
       await chromeDevToolsMCP.stop();
       return { success: true };
@@ -38,7 +38,7 @@ export function registerChromeDevToolsHandlers() {
   });
 
   // Navigate to preview URL
-  handle("chrome-devtools:navigate", async (
+  ipcMain.handle("chrome-devtools:navigate", async (
     _, 
     params: { url: string }
   ): Promise<{ success: boolean; error?: string }> => {
@@ -55,7 +55,7 @@ export function registerChromeDevToolsHandlers() {
   });
 
   // Get console messages
-  handle("chrome-devtools:console-messages", async (): Promise<DevToolsMessage[]> => {
+  ipcMain.handle("chrome-devtools:console-messages", async (): Promise<DevToolsMessage[]> => {
     try {
       return await chromeDevToolsMCP.getConsoleMessages();
     } catch (error) {
@@ -65,7 +65,7 @@ export function registerChromeDevToolsHandlers() {
   });
 
   // Get network requests
-  handle("chrome-devtools:network-requests", async (): Promise<NetworkRequest[]> => {
+  ipcMain.handle("chrome-devtools:network-requests", async (): Promise<NetworkRequest[]> => {
     try {
       return await chromeDevToolsMCP.getNetworkRequests();
     } catch (error) {
@@ -75,7 +75,7 @@ export function registerChromeDevToolsHandlers() {
   });
 
   // Take screenshot
-  handle("chrome-devtools:screenshot", async (): Promise<{ success: boolean; data?: string; error?: string }> => {
+  ipcMain.handle("chrome-devtools:screenshot", async (): Promise<{ success: boolean; data?: string; error?: string }> => {
     try {
       const screenshot = await chromeDevToolsMCP.takeScreenshot();
       return { success: true, data: screenshot };
@@ -89,7 +89,7 @@ export function registerChromeDevToolsHandlers() {
   });
 
   // Check connection status
-  handle("chrome-devtools:status", async (): Promise<{ connected: boolean }> => {
+  ipcMain.handle("chrome-devtools:status", async (): Promise<{ connected: boolean }> => {
     return { connected: chromeDevToolsMCP.getConnected() };
   });
 
