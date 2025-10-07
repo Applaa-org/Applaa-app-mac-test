@@ -3,12 +3,12 @@
 
 export const AUTOPUSH_CONFIG = {
   // GitHub Configuration
-  GITHUB_TOKEN: import.meta.env.VITE_GITHUB_TOKEN || "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",
-  GITHUB_USERNAME: import.meta.env.VITE_GITHUB_USERNAME || "patidarmk",
+  GITHUB_TOKEN:"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",
+  GITHUB_USERNAME: "patidarmk",
   
   // Vercel Configuration
-  VERCEL_TOKEN: import.meta.env.VITE_VERCEL_TOKEN || "oKy0ljHgV10r1unsphU4XoaM",
-  
+  // VERCEL_TOKEN: import.meta.env.VITE_VERCEL_TOKEN || "oKy0ljHgV10r1unsphU4XoaM",
+  VERCEL_TOKEN: "oKy0ljHgV10r1unsphU4XoaM",
   // Deployment Settings
   DEPLOYMENT_TIMER_SECONDS: 60,
   DEFAULT_DEPLOY_TO_VERCEL: true,
