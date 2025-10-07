@@ -92,12 +92,6 @@ export const PublishPanel = () => {
         {/* Deployment URLs Section */}
         <DeploymentUrls appId={selectedAppId} />
 
-        {/* Build Dependencies Checker */}
-        <BuildDependencyChecker />
-
-        {/* Prerequisite Installer */}
-        <PrerequisiteInstaller />
-
         {/* Check if this is a mobile/Expo app or web app */}
         {(() => {
           // Check if this is an Expo/mobile app by looking for package.json with expo dependency
@@ -109,37 +103,46 @@ export const PublishPanel = () => {
           );
 
           if (isExpoApp) {
-            // Show EAS Deployment for mobile/Expo apps
+            // Show Build Dependencies and Prerequisite Installer for mobile/Expo apps
             return (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                    </svg>
-                    Mobile Deployment
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="max-w-xs">
-                            Note: Mobile builds require keystore setup. Use "Deploy Web App" for immediate deployment, or set up keystores using the guide below.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                 
-                  <EASDeploymentPanel 
-                    appId={selectedAppId} 
-                    appName={app.name} 
-                  />
-                </CardContent>
-              </Card>
+              <>
+                {/* Build Dependencies Checker - Only for mobile/Expo apps */}
+                <BuildDependencyChecker />
+
+                {/* Prerequisite Installer - Only for mobile/Expo apps */}
+                <PrerequisiteInstaller />
+
+                {/* EAS Deployment for mobile/Expo apps */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      Mobile Deployment
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">
+                              Note: Mobile builds require keystore setup. Use "Deploy Web App" for immediate deployment, or set up keystores using the guide below.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                   
+                    <EASDeploymentPanel 
+                      appId={selectedAppId} 
+                      appName={app.name} 
+                    />
+                  </CardContent>
+                </Card>
+              </>
             );
           } else {
             // Show Auto Push for web apps
@@ -157,7 +160,11 @@ export const PublishPanel = () => {
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Automatically push your web app changes to your connected repository.
                   </p>
-                  <AutoPush appId={selectedAppId} projectName={app.name} app={app} />
+                  <AutoPush 
+                    appId={selectedAppId} 
+                    projectName={`applaa-${app.name}`} 
+                    app={app} 
+                  />
                 </CardContent>
               </Card>
             );
@@ -184,7 +191,17 @@ export const PublishPanel = () => {
             </p>
             <GitHubConnector
               appId={selectedAppId}
-              folderName={app.name}
+              folderName={(() => {
+                // Add "applaa-" prefix for web apps (non-Expo apps)
+                const isExpoApp = app.path && (
+                  app.path.includes('mobile') || 
+                  app.path.includes('expo') ||
+                  app.name.toLowerCase().includes('mobile') ||
+                  app.name.toLowerCase().includes('expo')
+                );
+                
+                return isExpoApp ? app.name : `applaa-${app.name}`;
+              })()}
               expanded={true}
             />
           </CardContent>
@@ -245,7 +262,20 @@ export const PublishPanel = () => {
                 </div>
               </div>
             ) : (
-              <VercelConnector appId={selectedAppId} folderName={app.name} />
+              <VercelConnector 
+                appId={selectedAppId} 
+                folderName={(() => {
+                  // Add "applaa-" prefix for web apps (non-Expo apps)
+                  const isExpoApp = app.path && (
+                    app.path.includes('mobile') || 
+                    app.path.includes('expo') ||
+                    app.name.toLowerCase().includes('mobile') ||
+                    app.name.toLowerCase().includes('expo')
+                  );
+                  
+                  return isExpoApp ? app.name : `applaa-${app.name}`;
+                })()}
+              />
             )}
           </CardContent>
         </Card>
