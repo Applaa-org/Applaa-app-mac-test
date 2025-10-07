@@ -42,7 +42,7 @@ export function StreamingGameSelector({ onGameChange, currentGame }: StreamingGa
             {isOpen ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuContent align="end" className="w-64 z-[10000]">
           {allGames.map((game) => (
             <DropdownMenuItem
               key={game.id}

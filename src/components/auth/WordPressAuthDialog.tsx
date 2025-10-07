@@ -26,14 +26,7 @@ export const WordPressAuthDialog: React.FC<WordPressAuthDialogProps> = ({
     error,
   } = useWordPressAuth();
 
-  // Check if WordPress is configured via environment variables
-  const { data: configStatus } = useQuery({
-    queryKey: ['wordpress', 'config'],
-    queryFn: async () => {
-      return await IpcClient.getInstance().wordpressCheckConfiguration();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  // No configuration check needed for API-based authentication
 
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -114,22 +107,13 @@ export const WordPressAuthDialog: React.FC<WordPressAuthDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Configuration Status */}
-        {configStatus?.isConfigured ? (
-          <Alert>
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription>
-              Applaa is configured. You can sign in with your Applaa account.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Applaa is not configured. Please set WORDPRESS_URL in your .env file.
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Configuration Status - Always show as configured for API-based auth */}
+        <Alert>
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>
+            Sign in with your Applaa account to access the app.
+          </AlertDescription>
+        </Alert>
 
         {/* Error Display */}
         {error && (
@@ -212,7 +196,7 @@ export const WordPressAuthDialog: React.FC<WordPressAuthDialogProps> = ({
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={isLoggingIn || !configStatus?.isConfigured}
+              disabled={isLoggingIn}
             >
               {isLoggingIn ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -334,7 +318,7 @@ export const WordPressAuthDialog: React.FC<WordPressAuthDialogProps> = ({
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={!configStatus?.isConfigured || isSigningUp}
+              disabled={isSigningUp}
             >
               {isSigningUp ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
