@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAtomValue, useAtom } from 'jotai';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
 import { isStreamingAtom } from '@/atoms/chatAtoms';
-import { isGamePopupOpenAtom } from '@/atoms/gamePopupAtom';
 import { IpcClient } from '@/ipc/ipc_client';
 import QRCode, { QRCodeToDataURLOptions } from 'qrcode';
 import { Smartphone, RefreshCw, Play, Square, Globe, ExternalLink, Terminal, Monitor, Command, Loader2 } from 'lucide-react';
@@ -10,8 +9,6 @@ import { Button } from '@/components/ui/button';
 import { MetroRecoveryPanel } from './MetroRecoveryPanel';
 import { useMetroRecovery } from '../../hooks/useMetroRecovery';
 import { useAutoErrorFix } from '@/hooks/useAutoErrorFix';
-import { useRandomGame, GameOption } from '@/hooks/useRandomGame';
-import { GamePopupWindow } from '@/components/GamePopupWindow';
 
 export function UnifiedExpoPreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
@@ -20,15 +17,6 @@ export function UnifiedExpoPreview() {
   // 🚨 DYAD PATTERN: Use simple global streaming atom
   const isStreaming = useAtomValue(isStreamingAtom);
   
-  // Game popup state
-  const [isGamePopupOpen, setIsGamePopupOpen] = useAtom(isGamePopupOpenAtom);
-  
-  // Track if popup was opened for current streaming session to prevent multiple opens
-  const popupOpenedForCurrentStream = useRef(false);
-  
-  // Random game selection
-  const { currentGame } = useRandomGame();
-  const [selectedGame, setSelectedGame] = useState<GameOption>(() => currentGame);
   
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [webUrl, setWebUrl] = useState<string>('');
@@ -62,23 +50,6 @@ export function UnifiedExpoPreview() {
     enabled: true 
   });
 
-  // Update selectedGame only when currentGame actually changes
-  useEffect(() => {
-    setSelectedGame(currentGame);
-  }, [currentGame]);
-
-  // Show game popup immediately when streaming starts (only once per session)
-  useEffect(() => {
-    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current) {
-      setIsGamePopupOpen(true);
-      popupOpenedForCurrentStream.current = true;
-    }
-    
-    // Reset the flag when streaming stops
-    if (!isStreaming) {
-      popupOpenedForCurrentStream.current = false;
-    }
-  }, [isStreaming, isGamePopupOpen]);
 
   // Generate QR code from URL
   const generateQRCode = async (url: string) => {
@@ -633,13 +604,6 @@ export function UnifiedExpoPreview() {
         </div>
       </div>
 
-      {/* Game Popup Window - Independent of preview reload */}
-      <GamePopupWindow
-        isOpen={isGamePopupOpen}
-        onClose={() => setIsGamePopupOpen(false)}
-        game={selectedGame}
-        onGameChange={setSelectedGame}
-      />
     </div>
   );
 }

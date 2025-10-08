@@ -41,7 +41,6 @@ import { useStreamChat } from "@/hooks/useStreamChat";
 import { selectedComponentPreviewAtom } from "@/atoms/previewAtoms";
 import { AutoErrorFixBanner } from "./AutoErrorFixBanner";
 import { ComponentSelection } from "@/ipc/ipc_types";
-import { useRandomGame, GameOption } from "@/hooks/useRandomGame";
 import { StreamingGameSelector } from "@/components/StreamingGameSelector";
 import {
   Tooltip,
@@ -50,8 +49,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useRunApp } from "@/hooks/useRunApp";
-import { GamePopupWindow } from '@/components/GamePopupWindow';
-import { isGamePopupOpenAtom } from '@/atoms/gamePopupAtom';
 
 interface ErrorBannerProps {
   error: string | undefined;
@@ -145,33 +142,6 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   const isStreaming = useAtomValue(isStreamingAtom);
   const { streamMessage } = useStreamChat({ hasChatId: false });
   
-  // Random game selection
-  const { currentGame } = useRandomGame();
-  const [selectedGame, setSelectedGame] = useState<GameOption>(() => currentGame);
-  
-  // Game popup state
-  const [isGamePopupOpen, setIsGamePopupOpen] = useAtom(isGamePopupOpenAtom);
-  
-  // Track if popup was opened for current streaming session to prevent multiple opens
-  const popupOpenedForCurrentStream = useRef(false);
-  
-  // Update selectedGame only when currentGame actually changes
-  useEffect(() => {
-    setSelectedGame(currentGame);
-  }, [currentGame]);
-
-  // Show game popup immediately when streaming starts (only once per session)
-  useEffect(() => {
-    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current) {
-      setIsGamePopupOpen(true);
-      popupOpenedForCurrentStream.current = true;
-    }
-    
-    // Reset the flag when streaming stops
-    if (!isStreaming) {
-      popupOpenedForCurrentStream.current = false;
-    }
-  }, [isStreaming, isGamePopupOpen]);
   // 🚫 DISABLED: Auto-error detection to match Dyad's approach
   // const { detectConsoleErrors } = useAutoErrorFix({ enabled: true });
   const { routes: availableRoutes } = useParseRouter(selectedAppId);
@@ -802,7 +772,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
                   key={reloadKey}
                   title={`Preview for App ${selectedAppId}`}
                   className="w-full h-full border-none bg-white dark:bg-gray-950"
-                  src={appUrl || expoUrl}
+                  src={appUrl || expoUrl || undefined}
                   allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
                 />
               )}
@@ -832,7 +802,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
             key={reloadKey}
             title={`Preview for App ${selectedAppId}`}
             className="w-full h-full border-none bg-white dark:bg-gray-950"
-            src={appUrl || expoUrl}
+            src={appUrl || expoUrl || undefined}
             allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
           />
         )}
@@ -863,13 +833,6 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
         </div>
       )}
 
-      {/* Game Popup Window - Independent of preview reload */}
-      <GamePopupWindow
-        isOpen={isGamePopupOpen}
-        onClose={() => setIsGamePopupOpen(false)}
-        game={selectedGame}
-        onGameChange={setSelectedGame}
-      />
     </div>
   );
 };
