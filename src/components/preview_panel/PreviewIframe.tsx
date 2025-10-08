@@ -152,18 +152,25 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   // Game popup state
   const [isGamePopupOpen, setIsGamePopupOpen] = useAtom(isGamePopupOpenAtom);
   
+  // Track if popup was opened for current streaming session to prevent multiple opens
+  const popupOpenedForCurrentStream = useRef(false);
+  
   // Update selectedGame only when currentGame actually changes
   useEffect(() => {
     setSelectedGame(currentGame);
   }, [currentGame]);
 
-  // Show game popup immediately when streaming starts (only once)
+  // Show game popup immediately when streaming starts (only once per session)
   useEffect(() => {
-    if (isStreaming && !isGamePopupOpen) {
+    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current) {
       setIsGamePopupOpen(true);
+      popupOpenedForCurrentStream.current = true;
     }
-    // Note: We don't close the popup when streaming stops
-    // User must close it manually
+    
+    // Reset the flag when streaming stops
+    if (!isStreaming) {
+      popupOpenedForCurrentStream.current = false;
+    }
   }, [isStreaming, isGamePopupOpen]);
   // 🚫 DISABLED: Auto-error detection to match Dyad's approach
   // const { detectConsoleErrors } = useAutoErrorFix({ enabled: true });
@@ -769,21 +776,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
 
         {isStreaming ? (
           <div className="flex flex-col h-full">
-            {/* Game Selector Header - Keep this for user control */}
-            <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Chat is streaming... game opened in popup window
-                </span>
-              </div>
-              <StreamingGameSelector 
-                currentGame={selectedGame}
-                onGameChange={setSelectedGame}
-              />
-            </div>
-            
-            {/* Show regular app preview instead of game */}
+            {/* Show regular app preview during streaming */}
             <div className="flex-1 relative">
               {!appUrl && !expoUrl ? (
                 <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">

@@ -23,6 +23,9 @@ export function UnifiedExpoPreview() {
   // Game popup state
   const [isGamePopupOpen, setIsGamePopupOpen] = useAtom(isGamePopupOpenAtom);
   
+  // Track if popup was opened for current streaming session to prevent multiple opens
+  const popupOpenedForCurrentStream = useRef(false);
+  
   // Random game selection
   const { currentGame } = useRandomGame();
   const [selectedGame, setSelectedGame] = useState<GameOption>(() => currentGame);
@@ -64,13 +67,17 @@ export function UnifiedExpoPreview() {
     setSelectedGame(currentGame);
   }, [currentGame]);
 
-  // Show game popup immediately when streaming starts (only once)
+  // Show game popup immediately when streaming starts (only once per session)
   useEffect(() => {
-    if (isStreaming && !isGamePopupOpen) {
+    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current) {
       setIsGamePopupOpen(true);
+      popupOpenedForCurrentStream.current = true;
     }
-    // Note: We don't close the popup when streaming stops
-    // User must close it manually
+    
+    // Reset the flag when streaming stops
+    if (!isStreaming) {
+      popupOpenedForCurrentStream.current = false;
+    }
   }, [isStreaming, isGamePopupOpen]);
 
   // Generate QR code from URL
