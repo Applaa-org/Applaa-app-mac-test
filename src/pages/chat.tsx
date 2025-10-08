@@ -19,6 +19,8 @@ import { useRunApp } from "@/hooks/useRunApp";
 import { MessageSquare, Code } from "lucide-react";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import type { FileAttachment } from "@/ipc/ipc_types";
+import { usePreviewReady } from '@/hooks/usePreviewReady';
+import { PreviewReadyPopup } from '@/components/PreviewReadyPopup';
 
 export default function ChatPage() {
   const search = useSearch({ from: "/chat" });
@@ -39,6 +41,9 @@ export default function ChatPage() {
   const { chats, loading } = useChats(selectedAppId);
   const { loading: appLoading, app } = useRunApp();
   const previewMode = useAtomValue(previewModeAtom);
+  const { isPreviewReady, previewType } = usePreviewReady();
+  const [showPreviewReadyPopup, setShowPreviewReadyPopup] = useState(false);
+  const [isAlreadyRendered, setIsAlreadyRendered] = useState(false);
 
   // 🚀 CRITICAL FIX: Auto-sync selectedAppId with current chat's appId
   // This ensures the preview panel shows the correct app when user navigates to /chat?id=123
@@ -152,6 +157,14 @@ export default function ChatPage() {
     }
   }, [previewMode]);
 
+  // Show popup when preview becomes ready (only once)
+  useEffect(() => {
+    if (isPreviewReady && !showPreviewReadyPopup && !isAlreadyRendered) {
+      setShowPreviewReadyPopup(true);
+      setIsAlreadyRendered(true);
+    }
+  }, [isPreviewReady, showPreviewReadyPopup, isAlreadyRendered]);
+
   const ref = useRef<ImperativePanelHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
 
@@ -222,6 +235,14 @@ export default function ChatPage() {
           />
         </Panel>
       </>
+      
+      {/* Preview Ready Popup */}
+      <PreviewReadyPopup
+        isOpen={showPreviewReadyPopup}
+        onClose={() => setShowPreviewReadyPopup(false)}
+        appName={app?.name}
+        previewType={previewType}
+      />
     </PanelGroup>
   );
 }
