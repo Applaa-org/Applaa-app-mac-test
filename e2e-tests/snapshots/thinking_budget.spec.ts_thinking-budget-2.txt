@@ -371,7 +371,7 @@
         },
         {
           "path": "src/pages/Index.tsx",
-          "content": "// Update this page (the content is just a fallback if you fail to update the page)\n\nimport { MadeWithDyad } from \"@/components/made-with-dyad\";\n\nconst Index = () => {\n  return (\n    <div className=\"min-h-screen flex items-center justify-center bg-gray-100\">\n      <div className=\"text-center\">\n        <h1 className=\"text-4xl font-bold mb-4\">Welcome to Your Blank App</h1>\n        <p className=\"text-xl text-gray-600\">\n          Start building your amazing project here!\n        </p>\n      </div>\n      <MadeWithDyad />\n    </div>\n  );\n};\n\nexport default Index;\n",
+          "content": "// Update this page (the content is just a fallback if you fail to update the page)\n\nimport { MadeWithDyad } from \"@/components/made-with-dyad\";\n\nconst Index = () => {\n  return (\n    <div className=\"min-h-screen flex items-center justify-center bg-gray-100\">\n      <div className=\"text-center\">\n        <h1 className=\"text-4xl font-bold mb-4\">Welcome to Your App</h1>\n        <p className=\"text-xl text-gray-600\">\n          Start building your amazing project here!\n        </p>\n      </div>\n      <MadeWithDyad />\n    </div>\n  );\n};\n\nexport default Index;\n",
           "force": false
         },
         {

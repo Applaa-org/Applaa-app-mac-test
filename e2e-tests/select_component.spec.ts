@@ -10,7 +10,7 @@ testSkipIfWindows("select component", async ({ po }) => {
   await po
     .getPreviewIframeElement()
     .contentFrame()
-    .getByRole("heading", { name: "Welcome to Your Blank App" })
+    .getByRole("heading", { name: "Welcome to Your App" })
     .click();
 
   await po.snapshotPreview();
@@ -36,7 +36,7 @@ testSkipIfWindows("deselect component", async ({ po }) => {
   await po
     .getPreviewIframeElement()
     .contentFrame()
-    .getByRole("heading", { name: "Welcome to Your Blank App" })
+    .getByRole("heading", { name: "Welcome to Your App" })
     .click();
 
   await po.snapshotPreview();

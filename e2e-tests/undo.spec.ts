@@ -26,7 +26,7 @@ testSkipIfWindows("undo", async ({ po }) => {
   await po.clickUndo();
 
   await expect(
-    iframe.contentFrame().getByText("Welcome to Your Blank App"),
+    iframe.contentFrame().getByText("Welcome to Your App
   ).toBeVisible({
     // Also, could be slow.
     timeout: Timeout.LONG,
