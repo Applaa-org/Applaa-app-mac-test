@@ -222,9 +222,9 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
         )}
         
         {previewMode === "publish" ? (
-          // When in publish mode, show preview on left and publish panel on right
-          <div className="flex h-full">
-            <div className="flex-1 overflow-hidden">
+          // When in publish mode, show 50:50 split between preview and publish
+          <PanelGroup direction="horizontal" className="h-full">
+            <Panel id="preview-panel" defaultSize={50} minSize={30}>
               <div className="h-full overflow-y-auto">
                 {isExpoApp ? (
                   <UnifiedExpoPreview />
@@ -232,29 +232,30 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                   <PreviewIframe key={key} loading={loading} />
                 )}
               </div>
-            </div>
-            <div className="w-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors cursor-col-resize"></div>
-            <div className="w-96 min-w-80 overflow-y-auto border-l border-border flex flex-col">
-              {/* Publish Sidebar Header with Close Button */}
-              <div className="flex items-center justify-between p-3 border-b border-border bg-background">
-                {/* <h3 className="text-sm font-semibold text-foreground">Publish</h3> */}
-                <h2 className="text-1xl font-bold text-gray-900 dark:text-gray-100 ">
-            Publish App
-          </h2>
-                <button
-                  onClick={() => setPreviewMode("preview")}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-                  title="Close Publish Panel"
-                >
-                  <X size={16} className="text-muted-foreground" />
-                </button>
+            </Panel>
+            <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors cursor-col-resize" />
+            <Panel id="publish-panel" defaultSize={50} minSize={30}>
+              <div className="h-full flex flex-col">
+                {/* Publish Header with Close Button */}
+                <div className="flex items-center justify-between p-3 border-b border-border bg-background">
+                  <h2 className="text-1xl font-bold text-gray-900 dark:text-gray-100">
+                    Publish App
+                  </h2>
+                  <button
+                    onClick={() => setPreviewMode("preview")}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                    title="Close Publish Panel"
+                  >
+                    <X size={16} className="text-muted-foreground" />
+                  </button>
+                </div>
+                {/* Publish Panel Content */}
+                <div className="flex-1 overflow-y-auto">
+                  <PublishPanel />
+                </div>
               </div>
-              {/* Publish Panel Content */}
-              <div className="flex-1 overflow-y-auto">
-                <PublishPanel />
-              </div>
-            </div>
-          </div>
+            </Panel>
+          </PanelGroup>
         ) : (
           <PanelGroup direction="vertical">
             <Panel id="content" minSize={30}>

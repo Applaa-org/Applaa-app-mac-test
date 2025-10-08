@@ -12,6 +12,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { isPreviewOpenAtom } from "@/atoms/viewAtoms";
+import { previewModeAtom } from "@/atoms/appAtoms";
 import { useChats } from "@/hooks/useChats";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { useRunApp } from "@/hooks/useRunApp";
@@ -37,6 +38,7 @@ export default function ChatPage() {
   const setSelectedAppId = useSetAtom(selectedAppIdAtom);
   const { chats, loading } = useChats(selectedAppId);
   const { loading: appLoading, app } = useRunApp();
+  const previewMode = useAtomValue(previewModeAtom);
 
   // 🚀 CRITICAL FIX: Auto-sync selectedAppId with current chat's appId
   // This ensures the preview panel shows the correct app when user navigates to /chat?id=123
@@ -139,6 +141,16 @@ export default function ChatPage() {
       leftPanelRef.current?.collapse();
     }
   }, [isLeftPanelOpen]);
+
+  // Close left panel when publish mode is activated, reopen when closed
+  useEffect(() => {
+    if (previewMode === "publish") {
+      setIsLeftPanelOpen(false);
+    } else {
+      // Reopen chat window when publish mode is closed
+      setIsLeftPanelOpen(true);
+    }
+  }, [previewMode]);
 
   const ref = useRef<ImperativePanelHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
