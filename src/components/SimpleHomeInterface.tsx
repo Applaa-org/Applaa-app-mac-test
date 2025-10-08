@@ -136,6 +136,20 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
         <>
           <SimpleAppTypeSelector onSelection={handleAppTypeSelection} />
           
+          {/* Hub Link */}
+          <div className="mt-8 text-center space-y-4">
+            <p className="text-lg text-gray-700 dark:text-gray-300 font-medium">
+              Check out awesome games and applications built by Applaa
+            </p>
+            <a 
+              href="/hub" 
+              className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-lg rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              <Sparkles className="w-6 h-6" />
+              Explore Hub
+            </a>
+          </div>
+          
           {/* Coming Soon Cards */}
           <ComingSoonCards className="mt-12" />
           

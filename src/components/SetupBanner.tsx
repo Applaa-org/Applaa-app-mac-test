@@ -101,8 +101,12 @@ export function SetupBanner() {
   if (itemsNeedAction.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 mb-8">
-        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-green-500 rounded-xl flex items-center justify-center shadow-lg">
-          <span className="text-white font-bold text-2xl">A</span>
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+          <img 
+            src="/assets/applaa-logo-new.jpeg" 
+            alt="Applaa Logo" 
+            className="w-full h-full object-cover"
+          />
         </div>
         <h1 className="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 tracking-tight">
           Prompt → App in minutes
