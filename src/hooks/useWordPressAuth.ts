@@ -95,6 +95,7 @@ export function useWordPressAuth() {
         session: data.session || prev.session,
         error: null,
       }));
+      // YouTube setup popup removed
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -180,6 +181,8 @@ export function useWordPressAuth() {
     isLoggingOut: logoutMutation.isPending,
     isOAuthLoggingIn: oauthMutation.isPending,
     isCheckingCapability: checkCapabilityMutation.isPending,
+
+    // YouTube popup removed
   };
 }
 

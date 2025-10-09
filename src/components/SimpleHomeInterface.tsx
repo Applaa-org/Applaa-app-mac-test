@@ -141,13 +141,22 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
             <p className="text-lg text-gray-700 dark:text-gray-300 font-medium">
               Check out awesome games and applications built by Applaa
             </p>
-            <a 
-              href="/hub" 
-              className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-lg rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-              <Sparkles className="w-6 h-6" />
-              Explore Hub
-            </a>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <a 
+                href="/hub" 
+                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-lg rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                <Sparkles className="w-6 h-6" />
+                Explore Hub
+              </a>
+              <a 
+                href="/docs"
+                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold text-lg rounded-lg hover:from-green-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                <Globe className="w-6 h-6" />
+                Applaa Setup
+              </a>
+            </div>
           </div>
           
           {/* Coming Soon Cards */}

@@ -19,6 +19,7 @@ import { isGamePopupOpenAtom } from "@/atoms/gamePopupAtom";
 import { useRandomGame } from "@/hooks/useRandomGame";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
 import type { GameOption } from "@/hooks/useRandomGame";
+ 
 
 export default function RootLayout({
   children,
@@ -36,6 +37,8 @@ export default function RootLayout({
   const isStreaming = useAtomValue(isStreamingAtom);
   const { currentGame } = useRandomGame();
   const [selectedGame, setSelectedGame] = useState<GameOption>(() => currentGame);
+  
+  // YouTube setup popup removed per request
   
   // Track if popup was opened for current streaming session to prevent multiple opens
   const popupOpenedForCurrentStream = useRef(false);
@@ -124,6 +127,8 @@ export default function RootLayout({
                 game={selectedGame}
                 onGameChange={setSelectedGame}
               />
+              
+              {/* YouTube Setup Popup removed */}
             </TooltipProvider>
           </SidebarProvider>
         </DeepLinkProvider>
