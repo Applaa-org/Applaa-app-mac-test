@@ -82,7 +82,7 @@ export default function DocsPage() {
             </div>
             
             <div>
-              <h2 className="text-lg font-semibold mb-4">Additional Tutorial</h2>
+              <h2 className="text-lg font-semibold mb-4">Quick Video Tutorial</h2>
               <div className="relative w-full max-w-4xl mx-auto">
                 <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
                   <iframe
