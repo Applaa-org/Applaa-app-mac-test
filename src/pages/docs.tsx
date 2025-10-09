@@ -63,6 +63,23 @@ export default function DocsPage() {
             <Link to="/" className="text-sm text-primary hover:underline">Back to Home</Link>
           </div>
 
+          {/* YouTube Video */}
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold mb-4">Getting Started Video</h2>
+            <div className="relative w-full max-w-4xl mx-auto">
+              <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
+                <iframe
+                  src="https://www.youtube.com/embed/XzfIDM3OIBU"
+                  title="Applaa Getting Started Video"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="absolute top-0 left-0 w-full h-full rounded-lg shadow-lg"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Install & Launch */}
           <section id="install" className="scroll-mt-24">
             <h2 className="text-xl font-semibold mb-2">Install & Launch</h2>

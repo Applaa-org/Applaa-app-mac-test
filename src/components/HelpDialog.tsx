@@ -378,7 +378,7 @@ Session ID: ${sessionId}
               variant="outline"
               onClick={() => {
                 IpcClient.getInstance().openExternalUrl(
-                  "https://www.dyad.sh/docs",
+                  "https://applaa.com/category/help-documents/",
                 );
               }}
               className="w-full py-6 bg-(--background-lightest)"
@@ -391,7 +391,7 @@ Session ID: ${sessionId}
           </div>
 
           <div className="flex flex-col space-y-2">
-            <Button
+            {/* <Button
               variant="outline"
               onClick={handleReportBug}
               disabled={isLoading}
@@ -399,7 +399,22 @@ Session ID: ${sessionId}
             >
               <BugIcon className="mr-2 h-5 w-5" />{" "}
               {isLoading ? "Preparing Report..." : "Report a Bug"}
+            </Button> */}
+
+<Button
+              variant="outline"
+              onClick={() => {
+                IpcClient.getInstance().openExternalUrl(
+                  "https://applaa.com/groups/feedback-report-a-bug/",
+                );
+              }}
+              className="w-full py-6 bg-(--background-lightest)"
+            >
+              <BugIcon className="mr-2 h-5 w-5" />{" "} Report a Bug
             </Button>
+
+
+
             <p className="text-sm text-muted-foreground px-2">
               We'll auto-fill your report with system info and logs. You can
               review it for any sensitive info before submitting.
