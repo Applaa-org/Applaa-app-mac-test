@@ -5,6 +5,7 @@ import {
   previewPanelKeyAtom,
   selectedAppIdAtom,
   showConfigurePanelAtom,
+  appUrlAtom,
 } from "../../atoms/appAtoms";
 import { useCheckProblems } from "@/hooks/useCheckProblems";
 
@@ -72,9 +73,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [showConfigurePanel, setShowConfigurePanel] = useAtom(showConfigurePanelAtom);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [showProblemsPanel, setShowProblemsPanel] = useState(false);
-  const { runApp, stopApp, loading, app, refreshAppIframe, restartApp } = useRunApp();
+  const { runApp, stopApp, loading, app, refreshAppIframe, restartApp, setAppUrlObj } = useRunApp();
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
+  const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
 
   // Web preview timeout hook (only for non-Expo apps)
@@ -122,6 +124,8 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
       if (previousAppId !== null) {
         console.debug("Stopping previous app", previousAppId);
         stopApp(previousAppId);
+        // Clear the app URL to prevent cross-app preview issues
+        setAppUrlObj({ appUrl: null, appId: null, originalUrl: null });
         // We don't necessarily nullify the ref here immediately,
         // let the start of the next app update it or unmount handle it.
       }
@@ -134,6 +138,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
         // Only run regular web server for non-Expo apps
         // Expo apps will be handled by BattleTestedExpoPreview component
         if (!isExpoApp) {
+          // Clear Expo status when switching to non-Expo app to prevent showing old mobile preview
+          const ipcClient = IpcClient.getInstance();
+          // Use simpleExpoStop to clear the correct status that useExpoUrl checks
+          ipcClient.simpleExpoStop().catch(console.error);
           // Use restartApp instead of runApp to ensure proper restart
           restartApp({ removeNodeModules: false });
         }
@@ -163,7 +171,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     };
     // Dependencies: run effect when selectedAppId or app type changes.
     // runApp/stopApp are stable due to useCallback.
-  }, [selectedAppId, runApp, stopApp, isExpoApp, refreshAppIframe, restartApp]);
+  }, [selectedAppId, runApp, stopApp, isExpoApp, refreshAppIframe, restartApp, setAppUrlObj]);
 
   // Auto-start disabled - using BattleTestedExpoPreview's built-in auto-start instead
   return (
@@ -262,7 +270,20 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
               <div className="h-full overflow-y-auto">
                 {previewMode === "preview" ? (
                   // Show appropriate component based on app type
-                  isExpoApp ? (
+                  // Show loading state when app is loading, when switching between app types, or when web server is starting
+                  (loading || !app || (app && !isExpoApp && !appUrl?.originalUrl)) ? (
+                    <div className="flex items-center justify-center h-full text-gray-500">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                        <p className="text-lg font-medium mb-2">
+                          {loading ? "Loading App..." : "Preview is loading..."}
+                        </p>
+                        <p className="text-sm">
+                          {loading ? "Please wait while the app is being loaded." : "Please wait while the preview loads."}
+                        </p>
+                      </div>
+                    </div>
+                  ) : isExpoApp ? (
                     <UnifiedExpoPreview />
                   ) : (
                     <PreviewIframe key={key} loading={loading} />
@@ -281,16 +302,6 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                     <div className="text-center">
                       <p className="text-lg font-medium mb-2">No App Selected</p>
                       <p className="text-sm">Please select an app from the sidebar to see the preview.</p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Show loading state when we have selectedAppId but app is still loading */}
-                {!app && loading && selectedAppId && (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    <div className="text-center">
-                      <p className="text-lg font-medium mb-2">Loading App...</p>
-                      <p className="text-sm">Please wait while the app is being loaded.</p>
                     </div>
                   </div>
                 )}

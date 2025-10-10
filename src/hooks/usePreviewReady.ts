@@ -1,12 +1,14 @@
 import { useAtomValue } from 'jotai';
 import { appUrlAtom } from '@/atoms/appAtoms';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
+import { isStreamingAtom } from '@/atoms/chatAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
 import { useState, useEffect, useRef } from 'react';
 
 export function usePreviewReady() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const appUrl = useAtomValue(appUrlAtom);
+  const isStreaming = useAtomValue(isStreamingAtom);
   const [isPreviewReady, setIsPreviewReady] = useState(false);
   const [previewType, setPreviewType] = useState<'web' | 'mobile' | null>(null);
   const lastReadyAppId = useRef<number | null>(null);
@@ -27,7 +29,9 @@ export function usePreviewReady() {
 
     const checkPreviewReady = async () => {
       // Check web app preview ready only
-      if (appUrl?.originalUrl) {
+      // Don't show preview popup if chat is streaming
+      // CRITICAL: Only show preview ready if the URL belongs to the current app
+      if (appUrl?.originalUrl && appUrl.appId === selectedAppId && !isStreaming) {
         setIsPreviewReady(true);
         setPreviewType('web');
         lastReadyAppId.current = selectedAppId;
@@ -45,7 +49,7 @@ export function usePreviewReady() {
     // Poll every 2 seconds
     const interval = setInterval(checkPreviewReady, 2000);
     return () => clearInterval(interval);
-  }, [selectedAppId, appUrl?.originalUrl]);
+  }, [selectedAppId, appUrl?.originalUrl, appUrl?.appId, isStreaming]);
 
   return { isPreviewReady, previewType };
 }

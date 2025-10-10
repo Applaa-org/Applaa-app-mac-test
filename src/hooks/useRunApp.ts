@@ -123,6 +123,8 @@ export function useRunApp() {
       const ipcClient = IpcClient.getInstance();
       await ipcClient.stopApp(appId);
 
+      // Clear the app URL when stopping the app to prevent cross-app preview issues
+      setAppUrlObj({ appUrl: null, appId: null, originalUrl: null });
       setPreviewErrorMessage(undefined);
     } catch (error) {
       console.error(`Error stopping app ${appId}:`, error);
@@ -132,7 +134,7 @@ export function useRunApp() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setAppUrlObj]);
 
   const onHotModuleReload = useCallback(() => {
     setPreviewPanelKey((prevKey) => prevKey + 1);
