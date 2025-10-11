@@ -4,8 +4,6 @@ import { useLoadApps } from "@/hooks/useLoadApps";
 import { useRouter, useLocation } from "@tanstack/react-router";
 import { useSettings } from "@/hooks/useSettings";
 import { Button } from "@/components/ui/button";
-// @ts-ignore
-import logo from "../../assets/applaa-logo-new.jpeg";
 import { providerSettingsRoute } from "@/routes/settings/providers/$provider";
 import { cn } from "@/lib/utils";
 import { useDeepLink } from "@/contexts/DeepLinkContext";
@@ -106,7 +104,7 @@ export const TitleBar = () => {
         <div className={`${showWindowControls ? "pl-2" : "pl-18"}`}></div>
 
         <div className="flex items-center gap-2 mr-2">
-          <img src={logo} alt="Applaa Logo" className="w-6 h-6" />
+          <img src="/assets/applaa-logo-new.jpeg" alt="Applaa Logo" className="w-6 h-6" />
           <span className="text-sm font-semibold text-foreground">Applaa</span>
         </div>
         <Button

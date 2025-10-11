@@ -16,6 +16,7 @@ import { ComingSoonCards } from './ComingSoonCards';
 import { IpcClient } from '@/ipc/ipc_client';
 import { useSettings } from '@/hooks/useSettings';
 import { useApplaaPro } from '@/hooks/useApplaaPro';
+import { useNavigate } from '@tanstack/react-router';
 import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb } from 'lucide-react';
 
 interface SimpleHomeInterfaceProps {
@@ -31,6 +32,7 @@ type ExampleIdea = {
 
 export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) {
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
+  const navigate = useNavigate();
   const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | null>(null);
   const { updateSettings } = useSettings();
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
@@ -142,20 +144,20 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               Check out awesome games and applications built by Applaa
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <a 
-                href="/hub" 
+              <button 
+                onClick={() => navigate({ to: "/hub" })}
                 className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-lg rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 <Sparkles className="w-6 h-6" />
                 Explore Hub
-              </a>
-              <a 
-                href="/docs"
+              </button>
+              <button 
+                onClick={() => navigate({ to: "/docs" })}
                 className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold text-lg rounded-lg hover:from-green-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 <Globe className="w-6 h-6" />
                 Applaa Setup
-              </a>
+              </button>
             </div>
           </div>
           

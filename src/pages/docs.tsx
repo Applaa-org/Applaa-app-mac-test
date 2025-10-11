@@ -110,7 +110,7 @@ export default function DocsPage() {
               <li>Applaa stores your local settings in the Electron <code>userData</code> directory. Packaged builds use a separate settings file for security.</li>
             </ol>
             <div className="mt-4">
-              <DocsImage src="../../assets/docs/install-1.png" alt="Install - Extract and run" />
+              <DocsImage src="/assets/docs/install-1.png" alt="Install - Extract and run" />
             </div>
           </section>
 
@@ -128,7 +128,7 @@ export default function DocsPage() {
               <li>Pro features unlock Spark Edits, Spark Context, and SQLite Vector AI.</li>
             </ul>
             <div className="mt-4">
-              <DocsImage src="../../assets/docs/getting-started-1.png" alt="Home screen" />
+              <DocsImage src="/assets/docs/getting-started-1.png" alt="Home screen" />
             </div>
           </section>
 
@@ -146,7 +146,7 @@ export default function DocsPage() {
               Images in mock data use license‑free sources (Unsplash/Pixabay/Pexels/Picsum) and detail pages are generated for each list item.
             </p>
             <div className="mt-4">
-              <DocsImage src="../../assets/docs/web-create-1.png" alt="Create web app flow" />
+              <DocsImage src="/assets/docs/web-create-1.png" alt="Create web app flow" />
             </div>
           </section>
 
@@ -164,7 +164,7 @@ export default function DocsPage() {
               Every list item includes a detail screen; images come from approved free sources and avoid broken URLs.
             </p>
             <div className="mt-4">
-              <DocsImage src="../../assets/docs/mobile-create-1.png" alt="Create mobile app flow" />
+              <DocsImage src="/assets/docs/mobile-create-1.png" alt="Create mobile app flow" />
             </div>
           </section>
 
@@ -214,7 +214,7 @@ export default function DocsPage() {
               <li>Packaged builds do not read dev environment variables for security.</li>
             </ol>
             <div className="mt-4">
-              <DocsImage src="../../assets/docs/settings-1.png" alt="Settings and API keys" />
+              <DocsImage src="/assets/docs/settings-1.png" alt="Settings and API keys" />
             </div>
           </section>
 
