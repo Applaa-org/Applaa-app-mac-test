@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Code, Gamepad2, Zap, Rocket, Star, Clock, Zap as Lightning, Globe, Smartphone, Monitor, Server, Database, ShoppingCart, Brain } from 'lucide-react';
+import { Code, Gamepad2, Zap, Rocket, Star, Clock, Zap as Lightning, Globe, Smartphone, Monitor, Server, Database, ShoppingCart, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ComingSoonCardProps {
@@ -180,17 +180,29 @@ const comingSoonItems: ComingSoonCardProps[] = [
 ];
 
 export function ComingSoonCards({ className = '' }: { className?: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
     <div className={cn("space-y-6", className)}>
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center justify-center gap-2 text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
           Coming Soon
-        </h2>
+          {isExpanded ? (
+            <ChevronUp className="h-6 w-6" />
+          ) : (
+            <ChevronDown className="h-6 w-6" />
+          )}
+        </button>
         <p className="text-md text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
           We're constantly expanding our platform support. Here's a sneak peek at what's next!
         </p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+      
+      {isExpanded && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
         {comingSoonItems.map((item) => {
           const IconComponent = item.icon;
           return (
@@ -285,7 +297,8 @@ export function ComingSoonCards({ className = '' }: { className?: string }) {
             </Card>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
