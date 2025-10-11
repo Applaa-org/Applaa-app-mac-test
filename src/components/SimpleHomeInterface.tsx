@@ -11,6 +11,7 @@ import { homeChatInputValueAtom } from '@/atoms/chatAtoms';
 import { HomeChatInput } from '@/components/chat/HomeChatInput';
 import { SimpleAppTypeSelector } from './SimpleAppTypeSelector';
 import { ComingSoonCards } from './ComingSoonCards';
+import { FeaturedGames } from './FeaturedGames';
 // 🚀 PERFORMANCE: Commented out for MVP - move to website as marketing content
 // import { ComingSoonTiles } from './ComingSoonTiles';
 import { IpcClient } from '@/ipc/ipc_client';
@@ -137,6 +138,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
       {!selectedAppType ? (
         <>
           <SimpleAppTypeSelector onSelection={handleAppTypeSelection} />
+          
+          {/* Featured Games */}
+          <FeaturedGames className="mt-12" />
           
           {/* Hub Link */}
           <div className="mt-8 text-center space-y-4">
