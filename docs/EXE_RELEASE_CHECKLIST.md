@@ -103,9 +103,46 @@
 
 ---
 
-## 📦 EXE Packaging Configuration
+## 📦 EXE & MSI Packaging Configuration
+
+### 🔧 Prerequisites for Building
+
+**Required Tools:**
+1. **Node.js 20+** - Required for all builds
+2. **WiX Toolset v3.11** (Windows only) - Required for MSI creation
+   - Download: https://github.com/wixtoolset/wix3/releases/tag/wix3112rtm
+   - Install `wix311.exe`
+   - Restart terminal after installation
+   - Verify: WiX binaries should be in PATH
+
+**Build Dependencies** (in package.json):
+```json
+{
+  "devDependencies": {
+    "png-to-ico": "^3.0.1",
+    "png2icons": "^2.0.1",
+    "sharp": "^0.34.4"
+  }
+}
+```
+
+**Helper Scripts:**
+- `scripts/convert-logo-to-ico.js` - Convert PNG to ICO
+- `scripts/create-mac-icon.js` - Create macOS .icns files
 
 ### ✅ forge.config.ts Updates
+
+**MSI Creation Enabled:**
+```typescript
+{
+  name: "@electron-forge/maker-squirrel",
+  config: {
+    name: "Applaa",
+    setupIcon: "./assets/icon/logo.ico",
+    noMsi: false  // ✅ Enables MSI creation (requires WiX Toolset)
+  }
+}
+```
 
 **Critical Inclusions**:
 ```typescript
@@ -294,12 +331,25 @@ Before building the EXE:
    npm test
    ```
 
-4. **Build the EXE**:
+4. **Build the EXE & MSI**:
    ```bash
-   npm run make
+   npm run make         # Standard build
+   npm run make:release # Auto-increment version + build
    ```
 
-5. **Test the EXE**:
+5. **Verify Build Outputs**:
+   ```
+   out/make/squirrel.windows/x64/
+   ├── ApplaaSetup.msi           (~141 MB) - Windows Installer
+   ├── Applaa-X.X.X Setup.exe    (~142 MB) - Squirrel Installer
+   ├── Applaa-X.X.X-full.nupkg   (~141 MB) - NuGet Package
+   └── RELEASES                  - Update manifest
+   
+   out/make/zip/win32/x64/
+   └── Applaa-win32-x64-X.X.X.zip - Portable version
+   ```
+
+6. **Test the installers**:
    - Install on fresh Windows VM
    - Create Expo app
    - Create web app
