@@ -25,17 +25,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLoadApp } from "@/hooks/useLoadApp";
 import { useDeepLink } from "@/contexts/DeepLinkContext";
 
-// @ts-ignore
-import supabaseLogoLight from "../../assets/supabase/supabase-logo-wordmark--light.svg";
-// @ts-ignore
-import supabaseLogoDark from "../../assets/supabase/supabase-logo-wordmark--dark.svg";
-// @ts-ignore
-import connectSupabaseDark from "../../assets/supabase/connect-supabase-dark.svg";
-// @ts-ignore
-import connectSupabaseLight from "../../assets/supabase/connect-supabase-light.svg";
-
 import { ExternalLink } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
+
+import supabaseLogoLight from "@/assets/supabase/supabase-logo-wordmark--light.svg";
+import supabaseLogoDark from "@/assets/supabase/supabase-logo-wordmark--dark.svg";
+import connectSupabaseDark from "@/assets/supabase/connect-supabase-dark.svg";
+import connectSupabaseLight from "@/assets/supabase/connect-supabase-light.svg";
 
 export function SupabaseConnector({ appId }: { appId: number }) {
   const { settings, refreshSettings } = useSettings();

@@ -108,7 +108,7 @@ const config: ForgeConfig = {
         authors: "Applaa Team",
         description: "Your local AI app builder with beautiful orange and green design",
         setupIcon: "./assets/icon/logo.ico",
-        noMsi: true,
+        noMsi: false,
       },
     },
     {

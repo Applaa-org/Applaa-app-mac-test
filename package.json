@@ -1,7 +1,7 @@
 {
   "name": "applaa",
   "productName": "Applaa",
-  "version": "1.0.1",
+  "version": "1.0.6",
   "description": "Applaa - Your local AI app builder with beautiful orange and green design",
   "main": ".vite/build/main.js",
   "repository": {
@@ -109,7 +109,10 @@
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
     "oxlint": "^1.8.0",
+    "png-to-ico": "^3.0.1",
+    "png2icons": "^2.0.1",
     "prettier": "3.5.3",
+    "sharp": "^0.34.4",
     "typescript": "^5.8.3",
     "vite": "^5.4.17",
     "vitest": "^3.1.1"

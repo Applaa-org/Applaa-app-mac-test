@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { NodeSystemInfo } from "@/ipc/ipc_types";
 import { usePostHog } from "posthog-js/react";
 import { useLanguageModelProviders } from "@/hooks/useLanguageModelProviders";
+import applaaLogo from "@/assets/applaa-logo-new.jpeg";
 type NodeInstallStep =
   | "install"
   | "waiting-for-continue"
@@ -103,7 +104,7 @@ export function SetupBanner() {
       <div className="flex flex-col items-center gap-3 mb-8">
         <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
           <img 
-            src="/assets/applaa-logo-new.jpeg" 
+            src={applaaLogo} 
             alt="Applaa Logo" 
             className="w-full h-full object-cover"
           />
