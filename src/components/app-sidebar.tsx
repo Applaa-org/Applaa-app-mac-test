@@ -7,7 +7,8 @@ import {
   BookOpenText,
   User,
   LogIn,
-  Target
+  Target,
+  Workflow
 } from "lucide-react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
@@ -71,6 +72,11 @@ const items = [
     to: "/docs",
     icon: BookOpenText,
   },
+  {
+    title: "Sim Studio",
+    to: "/simstudio",
+    icon: Workflow, // Workflow icon for AI agent workflows
+  },
 ];
 
 // Hover state types
@@ -122,6 +128,7 @@ export function AppSidebar() {
   const isSettingsRoute = routerState.location.pathname.startsWith("/settings");
   const isHubRoute = routerState.location.pathname.startsWith("/hub");
   const isDocsRoute = routerState.location.pathname.startsWith("/docs");
+  const isSimStudioRoute = routerState.location.pathname.startsWith("/simstudio");
 
   let selectedItem: string | null = null;
   if (hoverState === "start-hover:app") {
@@ -141,6 +148,8 @@ export function AppSidebar() {
       selectedItem = "Hub";
     } else if (isDocsRoute) {
       selectedItem = "Docs";
+    } else if (isSimStudioRoute) {
+      selectedItem = "Sim Studio";
     }
   }
 
