@@ -12,15 +12,15 @@ const SimStudioPage: React.FC = () => {
   const [iframeKey, setIframeKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Check if Sim Studio is running
+  // Check if AI Studio is running
   useEffect(() => {
     const checkSimStudio = async () => {
       try {
-        // Try to fetch the page - if it fails, Sim Studio isn't running
+        // Try to fetch the page - if it fails, AI Studio isn't running
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
         
-        console.log('🔍 Checking if Sim Studio is running at:', SIM_STUDIO_URL);
+        console.log('🔍 Checking if AI Studio is running at:', SIM_STUDIO_URL);
         const response = await fetch(SIM_STUDIO_URL, { 
           method: 'HEAD',
           mode: 'no-cors',
@@ -28,11 +28,11 @@ const SimStudioPage: React.FC = () => {
         });
         
         clearTimeout(timeoutId);
-        console.log('✅ Sim Studio is reachable');
+        console.log('✅ AI Studio is reachable');
         setIsLoading(false);
         setHasError(false);
       } catch (error) {
-        console.error('❌ Sim Studio check failed:', error);
+        console.error('❌ AI Studio check failed:', error);
         setIsLoading(false);
         setHasError(true);
       }
@@ -100,7 +100,7 @@ const SimStudioPage: React.FC = () => {
             Go Back
           </Button>
           <div>
-            <h1 className="text-xl font-bold">Sim Studio</h1>
+            <h1 className="text-xl font-bold">AI Studio</h1>
             <p className="text-sm text-muted-foreground">
               AI Agent Workflow Builder
             </p>
@@ -134,9 +134,9 @@ const SimStudioPage: React.FC = () => {
         {hasError ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center p-8 max-w-2xl">
-              <h2 className="text-2xl font-bold mb-2">Sim Studio is not running</h2>
+              <h2 className="text-2xl font-bold mb-2">AI Studio is not running</h2>
               <p className="text-muted-foreground mb-4">
-                Please start Sim Studio first:
+                Please start AI Studio first:
               </p>
               <div className="bg-muted p-4 rounded-lg text-left font-mono text-sm mb-4">
                 <div className="mb-2 font-semibold">Option 1: NPM Package (Recommended)</div>
@@ -147,7 +147,7 @@ const SimStudioPage: React.FC = () => {
                 </div>
               </div>
               <div className="text-sm text-muted-foreground mb-4">
-                Sim Studio should be running on <code className="bg-muted px-2 py-1 rounded">{SIM_STUDIO_URL}</code>
+                AI Studio should be running on <code className="bg-muted px-2 py-1 rounded">{SIM_STUDIO_URL}</code>
               </div>
               <Button onClick={handleRefresh} variant="default">
                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -163,7 +163,7 @@ const SimStudioPage: React.FC = () => {
             className="w-full h-full border-0 bg-white dark:bg-gray-950"
             title="AI Studio"
             onLoad={(e) => {
-              console.log('✅ Sim Studio iframe onLoad event fired');
+              console.log('✅ AI Studio iframe onLoad event fired');
               console.log('📦 Iframe src:', e.currentTarget.src);
               setIsLoading(false);
               setHasError(false);
@@ -179,7 +179,7 @@ const SimStudioPage: React.FC = () => {
               }
             }}
             onError={(e) => {
-              console.error('❌ Sim Studio iframe onError event fired:', e);
+              console.error('❌ AI Studio iframe onError event fired:', e);
               setIsLoading(false);
               setHasError(true);
             }}
@@ -195,7 +195,7 @@ const SimStudioPage: React.FC = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-background/80">
             <div className="text-center">
               <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2 text-muted-foreground" />
-              <p className="text-muted-foreground">Loading Sim Studio...</p>
+              <p className="text-muted-foreground">Loading AI Studio...</p>
             </div>
           </div>
         )}

@@ -294,11 +294,11 @@ const createWindow = () => {
 
   // 🚀 COOP/COEP headers for WASM threads/WebGPU support (Whisper optimization)
   // Only apply in production to avoid blob URL issues in development
-  // Also modify CSP headers for Sim Studio to allow iframe embedding
+  // Also modify CSP headers for AI Studio to allow iframe embedding
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
     
-    // Modify CSP headers for Sim Studio (localhost:3000) to allow iframe embedding
+    // Modify CSP headers for AI Studio (localhost:3000) to allow iframe embedding
     const isSimStudio = details.url.startsWith('http://localhost:3000') || 
                         details.url.startsWith('http://127.0.0.1:3000');
     
@@ -325,7 +325,7 @@ const createWindow = () => {
         }
         
         responseHeaders[cspHeaderKey] = [modifiedCsp];
-        log.info('🔧 Modified CSP headers for Sim Studio to allow iframe embedding');
+        log.info('🔧 Modified CSP headers for AI Studio to allow iframe embedding');
       }
       
       // Also remove X-Frame-Options if present (case-insensitive)
@@ -335,7 +335,7 @@ const createWindow = () => {
       
       if (xFrameOptionsKey) {
         delete responseHeaders[xFrameOptionsKey];
-        log.info('🔧 Removed X-Frame-Options header for Sim Studio');
+        log.info('🔧 Removed X-Frame-Options header for AI Studio');
       }
     }
     

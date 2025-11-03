@@ -73,7 +73,7 @@ const items = [
     icon: BookOpenText,
   },
   {
-    title: "Sim Studio",
+    title: "AI Studio",
     to: "/simstudio",
     icon: Workflow, // Workflow icon for AI agent workflows
   },
@@ -149,7 +149,7 @@ export function AppSidebar() {
     } else if (isDocsRoute) {
       selectedItem = "Docs";
     } else if (isSimStudioRoute) {
-      selectedItem = "Sim Studio";
+      selectedItem = "AI Studio";
     }
   }
 
