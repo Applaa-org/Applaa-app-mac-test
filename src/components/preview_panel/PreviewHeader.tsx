@@ -2,6 +2,8 @@ import { useAtom, useAtomValue } from "jotai";
 import { previewModeAtom, selectedAppIdAtom, showConfigurePanelAtom } from "../../atoms/appAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useCheckProblems } from "@/hooks/useCheckProblems";
+import { useExpoUrl } from "@/hooks/useExpoUrl";
+import QRCode from 'qrcode';
 
 import {
   Eye,
@@ -14,6 +16,7 @@ import {
   Palette,
   PanelLeftOpen,
   PanelLeftClose,
+  QrCode,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -74,8 +77,65 @@ export const PreviewHeader = ({
   const [showConfigurePanel, setShowConfigurePanel] = useAtom(showConfigurePanelAtom);
 
   const { restartApp, refreshAppIframe } = useRunApp();
+  const { expoUrl } = useExpoUrl();
+  
+  // Expo QR Code state
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [expoStatus, setExpoStatus] = useState<{
+    isRunning: boolean;
+    tunnelUrl?: string;
+    qrUrl?: string;
+    lanUrl?: string;
+  }>({ isRunning: false });
+  const lastQrUrlRef = useRef<string>('');
 
   const isCompact = windowWidth < 860;
+  
+  // Get Expo status and generate QR code for Expo apps
+  useEffect(() => {
+    if (!isExpoApp || !selectedAppId) {
+      setQrCodeDataUrl('');
+      lastQrUrlRef.current = '';
+      return;
+    }
+
+    const checkExpoStatus = async () => {
+      try {
+        const ipcClient = IpcClient.getInstance();
+        const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
+        setExpoStatus(status);
+        
+        // Generate QR code if we have a tunnel or LAN URL
+        const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
+        if (qrUrl && qrUrl !== lastQrUrlRef.current) {
+          lastQrUrlRef.current = qrUrl;
+          try {
+            const qrDataUrl = await QRCode.toDataURL(qrUrl, {
+              width: 300,
+              margin: 2,
+              color: { dark: '#000000', light: '#ffffff' }
+            });
+            setQrCodeDataUrl(qrDataUrl);
+          } catch (error) {
+            console.error('Failed to generate QR code:', error);
+          }
+        } else if (!qrUrl) {
+          lastQrUrlRef.current = '';
+          setQrCodeDataUrl('');
+        }
+      } catch (error) {
+        console.error('Failed to get Expo status:', error);
+      }
+    };
+
+    // Check immediately
+    checkExpoStatus();
+    
+    // Poll every 2 seconds
+    const interval = setInterval(checkExpoStatus, 2000);
+    return () => clearInterval(interval);
+  }, [isExpoApp, selectedAppId]);
 
   // Track window width
   useEffect(() => {
@@ -249,6 +309,18 @@ export const PreviewHeader = ({
           {/* Design button removed for MVP */}
         </div>
         <div className="flex items-center gap-2">
+          {/* QR Code button for Expo apps - aligned with Publish button */}
+          {isExpoApp && qrCodeDataUrl && (
+            <button
+              onClick={() => setShowQRModal(true)}
+              className="no-app-region-drag flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              title="Show QR Code"
+            >
+              <QrCode size={14} />
+              <span>QR Code</span>
+            </button>
+          )}
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -282,6 +354,45 @@ export const PreviewHeader = ({
           </DropdownMenu>
         </div>
       </div>
+      
+      {/* QR Code Modal */}
+      {showQRModal && qrCodeDataUrl && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
+          onClick={() => setShowQRModal(false)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-semibold mb-4 text-center">Scan to Test on Device</h3>
+            <div className="bg-white p-4 rounded-lg">
+              <img src={qrCodeDataUrl} alt="QR Code" className="w-full h-auto" />
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center break-all">
+              {expoStatus.tunnelUrl || expoStatus.qrUrl || expoStatus.lanUrl}
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Close
+              </button>
+              {(expoStatus.tunnelUrl || expoStatus.qrUrl) && (
+                <button
+                  onClick={() => {
+                    window.open(expoStatus.tunnelUrl || expoStatus.qrUrl, '_blank');
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                >
+                  Open
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </TooltipProvider>
   );
 };

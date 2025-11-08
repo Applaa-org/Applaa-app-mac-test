@@ -14,7 +14,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { selectedAppIdAtom, previewModeAtom } from '@/atoms/appAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
-import { Loader2, QrCode, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, Terminal } from 'lucide-react';
+import { Loader2, QrCode, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, Terminal, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import QRCode from 'qrcode';
 import { useCheckProblems } from '@/hooks/useCheckProblems';
@@ -99,11 +99,103 @@ export function SnackPoweredPreview() {
   const [validationStatus, setValidationStatus] = useState<'validating' | 'valid' | 'has-errors' | 'auto-fixed'>('validating');
   const [startupProgress, setStartupProgress] = useState<string>('');
   
+  // CLI Monitor State
+  const [showCliMonitor, setShowCliMonitor] = useState(false);
+  const [cliOutput, setCliOutput] = useState<string[]>([]);
+  const cliOutputRef = useRef<HTMLDivElement>(null);
+  
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const hasStartedRef = useRef<boolean>(false);
   const startingRef = useRef<boolean>(false);
+  const previousAppIdRef = useRef<number | null>(null);
+  
+  /**
+   * Log message to CLI monitor
+   */
+  const logToMonitor = useCallback((message: string, type: 'info' | 'error' | 'success' | 'command' = 'info') => {
+    const timestamp = new Date().toLocaleTimeString();
+    const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'command' ? '>' : 'ℹ️';
+    const formattedMessage = `[${timestamp}] ${prefix} ${message}`;
+    
+    setCliOutput(prev => [...prev.slice(-100), formattedMessage]); // Keep last 100 lines
+    
+    // Auto-scroll to bottom
+    setTimeout(() => {
+      if (cliOutputRef.current) {
+        cliOutputRef.current.scrollTop = cliOutputRef.current.scrollHeight;
+      }
+    }, 10);
+  }, []);
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  
+  /**
+   * Poll Expo terminal output for CLI Monitor
+   */
+  useEffect(() => {
+    if (!selectedAppId || !expoStatus.isRunning) return;
+    
+    const pollTerminalOutput = async () => {
+      try {
+        const ipcClient = IpcClient.getInstance();
+        const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
+        
+        if (status.terminalOutput) {
+          const lines = status.terminalOutput.trim().split('\n').slice(-5); // Last 5 lines
+          lines.forEach(line => {
+            if (line.trim() && !cliOutput.includes(line)) {
+              const timestamp = new Date().toLocaleTimeString();
+              setCliOutput(prev => [...prev.slice(-95), `[${timestamp}] ${line}`]); // Keep last 100
+            }
+          });
+        }
+      } catch (error) {
+        // Silently fail - polling issue
+      }
+    };
+    
+    // Poll every 2 seconds
+    const interval = setInterval(pollTerminalOutput, 2000);
+    return () => clearInterval(interval);
+  }, [selectedAppId, expoStatus.isRunning]); // ✅ FIXED: Removed cliOutput from deps to prevent infinite loop
+  
+  /**
+   * Restart Expo server (full rebuild)
+   */
+  const restartExpoPreview = useCallback(async () => {
+    if (!selectedAppId) return;
+    
+    logToMonitor('Restarting Expo server (full rebuild)...', 'command');
+    setIsLoading(true);
+    setStartupProgress('Stopping current server...');
+    
+    try {
+      const ipcClient = IpcClient.getInstance();
+      
+      // Stop current server
+      await ipcClient.expoStop({ appId: selectedAppId });
+      logToMonitor('Server stopped', 'success');
+      
+      // Clear state
+      setPreviewUrl(null);
+      setExpoStatus({ isRunning: false });
+      setConnectionStatus('disconnected');
+      hasStartedRef.current = false;
+      startingRef.current = false;
+      setIframeKey(prev => prev + 1);
+      
+      // Wait a bit for cleanup
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Start fresh
+      logToMonitor('Starting fresh server...', 'command');
+      await startExpoPreview();
+    } catch (error) {
+      console.error('❌ Restart failed:', error);
+      logToMonitor(`Restart failed: ${error.message}`, 'error');
+      setIsLoading(false);
+    }
+  }, [selectedAppId]);
   
   /**
    * Start Expo server
@@ -129,8 +221,37 @@ export function SnackPoweredPreview() {
       setIsLoading(true);
       setStartupProgress('Starting Expo server...');
       console.log('🚀 Starting Expo preview for app:', selectedAppId);
+      logToMonitor('Starting Expo server...', 'command');
       
       const ipcClient = IpcClient.getInstance();
+      
+      // First check if Expo is already running
+      try {
+        logToMonitor('Checking Expo server status...', 'info');
+        const currentStatus = await ipcClient.getExpoStatus({ appId: selectedAppId });
+        if (currentStatus.isRunning && currentStatus.webUrl) {
+          console.log('✅ Expo already running with URL:', currentStatus.webUrl);
+          logToMonitor(`Expo already running: ${currentStatus.webUrl}`, 'success');
+          setPreviewUrl(currentStatus.webUrl);
+          setExpoStatus(currentStatus);
+          setConnectionStatus('connected');
+          hasStartedRef.current = true;
+          setIsLoading(false);
+          startingRef.current = false;
+          
+          // Generate QR code if available
+          const qrUrl = currentStatus.tunnelUrl || currentStatus.qrUrl || currentStatus.lanUrl;
+          if (qrUrl) {
+            await generateQRCode(qrUrl);
+          }
+          return;
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not check Expo status, proceeding with start:', error);
+        logToMonitor('Could not check status, starting fresh...', 'info');
+      }
+      
+      logToMonitor('Launching Expo server on port 8081...', 'command');
       const result = await ipcClient.expoStart({
         appId: selectedAppId,
         useTunnel: true,
@@ -138,6 +259,7 @@ export function SnackPoweredPreview() {
       });
       
       console.log('📊 Expo start result:', JSON.stringify(result, null, 2));
+      logToMonitor(result.isRunning ? 'Expo process started' : 'Waiting for Expo...', 'success');
       
       // ✅ FIX: Expo returns isRunning=true but empty URLs initially
       // URLs are populated asynchronously as Expo output is parsed
@@ -145,6 +267,7 @@ export function SnackPoweredPreview() {
       if (result.isRunning) {
         setStartupProgress('Expo started, waiting for preview URL...');
         console.log('⏳ Expo started, polling for URLs...');
+        logToMonitor('Waiting for Metro bundler to start...', 'info');
         let attempts = 0;
         const maxAttempts = 30; // 30 seconds max wait
         
@@ -157,8 +280,10 @@ export function SnackPoweredPreview() {
             setStartupProgress(`Initializing Expo... (${attempts}s)`);
           } else if (attempts <= 15) {
             setStartupProgress(`Building app bundle... (${attempts}s)`);
+          } else if (attempts <= 25) {
+            setStartupProgress(`Metro bundler is building... (${attempts}s)`);
           } else {
-            setStartupProgress(`Almost ready... (${attempts}s)`);
+            setStartupProgress(`This is taking longer than usual... (${attempts}s)`);
           }
           
           console.log(`🔍 Poll attempt ${attempts}:`, {
@@ -175,6 +300,7 @@ export function SnackPoweredPreview() {
             setConnectionStatus('connected');
             hasStartedRef.current = true;
             console.log('✅ Preview URL ready:', status.webUrl);
+            logToMonitor(`Preview ready: ${status.webUrl}`, 'success');
             
             // ✅ FIX: Generate QR code for tunnel or LAN URL
             const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
@@ -188,14 +314,62 @@ export function SnackPoweredPreview() {
             return true;
           }
           
+          // ✅ FALLBACK: After 10 attempts, try localhost:8081 directly
+          if (attempts >= 10 && !status.webUrl) {
+            console.log('🔍 No webUrl yet, trying localhost:8081 directly...');
+            logToMonitor('Checking if Metro is ready on localhost:8081...', 'info');
+            
+            try {
+              // Try to fetch from localhost:8081 to see if Metro is ready
+              const testUrl = 'http://localhost:8081';
+              const response = await fetch(`${testUrl}/status`, { signal: AbortSignal.timeout(2000) });
+              
+              if (response.ok) {
+                console.log('✅ Metro is responding on localhost:8081!');
+                logToMonitor('Metro bundler detected on localhost:8081', 'success');
+                
+                // Use localhost:8081 as the preview URL
+                setStartupProgress('Preview ready! Loading...');
+                setPreviewUrl(testUrl);
+                setExpoStatus({
+                  ...status,
+                  webUrl: testUrl,
+                  isRunning: true
+                });
+                setConnectionStatus('connected');
+                hasStartedRef.current = true;
+                
+                // Generate QR code if available
+                const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
+                if (qrUrl) {
+                  await generateQRCode(qrUrl);
+                }
+                
+                setStartupProgress('');
+                return true;
+              }
+            } catch (error) {
+              console.log('⏳ Metro not ready yet on localhost:8081:', error.message);
+            }
+          }
+          
           if (attempts >= maxAttempts) {
-            console.warn('⚠️ Timeout waiting for Expo URL');
-            setStartupProgress('');
+            console.warn('⚠️ Timeout waiting for Expo URL (30s)');
+            logToMonitor('Metro bundler timeout - localhost:8081 not responding', 'error');
+            setStartupProgress('Metro bundler timed out - dependencies may be broken');
+            
+            // Reset state so START button shows again
+            setIsLoading(false);
+            startingRef.current = false;
+            hasStartedRef.current = false;
+            
             setExpoStatus(prev => ({
               ...prev,
               buildStatus: 'error',
-              error: 'Timeout: Expo server did not provide preview URL. Try restarting.'
+              error: 'Timeout: Metro not responding on localhost:8081. Check dependencies in package.json.'
             }));
+            
+            logToMonitor('Try clicking Restart or check package.json for broken dependencies', 'error');
             return false;
           }
           
@@ -264,6 +438,36 @@ export function SnackPoweredPreview() {
     }
   }, [selectedAppId, expoStatus.lastHotReload]);
   
+  // ✅ RESET STATE: When app changes, reset state but DON'T auto-start
+  useEffect(() => {
+    if (!selectedAppId) return;
+    
+    // Check if app changed
+    if (previousAppIdRef.current !== null && previousAppIdRef.current !== selectedAppId) {
+      console.log(`🔄 App changed from ${previousAppIdRef.current} to ${selectedAppId}`);
+      logToMonitor(`Switched to app ${selectedAppId} - click Start to preview`, 'info');
+      
+      // Reset state for new app
+      hasStartedRef.current = false;
+      startingRef.current = false;
+      setPreviewUrl(null);
+      setExpoStatus({ isRunning: false });
+      setConnectionStatus('disconnected');
+      setIframeKey(prev => prev + 1);
+      setCliOutput([]); // Clear CLI logs
+      setIsLoading(false);
+      setValidationStatus('validating');
+      
+      // ✅ DON'T auto-start - user will click START button
+    } else if (previousAppIdRef.current === null) {
+      // First time loading
+      console.log(`🚀 Initial app load: ${selectedAppId}`);
+      logToMonitor(`App ${selectedAppId} loaded - click Start to preview`, 'info');
+    }
+    
+    previousAppIdRef.current = selectedAppId;
+  }, [selectedAppId]);
+  
   // ✅ SIMPLIFIED: Only validate when app changes, not on every checkProblems update
   useEffect(() => {
     if (!selectedAppId) return;
@@ -271,11 +475,11 @@ export function SnackPoweredPreview() {
     console.log('🔄 App changed, starting validation...');
     setValidationStatus('validating');
     
-    // Set a shorter timeout to prevent getting stuck
+    // Set a shorter timeout to prevent getting stuck - allow preview to start even if validation is slow
     const validationTimeout = setTimeout(() => {
-      console.log('⏰ Validation timeout (5s) - allowing preview to proceed');
+      console.log('⏰ Validation timeout (3s) - allowing preview to proceed');
       setValidationStatus('valid');
-    }, 5000); // 5 second timeout - much shorter
+    }, 3000); // 3 second timeout - even shorter to prevent blocking
     
     // Run validation check with error handling
     checkProblems().then(() => {
@@ -297,30 +501,44 @@ export function SnackPoweredPreview() {
       // Only show validating if we haven't timed out yet
       setValidationStatus(prev => prev === 'validating' ? 'validating' : 'validating');
     } else if (problemReport) {
-      // ✅ SIMPLIFIED: If there are ANY problems, consider it as having errors
-      // TypeScript errors all have numeric codes, and all should be fixed
-      const totalProblems = problemReport.problems?.length || 0;
+      // ✅ SIMPLIFIED: Only block on compile-time errors, not runtime errors
+      // Runtime errors (like Haptics) are caught at runtime and can be auto-fixed
+      const compileTimeErrors = problemReport.problems?.filter(p => 
+        p.source !== 'runtime' && // Exclude runtime errors
+        (p.code >= 2000 || p.severity === 'error') // TypeScript errors or explicit errors
+      ) || [];
       
-      console.log(`📊 Problem Report: ${totalProblems} problems found`);
+      const totalProblems = problemReport.problems?.length || 0;
+      const compileTimeErrorCount = compileTimeErrors.length;
+      
+      console.log(`📊 Problem Report: ${totalProblems} total problems, ${compileTimeErrorCount} compile-time errors`);
       console.log(`📋 Problems details:`, problemReport.problems);
       
-      if (totalProblems === 0) {
-        // Scenario A: Valid code - ready for preview
+      if (compileTimeErrorCount === 0) {
+        // Scenario A: No compile-time errors - ready for preview
+        // Runtime errors won't block preview (they're caught at runtime)
         setValidationStatus('valid');
-        console.log('✅ SCENARIO A: No problems, ready for preview');
-      } else {
-        // Scenario C: Has problems - block preview
-        setValidationStatus('has-errors');
-        console.log(`⚠️ SCENARIO C: ${totalProblems} problems found, preview blocked`);
+        console.log('✅ SCENARIO A: No compile-time errors, ready for preview');
         
-        // Log problem details for debugging
-        problemReport.problems?.forEach((problem, index) => {
-          console.log(`  Problem ${index + 1}:`, {
+        // Log runtime errors if any (for debugging, but don't block)
+        const runtimeErrors = problemReport.problems?.filter(p => p.source === 'runtime') || [];
+        if (runtimeErrors.length > 0) {
+          console.log(`ℹ️ ${runtimeErrors.length} runtime error(s) detected (won't block preview):`, runtimeErrors);
+        }
+      } else {
+        // Scenario C: Has compile-time errors - block preview
+        setValidationStatus('has-errors');
+        console.log(`⚠️ SCENARIO C: ${compileTimeErrorCount} compile-time error(s) found, preview blocked`);
+        
+        // Log compile-time error details for debugging
+        compileTimeErrors.forEach((problem, index) => {
+          console.log(`  Compile-time Error ${index + 1}:`, {
             message: problem.message,
             code: problem.code,
             severity: problem.severity,
             file: problem.file,
-            line: problem.line
+            line: problem.line,
+            autoFixable: problem.autoFixable
           });
         });
       }
@@ -331,20 +549,15 @@ export function SnackPoweredPreview() {
     }
   }, [problemReport, isChecking]);
   
-  // Auto-start ONLY if validation passed and not already started
+  // ✅ REMOVED: Auto-start logic - user will click START button instead
+  // Cleanup interval on unmount
   useEffect(() => {
-    if (selectedAppId && validationStatus === 'valid' && !hasStartedRef.current && !startingRef.current) {
-      console.log('🎯 Auto-starting Expo preview after validation passed');
-      startExpoPreview();
-    }
-
     return () => {
       if (statusCheckInterval.current) {
         clearInterval(statusCheckInterval.current);
       }
-      // ✅ Don't reset refs on cleanup - they should persist across re-renders
     };
-  }, [selectedAppId, validationStatus, startExpoPreview]);
+  }, []);
   
   // Poll status
   useEffect(() => {
@@ -365,6 +578,24 @@ export function SnackPoweredPreview() {
     true
   );
   
+  // ✅ DISABLED: Debug logging (causing console spam)
+  // useEffect(() => {
+  //   console.log('🔍 SnackPoweredPreview Debug State:', {
+  //     selectedAppId,
+  //     validationStatus,
+  //     isLoading,
+  //     previewUrl: previewUrl ? 'set' : 'null',
+  //     expoStatus: {
+  //       isRunning: expoStatus.isRunning,
+  //       webUrl: expoStatus.webUrl || 'empty',
+  //       buildStatus: expoStatus.buildStatus
+  //     },
+  //     hasStarted: hasStartedRef.current,
+  //     starting: startingRef.current,
+  //     startupProgress
+  //   });
+  // }, [selectedAppId, validationStatus, isLoading, previewUrl, expoStatus, startupProgress]);
+
   if (!selectedAppId) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -427,33 +658,22 @@ export function SnackPoweredPreview() {
           >
             <RefreshCw className="w-4 h-4" />
           </Button>
-          
-          <Button
-            variant="default" 
-            size="sm"
-            onClick={() => setShowQR(true)}
-            disabled={!qrCodeDataUrl}
-            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <QrCode className="w-4 h-4 mr-1" />
-            QR Code
-          </Button>
-          
         </div>
       </div>
       
       {/* Tabs - Exact Snack Style */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-        <button
-          onClick={() => setActiveTab('mydevice')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === 'mydevice'
-              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-          }`}
-        >
-          My Device
-        </button>
+      <div className="flex items-center justify-between gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setActiveTab('mydevice')}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'mydevice'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            My Device
+          </button>
         <button
           onClick={() => setActiveTab('android')}
           className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -474,22 +694,75 @@ export function SnackPoweredPreview() {
         >
           iOS
         </button>
+          <button
+            onClick={() => setActiveTab('web')}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'web'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            Web
+          </button>
+        </div>
+        
+        {/* Restart Button */}
         <button
-          onClick={() => setActiveTab('web')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === 'web'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-          }`}
+          onClick={restartExpoPreview}
+          disabled={isLoading}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Restart & Rebuild"
         >
-          Web
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          {isLoading ? 'Building...' : 'Restart'}
         </button>
       </div>
       
       {/* Preview Area */}
       <div className="flex-1 relative bg-gray-100 dark:bg-gray-900 overflow-hidden">
-        {/* ✅ SCENARIO C: Block preview if validation failed */}
-        {validationStatus === 'has-errors' && problemReport ? (
+        {/* ✅ SCENARIO A: Show START button when preview not started (ignore validation) */}
+        {!hasStartedRef.current && !isLoading ? (
+          <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+            <div className="text-center max-w-md px-8">
+              {/* App Icon */}
+              <div className="w-20 h-20 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                Ready to Preview
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-8">
+                Click start to build and preview your app
+              </p>
+              
+              {/* START Button */}
+              <button
+                onClick={() => {
+                  hasStartedRef.current = false;
+                  startingRef.current = false;
+                  startExpoPreview();
+                }}
+                className="group relative px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              >
+                <span className="flex items-center gap-3">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Start Preview
+                </span>
+              </button>
+              
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-6">
+                First build may take 30-60 seconds
+              </p>
+            </div>
+          </div>
+        ) : validationStatus === 'has-errors' && problemReport ? (
+          /* ✅ SCENARIO C: Block preview if validation failed */
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">
             <div className="text-center max-w-md p-8">
               <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -510,17 +783,26 @@ export function SnackPoweredPreview() {
                 </Button>
                 <Button
                   onClick={async () => {
-                    console.log('🔧 Manual auto-fix triggered');
+                    console.log('🔧 Manual Haptics auto-fix triggered');
                     setValidationStatus('validating');
                     
                     try {
-                      // Try to trigger auto-fix by calling the problems handler directly
                       const ipcClient = IpcClient.getInstance();
-                      await ipcClient.checkProblems({ appId: selectedAppId });
                       
-                      // Re-check problems after auto-fix attempt
-                      await checkProblems();
-                      console.log('✅ Re-validation after manual auto-fix trigger');
+                      // ✅ DIRECT: Call the manual Haptics fix handler
+                      const fixResult = await ipcClient.fixHapticsProblems({ appId: selectedAppId });
+                      
+                      if (fixResult.success) {
+                        console.log('✅ Haptics auto-fix completed:', fixResult.message);
+                        console.log('📝 Files modified:', fixResult.filesModified);
+                        
+                        // Re-check problems after auto-fix
+                        await checkProblems();
+                        console.log('✅ Re-validation after manual auto-fix');
+                      } else {
+                        console.warn('⚠️ Auto-fix returned:', fixResult.message);
+                        setValidationStatus('has-errors');
+                      }
                     } catch (error) {
                       console.error('❌ Auto-fix failed:', error);
                       setValidationStatus('has-errors');
@@ -531,7 +813,7 @@ export function SnackPoweredPreview() {
                   disabled={isChecking}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isChecking ? 'animate-spin' : ''}`} />
-                  {isChecking ? 'Auto-Fixing...' : 'Try Auto-Fix'}
+                  {isChecking ? 'Auto-Fixing...' : 'Fix Haptics Now'}
                 </Button>
               </div>
               
@@ -627,10 +909,36 @@ export function SnackPoweredPreview() {
                 title="Expo Web Preview"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                 allow="camera; microphone; geolocation"
+                onError={(e) => {
+                  console.error('❌ Iframe load error:', e);
+                }}
+                onLoad={() => {
+                  console.log('✅ Iframe loaded successfully');
+                }}
               />
+            ) : isLoading || startupProgress ? (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                  <p className="text-sm">{startupProgress || 'Starting preview...'}</p>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
-                No preview URL available
+                <div className="text-center">
+                  <p className="text-sm mb-2">No preview URL available</p>
+                  <Button
+                    onClick={() => {
+                      hasStartedRef.current = false;
+                      startingRef.current = false;
+                      startExpoPreview();
+                    }}
+                    disabled={isLoading}
+                    className="mt-2"
+                  >
+                    {isLoading ? 'Starting...' : 'Start Preview'}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -769,6 +1077,52 @@ export function SnackPoweredPreview() {
           </div>
         </div>
       )}
+      
+      {/* CLI Monitor Panel */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-40">
+        {/* Header */}
+        <button
+          onClick={() => setShowCliMonitor(!showCliMonitor)}
+          className="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-800 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Terminal className="w-4 h-4 text-green-400" />
+            <span className="text-sm font-medium text-gray-200">CLI Monitor</span>
+            <span className="text-xs text-gray-500">
+              ({cliOutput.length} logs)
+            </span>
+            {expoStatus.isRunning && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-green-400">Running on :8081</span>
+              </div>
+            )}
+          </div>
+          <div className="text-gray-400">
+            {showCliMonitor ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          </div>
+        </button>
+        
+        {/* CLI Output */}
+        {showCliMonitor && (
+          <div 
+            ref={cliOutputRef}
+            className="max-h-64 overflow-y-auto px-4 py-2 font-mono text-xs text-gray-300 bg-black/50 space-y-0.5"
+          >
+            {cliOutput.length === 0 ? (
+              <div className="text-gray-500 text-center py-4">
+                No logs yet. CLI activity will appear here.
+              </div>
+            ) : (
+              cliOutput.map((line, index) => (
+                <div key={index} className="whitespace-pre-wrap break-all">
+                  {line}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </PreviewWithDevTools>
   );
 }

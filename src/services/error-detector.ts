@@ -27,10 +27,12 @@ export class ErrorDetector {
       return null;
     }
 
-    const message = error.message.toLowerCase();
+    const message = error.message;
+    const messageLower = message.toLowerCase();
 
-    // Haptics API Error Detection
-    if (message.includes('haptic') && message.includes('not available on web')) {
+    // Haptics API Error Detection - Match both "Haptic" and "Haptics" (case-insensitive)
+    if (messageLower.includes('haptic') && 
+        (messageLower.includes('not available on web') || messageLower.includes('not available'))) {
       return {
         type: 'haptics',
         severity: 'high',

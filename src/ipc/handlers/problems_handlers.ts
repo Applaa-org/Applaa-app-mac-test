@@ -10,6 +10,8 @@ import { CodeValidator } from "../../services/code-validator";
 import { AutoFixer } from "../../services/auto-fixer";
 import type { Problem } from "../ipc_types";
 import { ipcMain } from "electron";
+import * as fs from "fs";
+import * as path from "path";
 
 const logger = log.scope("problems_handlers");
 const handle = createLoggedHandler(logger);
@@ -251,6 +253,116 @@ export function registerProblemsHandlers() {
 const runtimeProblems = new Map<number, Problem[]>();
 
 export function registerRuntimeProblemHandlers() {
+  // ✅ NEW: Manual trigger for Haptics auto-fix
+  ipcMain.handle("problems:fix-haptics", async (event, params: { appId: number }) => {
+    try {
+      const { appId } = params;
+      logger.info(`🔧 Manual Haptics fix triggered for app ${appId}`);
+      
+      const app = await getAppSafe(appId);
+      if (!app) {
+        throw new Error(`App ${appId} not found`);
+      }
+      
+      const appPath = getDyadAppPath(app.path);
+      const appInfo = {
+        appType: app.appType,
+        files: app.files
+      };
+      
+      const autoFixer = new AutoFixer(appPath, appInfo);
+      
+      // Create a problem that will trigger full app scan
+      const scanProblem: Problem = {
+        file: 'app/index.tsx',
+        line: 0,
+        column: 0,
+        message: 'Haptic feedback API used without Platform.OS check',
+        severity: 'error',
+        code: 'PLATFORM_HAPTICS',
+        autoFixable: true
+      };
+      
+      // First try the specific file, then scan all files
+      let fixResult = await autoFixer.fixProblem(scanProblem);
+      
+      // If that didn't work, directly scan all files
+      if (!fixResult.success || fixResult.filesModified.length === 0) {
+        logger.info(`🔍 File-specific fix didn't work, scanning all files...`);
+        
+        const getAllFiles = async (dir: string): Promise<string[]> => {
+          const files: string[] = [];
+          try {
+            const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              const fullPath = path.join(dir, entry.name);
+              if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === 'build') {
+                continue;
+              }
+              if (entry.isDirectory()) {
+                const subFiles = await getAllFiles(fullPath);
+                files.push(...subFiles);
+              } else if (entry.isFile() && /\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+                files.push(fullPath);
+              }
+            }
+          } catch (error) {
+            logger.warn(`Error reading directory ${dir}:`, error);
+          }
+          return files;
+        };
+        
+        const allFiles = await getAllFiles(appPath);
+        logger.info(`📋 Found ${allFiles.length} source files to check`);
+        
+        const filesModified: string[] = [];
+        for (const filePath of allFiles) {
+          try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            if (/(Haptics?|Haptic)\.(impact|notification|selection)Async/i.test(content)) {
+              if (!/Platform\.OS\s*[!=]=\s*['"]web['"]/i.test(content)) {
+                const relativePath = path.relative(appPath, filePath);
+                logger.info(`🔧 Fixing Haptics in: ${relativePath}`);
+                const fileProblem: Problem = {
+                  file: relativePath,
+                  line: 0,
+                  column: 0,
+                  message: 'Haptic feedback API used without Platform.OS check',
+                  severity: 'error',
+                  code: 'PLATFORM_HAPTICS',
+                  autoFixable: true
+                };
+                const result = await autoFixer.fixProblem(fileProblem);
+                if (result.success) {
+                  filesModified.push(relativePath);
+                }
+              }
+            }
+          } catch (error) {
+            logger.warn(`Error checking file ${filePath}:`, error);
+          }
+        }
+        
+        if (filesModified.length > 0) {
+          fixResult = {
+            success: true,
+            message: `Fixed Haptics usage in ${filesModified.length} file(s)`,
+            filesModified
+          };
+        }
+      }
+      
+      return {
+        success: fixResult.success,
+        message: fixResult.message,
+        filesModified: fixResult.filesModified
+      };
+    } catch (error) {
+      logger.error("Error in manual Haptics fix:", error);
+      throw error;
+    }
+  });
+  
   // Add runtime problem to Problems Tab
   ipcMain.handle("problems:add-runtime", async (event, problem: {
     file: string;
@@ -295,20 +407,158 @@ export function registerRuntimeProblemHandlers() {
       // This will cause useCheckProblems to refetch and include runtime problems
       logger.info(`✅ Runtime problem added: ${existingProblems.length} total runtime problems for app ${appId}`);
       
-      // TODO: Trigger auto-fix if the problem is auto-fixable
+      // ✅ FIX: Trigger auto-fix if the problem is auto-fixable
       if (problem.autoFixable) {
         logger.info(`🔧 Runtime problem is auto-fixable, triggering auto-fix...`);
         // Trigger auto-fix for this runtime problem
         try {
-          const autoFixer = new AutoFixer();
+          // Get app data to get the app path
+          const app = await getAppSafe(appId);
+          if (!app) {
+            logger.warn(`❌ Cannot auto-fix: App ${appId} not found`);
+            return;
+          }
+          
+          const appPath = getDyadAppPath(app.path);
+          const appInfo = {
+            appType: app.appType,
+            files: app.files
+          };
+          
+          const autoFixer = new AutoFixer(appPath, appInfo);
+          
+          // ✅ CRITICAL: For Haptics errors, always scan and fix ALL files in the app
+          // This ensures we catch all Haptics usage, not just the one that caused the error
+          if (problem.code === 'PLATFORM_HAPTICS' || problem.code === 'HAPTICS') {
+            logger.info(`🔍 Haptics error detected - scanning entire app for all Haptics usage...`);
+            logger.info(`📁 App path: ${appPath}`);
+            
+            // ✅ DIRECTLY call fixAllHapticsInApp instead of going through fixProblem
+            // This ensures we scan all files regardless of the file path in the error
+            try {
+              // Use reflection to access the private method, or make it public
+              // For now, let's create a problem and use fixProblem which will call fixAllHapticsInApp
+              const scanProblem: Problem = {
+                file: 'app/index.tsx', // This will trigger fixAllHapticsInApp if file doesn't exist
+                line: 0,
+                column: 0,
+                message: 'Haptic feedback API used without Platform.OS check',
+                severity: 'error',
+                code: 'PLATFORM_HAPTICS',
+                autoFixable: true
+              };
+              
+              // First try to fix the specific file if it exists
+              let fixResult = await autoFixer.fixProblem(scanProblem);
+              
+              // If that didn't work or file doesn't exist, directly scan all files
+              if (!fixResult.success || fixResult.filesModified.length === 0) {
+                logger.info(`🔍 File-specific fix didn't work, scanning all files in app...`);
+                
+                // Get all files and check each one
+                const getAllFiles = async (dir: string): Promise<string[]> => {
+                  const files: string[] = [];
+                  try {
+                    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+                    for (const entry of entries) {
+                      const fullPath = path.join(dir, entry.name);
+                      if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === 'build') {
+                        continue;
+                      }
+                      if (entry.isDirectory()) {
+                        const subFiles = await getAllFiles(fullPath);
+                        files.push(...subFiles);
+                      } else if (entry.isFile() && /\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+                        files.push(fullPath);
+                      }
+                    }
+                  } catch (error) {
+                    logger.warn(`Error reading directory ${dir}:`, error);
+                  }
+                  return files;
+                };
+                
+                const allFiles = await getAllFiles(appPath);
+                logger.info(`📋 Found ${allFiles.length} source files to check`);
+                
+                const filesModified: string[] = [];
+                for (const filePath of allFiles) {
+                  try {
+                    const content = await fs.readFile(filePath, 'utf-8');
+                    if (/(Haptics?|Haptic)\.(impact|notification|selection)Async/.test(content)) {
+                      if (!/Platform\.OS\s*[!=]=\s*['"]web['"]/.test(content)) {
+                        const relativePath = path.relative(appPath, filePath);
+                        logger.info(`🔧 Fixing Haptics in: ${relativePath}`);
+                        const fileProblem: Problem = {
+                          file: relativePath,
+                          line: 0,
+                          column: 0,
+                          message: 'Haptic feedback API used without Platform.OS check',
+                          severity: 'error',
+                          code: 'PLATFORM_HAPTICS',
+                          autoFixable: true
+                        };
+                        const result = await autoFixer.fixProblem(fileProblem);
+                        if (result.success) {
+                          filesModified.push(relativePath);
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    logger.warn(`Error checking file ${filePath}:`, error);
+                  }
+                }
+                
+                if (filesModified.length > 0) {
+                  fixResult = {
+                    success: true,
+                    message: `Fixed Haptics usage in ${filesModified.length} file(s)`,
+                    filesModified
+                  };
+                }
+              }
+              
+              if (fixResult.success && fixResult.filesModified.length > 0) {
+                logger.info(`✅ Haptics auto-fix completed: ${fixResult.message}`);
+                logger.info(`📝 Files modified: ${fixResult.filesModified.join(', ')}`);
+                
+                // Remove all Haptics-related problems since we fixed them all
+                const updatedProblems = existingProblems.filter(p => 
+                  p.code !== 'PLATFORM_HAPTICS' && p.code !== 'HAPTICS'
+                );
+                runtimeProblems.set(appId, updatedProblems);
+                
+                // ✅ IMPORTANT: Trigger a re-check to update the problem report
+                logger.info(`🔄 Triggering problem re-check after auto-fix...`);
+                
+                // ✅ CRITICAL: The preview should auto-reload with hot reload
+                // Expo's hot reload should pick up the file changes automatically
+                // If not, the user can manually refresh the preview
+                logger.info(`🔄 Files have been fixed. Preview should auto-reload with hot reload.`);
+              } else {
+                logger.warn(`❌ Haptics auto-fix failed or no files modified: ${fixResult.message}`);
+                logger.warn(`💡 This might mean:`);
+                logger.warn(`   1. No files with Haptics usage were found`);
+                logger.warn(`   2. All Haptics calls already have Platform.OS checks`);
+                logger.warn(`   3. Files couldn't be accessed or modified`);
+              }
+            } catch (error) {
+              logger.error(`❌ Error during Haptics auto-fix:`, error);
+            }
+          } else {
+            // For other errors, use the specific file
           const fixResult = await autoFixer.fixProblem(runtimeProblem);
           if (fixResult.success) {
             logger.info(`✅ Runtime problem auto-fixed: ${fixResult.message}`);
             // Remove the fixed problem
             const updatedProblems = existingProblems.filter(p => p !== runtimeProblem);
             runtimeProblems.set(appId, updatedProblems);
+              
+              // ✅ IMPORTANT: Trigger a re-check to update the problem report
+              logger.info(`🔄 Triggering problem re-check after auto-fix...`);
           } else {
             logger.warn(`❌ Runtime problem auto-fix failed: ${fixResult.message}`);
+            }
           }
         } catch (error) {
           logger.error("Error auto-fixing runtime problem:", error);

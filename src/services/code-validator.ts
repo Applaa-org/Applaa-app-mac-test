@@ -166,8 +166,8 @@ export class CodeValidator {
         const content = await fs.readFile(file, 'utf-8');
         const lines = content.split('\n');
 
-        // Check for Haptics without Platform.OS check
-        if (content.includes('Haptics.') && content.includes('expo-haptics')) {
+        // Check for Haptics without Platform.OS check (both Haptics and Haptic variations)
+        if ((content.includes('Haptics.') || content.includes('Haptic.')) && content.includes('expo-haptics')) {
           const hasImport = /import.*Platform.*from ['"]react-native['"]/.test(content);
           const hasPlatformCheck = /Platform\.OS\s*[!=]=\s*['"]web['"]/.test(content) ||
                                    /Platform\.select/.test(content);
@@ -175,7 +175,7 @@ export class CodeValidator {
           if (!hasPlatformCheck) {
             const hapticLines = lines
               .map((line, idx) => ({ line, idx }))
-              .filter(({ line }) => /Haptics\.(impact|notification|selection)/.test(line));
+              .filter(({ line }) => /(Haptics?|Haptic)\.(impact|notification|selection)/.test(line));
 
             for (const { line, idx } of hapticLines) {
               problems.push({

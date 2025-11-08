@@ -1708,6 +1708,15 @@ export class IpcClient {
     return this.ipcRenderer.invoke("problems:add-runtime", problem);
   }
 
+  // ✅ NEW: Manual trigger for Haptics auto-fix
+  async fixHapticsProblems(params: { appId: number }): Promise<{
+    success: boolean;
+    message: string;
+    filesModified: string[];
+  }> {
+    return this.ipcRenderer.invoke("problems:fix-haptics", params);
+  }
+
   async getRuntimeProblems(appId: number): Promise<Array<{
     file: string;
     line: number;

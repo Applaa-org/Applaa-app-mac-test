@@ -172,15 +172,45 @@ export function useChromeDevTools(previewUrl?: string, appId?: number) {
                 
                 // 🚨 CRITICAL: Convert runtime error to Problems Tab format
                 // This bridges the gap between runtime errors and static analysis
+                // Extract file path from stack trace if available
+                let filePath = 'runtime';
+                let lineNumber = 1;
+                
+                if (error.stack) {
+                  // Try to extract file path from stack trace
+                  // Common patterns: "at Object.impactAsync (app/index.tsx:45:12)" or "at move (entry.bundle:91936:17)"
+                  const stackMatch = error.stack.match(/\(([^:]+):(\d+):(\d+)\)/);
+                  if (stackMatch) {
+                    // Extract relative path (remove bundle paths, keep source files)
+                    const fullPath = stackMatch[1];
+                    // If it's a source file (not bundle), use it
+                    if (fullPath.includes('.tsx') || fullPath.includes('.ts') || fullPath.includes('.jsx') || fullPath.includes('.js')) {
+                      // Extract just the filename or relative path
+                      const pathParts = fullPath.split('/');
+                      const fileName = pathParts[pathParts.length - 1];
+                      // Try to find the file in common locations
+                      if (fileName.includes('index') || fileName.includes('App') || fileName.includes('component')) {
+                        filePath = fileName;
+                      } else {
+                        filePath = fileName;
+                      }
+                    }
+                    lineNumber = parseInt(stackMatch[2], 10) || 1;
+                  }
+                }
+                
+                // For Haptics errors, use a generic file path that will trigger full app scan
+                const code = analysis.type === 'haptics' ? 'PLATFORM_HAPTICS' : analysis.type.toUpperCase();
+                
                 const runtimeProblem = {
-                  file: error.url || 'runtime',
-                  line: 1,
+                  file: code === 'PLATFORM_HAPTICS' ? 'app/index.tsx' : filePath, // Use common file for Haptics to trigger full scan
+                  line: lineNumber,
                   column: 1,
                   message: error.message,
                   severity: analysis.severity === 'critical' ? 'error' : 
                            analysis.severity === 'high' ? 'error' :
                            analysis.severity === 'medium' ? 'warning' : 'info',
-                  code: analysis.type.toUpperCase(),
+                  code: code,
                   autoFixable: analysis.autoFixable,
                   source: 'runtime',
                   timestamp: error.timestamp

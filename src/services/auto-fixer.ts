@@ -5,6 +5,7 @@
 
 import * as fs from 'fs-extra';
 import * as path from 'path';
+import { promises as fsPromises } from 'fs-extra';
 import type { Problem } from './code-validator';
 
 export interface FixResult {
@@ -56,7 +57,20 @@ export class AutoFixer {
 
     switch (problem.code) {
       case 'PLATFORM_HAPTICS':
-        return await this.fixPlatformHaptics(problem);
+        // For Haptics errors, also fix all files in the app, not just the one mentioned
+        const specificFileResult = await this.fixPlatformHaptics(problem);
+        if (specificFileResult.success) {
+          // Also scan and fix all other files
+          const allFilesResult = await this.fixAllHapticsInApp();
+          if (allFilesResult.success && allFilesResult.filesModified.length > 0) {
+            return {
+              success: true,
+              message: `${specificFileResult.message}. Also fixed ${allFilesResult.filesModified.length} additional file(s).`,
+              filesModified: [...new Set([...specificFileResult.filesModified, ...allFilesResult.filesModified])]
+            };
+          }
+        }
+        return specificFileResult;
       
       case 'WEB_PREVIEW_NATIVE_MODULE':
       case 'WEB_PREVIEW_PLATFORM_API':
@@ -113,10 +127,18 @@ export class AutoFixer {
 
   /**
    * Fix Haptics API calls without Platform.OS checks
+   * This method fixes ALL Haptics usage in the specified file, not just the one mentioned in the problem
    */
   private async fixPlatformHaptics(problem: Problem): Promise<FixResult> {
     try {
       const filePath = path.join(this.appPath, problem.file);
+      
+      // Check if file exists
+      if (!await fsPromises.access(filePath).then(() => true).catch(() => false)) {
+        // If the specific file doesn't exist, search all files in the app
+        return await this.fixAllHapticsInApp();
+      }
+      
       let content = await fs.readFile(filePath, 'utf-8');
       const originalContent = content;
 
@@ -129,13 +151,15 @@ export class AutoFixer {
         const match = content.match(reactNativeImportRegex);
         
         if (match) {
-          // Add Platform to existing import
+          // Add Platform to existing import (avoid duplicates)
           const imports = match[1].trim();
-          const newImports = imports + ', Platform';
-          content = content.replace(
-            reactNativeImportRegex,
-            `import { ${newImports} } from 'react-native'`
-          );
+          if (!imports.includes('Platform')) {
+            const newImports = imports + ', Platform';
+            content = content.replace(
+              reactNativeImportRegex,
+              `import { ${newImports} } from 'react-native'`
+            );
+          }
         } else {
           // Add new import at the top
           const firstImportIndex = content.indexOf('import');
@@ -149,24 +173,107 @@ export class AutoFixer {
         }
       }
 
-      // Wrap Haptics calls in Platform.OS check
-      // Match: Haptics.impactAsync(...) or await Haptics.impactAsync(...)
-      const hapticCallRegex = /(await\s+)?Haptics\.(impact|notification|selection)Async\([^)]*\);?/g;
+      // ✅ IMPROVED: Match both Haptics and Haptic (common typo/variation)
+      // Match: Haptics.impactAsync(...), Haptic.impactAsync(...), await Haptics.impactAsync(...)
+      // Also handle multiline calls
+      // Note: The error message says "Haptic.impactAsync" (singular), so we need to match both
+      const hapticCallRegex = /(await\s+)?(Haptics?|Haptic)\.(impact|notification|selection)Async\([^)]*\)\s*;?/gi;
       
-      content = content.replace(hapticCallRegex, (match) => {
-        // Don't wrap if already inside a Platform check
-        const beforeMatch = content.substring(0, content.indexOf(match));
-        const lastPlatformCheck = beforeMatch.lastIndexOf('if (Platform.OS');
-        const lastBrace = beforeMatch.lastIndexOf('}');
+      let hasChanges = false;
+      const lines = content.split('\n');
+      const fixedLines: string[] = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const matches = [...line.matchAll(hapticCallRegex)];
         
-        if (lastPlatformCheck > lastBrace) {
-          // Already inside a Platform check
-          return match;
+        if (matches.length > 0) {
+          // Check if this line is already inside a Platform.OS check or Platform.select()
+          let isInsidePlatformCheck = false;
+          let braceCount = 0;
+          
+          // Look backwards to find if we're inside a Platform check
+          for (let j = i - 1; j >= 0; j--) {
+            const prevLine = lines[j];
+            // ✅ FIX: Also recognize Platform.select() as valid platform handling
+            if (prevLine.includes('if (Platform.OS') || prevLine.includes('if(Platform.OS') || 
+                prevLine.includes('Platform.select(')) {
+              // Count braces to see if we're still inside
+              for (const char of prevLine) {
+                if (char === '{') braceCount++;
+                if (char === '}') braceCount--;
+              }
+              if (braceCount > 0) {
+                isInsidePlatformCheck = true;
+              }
+              break;
+            }
+            // Count braces in previous lines
+            for (const char of prevLine) {
+              if (char === '{') braceCount++;
+              if (char === '}') braceCount--;
+            }
+            if (braceCount <= 0 && (prevLine.includes('{') || prevLine.includes('}'))) {
+              break;
+            }
+          }
+          
+          if (!isInsidePlatformCheck) {
+            // Get indentation from the line
+            const indentMatch = line.match(/^(\s*)/);
+            const indent = indentMatch ? indentMatch[1] : '';
+            
+            // Wrap the line in Platform.OS check
+            fixedLines.push(`${indent}if (Platform.OS !== 'web') {`);
+            fixedLines.push(`${indent}  ${line.trim()}`);
+            fixedLines.push(`${indent}}`);
+            hasChanges = true;
+          } else {
+            fixedLines.push(line);
+          }
+        } else {
+          fixedLines.push(line);
         }
+      }
+      
+      if (hasChanges) {
+        content = fixedLines.join('\n');
+      } else {
+        // Fallback to regex replacement if line-by-line didn't work
+        // Reset regex lastIndex to ensure it works correctly
+        hapticCallRegex.lastIndex = 0;
+        content = content.replace(hapticCallRegex, (match, awaitPrefix, hapticPrefix) => {
+          // Don't wrap if already inside a Platform check
+          const matchIndex = content.lastIndexOf(match, hapticCallRegex.lastIndex - match.length);
+          const beforeMatch = content.substring(0, matchIndex);
+          const lastPlatformCheck = beforeMatch.lastIndexOf('if (Platform.OS');
+          const lastBrace = beforeMatch.lastIndexOf('}');
+          
+          if (lastPlatformCheck > lastBrace) {
+            // Already inside a Platform check
+            return match;
+          }
 
-        return `if (Platform.OS !== 'web') {\n      ${match}\n    }`;
-      });
+          // Get indentation
+          const lineStart = beforeMatch.lastIndexOf('\n') + 1;
+          const lineBeforeMatch = content.substring(lineStart, matchIndex);
+          const indentMatch = lineBeforeMatch.match(/^(\s*)/);
+          const indent = indentMatch ? indentMatch[1] : '';
+          
+          return `${indent}if (Platform.OS !== 'web') {\n${indent}  ${match.trim()}\n${indent}}`;
+        });
+      }
 
+      // ✅ CRITICAL: Check if file already has Platform.select() - don't modify it!
+      if (originalContent.includes('Platform.select(')) {
+        logger.info(`✅ File ${problem.file} already uses Platform.select() - skipping fix`);
+        return {
+          success: true,
+          message: 'File already has proper Platform handling with Platform.select()',
+          filesModified: []
+        };
+      }
+      
       // Only write if content changed
       if (content !== originalContent) {
         await fs.writeFile(filePath, content, 'utf-8');
@@ -188,6 +295,96 @@ export class AutoFixer {
       return {
         success: false,
         message: `Failed to fix: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        filesModified: []
+      };
+    }
+  }
+  
+  /**
+   * Fix ALL Haptics usage in the entire app
+   * This is called when a specific file path isn't available
+   */
+  private async fixAllHapticsInApp(): Promise<FixResult> {
+    const filesModified: string[] = [];
+    
+    try {
+      // Get all TypeScript/JavaScript files in the app
+      const getAllFiles = async (dir: string): Promise<string[]> => {
+        const files: string[] = [];
+        try {
+          const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+          
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            
+            // Skip node_modules and other build directories
+            if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === 'build') {
+              continue;
+            }
+            
+            if (entry.isDirectory()) {
+              const subFiles = await getAllFiles(fullPath);
+              files.push(...subFiles);
+            } else if (entry.isFile() && /\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+              files.push(fullPath);
+            }
+          }
+        } catch (error) {
+          // Ignore errors reading directories
+        }
+        return files;
+      };
+      
+      const allFiles = await getAllFiles(this.appPath);
+      
+      for (const filePath of allFiles) {
+        try {
+          const content = await fs.readFile(filePath, 'utf-8');
+          
+          // Check if file contains Haptics usage (both Haptics and Haptic)
+          if (/(Haptics?|Haptic)\.(impact|notification|selection)Async/.test(content)) {
+            // Check if already has Platform.OS check
+            if (!/Platform\.OS\s*[!=]=\s*['"]web['"]/.test(content)) {
+              const relativePath = path.relative(this.appPath, filePath);
+              const problem: Problem = {
+                file: relativePath,
+                line: 0,
+                column: 0,
+                message: 'Haptic feedback API used without Platform.OS check',
+                severity: 'error',
+                code: 'PLATFORM_HAPTICS',
+                autoFixable: true
+              };
+              
+              const result = await this.fixPlatformHaptics(problem);
+              if (result.success) {
+                filesModified.push(relativePath);
+              }
+            }
+          }
+        } catch (error) {
+          // Skip files that can't be read
+          continue;
+        }
+      }
+      
+      if (filesModified.length > 0) {
+        return {
+          success: true,
+          message: `Fixed Haptics usage in ${filesModified.length} file(s)`,
+          filesModified
+        };
+      }
+      
+      return {
+        success: false,
+        message: 'No Haptics usage found or all already fixed',
+        filesModified: []
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to scan app: ${error instanceof Error ? error.message : 'Unknown error'}`,
         filesModified: []
       };
     }
