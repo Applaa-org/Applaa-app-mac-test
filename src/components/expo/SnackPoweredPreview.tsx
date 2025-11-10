@@ -32,7 +32,7 @@ interface ExpoStatus {
   lastHotReload?: number;
 }
 
-type PreviewTab = 'mydevice' | 'android' | 'ios' | 'web';
+type PreviewTab = 'android' | 'ios';
 
 interface DeviceOption {
   id: string;
@@ -86,8 +86,8 @@ export function SnackPoweredPreview() {
   const { problemReport, checkProblems, isChecking } = useCheckProblems(selectedAppId);
   
   // State
-  const [activeTab, setActiveTab] = useState<PreviewTab>('web');
-  const [selectedDevice, setSelectedDevice] = useState<DeviceOption>(DEVICES.find(d => d.id === 'iphone16pro')!);
+  const [activeTab, setActiveTab] = useState<PreviewTab>('android');
+  const [selectedDevice, setSelectedDevice] = useState<DeviceOption>(DEVICES.find(d => d.id === 'pixel8')!);
   const [showDeviceMenu, setShowDeviceMenu] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [expoStatus, setExpoStatus] = useState<ExpoStatus>({ isRunning: false });
@@ -138,7 +138,7 @@ export function SnackPoweredPreview() {
     const pollTerminalOutput = async () => {
       try {
         const ipcClient = IpcClient.getInstance();
-        const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
+        const status = await ipcClient.simpleExpoStatus();
         
         if (status.terminalOutput) {
           const lines = status.terminalOutput.trim().split('\n').slice(-5); // Last 5 lines
@@ -173,7 +173,7 @@ export function SnackPoweredPreview() {
       const ipcClient = IpcClient.getInstance();
       
       // Stop current server
-      await ipcClient.expoStop({ appId: selectedAppId });
+      await ipcClient.simpleExpoStop();
       logToMonitor('Server stopped', 'success');
       
       // Clear state
@@ -228,12 +228,18 @@ export function SnackPoweredPreview() {
       // First check if Expo is already running
       try {
         logToMonitor('Checking Expo server status...', 'info');
-        const currentStatus = await ipcClient.getExpoStatus({ appId: selectedAppId });
+        const currentStatus = await ipcClient.simpleExpoStatus();
         if (currentStatus.isRunning && currentStatus.webUrl) {
           console.log('✅ Expo already running with URL:', currentStatus.webUrl);
           logToMonitor(`Expo already running: ${currentStatus.webUrl}`, 'success');
           setPreviewUrl(currentStatus.webUrl);
-          setExpoStatus(currentStatus);
+          setExpoStatus({
+            isRunning: currentStatus.isRunning,
+            webUrl: currentStatus.webUrl,
+            lanUrl: currentStatus.lanUrl,
+            tunnelUrl: currentStatus.tunnelUrl,
+            qrUrl: currentStatus.qrUrl
+          });
           setConnectionStatus('connected');
           hasStartedRef.current = true;
           setIsLoading(false);
@@ -252,10 +258,9 @@ export function SnackPoweredPreview() {
       }
       
       logToMonitor('Launching Expo server on port 8081...', 'command');
-      const result = await ipcClient.expoStart({
+      const result = await ipcClient.simpleExpoStart({
         appId: selectedAppId,
-        useTunnel: true,
-        native: false
+        useTunnel: true
       });
       
       console.log('📊 Expo start result:', JSON.stringify(result, null, 2));
@@ -273,7 +278,7 @@ export function SnackPoweredPreview() {
         
         const pollForUrl = async (): Promise<boolean> => {
           attempts++;
-          const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
+          const status = await ipcClient.simpleExpoStatus();
           
           // Update progress message
           if (attempts <= 5) {
@@ -296,7 +301,13 @@ export function SnackPoweredPreview() {
           if (status.webUrl) {
             setStartupProgress('Preview ready! Loading...');
             setPreviewUrl(status.webUrl);
-            setExpoStatus(status);
+            setExpoStatus({
+              isRunning: status.isRunning,
+              webUrl: status.webUrl,
+              lanUrl: status.lanUrl,
+              tunnelUrl: status.tunnelUrl,
+              qrUrl: status.qrUrl
+            });
             setConnectionStatus('connected');
             hasStartedRef.current = true;
             console.log('✅ Preview URL ready:', status.webUrl);
@@ -386,17 +397,20 @@ export function SnackPoweredPreview() {
     
     try {
       const ipcClient = IpcClient.getInstance();
-      const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
-      setExpoStatus(status);
+      const status = await ipcClient.simpleExpoStatus();
+      setExpoStatus({
+        isRunning: status.isRunning,
+        webUrl: status.webUrl,
+        lanUrl: status.lanUrl,
+        tunnelUrl: status.tunnelUrl,
+        qrUrl: status.qrUrl
+      });
       
-      if (status.lastHotReload && status.lastHotReload > (expoStatus.lastHotReload || 0)) {
-        console.log('🔥 Hot reload detected');
-        setIframeKey(prev => prev + 1);
-      }
+      // Note: simpleExpoStatus doesn't have lastHotReload, so we skip that check
     } catch (error) {
       console.error('Status check failed:', error);
     }
-  }, [selectedAppId, expoStatus.lastHotReload]);
+  }, [selectedAppId]);
   
   // ✅ RESET STATE: When app changes, reset state but DON'T auto-start
   useEffect(() => {
@@ -533,9 +547,7 @@ export function SnackPoweredPreview() {
   
   // Get filtered devices
   const filteredDevices = DEVICES.filter(d => 
-    activeTab === 'android' ? d.platform === 'android' :
-    activeTab === 'ios' ? d.platform === 'ios' :
-    true
+    activeTab === 'android' ? d.platform === 'android' : d.platform === 'ios'
   );
   
   // ✅ DISABLED: Debug logging (causing console spam)
@@ -624,16 +636,6 @@ export function SnackPoweredPreview() {
       {/* Tabs - Exact Snack Style */}
       <div className="flex items-center justify-between gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setActiveTab('mydevice')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === 'mydevice'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            My Device
-          </button>
         <button
           onClick={() => setActiveTab('android')}
           className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -654,16 +656,6 @@ export function SnackPoweredPreview() {
         >
           iOS
         </button>
-          <button
-            onClick={() => setActiveTab('web')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === 'web'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            Web
-          </button>
         </div>
         
         {/* Restart Button */}
@@ -701,9 +693,7 @@ export function SnackPoweredPreview() {
               {/* START Button */}
               <button
                 onClick={() => {
-                  hasStartedRef.current = false;
-                  startingRef.current = false;
-                  startExpoPreview();
+                  restartExpoPreview();
                 }}
                 className="group relative px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               >
@@ -721,9 +711,7 @@ export function SnackPoweredPreview() {
               </p>
             </div>
           </div>
-        ) : 
-        {/* ✅ SCENARIO C: Block preview if validation failed */}
-        validationStatus === 'has-errors' && problemReport ? (
+        ) : validationStatus === 'has-errors' && problemReport ? (
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">
             <div className="text-center max-w-md p-8">
               <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -858,51 +846,6 @@ export function SnackPoweredPreview() {
               </div>
             </div>
           </div>
-        ) : activeTab === 'web' ? (
-          /* Web View - Full width */
-          <div className="w-full h-full">
-            {previewUrl ? (
-              <iframe
-                key={iframeKey}
-                ref={iframeRef}
-                src={previewUrl}
-                className="w-full h-full border-0"
-                title="Expo Web Preview"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-                allow="camera; microphone; geolocation"
-                onError={(e) => {
-                  console.error('❌ Iframe load error:', e);
-                }}
-                onLoad={() => {
-                  console.log('✅ Iframe loaded successfully');
-                }}
-              />
-            ) : isLoading || startupProgress ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm">{startupProgress || 'Starting preview...'}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <div className="text-center">
-                  <p className="text-sm mb-2">No preview URL available</p>
-                  <Button
-                    onClick={() => {
-                      hasStartedRef.current = false;
-                      startingRef.current = false;
-                      startExpoPreview();
-                    }}
-                    disabled={isLoading}
-                    className="mt-2"
-                  >
-                    {isLoading ? 'Starting...' : 'Start Preview'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
         ) : (
           /* Device Preview - Like Snack */
           <div className="flex flex-col items-center justify-center h-full p-8">
@@ -964,9 +907,7 @@ export function SnackPoweredPreview() {
                   <div className="text-center p-8">
                     <button 
                       onClick={() => {
-                        hasStartedRef.current = false;
-                        startingRef.current = false;
-                        startExpoPreview();
+                        restartExpoPreview();
                       }}
                       disabled={isLoading}
                       className="px-6 py-3 bg-white text-black rounded-full font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
@@ -994,7 +935,7 @@ export function SnackPoweredPreview() {
               <pre className="text-sm overflow-auto max-h-96 text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                 {expoStatus.error}
               </pre>
-              <Button onClick={() => startExpoPreview()} className="mt-4">
+              <Button onClick={() => restartExpoPreview()} className="mt-4">
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Retry
               </Button>

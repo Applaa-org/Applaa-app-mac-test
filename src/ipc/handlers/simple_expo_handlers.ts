@@ -469,7 +469,31 @@ export function registerSimpleExpoHandlers() {
       const expoModulePath = path.join(nodeModulesPath, 'expo');
       const ngrokModulePath = path.join(nodeModulesPath, '@expo', 'ngrok');
       let needsExpoInstall = false;
-      let needsNgrokInstall = useTunnel && !fs.existsSync(ngrokModulePath);
+      
+      // ✅ FIX: Check both node_modules AND package.json for @expo/ngrok
+      let needsNgrokInstall = false;
+      if (useTunnel) {
+        const ngrokInNodeModules = fs.existsSync(ngrokModulePath);
+        let ngrokInPackageJson = false;
+        
+        // Check if @expo/ngrok is in package.json
+        if (fs.existsSync(packageJsonPath)) {
+          try {
+            const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+            const packageJson = JSON.parse(packageContent);
+            ngrokInPackageJson = !!(packageJson.dependencies && packageJson.dependencies['@expo/ngrok']);
+          } catch (e) {
+            log.warn("⚠️ Could not read package.json to check for @expo/ngrok:", e);
+          }
+        }
+        
+        // Need to install if missing from either location
+        needsNgrokInstall = !ngrokInNodeModules || !ngrokInPackageJson;
+        
+        if (needsNgrokInstall) {
+          log.log(`🔍 @expo/ngrok check: node_modules=${ngrokInNodeModules}, package.json=${ngrokInPackageJson}`);
+        }
+      }
       
       // Check if node_modules exists and expo is actually installed
       if (!fs.existsSync(nodeModulesPath)) {
@@ -614,15 +638,55 @@ export function registerSimpleExpoHandlers() {
       if (needsNgrokInstall) {
         log.log("🚇 Installing @expo/ngrok for tunnel mode...");
         expoStatus.terminalOutput += "🚇 Installing tunnel dependencies...\n";
+        
+        // ✅ FIX: Ensure @expo/ngrok is in package.json before installing
         try {
-          await execAsync("npm install @expo/ngrok@^4.1.0 --save", {
+          if (fs.existsSync(packageJsonPath)) {
+            const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+            const packageJson = JSON.parse(packageContent);
+            
+            // Add @expo/ngrok to dependencies if missing
+            if (!packageJson.dependencies) {
+              packageJson.dependencies = {};
+            }
+            
+            if (!packageJson.dependencies['@expo/ngrok']) {
+              packageJson.dependencies['@expo/ngrok'] = "^4.1.3";
+              fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8');
+              log.log("✅ Added @expo/ngrok to package.json");
+            }
+          }
+        } catch (packageError) {
+          log.warn("⚠️ Could not update package.json for @expo/ngrok:", packageError);
+        }
+        
+        try {
+          await execAsync("npm install @expo/ngrok@^4.1.3 --save", {
             cwd: appPath,
             timeout: 120000 // 2 minutes
           });
           
+          // ✅ FIX: Verify it was added to package.json after installation
+          let verifiedInPackageJson = false;
+          if (fs.existsSync(packageJsonPath)) {
+            try {
+              const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+              const packageJson = JSON.parse(packageContent);
+              verifiedInPackageJson = !!(packageJson.dependencies && packageJson.dependencies['@expo/ngrok']);
+            } catch (e) {
+              log.warn("⚠️ Could not verify package.json after install:", e);
+            }
+          }
+          
           if (fs.existsSync(ngrokModulePath)) {
-            log.log("✅ @expo/ngrok successfully installed");
-            expoStatus.terminalOutput += "✅ Tunnel module installed\n";
+            log.log("✅ @expo/ngrok successfully installed in node_modules");
+            if (verifiedInPackageJson) {
+              log.log("✅ @expo/ngrok verified in package.json");
+              expoStatus.terminalOutput += "✅ Tunnel module installed and saved to package.json\n";
+            } else {
+              log.warn("⚠️ @expo/ngrok installed but not found in package.json");
+              expoStatus.terminalOutput += "✅ Tunnel module installed (package.json verification failed)\n";
+            }
           } else {
             log.warn("⚠️ @expo/ngrok installation verification failed, but continuing...");
             expoStatus.terminalOutput += "⚠️ Tunnel module may not be available\n";
@@ -633,7 +697,7 @@ export function registerSimpleExpoHandlers() {
           // Don't throw - continue without tunnel support
         }
       } else if (useTunnel) {
-        log.log("✅ @expo/ngrok already present");
+        log.log("✅ @expo/ngrok already present in both node_modules and package.json");
       }
 
       // NON-INTERACTIVE PORT SELECTION: pick the first free port starting at 8081
@@ -768,6 +832,7 @@ export function registerSimpleExpoHandlers() {
   let hasFoundQR = false;
   let tunnelReadyButNoUrl = false;
   let hasStartedWeb = true; // --web starts web server automatically
+  let fallbackTimerRef: NodeJS.Timeout | null = null; // Reference to fallback timer
 
       // Output parsing: prioritize tunnel URLs for consistent access
       expoProcess.stdout?.on("data", (data: Buffer) => {
@@ -800,12 +865,14 @@ export function registerSimpleExpoHandlers() {
             hasFoundQR = true;
       // Cancel LAN fallback timer if running
       if (lanFallbackTimer) { clearTimeout(lanFallbackTimer); lanFallbackTimer = null; }
+      // Cancel fallback timer since we found a URL
+      if (fallbackTimerRef) { clearTimeout(fallbackTimerRef); fallbackTimerRef = null; }
             log.log(`🚇 Tunnel URL (QR + Web + Universal): ${newTunnelUrl}`);
           }
         }
 
         // 🎯 STEP 2: Local web URL patterns (fallback if no tunnel)
-        if (!expoStatus.tunnelUrl) {
+        if (!expoStatus.tunnelUrl || expoStatus.tunnelUrl === '') {
           const webMatches = [
             output.match(/(?:Local|Web):\s+(https?:\/\/localhost:\d+)/i),
             output.match(/(?:Local|Web):\s+(https?:\/\/127\.0\.0\.1:\d+)/i),
@@ -815,8 +882,10 @@ export function registerSimpleExpoHandlers() {
           
           if (webMatches.length > 0 && webMatches[0]) {
             const newWebUrl = webMatches[0][1];
-            if (newWebUrl !== expoStatus.webUrl) {
+            if (newWebUrl !== expoStatus.webUrl && newWebUrl !== '') {
               expoStatus.webUrl = newWebUrl;
+              // Cancel fallback timer since we found a URL
+              if (fallbackTimerRef) { clearTimeout(fallbackTimerRef); fallbackTimerRef = null; }
               log.log(`🌐 Local Web URL: ${newWebUrl}`);
             }
           }
@@ -926,12 +995,35 @@ export function registerSimpleExpoHandlers() {
         const output = data.toString();
         log.warn("Expo Error:", output);
         expoStatus.terminalOutput += output;
+        
+        // ✅ FIX: Detect common Metro/Expo errors that prevent startup
+        const errorPatterns = [
+          /Error:.*Cannot find module/i,
+          /Error:.*Module not found/i,
+          /Failed to compile/i,
+          /Metro bundler.*error/i,
+          /Unable to resolve module/i,
+          /TypeError:.*is not a function/i,
+          /SyntaxError:/i,
+          /ReferenceError:/i
+        ];
+        
+        for (const pattern of errorPatterns) {
+          if (pattern.test(output)) {
+            log.error(`🚨 Metro build error detected: ${output.substring(0, 200)}`);
+            // Don't set buildStatus to error here - let it timeout naturally
+            // But log it so we can see what's wrong
+            break;
+          }
+        }
       });
 
       expoProcess.on("close", (code: number) => {
         log.log(`Expo process closed with code: ${code}`);
         expoStatus.isRunning = false;
         expoProcess = null;
+        // Clear fallback timer if process closes
+        if (fallbackTimerRef) { clearTimeout(fallbackTimerRef); fallbackTimerRef = null; }
       });
 
       expoProcess.on("error", (error: Error) => {
@@ -940,8 +1032,31 @@ export function registerSimpleExpoHandlers() {
         throw error;
       });
 
+  // ✅ FIX: Fallback mechanism - if Metro is running but no URL detected after 10s, use localhost:port
+      fallbackTimerRef = setTimeout(() => {
+        if (expoStatus.isRunning && (!expoStatus.webUrl || expoStatus.webUrl === '') && (!expoStatus.tunnelUrl || expoStatus.tunnelUrl === '')) {
+          // Metro is running but no URL was detected - try localhost fallback
+          const fallbackUrl = `http://localhost:${finalPort}`;
+          log.warn(`⚠️ No URL detected from Metro output after 10s, using fallback: ${fallbackUrl}`);
+          expoStatus.webUrl = fallbackUrl;
+          
+          // Also set LAN URL if available
+          if (expoStatus.lanUrl) {
+            log.log(`📱 Using computed LAN URL: ${expoStatus.lanUrl}`);
+          } else if (computedLan) {
+            expoStatus.lanUrl = computedLan;
+            log.log(`📱 Using computed LAN URL: ${computedLan}`);
+          }
+          
+          log.log(`✅ Fallback URL set: ${fallbackUrl} - Status will be updated on next poll`);
+        }
+      }, 10000); // 10 second fallback (reduced from 15s for faster response)
+
   // Wait a bit for initial output
   await new Promise(resolve => setTimeout(resolve, 3000));
+      
+  // Clear fallback timer if we return early (shouldn't happen, but safety)
+  // Note: Timer will be cleared when process closes or URL is set
       
   return { success: true, ...expoStatus };
 
