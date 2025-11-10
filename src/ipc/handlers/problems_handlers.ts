@@ -377,6 +377,17 @@ export function registerRuntimeProblemHandlers() {
     appId?: number;
   }) => {
     try {
+      // ✅ FIX: Filter out Haptics UnavailabilityError on web - this is expected behavior, not a real problem
+      const isHapticsUnavailabilityError = 
+        problem.message.includes('UnavailabilityError') &&
+        problem.message.includes('Haptic') &&
+        problem.message.includes('not available on web');
+      
+      if (isHapticsUnavailabilityError) {
+        logger.info(`🚫 Filtered out Haptics UnavailabilityError (expected on web): ${problem.message}`);
+        return; // Don't add this to problems - it's expected behavior
+      }
+      
       // Use appId from the problem parameter, fallback to 1 if not provided
       const appId = problem.appId || 1;
       
@@ -575,8 +586,25 @@ export function registerRuntimeProblemHandlers() {
   ipcMain.handle("problems:get-runtime", async (event, appId: number) => {
     try {
       const problems = runtimeProblems.get(appId) || [];
-      logger.info(`📋 Retrieved ${problems.length} runtime problems for app ${appId}`);
-      return problems;
+      
+      // ✅ FIX: Filter out Haptics UnavailabilityError on web - this is expected behavior, not a real problem
+      const filteredProblems = problems.filter(problem => {
+        const isHapticsUnavailabilityError = 
+          problem.message.includes('UnavailabilityError') &&
+          problem.message.includes('Haptic') &&
+          problem.message.includes('not available on web');
+        
+        return !isHapticsUnavailabilityError;
+      });
+      
+      if (filteredProblems.length !== problems.length) {
+        logger.info(`🚫 Filtered out ${problems.length - filteredProblems.length} Haptics UnavailabilityError(s) from runtime problems`);
+        // Update the stored problems to remove the filtered ones
+        runtimeProblems.set(appId, filteredProblems);
+      }
+      
+      logger.info(`📋 Retrieved ${filteredProblems.length} runtime problems for app ${appId}`);
+      return filteredProblems;
     } catch (error) {
       logger.error("Error getting runtime problems:", error);
       return [];

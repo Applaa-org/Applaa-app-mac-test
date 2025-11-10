@@ -586,14 +586,14 @@ export function SnackPoweredPreview() {
       className="bg-white dark:bg-gray-900"
     >
       {/* Top Bar - Exact Snack Style */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      {/* <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="flex items-center gap-3">
-          {/* Status Indicator */}
+      
           <div className={`w-2 h-2 rounded-full ${
             expoStatus.isRunning ? 'bg-green-500' : 'bg-red-500'
           }`} />
           
-          {/* Validation Status */}
+        
           {validationStatus === 'validating' && (
             <div className="flex items-center gap-2 text-xs text-blue-600">
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -612,8 +612,7 @@ export function SnackPoweredPreview() {
               <span>{problemReport.problems?.length || 0} Problems - Fix to Continue</span>
             </div>
           )}
-          
-          {/* Build Status */}
+
           {expoStatus.buildStatus === 'error' && (
             <span className="text-xs text-red-600 dark:text-red-400">
               Build Failed
@@ -631,11 +630,23 @@ export function SnackPoweredPreview() {
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
-      </div>
+      </div> */}
       
       {/* Tabs - Exact Snack Style */}
       <div className="flex items-center justify-between gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex items-center gap-1">
+            {/* Restart Button */}
+            <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setIframeKey(prev => prev + 1)}
+            className="h-8 px-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
+        
         <button
           onClick={() => setActiveTab('android')}
           className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -658,7 +669,7 @@ export function SnackPoweredPreview() {
         </button>
         </div>
         
-        {/* Restart Button */}
+    
         <button
           onClick={restartExpoPreview}
           disabled={isLoading}
@@ -671,19 +682,15 @@ export function SnackPoweredPreview() {
       </div>
       
       {/* Preview Area */}
-      <div className="flex-1 relative bg-gray-100 dark:bg-gray-900 overflow-hidden">
+      <div className="flex-1 relative overflow-hidden">
         {/* ✅ SCENARIO A: Show START button when preview not started (ignore validation) */}
         {!hasStartedRef.current && !isLoading ? (
-          <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+          <div className="flex items-center justify-center h-full dark:from-gray-900 dark:to-gray-800">
             <div className="text-center max-w-md px-8">
               {/* App Icon */}
-              <div className="w-20 h-20 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </div>
+           
               
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              <h2 className="text-2xl mt-8 font-bold text-gray-900 dark:text-white mb-3">
                 Ready to Preview
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mb-8">
@@ -695,7 +702,7 @@ export function SnackPoweredPreview() {
                 onClick={() => {
                   restartExpoPreview();
                 }}
-                className="group relative px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                className="group relative px-8 py-2 bg-primary text-white rounded-md font-medium text-md shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               >
                 <span className="flex items-center gap-3">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
