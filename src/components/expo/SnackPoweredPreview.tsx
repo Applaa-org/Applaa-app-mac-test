@@ -300,7 +300,6 @@ export function SnackPoweredPreview() {
             setConnectionStatus('connected');
             hasStartedRef.current = true;
             console.log('✅ Preview URL ready:', status.webUrl);
-            logToMonitor(`Preview ready: ${status.webUrl}`, 'success');
             
             // ✅ FIX: Generate QR code for tunnel or LAN URL
             const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
@@ -314,49 +313,10 @@ export function SnackPoweredPreview() {
             return true;
           }
           
-          // ✅ FALLBACK: After 10 attempts, try localhost:8081 directly
-          if (attempts >= 10 && !status.webUrl) {
-            console.log('🔍 No webUrl yet, trying localhost:8081 directly...');
-            logToMonitor('Checking if Metro is ready on localhost:8081...', 'info');
-            
-            try {
-              // Try to fetch from localhost:8081 to see if Metro is ready
-              const testUrl = 'http://localhost:8081';
-              const response = await fetch(`${testUrl}/status`, { signal: AbortSignal.timeout(2000) });
-              
-              if (response.ok) {
-                console.log('✅ Metro is responding on localhost:8081!');
-                logToMonitor('Metro bundler detected on localhost:8081', 'success');
-                
-                // Use localhost:8081 as the preview URL
-                setStartupProgress('Preview ready! Loading...');
-                setPreviewUrl(testUrl);
-                setExpoStatus({
-                  ...status,
-                  webUrl: testUrl,
-                  isRunning: true
-                });
-                setConnectionStatus('connected');
-                hasStartedRef.current = true;
-                
-                // Generate QR code if available
-                const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
-                if (qrUrl) {
-                  await generateQRCode(qrUrl);
-                }
-                
-                setStartupProgress('');
-                return true;
-              }
-            } catch (error) {
-              console.log('⏳ Metro not ready yet on localhost:8081:', error.message);
-            }
-          }
-          
           if (attempts >= maxAttempts) {
             console.warn('⚠️ Timeout waiting for Expo URL (30s)');
-            logToMonitor('Metro bundler timeout - localhost:8081 not responding', 'error');
-            setStartupProgress('Metro bundler timed out - dependencies may be broken');
+            logToMonitor('Metro bundler timeout - this may indicate dependency issues', 'error');
+            setStartupProgress('Metro bundler timed out - check dependencies or click Restart');
             
             // Reset state so START button shows again
             setIsLoading(false);
@@ -366,10 +326,10 @@ export function SnackPoweredPreview() {
             setExpoStatus(prev => ({
               ...prev,
               buildStatus: 'error',
-              error: 'Timeout: Metro not responding on localhost:8081. Check dependencies in package.json.'
+              error: 'Timeout: Metro bundler did not finish. Check app dependencies.'
             }));
             
-            logToMonitor('Try clicking Restart or check package.json for broken dependencies', 'error');
+            logToMonitor('Failed to start - click Start or Restart to try again', 'error');
             return false;
           }
           
@@ -761,8 +721,9 @@ export function SnackPoweredPreview() {
               </p>
             </div>
           </div>
-        ) : validationStatus === 'has-errors' && problemReport ? (
-          /* ✅ SCENARIO C: Block preview if validation failed */
+        ) : 
+        {/* ✅ SCENARIO C: Block preview if validation failed */}
+        validationStatus === 'has-errors' && problemReport ? (
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">
             <div className="text-center max-w-md p-8">
               <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
