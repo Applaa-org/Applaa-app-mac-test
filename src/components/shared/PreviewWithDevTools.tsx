@@ -33,7 +33,7 @@ export function PreviewWithDevTools({
         </div>
 
         {/* DevTools Toggle (if enabled) */}
-        {showDevToolsToggle && devToolsEnabled && (
+        {/* {showDevToolsToggle && devToolsEnabled && (
           <div className="absolute top-4 right-4 z-10">
             <ChromeDevToolsToggle
               isOpen={showDevTools}
@@ -41,7 +41,7 @@ export function PreviewWithDevTools({
               className="bg-white/90 backdrop-blur-sm shadow-lg"
             />
           </div>
-        )}
+        )} */}
 
         {/* DevTools Panel */}
         {showDevTools && devToolsEnabled && (

@@ -298,9 +298,16 @@ export function SnackPoweredPreview() {
             lanUrl: status.lanUrl || 'empty'
           });
           
-          if (status.webUrl) {
+          // ✅ FIX: Check for ANY URL (tunnel, QR, LAN, or web) - prioritize tunnel URL
+          const availableUrl = status.tunnelUrl || status.qrUrl || status.lanUrl || status.webUrl;
+          
+          if (availableUrl) {
             setStartupProgress('Preview ready! Loading...');
-            setPreviewUrl(status.webUrl);
+            
+            // Use tunnel URL for preview if available, otherwise fall back to web URL
+            const previewUrlToUse = status.tunnelUrl || status.webUrl || status.lanUrl || status.qrUrl;
+            setPreviewUrl(previewUrlToUse);
+            
             setExpoStatus({
               isRunning: status.isRunning,
               webUrl: status.webUrl,
@@ -310,7 +317,13 @@ export function SnackPoweredPreview() {
             });
             setConnectionStatus('connected');
             hasStartedRef.current = true;
-            console.log('✅ Preview URL ready:', status.webUrl);
+            console.log('✅ Preview URL ready:', previewUrlToUse);
+            console.log('📊 All URLs:', {
+              tunnel: status.tunnelUrl,
+              qr: status.qrUrl,
+              lan: status.lanUrl,
+              web: status.webUrl
+            });
             
             // ✅ FIX: Generate QR code for tunnel or LAN URL
             const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
@@ -477,10 +490,12 @@ export function SnackPoweredPreview() {
     } else if (problemReport) {
       // ✅ SIMPLIFIED: Only block on compile-time errors, not runtime errors
       // Runtime errors (like Haptics) are caught at runtime and can be auto-fixed
-      const compileTimeErrors = problemReport.problems?.filter(p => 
-        p.source !== 'runtime' && // Exclude runtime errors
-        (p.code >= 2000 || p.severity === 'error') // TypeScript errors or explicit errors
-      ) || [];
+      const compileTimeErrors = problemReport.problems?.filter(p => {
+        const source = (p as any).source;
+        const severity = (p as any).severity;
+        return source !== 'runtime' && // Exclude runtime errors
+        (p.code >= 2000 || severity === 'error'); // TypeScript errors or explicit errors
+      }) || [];
       
       const totalProblems = problemReport.problems?.length || 0;
       const compileTimeErrorCount = compileTimeErrors.length;
@@ -495,7 +510,7 @@ export function SnackPoweredPreview() {
         console.log('✅ SCENARIO A: No compile-time errors, ready for preview');
         
         // Log runtime errors if any (for debugging, but don't block)
-        const runtimeErrors = problemReport.problems?.filter(p => p.source === 'runtime') || [];
+        const runtimeErrors = problemReport.problems?.filter(p => (p as any).source === 'runtime') || [];
         if (runtimeErrors.length > 0) {
           console.log(`ℹ️ ${runtimeErrors.length} runtime error(s) detected (won't block preview):`, runtimeErrors);
         }
@@ -509,10 +524,10 @@ export function SnackPoweredPreview() {
           console.log(`  Compile-time Error ${index + 1}:`, {
             message: problem.message,
             code: problem.code,
-            severity: problem.severity,
+            severity: (problem as any).severity,
             file: problem.file,
             line: problem.line,
-            autoFixable: problem.autoFixable
+            autoFixable: (problem as any).autoFixable
           });
         });
       }
@@ -612,7 +627,7 @@ export function SnackPoweredPreview() {
               <span>{problemReport.problems?.length || 0} Problems - Fix to Continue</span>
             </div>
           )}
-
+          
           {expoStatus.buildStatus === 'error' && (
             <span className="text-xs text-red-600 dark:text-red-400">
               Build Failed
@@ -666,19 +681,40 @@ export function SnackPoweredPreview() {
           }`}
         >
           iOS
-        </button>
+          </button>
         </div>
         
-    
-        <button
-          onClick={restartExpoPreview}
-          disabled={isLoading}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Restart & Rebuild"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          {isLoading ? 'Building...' : 'Restart'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* QR Code Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const qrUrl = expoStatus.tunnelUrl || expoStatus.qrUrl || expoStatus.lanUrl;
+              if (qrUrl) {
+                generateQRCode(qrUrl).then(() => setShowQR(true));
+              } else {
+                console.warn('No QR URL available yet');
+              }
+            }}
+            disabled={!expoStatus.tunnelUrl && !expoStatus.qrUrl && !expoStatus.lanUrl}
+            className="h-8 px-2"
+            title="Show QR Code"
+          >
+            <QrCode className="w-4 h-4" />
+          </Button>
+          
+          {/* Restart Button */}
+          <button
+            onClick={restartExpoPreview}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Restart & Rebuild"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Building...' : 'Restart'}
+          </button>
+        </div>
       </div>
       
       {/* Preview Area */}
@@ -688,7 +724,7 @@ export function SnackPoweredPreview() {
           <div className="flex items-center justify-center h-full dark:from-gray-900 dark:to-gray-800">
             <div className="text-center max-w-md px-8">
               {/* App Icon */}
-           
+              
               
               <h2 className="text-2xl mt-8 font-bold text-gray-900 dark:text-white mb-3">
                 Ready to Preview
@@ -851,7 +887,7 @@ export function SnackPoweredPreview() {
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                 <div className="bg-blue-500 h-full rounded-full animate-pulse" style={{ width: '60%' }}></div>
               </div>
-            </div>
+                </div>
           </div>
         ) : (
           /* Device Preview - Like Snack */

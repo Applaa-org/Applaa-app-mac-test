@@ -231,42 +231,77 @@ export function registerSimpleExpoHandlers() {
     try {
       const infoPath = path.join(projectRoot, ".expo", "packager-info.json");
       let attempts = 0;
-      const maxAttempts = 45; // ~45s
+      const maxAttempts = 60; // ~60s (increased for slower tunnel creation)
 
       const tryRead = () => {
         attempts++;
         try {
-          if (!fs.existsSync(infoPath)) return;
+          if (!fs.existsSync(infoPath)) {
+            if (attempts % 5 === 0) {
+              log.log(`⏳ Waiting for packager-info.json (attempt ${attempts}/${maxAttempts})...`);
+            }
+            return false;
+          }
           const raw = fs.readFileSync(infoPath, "utf8");
-          if (!raw) return;
+          if (!raw || raw.trim() === '') {
+            return false;
+          }
           const data = JSON.parse(raw || "{}");
+          
+          // Check all possible tunnel URL fields
           const candidates: string[] = [
             data.packagerTunnelUrl,
             data.packagerNgrokUrl,
             data.expoServerNgrokUrl,
             data.expoGoUrl,
             data.manifestTunnelUrl,
-            data.tunnelUrl
-          ].filter((x: any) => typeof x === "string");
+            data.tunnelUrl,
+            data.expoDevUrl,
+            data.devServerUrl,
+            // Also check nested objects
+            data.expo?.tunnelUrl,
+            data.expo?.packagerTunnelUrl
+          ].filter((x: any) => typeof x === "string" && x.length > 0);
 
+          // Look for tunnel URLs (both HTTP and exp:// formats)
           const picked = candidates.find((u) =>
-            u && (u.includes(".exp.direct") || u.includes(".expo.dev") || u.includes("tunnels.expo.dev") || u.startsWith("exp://"))
+            u && (
+              u.includes(".exp.direct") || 
+              u.includes(".expo.dev") || 
+              u.includes("tunnels.expo.dev") || 
+              u.includes("ngrok.io") ||
+              (u.startsWith("exp://") && (u.includes("exp.direct") || u.includes("expo.dev"))) ||
+              (u.startsWith("https://") && (u.includes("exp.direct") || u.includes("expo.dev")))
+            )
           );
 
           if (picked) {
             if (expoStatus.tunnelUrl !== picked) {
               expoStatus.tunnelUrl = picked;
               expoStatus.qrUrl = picked; // QR must be tunnel URL
-              if (!expoStatus.webUrl) {
-                // Keep webUrl as-is if already set; otherwise default to local web for iframe
-                expoStatus.webUrl = expoStatus.webUrl || `http://localhost:8081`;
+              
+              // Convert exp:// to https:// for web preview if needed
+              if (picked.startsWith('exp://')) {
+                const httpVersion = picked.replace(/^exp:\/\//, 'https://');
+                expoStatus.webUrl = httpVersion;
+              } else if (!expoStatus.webUrl) {
+                // Keep webUrl as-is if already set; otherwise use tunnel URL
+                expoStatus.webUrl = picked;
               }
+              
               log.log(`🔎 Found tunnel from packager-info.json: ${picked}`);
+              log.log(`📊 Updated URLs - Tunnel: ${expoStatus.tunnelUrl}, Web: ${expoStatus.webUrl}, QR: ${expoStatus.qrUrl}`);
             }
             return true;
+          } else if (candidates.length > 0) {
+            // Log if we found URLs but they don't match tunnel patterns
+            log.log(`ℹ️ Found URLs in packager-info.json but none are tunnel URLs: ${candidates.join(', ')}`);
           }
         } catch (err) {
-          // ignore JSON parse errors while file is being written
+          // Log parse errors after a few attempts (file might be partially written)
+          if (attempts > 3 && attempts % 10 === 0) {
+            log.warn(`⚠️ Error parsing packager-info.json (attempt ${attempts}):`, err);
+          }
         }
         return false;
       };
@@ -274,6 +309,9 @@ export function registerSimpleExpoHandlers() {
       const timer = setInterval(() => {
         const ok = tryRead();
         if (ok || attempts >= maxAttempts) {
+          if (attempts >= maxAttempts && !ok) {
+            log.warn(`⚠️ Tunnel poller timed out after ${maxAttempts} attempts - tunnel may not be available`);
+          }
           clearInterval(timer);
         }
       }, 1000);
@@ -847,27 +885,54 @@ export function registerSimpleExpoHandlers() {
           log.log(`🔍 Tunnel/QR Debug Output: ${data.slice(0, 500)}`);
         }
 
-        // 🎯 STEP 1: Status detection
+        // 🎯 STEP 1: Enhanced tunnel URL detection (both HTTP and exp:// formats)
         const tunnelMatches = [
-          output.match(/(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev[^\s]*)/i),
-          output.match(/(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct[^\s]*)/i),
-          output.match(/Tunnel:\s+(https?:\/\/[^\s]+)/i),
-          output.match(/tunnel.*?(https?:\/\/[^\s]+\.expo\.dev[^\s]*)/i)
+          // HTTP/HTTPS tunnel URLs
+          output.match(/(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev[^\s\)]*)/i),
+          output.match(/(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct[^\s\)]*)/i),
+          output.match(/Tunnel:\s+(https?:\/\/[^\s\)]+)/i),
+          output.match(/tunnel.*?(https?:\/\/[^\s\)]+\.expo\.dev[^\s\)]*)/i),
+          // exp:// tunnel URLs (for Expo Go)
+          output.match(/(exp:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev[^\s\)]*)/i),
+          output.match(/(exp:\/\/[a-zA-Z0-9-]+\.exp\.direct[^\s\)]*)/i),
+          output.match(/Tunnel:\s+(exp:\/\/[^\s\)]+)/i),
+          // Generic patterns that might catch tunnel URLs
+          output.match(/(https?:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9-]+\.exp\.direct[^\s\)]*)/i),
+          output.match(/(exp:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9-]+\.exp\.direct[^\s\)]*)/i)
         ].filter(Boolean);
         
-    if (tunnelMatches.length > 0 && tunnelMatches[0]) {
-          const newTunnelUrl = tunnelMatches[0][1];
-          if (newTunnelUrl !== expoStatus.tunnelUrl) {
-            expoStatus.tunnelUrl = newTunnelUrl;
-            // 🎯 STRATEGY: Use tunnel URL for BOTH QR and web preview (consistent external access)
-            expoStatus.qrUrl = newTunnelUrl;
-            expoStatus.webUrl = newTunnelUrl;
-            hasFoundQR = true;
-      // Cancel LAN fallback timer if running
-      if (lanFallbackTimer) { clearTimeout(lanFallbackTimer); lanFallbackTimer = null; }
-      // Cancel fallback timer since we found a URL
-      if (fallbackTimerRef) { clearTimeout(fallbackTimerRef); fallbackTimerRef = null; }
-            log.log(`🚇 Tunnel URL (QR + Web + Universal): ${newTunnelUrl}`);
+        if (tunnelMatches.length > 0 && tunnelMatches[0]) {
+          let newTunnelUrl = tunnelMatches[0][1];
+          
+          // Convert exp:// to https:// for web preview if needed
+          if (newTunnelUrl.startsWith('exp://')) {
+            // Keep exp:// for QR, but also create HTTP version for web
+            const httpVersion = newTunnelUrl.replace(/^exp:\/\//, 'https://');
+            if (newTunnelUrl !== expoStatus.tunnelUrl) {
+              expoStatus.tunnelUrl = newTunnelUrl; // Keep original exp:// for QR
+              expoStatus.qrUrl = newTunnelUrl;
+              expoStatus.webUrl = httpVersion; // Use HTTP version for web preview
+              hasFoundQR = true;
+              // Cancel LAN fallback timer if running
+              if (lanFallbackTimer) { clearTimeout(lanFallbackTimer); lanFallbackTimer = null; }
+              // Cancel fallback timer since we found a URL
+              if (fallbackTimerRef) { clearTimeout(fallbackTimerRef); fallbackTimerRef = null; }
+              log.log(`🚇 Tunnel URL detected (exp://): ${newTunnelUrl} -> Web: ${httpVersion}`);
+            }
+          } else {
+            // HTTP/HTTPS tunnel URL
+            if (newTunnelUrl !== expoStatus.tunnelUrl) {
+              expoStatus.tunnelUrl = newTunnelUrl;
+              // 🎯 STRATEGY: Use tunnel URL for BOTH QR and web preview (consistent external access)
+              expoStatus.qrUrl = newTunnelUrl;
+              expoStatus.webUrl = newTunnelUrl;
+              hasFoundQR = true;
+              // Cancel LAN fallback timer if running
+              if (lanFallbackTimer) { clearTimeout(lanFallbackTimer); lanFallbackTimer = null; }
+              // Cancel fallback timer since we found a URL
+              if (fallbackTimerRef) { clearTimeout(fallbackTimerRef); fallbackTimerRef = null; }
+              log.log(`🚇 Tunnel URL (QR + Web + Universal): ${newTunnelUrl}`);
+            }
           }
         }
 
@@ -995,6 +1060,36 @@ export function registerSimpleExpoHandlers() {
         const output = data.toString();
         log.warn("Expo Error:", output);
         expoStatus.terminalOutput += output;
+        
+        // ✅ FIX: Detect tunnel creation failures
+        const tunnelErrorPatterns = [
+          /tunnel.*failed/i,
+          /ngrok.*error/i,
+          /tunnel.*timeout/i,
+          /Unable to create tunnel/i,
+          /Tunnel creation failed/i,
+          /@expo\/ngrok.*not found/i,
+          /ngrok.*not installed/i
+        ];
+        
+        for (const pattern of tunnelErrorPatterns) {
+          if (pattern.test(output)) {
+            log.error(`🚨 Tunnel creation error detected: ${output.substring(0, 300)}`);
+            // If tunnel fails, fall back to LAN mode
+            if (currentStartOptions.useTunnel && !expoStatus.lanUrl) {
+              // Try to get port from webUrl or use default 8081
+              const portMatch = expoStatus.webUrl?.match(/:(\d+)/);
+              const port = portMatch ? parseInt(portMatch[1], 10) : 8081;
+              const computedLan = getLanUrl(port);
+              if (computedLan) {
+                expoStatus.lanUrl = computedLan;
+                expoStatus.qrUrl = toExpUrl(computedLan);
+                log.warn(`⚠️ Tunnel failed, falling back to LAN: ${expoStatus.qrUrl}`);
+              }
+            }
+            break;
+          }
+        }
         
         // ✅ FIX: Detect common Metro/Expo errors that prevent startup
         const errorPatterns = [
