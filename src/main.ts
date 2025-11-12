@@ -294,50 +294,8 @@ const createWindow = () => {
 
   // 🚀 COOP/COEP headers for WASM threads/WebGPU support (Whisper optimization)
   // Only apply in production to avoid blob URL issues in development
-  // Also modify CSP headers for AI Studio to allow iframe embedding
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
-    
-    // Modify CSP headers for AI Studio (localhost:3000) to allow iframe embedding
-    const isSimStudio = details.url.startsWith('http://localhost:3000') || 
-                        details.url.startsWith('http://127.0.0.1:3000');
-    
-    if (isSimStudio) {
-      // Find CSP header (case-insensitive)
-      const cspHeaderKey = Object.keys(responseHeaders).find(
-        key => key.toLowerCase() === 'content-security-policy'
-      );
-      
-      if (cspHeaderKey) {
-        const csp = Array.isArray(responseHeaders[cspHeaderKey])
-          ? responseHeaders[cspHeaderKey][0]
-          : responseHeaders[cspHeaderKey];
-        
-        // Replace frame-ancestors 'self' with frame-ancestors * to allow embedding
-        let modifiedCsp = csp.replace(
-          /frame-ancestors\s+['"]self['"]/gi,
-          "frame-ancestors *"
-        );
-        
-        // If frame-ancestors wasn't found, add it
-        if (!modifiedCsp.includes('frame-ancestors')) {
-          modifiedCsp += '; frame-ancestors *';
-        }
-        
-        responseHeaders[cspHeaderKey] = [modifiedCsp];
-        log.info('🔧 Modified CSP headers for AI Studio to allow iframe embedding');
-      }
-      
-      // Also remove X-Frame-Options if present (case-insensitive)
-      const xFrameOptionsKey = Object.keys(responseHeaders).find(
-        key => key.toLowerCase() === 'x-frame-options'
-      );
-      
-      if (xFrameOptionsKey) {
-        delete responseHeaders[xFrameOptionsKey];
-        log.info('🔧 Removed X-Frame-Options header for AI Studio');
-      }
-    }
     
     // Add COOP/COEP headers only in production
     if (process.env.NODE_ENV === 'production') {

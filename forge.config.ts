@@ -128,42 +128,50 @@ const config: ForgeConfig = {
   },
   // Makers for creating distributable packages
   makers: [
-    {
-      name: "@electron-forge/maker-squirrel",
-      config: {
-        name: "Applaa",
-        authors: "Applaa Team",
-        description: "Your local AI app builder with beautiful orange and green design",
-        setupIcon: "./assets/icon/logo.ico",
-        noMsi: false,
+    // Windows makers (only include on Windows)
+    ...(process.platform === 'win32' ? [
+      {
+        name: "@electron-forge/maker-squirrel",
+        config: {
+          name: "Applaa",
+          authors: "Applaa Team",
+          description: "Your local AI app builder with beautiful orange and green design",
+          setupIcon: "./assets/icon/logo.ico",
+          noMsi: false,
+        },
       },
-    },
+    ] : []),
+    // Cross-platform ZIP maker
     {
       name: "@electron-forge/maker-zip",
       config: {
         platforms: ["darwin", "linux", "win32"],
       },
     },
-    {
-      name: "@electron-forge/maker-dmg",
-      config: {
-        name: "Applaa",
-        format: "UDZO",
-        icon: "./assets/icon/logo.icns",
-        iconSize: 100,
-        contents: (opts) => {
-          return [
-            { x: 380, y: 280, type: "link", path: "/Applications" },
-            { x: 110, y: 280, type: "file", path: opts.appPath },
-          ];
+    // macOS DMG maker (only include on macOS)
+    ...(process.platform === 'darwin' ? [
+      {
+        name: "@electron-forge/maker-dmg",
+        config: {
+          name: "Applaa",
+          format: "UDZO",
+          icon: "./assets/icon/logo.icns",
+          iconSize: 100,
+          contents: (opts) => {
+            return [
+              { x: 380, y: 280, type: "link", path: "/Applications" },
+              { x: 110, y: 280, type: "file", path: opts.appPath },
+            ];
+          },
         },
       },
-    },
+    ] : []),
   ],
   hooks: {
     postPackage: async (forgeConfig, packageResults) => {
       // Verify and re-staple the .app after packaging (if not already stapled)
       // This ensures the .app is stapled before ZIP/DMG creation
+      // Also remove quarantine attributes to prevent "damaged" errors
       try {
       const results = Array.isArray(packageResults) ? packageResults : [packageResults];
       for (const result of results) {
@@ -180,6 +188,19 @@ const config: ForgeConfig = {
           }
           
           if (appPath && require('fs').existsSync(appPath)) {
+            // Remove ALL extended attributes recursively to prevent "damaged" errors
+            // This ensures the .app is completely clean before stapling
+            try {
+              execSync(`xattr -cr "${appPath}"`, { stdio: 'pipe' });
+              console.log(`🧹 Removed all extended attributes from ${appPath}`);
+              
+              // Verify signature is still valid after removing attributes
+              execSync(`codesign --verify --deep --strict "${appPath}"`, { stdio: 'pipe' });
+              console.log(`✅ Signature verified after attribute removal`);
+            } catch (e) {
+              console.warn(`⚠️ Could not remove attributes or verify signature: ${e}`);
+            }
+            
             // Verify staple
             try {
               const validateOutput = execSync(`xcrun stapler validate "${appPath}"`, { encoding: 'utf8', stdio: 'pipe' });
@@ -262,6 +283,18 @@ const config: ForgeConfig = {
                 continue;
               }
               
+              // Remove ALL extended attributes recursively to prevent "damaged" errors
+              // This ensures the app is completely clean before re-zipping
+              try {
+                execSync(`xattr -cr "${appPath}"`, { stdio: 'pipe' });
+                console.log(`🧹 Removed all extended attributes from app before re-zipping`);
+                
+                // Verify signature is still valid
+                execSync(`codesign --verify --deep --strict "${appPath}"`, { stdio: 'pipe' });
+              } catch (e) {
+                console.warn(`⚠️ Could not remove attributes or verify signature: ${e}`);
+              }
+              
               // Verify the app is stapled before re-zipping
               try {
                 const validateOutput = execSync(`xcrun stapler validate "${appPath}"`, { encoding: 'utf8', stdio: 'pipe' });
@@ -277,7 +310,8 @@ const config: ForgeConfig = {
               }
               
               // Create new ZIP with ditto (preserves extended attributes and signatures)
-              execSync(`ditto -c -k --keepParent "${appPath}" "${tempZipPath}"`, { stdio: 'inherit' });
+              // --sequesterRsrc is CRITICAL: prevents quarantine attributes from being included in ZIP
+              execSync(`ditto -c -k --sequesterRsrc --keepParent "${appPath}" "${tempZipPath}"`, { stdio: 'inherit' });
               
               // Verify the new ZIP contains a valid app
               const verifyDir = path.join(__dirname, '.tmp-zip-verify');
