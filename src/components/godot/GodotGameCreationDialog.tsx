@@ -38,13 +38,19 @@ export function GodotGameCreationDialog({
     setIsCreating(true);
     try {
       // Use create-app-instant for Godot apps to get background file creation
+      const normalizedName = gameName.trim().toLowerCase().replace(/\s+/g, '-');
       const result = await ipcClient.createAppInstant({
-        name: gameName.trim().toLowerCase().replace(/\s+/g, '-'),
+        name: normalizedName,
         displayName: gameName,
         appType: 'godot',
         framework: 'web', // Not used for Godot but required by the interface
         prompt: gameDescription || `Create a ${gameName} game`
       });
+
+      // Show notification if name was auto-changed
+      if (result.app.name !== normalizedName) {
+        showSuccess(`App created with name "${result.app.name}" (original name was already taken)`);
+      }
 
       setSelectedAppId(result.app.id);
 

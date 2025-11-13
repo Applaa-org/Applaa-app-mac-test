@@ -46,26 +46,54 @@ const taskManager = getBackgroundTaskManager();
 
 /**
  * 🔧 Generate a unique app name by appending numbers
+ * Checks both filesystem and database to ensure uniqueness
  */
 async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' = 'web'): Promise<string> {
-  let counter = 2;
-  let suggestedName = `${baseName}-${counter}`;
-  
-  while (counter <= 10) { // Limit to prevent infinite loops
-    const testRelPath = getAppRelativePath(suggestedName, appType);
+  // Helper to check if a name is available (both filesystem and database)
+  const isNameAvailable = async (name: string): Promise<boolean> => {
+    // Check filesystem
+    const testRelPath = getAppRelativePath(name, appType);
     const testFullPath = getDyadAppPath(testRelPath);
-    
-    if (!fs.existsSync(testFullPath)) {
-      return suggestedName;
+    if (fs.existsSync(testFullPath)) {
+      return false;
     }
     
+    // Check database
+    const existingApp = await db.query.apps.findFirst({
+      where: eq(apps.name, name),
+    });
+    if (existingApp) {
+      return false;
+    }
+    
+    return true;
+  };
+  
+  // First check the base name
+  if (await isNameAvailable(baseName)) {
+    return baseName;
+  }
+  
+  // Try with numbers
+  let counter = 2;
+  while (counter <= 100) { // Increased limit to handle more duplicates
+    const suggestedName = `${baseName}-${counter}`;
+    if (await isNameAvailable(suggestedName)) {
+      return suggestedName;
+    }
     counter++;
-    suggestedName = `${baseName}-${counter}`;
   }
   
   // If we can't find a unique name with numbers, add timestamp
   const timestamp = Date.now().toString().slice(-6);
-  return `${baseName}-${timestamp}`;
+  const timestampName = `${baseName}-${timestamp}`;
+  if (await isNameAvailable(timestampName)) {
+    return timestampName;
+  }
+  
+  // Last resort: add random suffix
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  return `${baseName}-${randomSuffix}`;
 }
 
 /**
@@ -111,23 +139,52 @@ export function registerParallelAppCreationHandlers() {
           ? 'mobile'
           : 'web';
       
-      const appRelPath = getAppRelativePath(
-        params.name,
+      // Check if app name already exists (filesystem or database)
+      let finalAppName = params.name;
+      let appRelPath = getAppRelativePath(
+        finalAppName,
         appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
       );
-      const fullAppPath = getDyadAppPath(appRelPath);
-      if (fs.existsSync(fullAppPath)) {
-        // 🚨 FIX: Provide helpful duplicate name handling instead of generic error
-        const suggestedName = await generateUniqueAppName(params.name, params.appType);
-        throw new Error(`DUPLICATE_APP_NAME:${params.name}:${suggestedName}`);
+      let fullAppPath = getDyadAppPath(appRelPath);
+      const existingAppInDb = await db.query.apps.findFirst({
+        where: eq(apps.name, finalAppName),
+      });
+      
+      // Track if name was changed
+      const originalName = params.name;
+      
+      // If name exists, automatically use a unique name
+      if (fs.existsSync(fullAppPath) || existingAppInDb) {
+        logger.info(`App name "${params.name}" already exists, generating unique name...`);
+        finalAppName = await generateUniqueAppName(params.name, appType);
+        logger.info(`Using unique app name: "${finalAppName}"`);
+        
+        // Update params with the new name
+        params.name = finalAppName;
+        
+        // Recalculate paths with the new name
+        appRelPath = getAppRelativePath(
+          finalAppName,
+          appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
+        );
+        fullAppPath = getDyadAppPath(appRelPath);
+        
+        // Verify the new path doesn't exist (shouldn't, but double-check)
+        if (fs.existsSync(fullAppPath)) {
+          throw new Error(`Generated unique name "${finalAppName}" still conflicts. Please try a different name.`);
+        }
       }
       const pathTime = performance.now() - pathStart;
       
       // 3. Create minimal DB entries (20ms)
       const dbStart = performance.now();
+      // Update displayName if it matches the original name (so it matches the final name)
+      const displayName = (params.displayName === originalName || !params.displayName) 
+        ? finalAppName 
+        : params.displayName;
       const info = db.$client
         .prepare("INSERT INTO apps (name, path, app_type, status) VALUES (?, ?, ?, ?)")
-        .run(params.name, appRelPath, appType, 'creating');
+        .run(finalAppName, appRelPath, appType, 'creating');
       const insertedId = Number(info.lastInsertRowid);
       
       // 4. Create chat immediately (30ms)
@@ -155,7 +212,7 @@ export function registerParallelAppCreationHandlers() {
       if (row?.createdAt && typeof row.createdAt === "number") {
         row.createdAt = new Date(row.createdAt * 1000);
       }
-      row.displayName = params.displayName;
+      row.displayName = displayName;
       row.packageId = params.packageId;
       row.slug = params.slug;
       

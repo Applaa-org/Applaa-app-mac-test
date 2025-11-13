@@ -234,6 +234,16 @@ async function executeAppLocalNode({
   event: Electron.IpcMainInvokeEvent;
   isNeon: boolean;
 }): Promise<void> {
+  // Check if this is a Godot app - Godot apps don't need npm dependencies
+  const app = await getAppSafe(appId);
+  const isGodotApp = app?.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+  
+  if (isGodotApp) {
+    logger.info(`🎮 Godot app detected (${path.basename(appPath)}), skipping npm dependency installation`);
+    // Godot apps don't run dev servers, so we should not start a process
+    throw new Error("Godot apps don't use npm dev servers. Use the Godot editor or export functionality instead.");
+  }
+  
   // 🚀 PERFORMANCE: Use hermetic package manager strategy for consistent dependency management
   const { getBestPackageManager, ensurePnpmAvailable } = await import("../../lib/hermetic-runtime");
   const packageManager = await getBestPackageManager(appPath);
@@ -1342,9 +1352,17 @@ renderer/rendering_method="forward_plus"
           throw new Error("App not found");
         }
 
+        const appPath = getDyadAppPath(app.path);
+        const isGodotApp = app.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+
+        if (isGodotApp) {
+          logger.log(`🎮 Godot app detected (${app.name}), cannot run - Godot apps don't use dev servers. Use the Godot editor or export functionality instead.`);
+          // Return successfully - Godot apps don't need to be "run" like web/mobile apps
+          return;
+        }
+
         logger.debug(`Starting app ${appId} in path ${app.path}`);
 
-        const appPath = getDyadAppPath(app.path);
         try {
           // Kill any orphaned process on port 32100 (in case previous run left it)
           await killProcessOnPort(32100);
@@ -1366,6 +1384,56 @@ renderer/rendering_method="forward_plus"
             runningApps.delete(appId);
           }
           throw new Error(`Failed to run app ${appId}: ${error.message}`);
+        }
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "start-app",
+    async (
+      event: Electron.IpcMainInvokeEvent,
+      { appId }: { appId: number },
+    ): Promise<void> => {
+      logger.log(`Starting app ${appId}`);
+      return withLock(appId, async () => {
+        try {
+          // Check if this is a Godot app first
+          const app = await getAppSafe(appId);
+          if (!app) {
+            throw new Error("App not found");
+          }
+
+          const appPath = getDyadAppPath(app.path);
+          const isGodotApp = app.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+
+          if (isGodotApp) {
+            logger.log(`🎮 Godot app detected (${app.name}), cannot start - Godot apps don't use dev servers. Use the Godot editor or export functionality instead.`);
+            // Return successfully - Godot apps don't need to be "started" like web/mobile apps
+            return;
+          }
+
+          // Check if app is already running
+          const appInfo = runningApps.get(appId);
+          if (appInfo) {
+            logger.log(`App ${appId} is already running (processId ${appInfo.processId})`);
+            return;
+          }
+
+          // Kill any orphaned process on port 32100
+          await killProcessOnPort(32100);
+
+          await executeApp({
+            appPath,
+            appId,
+            event,
+            isNeon: !!app.neonProjectId,
+          });
+
+          return;
+        } catch (error) {
+          logger.error(`Error starting app ${appId}:`, error);
+          throw error;
         }
       });
     },
@@ -1434,6 +1502,29 @@ renderer/rendering_method="forward_plus"
       logger.log(`Restarting app ${appId}`);
       return withLock(appId, async () => {
         try {
+          // Check if this is a Godot app first
+          const app = await getAppSafe(appId);
+          if (!app) {
+            throw new Error("App not found");
+          }
+
+          const appPath = getDyadAppPath(app.path);
+          const isGodotApp = app.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+
+          if (isGodotApp) {
+            logger.log(`🎮 Godot app detected (${app.name}), skipping restart - Godot apps don't use dev servers`);
+            // Just stop any running processes if they exist
+            const appInfo = runningApps.get(appId);
+            if (appInfo) {
+              const { process, processId } = appInfo;
+              logger.log(`Stopping any running processes for Godot app ${appId} (processId ${processId})`);
+              await killProcess(process);
+              runningApps.delete(appId);
+            }
+            // Return successfully - Godot apps don't need to be "restarted" like web/mobile apps
+            return;
+          }
+
           // First stop the app if it's running
           const appInfo = runningApps.get(appId);
           if (appInfo) {
@@ -1450,15 +1541,6 @@ renderer/rendering_method="forward_plus"
 
           // Kill any orphaned process on port 32100 (in case previous run left it)
           await killProcessOnPort(32100);
-
-          // Now start the app again (legacy-safe)
-          const app = await getAppSafe(appId);
-
-          if (!app) {
-            throw new Error("App not found");
-          }
-
-          const appPath = getDyadAppPath(app.path);
 
           // Remove node_modules if requested
           if (removeNodeModules) {

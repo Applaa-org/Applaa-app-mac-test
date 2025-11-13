@@ -6,6 +6,8 @@ import { generateProblemReport } from "../processors/tsc";
 import { getDyadAppPath } from "@/paths/paths";
 import log from "electron-log";
 import { createLoggedHandler } from "./safe_handle";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const logger = log.scope("problems_handlers");
 const handle = createLoggedHandler(logger);
@@ -61,6 +63,21 @@ export function registerProblemsHandlers() {
       }
 
       const appPath = getDyadAppPath(app.path);
+
+      // Check if this is a Godot app
+      const isGodotApp = app.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+      
+      // Check if TypeScript config exists
+      const possibleConfigs = ['tsconfig.app.json', 'tsconfig.json'];
+      const hasTypeScriptConfig = possibleConfigs.some(config => 
+        fs.existsSync(path.join(appPath, config))
+      );
+
+      // For Godot apps without TypeScript config, return empty problem report
+      if (isGodotApp && !hasTypeScriptConfig) {
+        logger.info(`Skipping TypeScript checking for Godot app ${params.appId} (no TypeScript config found)`);
+        return { problems: [] };
+      }
 
       // Call autofix with empty full response to just run TypeScript checking
       const problemReport = await generateProblemReport({

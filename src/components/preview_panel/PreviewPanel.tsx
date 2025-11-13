@@ -106,6 +106,15 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     // Require at least app.json + app/ directory structure for Expo apps
     return hasExpoConfig && (hasExpoRouterStructure || hasExpoPackages);
   }, [app?.files]);
+
+  // Detect if this is a Godot app
+  const isGodotApp = useMemo(() => {
+    if (!app) return false;
+    // Check app type or files for Godot project
+    return app.appType === 'godot' || app.files?.some(file => 
+      file.includes('godot-project') || file.includes('project.godot')
+    ) || false;
+  }, [app]);
   
   const runningAppIdRef = useRef<number | null>(null);
   const key = useAtomValue(previewPanelKeyAtom);
@@ -135,9 +144,9 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
         console.debug("Starting new app", selectedAppId);
         // Force refresh the preview iframe when switching apps
         refreshAppIframe();
-        // Only run regular web server for non-Expo apps
-        // Expo apps will be handled by BattleTestedExpoPreview component
-        if (!isExpoApp) {
+        // Skip running for Godot apps - they don't use dev servers
+        // Skip running for Expo apps - they will be handled by BattleTestedExpoPreview component
+        if (!isExpoApp && !isGodotApp) {
           // Clear Expo status when switching to non-Expo app to prevent showing old mobile preview
           const ipcClient = IpcClient.getInstance();
           // Use simpleExpoStop to clear the correct status that useExpoUrl checks
@@ -171,7 +180,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     };
     // Dependencies: run effect when selectedAppId or app type changes.
     // runApp/stopApp are stable due to useCallback.
-  }, [selectedAppId, runApp, stopApp, isExpoApp, refreshAppIframe, restartApp, setAppUrlObj]);
+  }, [selectedAppId, runApp, stopApp, isExpoApp, isGodotApp, refreshAppIframe, restartApp, setAppUrlObj]);
 
   // Auto-start disabled - using BattleTestedExpoPreview's built-in auto-start instead
   return (
@@ -270,8 +279,23 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
               <div className="h-full overflow-y-auto">
                 {previewMode === "preview" ? (
                   // Show appropriate component based on app type
-                  // Show loading state when app is loading, when switching between app types, or when web server is starting
-                  (loading || !app || (app && !isExpoApp && !appUrl?.originalUrl)) ? (
+                  // Godot apps don't have web preview - show message instead
+                  isGodotApp ? (
+                    <div className="flex items-center justify-center h-full text-gray-500">
+                      <div className="text-center max-w-md">
+                        <div className="text-6xl mb-4">🎮</div>
+                        <p className="text-lg font-medium mb-2">
+                          Godot Game Project
+                        </p>
+                        <p className="text-sm mb-4">
+                          Godot games cannot be previewed in the browser. Use the Godot editor to open and run your game project.
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Project location: {app?.path || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (loading || !app || (app && !isExpoApp && !appUrl?.originalUrl)) ? (
                     <div className="flex items-center justify-center h-full text-gray-500">
                       <div className="text-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>

@@ -12,14 +12,60 @@ import {
 import { SyncVirtualFileSystemImpl } from "../../shared/VirtualFilesystem";
 
 function loadLocalTypeScript(appPath: string): typeof import("typescript") {
+  // Try multiple paths to find TypeScript:
+  // 1. App's node_modules (for apps that have TypeScript installed)
+  // 2. Main Applaa Builder directory (where TypeScript is installed as devDependency)
+  // 3. Global node_modules (fallback)
+  
+  const searchPaths: string[] = [appPath];
+  
+  // Add main Applaa Builder directory as fallback
+  // The worker is built to .vite/build/, so we need to go up to find the root
   try {
-    // Try to load TypeScript from the project's node_modules
-    const requirePath = require.resolve("typescript", { paths: [appPath] });
-    const ts = require(requirePath);
+    // In the built worker, __dirname will be something like:
+    // C:\Users\44754\Applaa-Builder-v1\.vite\build\src\ipc\processors
+    // We need to find the root Applaa Builder directory
+    let currentDir = __dirname;
+    // Navigate up from .vite/build/src/ipc/processors to root
+    // Or from workers/tsc/dist to root
+    while (currentDir !== path.dirname(currentDir)) {
+      const packageJsonPath = path.join(currentDir, "package.json");
+      if (fs.existsSync(packageJsonPath)) {
+        try {
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+          if (packageJson.name === "applaa") {
+            searchPaths.push(currentDir);
+            break;
+          }
+        } catch {
+          // Ignore JSON parse errors
+        }
+      }
+      currentDir = path.dirname(currentDir);
+    }
+  } catch {
+    // If we can't find the root, that's okay - we'll just try the app path
+  }
+  
+  // Try each path in order
+  for (const searchPath of searchPaths) {
+    try {
+      const requirePath = require.resolve("typescript", { paths: [searchPath] });
+      const ts = require(requirePath);
+      return ts;
+    } catch {
+      // Continue to next path
+      continue;
+    }
+  }
+  
+  // If all paths failed, try without paths (global)
+  try {
+    const ts = require("typescript");
     return ts;
   } catch (error) {
     throw new Error(
-      `Failed to load TypeScript from ${appPath} because of ${error}`,
+      `Failed to load TypeScript. Tried paths: ${searchPaths.join(", ")}. Error: ${error}`,
     );
   }
 }
