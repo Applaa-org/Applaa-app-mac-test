@@ -2303,7 +2303,7 @@ export class IpcClient {
     displayName?: string;
     packageId?: string;
     slug?: string;
-    appType: 'web' | 'mobile';
+    appType: 'web' | 'mobile' | 'godot';
     framework: 'web' | 'expo' | 'flutter';
     prompt?: string;
     attachments?: any[];
@@ -2867,6 +2867,45 @@ export class IpcClient {
     error?: string;
   }> {
     return this.ipcRenderer.invoke("wordpress:oauth-login", params);
+  }
+
+  // Godot Engine Methods
+  public async generateGameSpec(params: {
+    prompt: string;
+    appId: number;
+  }): Promise<import("./handlers/godot_handlers").GameSpecification> {
+    return this.ipcRenderer.invoke("godot:generate-game-spec", params);
+  }
+
+  public async buildGodotGameFromSpec(params: {
+    appId: number;
+    spec: import("./handlers/godot_handlers").GameSpecification;
+  }): Promise<{ success: boolean; message: string }> {
+    return this.ipcRenderer.invoke("godot:build-from-spec", params);
+  }
+
+  public async createGodotProject(params: {
+    appId: number;
+    projectName: string;
+  }): Promise<{ success: boolean; projectPath: string }> {
+    return this.ipcRenderer.invoke("godot:create-project", params);
+  }
+
+  public async exportGodotWeb(params: {
+    appId: number;
+  }): Promise<{ success: boolean; exportPath?: string; error?: string }> {
+    return this.ipcRenderer.invoke("godot:export-web", params);
+  }
+
+  public async getGodotProjectStatus(params: {
+    appId: number;
+  }): Promise<{
+    hasProject: boolean;
+    hasSpec: boolean;
+    projectPath?: string;
+    specPath?: string;
+  }> {
+    return this.ipcRenderer.invoke("godot:get-project-status", params);
   }
 }
 

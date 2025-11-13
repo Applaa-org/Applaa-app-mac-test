@@ -44,7 +44,7 @@ export const apps = sqliteTable("apps", {
   lastDeploymentAt: integer("last_deployment_at", { mode: "timestamp" }),
   deploymentNotes: text("deployment_notes"),
   chatContext: text("chat_context", { mode: "json" }),
-  appType: text("app_type", { enum: ["web", "mobile"] }).default("web"),
+  appType: text("app_type", { enum: ["web", "mobile", "godot"] }).default("web"),
   status: text("status").default("ready"),
 });
 

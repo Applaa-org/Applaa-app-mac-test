@@ -705,15 +705,18 @@ export function registerAppHandlers() {
       // Return immediately with task info (non-blocking)
       // We still need to return app and chatId for backwards compatibility
       // but they'll be available from the task result when completed
+      // Determine app type
+      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot')
+        ? params.appType
+        : (params.framework === 'expo' || params.framework === 'flutter')
+          ? 'mobile'
+          : 'web';
+      
       const quickApp = {
         id: -1, // Temporary ID
         name: params.name,
         path: params.name,
-        appType: (params.appType === 'mobile' || params.appType === 'web')
-          ? params.appType
-          : (params.framework === 'expo' || params.framework === 'flutter')
-            ? 'mobile'
-            : 'web'
+        appType: appType
       };
       
       return { taskId, app: quickApp, chatId: -1 };
@@ -742,23 +745,24 @@ export function registerAppHandlers() {
       }
       
       await ensureWorkspaceInitialized();
-      const appRelPath2 = getAppRelativePath(
-        params.name,
-        (params.appType === 'mobile' || params.framework === 'expo') ? 'mobile' : 'web'
-      );
-      const fullAppPath = getDyadAppPath(appRelPath2);
-      if (fs.existsSync(fullAppPath)) {
-        // 🚨 FIX: Provide helpful duplicate name handling instead of generic error
-        const suggestedName = await generateUniqueAppName(params.name, params.appType);
-        throw new Error(`DUPLICATE_APP_NAME:${params.name}:${suggestedName}`);
-      }
       
       // Determine app type from explicit params, then framework hint, fallback to web
-      const appType = (params.appType === 'mobile' || params.appType === 'web')
+      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot')
         ? params.appType
         : (params.framework === 'expo' || params.framework === 'flutter')
           ? 'mobile'
           : 'web';
+      
+      const appRelPath2 = getAppRelativePath(
+        params.name,
+        appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
+      );
+      const fullAppPath = getDyadAppPath(appRelPath2);
+      if (fs.existsSync(fullAppPath)) {
+        // 🚨 FIX: Provide helpful duplicate name handling instead of generic error
+        const suggestedName = await generateUniqueAppName(params.name, appType);
+        throw new Error(`DUPLICATE_APP_NAME:${params.name}:${suggestedName}`);
+      }
       
       // Create a new app using a minimal, legacy-safe insert to avoid
       // referencing columns that might not exist (e.g., display_name)
@@ -800,11 +804,56 @@ export function registerAppHandlers() {
 
       // 🚀 PERFORMANCE FIX: Template creation already handles Git initialization
       // Pass template info to avoid race condition with settings
-      const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
-      await createFromTemplate({
-        fullAppPath,
-        templateId,
-      });
+      if (appType === 'godot') {
+        // For Godot apps, create the project structure
+        // Create Godot project files directly
+        fs.mkdirSync(fullAppPath, { recursive: true });
+        const projectPath = path.join(fullAppPath, "godot-project");
+        fs.mkdirSync(projectPath, { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "scenes"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "scripts"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "assets"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "assets", "sprites"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "assets", "sounds"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "assets", "music"), { recursive: true });
+        
+        const projectGodot = `; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="${params.name}"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1152
+window/size/viewport_height=648
+window/size/resizable=true
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+`;
+        
+        fs.writeFileSync(path.join(projectPath, "project.godot"), projectGodot);
+        fs.writeFileSync(path.join(projectPath, "game_spec.json"), JSON.stringify({}, null, 2));
+        
+        // Initialize Git for Godot project
+        await git.init({
+          fs: fs,
+          dir: fullAppPath,
+          defaultBranch: "main",
+        });
+      } else {
+        const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
+        await createFromTemplate({
+          fullAppPath,
+          templateId,
+        });
+      }
 
       // 🚀 PERFORMANCE: Get commit hash from template creation (no duplicate Git ops)
       let commitHash: string;

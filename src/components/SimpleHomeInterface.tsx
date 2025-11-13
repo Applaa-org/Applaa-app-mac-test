@@ -12,6 +12,7 @@ import { HomeChatInput } from '@/components/chat/HomeChatInput';
 import { SimpleAppTypeSelector } from './SimpleAppTypeSelector';
 import { ComingSoonCards } from './ComingSoonCards';
 import { FeaturedGames } from './FeaturedGames';
+import { GodotGameCreationDialog } from '@/components/godot/GodotGameCreationDialog';
 // 🚀 PERFORMANCE: Commented out for MVP - move to website as marketing content
 // import { ComingSoonTiles } from './ComingSoonTiles';
 import { IpcClient } from '@/ipc/ipc_client';
@@ -34,14 +35,22 @@ type ExampleIdea = {
 export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) {
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
   const navigate = useNavigate();
-  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | null>(null);
+  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | null>(null);
+  const [isGodotDialogOpen, setIsGodotDialogOpen] = useState(false);
   const { updateSettings } = useSettings();
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
 
   // Handle app type selection
-  const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter') => {
+  const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot') => {
     console.log('[SimpleHomeInterface] App type selected:', type);
+    
+    // For Godot, open the creation dialog directly
+    if (type === 'godot') {
+      setIsGodotDialogOpen(true);
+      return;
+    }
+    
     setSelectedAppType(type);
 
     // Update settings based on selection
@@ -265,6 +274,16 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
           </div>
         </div>
       )}
+
+      {/* Godot Game Creation Dialog */}
+      <GodotGameCreationDialog
+        isOpen={isGodotDialogOpen}
+        onClose={() => {
+          setIsGodotDialogOpen(false);
+          setSelectedAppType(null);
+        }}
+        userPrompt={inputValue}
+      />
     </div>
   );
 }

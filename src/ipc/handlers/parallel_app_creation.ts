@@ -25,7 +25,7 @@ interface ParallelAppCreationParams {
   displayName?: string;
   packageId?: string;
   slug?: string;
-  appType: 'web' | 'mobile';
+  appType: 'web' | 'mobile' | 'godot';
   framework: 'web' | 'expo' | 'flutter';
   prompt?: string;
   attachments?: any[];
@@ -47,7 +47,7 @@ const taskManager = getBackgroundTaskManager();
 /**
  * 🔧 Generate a unique app name by appending numbers
  */
-async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' = 'web'): Promise<string> {
+async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' = 'web'): Promise<string> {
   let counter = 2;
   let suggestedName = `${baseName}-${counter}`;
   
@@ -105,9 +105,15 @@ export function registerParallelAppCreationHandlers() {
       // 2. Quick path validation (10ms)
       const pathStart = performance.now();
       await ensureWorkspaceInitialized();
+      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot')
+        ? params.appType
+        : (params.framework === 'expo' || params.framework === 'flutter')
+          ? 'mobile'
+          : 'web';
+      
       const appRelPath = getAppRelativePath(
         params.name,
-        (params.appType === 'mobile' || params.framework === 'expo') ? 'mobile' : 'web'
+        appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
       );
       const fullAppPath = getDyadAppPath(appRelPath);
       if (fs.existsSync(fullAppPath)) {
@@ -121,7 +127,7 @@ export function registerParallelAppCreationHandlers() {
       const dbStart = performance.now();
       const info = db.$client
         .prepare("INSERT INTO apps (name, path, app_type, status) VALUES (?, ?, ?, ?)")
-        .run(params.name, appRelPath, params.appType, 'creating');
+        .run(params.name, appRelPath, appType, 'creating');
       const insertedId = Number(info.lastInsertRowid);
       
       // 4. Create chat immediately (30ms)
@@ -255,20 +261,30 @@ async function createAppBackgroundTasks(
     updateProgress(50, 'Creating template files...');
     const templateStart = performance.now();
     const templatePromise = (async () => {
-      await createTemplateFiles(fullAppPath, params.framework, params);
-      // ✅ Template files copied without modification - no healing needed
-      // Original Dyad approach: templates are pristine and don't need healing
-      logger.info('✅ Template files copied without modification - preserving original Dyad approach');
+      if (params.appType === 'godot') {
+        // For Godot apps, create the project structure
+        await createGodotProjectFiles(fullAppPath, params);
+      } else {
+        await createTemplateFiles(fullAppPath, params.framework, params);
+        // ✅ Template files copied without modification - no healing needed
+        // Original Dyad approach: templates are pristine and don't need healing
+        logger.info('✅ Template files copied without modification - preserving original Dyad approach');
+      }
     })();
     
     updateProgress(60, 'Initializing git repository...');
     const gitStart = performance.now();
     const gitPromise = initializeGitRepository(fullAppPath);
     
-    // 🚀 OPTIMIZATION: Install dependencies immediately after template copy
-    updateProgress(70, 'Installing dependencies...');
+    // 🚀 OPTIMIZATION: Install dependencies immediately after template copy (skip for Godot)
     const dependencyStart = performance.now();
-    const dependencyPromise = installDependenciesForNewApp(fullAppPath, appId, params.framework);
+    const dependencyPromise = params.appType === 'godot' 
+      ? Promise.resolve() // Godot doesn't need npm dependencies
+      : installDependenciesForNewApp(fullAppPath, appId, params.framework);
+    
+    if (params.appType !== 'godot') {
+      updateProgress(70, 'Installing dependencies...');
+    }
     
     // 🚀 PARALLEL PREBUILD: Start prebuild process for instant previews (Expo only)
     if (params.framework === 'expo') {
@@ -343,6 +359,56 @@ async function createAppBackgroundTasks(
     // The BackgroundTaskManager will automatically handle the error state
     throw error; // Re-throw so the task manager marks it as failed
   }
+}
+
+/**
+ * Create Godot project files
+ */
+async function createGodotProjectFiles(
+  fullAppPath: string,
+  params: ParallelAppCreationParams
+) {
+  // Create the project structure directly
+  const projectPath = path.join(fullAppPath, 'godot-project');
+  fs.mkdirSync(projectPath, { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'scenes'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'assets'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'assets', 'sprites'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'assets', 'sounds'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'assets', 'music'), { recursive: true });
+  
+  // Create basic project.godot
+  const projectGodot = `; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="${params.name}"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1152
+window/size/viewport_height=648
+window/size/resizable=true
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+`;
+  
+  fs.writeFileSync(path.join(projectPath, 'project.godot'), projectGodot);
+  
+  // Create empty game spec
+  fs.writeFileSync(
+    path.join(projectPath, 'game_spec.json'),
+    JSON.stringify({}, null, 2)
+  );
+  
+  logger.info(`✅ Godot project structure created at ${projectPath}`);
 }
 
 /**
