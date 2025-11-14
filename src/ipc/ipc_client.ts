@@ -2913,6 +2913,12 @@ export class IpcClient {
   }): Promise<{ hasExport: boolean; exportUrl?: string; exportPath?: string }> {
     return this.ipcRenderer.invoke("godot:get-web-export-url", params);
   }
+
+  public async stopGodotServer(params: {
+    appId: number;
+  }): Promise<void> {
+    return this.ipcRenderer.invoke("godot:stop-server", params);
+  }
 }
 
 // Export singleton instance

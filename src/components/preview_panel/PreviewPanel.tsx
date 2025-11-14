@@ -176,6 +176,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             currentRunningApp,
           );
           stopApp(currentRunningApp);
+          // Stop Godot server if it was running
+          if (isGodotApp) {
+            IpcClient.getInstance().stopGodotServer({ appId: currentRunningApp }).catch(console.error);
+          }
           runningAppIdRef.current = null; // Clear ref on stop
         }
       }

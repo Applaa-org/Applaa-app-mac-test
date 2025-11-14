@@ -1,6 +1,8 @@
 import { ipcMain } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as http from "node:http";
+import * as url from "node:url";
 import log from "electron-log";
 import { db } from "../../db";
 import { apps } from "../../db/schema";
@@ -9,8 +11,12 @@ import { getDyadAppPath } from "../../paths/paths";
 import { readSettings } from "../../main/settings";
 import { generateGameSpecification } from "../../godot/game_spec_generator";
 import { buildGodotGameFromSpec } from "../../godot/godot_builder";
+import { findAvailablePort } from "../utils/port_utils";
 
 const logger = log.scope("godot_handlers");
+
+// Track running HTTP servers for Godot exports
+const godotServers = new Map<number, { server: http.Server; port: number; exportPath: string }>();
 
 /**
  * Creates a simple test web export that can be previewed
@@ -567,6 +573,148 @@ renderer/rendering_method="forward_plus"
     }
   );
 
+  // Start HTTP server for Godot export
+  async function startGodotServer(appId: number, exportPath: string): Promise<number> {
+    // Check if server already running for this app
+    const existing = godotServers.get(appId);
+    if (existing) {
+      // Verify the server is still running and serving the same path
+      if (existing.exportPath === exportPath) {
+        logger.info(`Godot server already running for app ${appId} on port ${existing.port}`);
+        return existing.port;
+      } else {
+        // Stop old server if path changed
+        existing.server.close();
+        godotServers.delete(appId);
+      }
+    }
+
+    // Find available port (try ports 9000-9100)
+    const port = await findAvailablePort(9000, 9100);
+    
+    // Create HTTP server to serve static files
+    const server = http.createServer((req, res) => {
+      if (!req.url) {
+        res.writeHead(400);
+        res.end('Bad Request');
+        return;
+      }
+
+      // Parse URL
+      const parsedUrl = url.parse(req.url);
+      let filePath = parsedUrl.pathname || '/';
+      
+      // Default to index.html
+      if (filePath === '/') {
+        filePath = '/index.html';
+      }
+
+      // Remove leading slash and resolve path
+      const fullPath = path.join(exportPath, filePath.replace(/^\//, ''));
+      
+      // Security check: ensure path is within export directory
+      const resolvedPath = path.resolve(fullPath);
+      const resolvedExportPath = path.resolve(exportPath);
+      if (!resolvedPath.startsWith(resolvedExportPath)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+      }
+
+      // Check if file exists
+      if (!fs.existsSync(resolvedPath)) {
+        res.writeHead(404);
+        res.end('Not Found');
+        return;
+      }
+
+      // Get file stats
+      const stats = fs.statSync(resolvedPath);
+      if (stats.isDirectory()) {
+        // Redirect to index.html in directory
+        const indexPath = path.join(resolvedPath, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          res.writeHead(302, { Location: path.join(filePath, 'index.html') });
+          res.end();
+          return;
+        }
+        res.writeHead(404);
+        res.end('Not Found');
+        return;
+      }
+
+      // Read and serve file
+      try {
+        const content = fs.readFileSync(resolvedPath);
+        const ext = path.extname(resolvedPath).toLowerCase();
+        
+        // Simple MIME type detection
+        const mimeTypes: Record<string, string> = {
+          '.html': 'text/html',
+          '.htm': 'text/html',
+          '.js': 'application/javascript',
+          '.css': 'text/css',
+          '.json': 'application/json',
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.svg': 'image/svg+xml',
+          '.ico': 'image/x-icon',
+          '.woff': 'font/woff',
+          '.woff2': 'font/woff2',
+          '.ttf': 'font/ttf',
+          '.wasm': 'application/wasm',
+        };
+        
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Content-Length': content.length,
+          'Cache-Control': 'no-cache',
+        });
+        res.end(content);
+      } catch (error) {
+        logger.error(`Error serving file ${resolvedPath}:`, error);
+        res.writeHead(500);
+        res.end('Internal Server Error');
+      }
+    });
+
+    // Start server
+    return new Promise((resolve, reject) => {
+      server.listen(port, '127.0.0.1', () => {
+        logger.info(`Started Godot HTTP server for app ${appId} on port ${port}, serving ${exportPath}`);
+        godotServers.set(appId, { server, port, exportPath });
+        resolve(port);
+      });
+
+      server.on('error', (error: NodeJS.ErrnoException) => {
+        if (error.code === 'EADDRINUSE') {
+          logger.error(`Port ${port} is already in use`);
+          reject(new Error(`Port ${port} is already in use`));
+        } else {
+          logger.error(`Failed to start Godot server:`, error);
+          reject(error);
+        }
+      });
+    });
+  }
+
+  // Stop HTTP server for Godot export
+  ipcMain.handle(
+    "godot:stop-server",
+    async (_, params: { appId: number }): Promise<void> => {
+      const serverInfo = godotServers.get(params.appId);
+      if (serverInfo) {
+        serverInfo.server.close();
+        godotServers.delete(params.appId);
+        logger.info(`Stopped Godot HTTP server for app ${params.appId}`);
+      }
+    }
+  );
+
   // Get Godot web export URL for preview
   ipcMain.handle(
     "godot:get-web-export-url",
@@ -587,32 +735,48 @@ renderer/rendering_method="forward_plus"
         const exportPath = path.join(appPath, "godot-web-export");
         const indexHtmlPath = path.join(exportPath, "index.html");
 
-        // Check if export exists
-        const hasExport = fs.existsSync(indexHtmlPath);
+        // Check if export exists, if not try to create it
+        let hasExport = fs.existsSync(indexHtmlPath);
+        
+        if (!hasExport) {
+          // Try to automatically create export if project exists
+          const projectPath = path.join(appPath, "godot-project");
+          const projectGodotPath = path.join(projectPath, "project.godot");
+          
+          if (fs.existsSync(projectGodotPath)) {
+            logger.info(`Export not found for app ${params.appId}, creating test export automatically...`);
+            try {
+              await createTestWebExport(exportPath, null, app.name);
+              hasExport = fs.existsSync(indexHtmlPath);
+              if (hasExport) {
+                logger.info(`Successfully created test export for app ${params.appId}`);
+              }
+            } catch (exportError) {
+              logger.warn("Failed to auto-create export:", exportError);
+            }
+          }
+        }
 
         if (!hasExport) {
           return { hasExport: false };
         }
 
-        // Return file:// URL for Electron to load
-        // On Windows, we need to add an extra slash after file:
-        // file:///C:/path/to/file.html
-        // On Unix, it's: file:///path/to/file.html
-        let normalizedPath = indexHtmlPath.replace(/\\/g, '/');
-        // Ensure path starts with / for file:// URLs
-        if (!normalizedPath.startsWith('/')) {
-          normalizedPath = '/' + normalizedPath;
+        // Start HTTP server to serve the export
+        try {
+          const port = await startGodotServer(params.appId, exportPath);
+          const exportUrl = `http://127.0.0.1:${port}/`;
+
+          logger.info(`Godot web export found at ${exportPath}, serving on ${exportUrl}`);
+
+          return {
+            hasExport: true,
+            exportUrl,
+            exportPath,
+          };
+        } catch (serverError) {
+          logger.error("Failed to start Godot HTTP server:", serverError);
+          throw new Error(`Failed to start preview server: ${serverError instanceof Error ? serverError.message : String(serverError)}`);
         }
-        // On Windows, we need file:/// (three slashes), on Unix file:/// (three slashes)
-        const exportUrl = `file://${normalizedPath}`;
-
-        logger.info(`Godot web export found at ${exportPath}, URL: ${exportUrl}`);
-
-        return {
-          hasExport: true,
-          exportUrl,
-          exportPath,
-        };
       } catch (error) {
         logger.error("Failed to get Godot web export URL:", error);
         throw error;
