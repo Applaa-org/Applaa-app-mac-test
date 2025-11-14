@@ -2907,6 +2907,12 @@ export class IpcClient {
   }> {
     return this.ipcRenderer.invoke("godot:get-project-status", params);
   }
+
+  public async getGodotWebExportUrl(params: {
+    appId: number;
+  }): Promise<{ hasExport: boolean; exportUrl?: string; exportPath?: string }> {
+    return this.ipcRenderer.invoke("godot:get-web-export-url", params);
+  }
 }
 
 // Export singleton instance

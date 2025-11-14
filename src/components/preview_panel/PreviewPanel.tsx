@@ -28,6 +28,7 @@ import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
 import { WebPreviewTimeoutPopup } from "../WebPreviewTimeoutPopup";
 import { useExpoUrl } from "@/hooks/useExpoUrl";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
+import { useGodotExport } from "@/hooks/useGodotExport";
 // DesignTab removed for MVP
 
 interface ConsoleHeaderProps {
@@ -76,6 +77,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const { runApp, stopApp, loading, app, refreshAppIframe, restartApp, setAppUrlObj } = useRunApp();
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
+  const { hasExport: hasGodotExport, exportUrl: godotExportUrl } = useGodotExport();
   const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
 
@@ -279,30 +281,34 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
               <div className="h-full overflow-y-auto">
                 {previewMode === "preview" ? (
                   // Show appropriate component based on app type
-                  // Godot apps don't have web preview - show message instead
+                  // Godot apps - show export if available, otherwise show message
                   isGodotApp ? (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      <div className="text-center max-w-md">
-                        <div className="text-6xl mb-4">🎮</div>
-                        <p className="text-lg font-medium mb-2">
-                          Godot Game Project
-                        </p>
-                        <p className="text-sm mb-4">
-                          Godot games cannot be previewed in the browser. Use the Godot editor to open and run your game project.
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Project location: {app?.path || 'N/A'}
-                        </p>
+                    hasGodotExport && godotExportUrl ? (
+                      <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
+                    ) : (
+                      <div className="godot-preview-container h-full">
+                        <div className="godot-message">
+                          <div className="godot-message-icon">🎮</div>
+                          <div className="godot-message-title">Godot Game Project</div>
+                          <div className="godot-message-text">
+                            {hasGodotExport 
+                              ? "Export found but URL is not available. Please try exporting again."
+                              : "No web export found. Export your Godot game to web format to preview it here."}
+                          </div>
+                          <div className="mt-4 text-xs" style={{ color: 'var(--godot-text-secondary)' }}>
+                            Project location: {app?.path || 'N/A'}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )
                   ) : (loading || !app || (app && !isExpoApp && !appUrl?.originalUrl)) ? (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                        <p className="text-lg font-medium mb-2">
+                    <div className="godot-preview-container h-full">
+                      <div className="godot-loading">
+                        <div className="godot-spinner"></div>
+                        <p className="mt-4 godot-message-title">
                           {loading ? "Loading App..." : "Preview is loading..."}
                         </p>
-                        <p className="text-sm">
+                        <p className="mt-2 godot-message-text">
                           {loading ? "Please wait while the app is being loaded." : "Please wait while the preview loads."}
                         </p>
                       </div>
@@ -322,10 +328,11 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                 
                 {/* Debug fallback - improved logic to handle loading states */}
                 {!app && !loading && !selectedAppId && (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    <div className="text-center">
-                      <p className="text-lg font-medium mb-2">No App Selected</p>
-                      <p className="text-sm">Please select an app from the sidebar to see the preview.</p>
+                  <div className="godot-preview-container h-full">
+                    <div className="godot-message">
+                      <div className="godot-message-icon">🎮</div>
+                      <div className="godot-message-title">No App Selected</div>
+                      <div className="godot-message-text">Please select an app from the sidebar to see the preview.</div>
                     </div>
                   </div>
                 )}
