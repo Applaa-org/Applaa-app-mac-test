@@ -162,6 +162,33 @@ const validInvokeChannels = [
   "simple-expo:metro-recovery",
   "simple-expo:update-packages",
   
+  // Snack Preview channels (Hot Reload & File Watching)
+  "snack:start-hot-reload",
+  "snack:stop-hot-reload",
+  "snack:is-watching",
+  "snack:get-watched-apps",
+  "snack:manual-trigger",
+  "snack:update-options",
+  "snack:get-options",
+  
+  // Code Validation channels
+  "code:validate",
+  "code:auto-fix",
+  "code:auto-fix-all",
+  "code:validate-and-fix",
+  "chrome-devtools:start",
+  "chrome-devtools:stop",
+  "chrome-devtools:navigate",
+  "chrome-devtools:console-messages",
+  "chrome-devtools:network-requests",
+  "chrome-devtools:screenshot",
+    "chrome-devtools:status",
+    "app:repair",
+    "app:check-repair-needed",
+    "problems:add-runtime",
+    "problems:get-runtime",
+    "problems:clear-runtime",
+  
   // Design Generation
     "generate-app-icons",
   "generate-gemini-icons",

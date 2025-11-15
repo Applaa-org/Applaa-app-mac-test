@@ -21,13 +21,20 @@ export function useParseRouter(appId: number | null) {
     refreshApp,
   } = useLoadApp(appId);
 
+  // Detect file structure to determine which file to load
+  const isExpoRouterApp = useMemo(() => {
+    if (!app?.files) return false;
+    return app.files.some((f) => f.includes('app/index.tsx') || f.includes('app/_layout.tsx'));
+  }, [app?.files]);
+
   // Load router related file to extract routes for non-Next apps
+  const routerFilePath = isExpoRouterApp ? "app/index.tsx" : "src/App.tsx";
   const {
     content: routerContent,
     loading: routerFileLoading,
     error: routerFileError,
     refreshFile,
-  } = useLoadAppFile(appId, "src/App.tsx");
+  } = useLoadAppFile(appId, routerFilePath);
 
   // Detect Next.js app by presence of next.config.* in file list
   const isNextApp = useMemo(() => {

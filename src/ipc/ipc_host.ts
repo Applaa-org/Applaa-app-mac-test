@@ -39,7 +39,7 @@ import { registerProblemsHandlers } from "./handlers/problems_handlers";
 import { registerAppEnvVarsHandlers } from "./handlers/app_env_vars_handlers";
 import { registerTemplateHandlers } from "./handlers/template_handlers";
 import { registerPortalHandlers } from "./handlers/portal_handlers";
-// import { registerExpoHandlers } from "./handlers/expo_handlers"; // unused when unified preview is active
+import { registerExpoHandlers } from "./handlers/expo_handlers"; // ✅ REQUIRED for SnackPoweredPreview
 // import { registerDualExpoHandlers } from "./handlers/expo_dual_handlers"; // unused when unified preview is active
 import { registerSimpleExpoHandlers } from "./handlers/simple_expo_handlers";
 import { registerUnifiedExpoPreview } from "./handlers/unified_expo_preview";
@@ -47,6 +47,11 @@ import { registerIntelligentPreviewSystem } from "./handlers/intelligent_preview
 import { registerExpoPerformanceMonitor } from "./handlers/expo_performance_monitor";
 import { registerTerminalHandlers } from "./handlers/terminal_handlers";
 // import { registerSnackHandlers } from "./handlers/snack_handlers"; // DISABLED - snack-sdk dependency
+import { registerSnackPreviewHandlers } from "./handlers/snack_preview_handlers"; // NEW: Snack-powered preview
+import { registerCodeValidationHandlers } from "./handlers/code_validation_handlers";
+import { registerChromeDevToolsHandlers } from "./handlers/chrome_devtools_handlers";
+import { registerAppRepairHandlers } from "./handlers/app_repair_handlers"; // NEW: Code validation and auto-fix
+import { registerRuntimeProblemHandlers } from "./handlers/problems_handlers"; // NEW: Runtime error integration
 import { registerPromptOptimizationHandlers } from "./handlers/prompt_optimization_handlers";
 import { registerPromptHandlers } from "./handlers/prompt_handlers";
 import { registerFlutterMobileHandlers } from "./handlers/flutter_mobile_handlers";
@@ -113,11 +118,11 @@ export function registerIpcHandlers() {
   registerAppEnvVarsHandlers();
   registerTemplateHandlers();
   registerPortalHandlers();
-  // 🚀 UNIFIED PREVIEW: Only register the unified preview system for Dyad-like performance
-  // registerExpoHandlers(); // DISABLED - conflicts with unified system
-  // registerDualExpoHandlers(); // DISABLED - conflicts with unified system  
+  // 🚀 EXPO PREVIEW: Register Expo handlers for SnackPoweredPreview
+  registerExpoHandlers(); // ✅ ENABLED - Required for expo:start, expo:stop, expo:status
+  // registerDualExpoHandlers(); // DISABLED - not needed
   registerSimpleExpoHandlers(); // ✅ ENABLED - Required for frontend compatibility
-  registerUnifiedExpoPreview(); // ✅ ACTIVE - Single, optimized preview system
+  registerUnifiedExpoPreview(); // ✅ ACTIVE - Unified preview system (legacy, may remove later)
 
   // Legacy EXPO PREVIEW option (commented; keep for quick toggle)
   // registerExpoHandlers(); // ✅ ACTIVE - Main expo handlers
@@ -125,9 +130,14 @@ export function registerIpcHandlers() {
   // registerIntelligentPreviewSystem(); // DISABLED - conflicts with unified system
   registerExpoPerformanceMonitor();
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
-  // registerSnackHandlers(); // DISABLED - snack-sdk not included in EXE package
-  // Snack preview is experimental - users can use Expo CLI preview instead
-  console.log('⚠️ Snack handlers disabled (snack-sdk not in package)');
+  // registerSnackHandlers(); // DISABLED - old snack-sdk not included in EXE package
+  registerSnackPreviewHandlers(); // ✅ NEW: Snack-powered preview with hot reload
+  console.log('🚀 Snack preview handlers enabled');
+  registerCodeValidationHandlers(); // ✅ NEW: Code validation and auto-fix
+  registerChromeDevToolsHandlers();
+  registerAppRepairHandlers(); // ✅ NEW: Chrome DevTools MCP integration
+  registerRuntimeProblemHandlers(); // ✅ NEW: Runtime error integration with Problems Tab
+  console.log('✅ Code validation handlers enabled');
   registerPromptOptimizationHandlers();
   registerPromptHandlers();
   registerFlutterMobileHandlers();
