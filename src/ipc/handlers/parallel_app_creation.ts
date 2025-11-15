@@ -459,11 +459,205 @@ renderer/rendering_method="forward_plus"
   
   fs.writeFileSync(path.join(projectPath, 'project.godot'), projectGodot);
   
-  // Create empty game spec
+  // Try to generate game spec from prompt if provided
+  let gameSpec: any = null;
+  const userPrompt = params.prompt || params.initialPrompt; // Support both parameter names
+  if (userPrompt && userPrompt.trim()) {
+    try {
+      logger.info(`Generating game spec from prompt: ${userPrompt.substring(0, 100)}...`);
+      const { generateGameSpecification } = await import('../../godot/game_spec_generator');
+      const { readSettings } = await import('../../main/settings');
+      const settings = readSettings();
+      gameSpec = await generateGameSpecification(userPrompt, settings);
+      logger.info(`✅ Generated game spec: ${gameSpec.game?.name || 'Unknown'}`);
+      logger.info(`   Description: ${gameSpec.game?.description || 'N/A'}`);
+      logger.info(`   Type: ${gameSpec.game?.type || 'N/A'}`);
+    } catch (specError: any) {
+      logger.warn('Failed to generate game spec from prompt, using default:', specError?.message || specError);
+      // Continue with null spec - will use default test game
+    }
+  } else {
+    logger.info('No prompt provided, will use default test game');
+  }
+  
+  // Save game spec (or empty if generation failed)
   fs.writeFileSync(
     path.join(projectPath, 'game_spec.json'),
-    JSON.stringify({}, null, 2)
+    JSON.stringify(gameSpec || {}, null, 2)
   );
+  
+  // If we have a valid spec, build the actual Godot project from it
+  if (gameSpec && gameSpec.game) {
+    try {
+      logger.info('Building Godot project from generated spec...');
+      const { generateGodotProject } = await import('../../godot/godot_project_generator');
+      
+      // Convert the spec format if needed
+      // game_spec_generator may return old format (player, enemies, levels)
+      // project generator expects new format (scenes, scripts)
+      let projectSpec: any = gameSpec;
+      
+      // Check if spec uses old format (has player/enemies/levels but no scenes)
+      if ((gameSpec.player || gameSpec.enemies || gameSpec.levels) && !gameSpec.scenes) {
+        logger.info('Converting spec from old format to new format...');
+        const gameType = gameSpec.game?.type || '2D';
+        const rootType = gameType === '3D' ? 'Node3D' : 'Node2D';
+        
+        // Build nodes array from player, enemies, and levels
+        const nodes: any[] = [];
+        
+        // Add player node
+        if (gameSpec.player) {
+          const playerNode: any = {
+            name: gameSpec.player.name || 'Player',
+            type: gameType === '3D' ? 'CharacterBody3D' : 'CharacterBody2D',
+            position: { x: 100, y: 300, z: 0 },
+            children: []
+          };
+          
+          // Add sprite for 2D or mesh for 3D
+          if (gameType === '2D') {
+            playerNode.children = [
+              {
+                name: 'Sprite2D',
+                type: 'Sprite2D',
+                position: { x: 0, y: 0 },
+                properties: {
+                  texture: gameSpec.player.sprite || ''
+                }
+              }
+            ];
+          } else {
+            playerNode.children = [
+              {
+                name: 'MeshInstance3D',
+                type: 'MeshInstance3D',
+                position: { x: 0, y: 0, z: 0 },
+                properties: {
+                  mesh: 'res://assets/models/player.gltf'
+                }
+              }
+            ];
+          }
+          
+          nodes.push(playerNode);
+        }
+        
+        // Add camera
+        nodes.push({
+          name: 'Camera',
+          type: gameType === '3D' ? 'Camera3D' : 'Camera2D',
+          position: { x: 0, y: 0, z: 5 },
+          properties: gameType === '3D' ? { fov: 75 } : {}
+        });
+        
+        // Add enemies as children
+        if (gameSpec.enemies && Array.isArray(gameSpec.enemies)) {
+          gameSpec.enemies.forEach((enemy: any, index: number) => {
+            const enemyNode: any = {
+              name: enemy.name || `Enemy${index}`,
+              type: gameType === '3D' ? 'CharacterBody3D' : 'CharacterBody2D',
+              position: { x: 300 + index * 100, y: 300, z: 0 },
+              children: []
+            };
+            
+            if (gameType === '2D') {
+              enemyNode.children = [
+                {
+                  name: 'Sprite2D',
+                  type: 'Sprite2D',
+                  position: { x: 0, y: 0 },
+                  properties: {
+                    texture: enemy.sprite || ''
+                  }
+                }
+              ];
+            }
+            
+            nodes.push(enemyNode);
+          });
+        }
+        
+        // Convert to new format
+        projectSpec = {
+          game: gameSpec.game,
+          settings: gameSpec.settings || {
+            window: { width: 1280, height: 720, resizable: true },
+            physics: { enabled: true, gravity: { x: 0, y: 980 } },
+            rendering: {}
+          },
+          scenes: [
+            {
+              name: 'Main',
+              type: gameType,
+              path: 'res://scenes/Main.tscn',
+              nodes: [
+                {
+                  name: 'Root',
+                  type: rootType,
+                  position: { x: 0, y: 0, z: 0 },
+                  children: nodes
+                }
+              ],
+              camera: {
+                type: gameType === '3D' ? 'Camera3D' : 'Camera2D',
+                position: { x: 0, y: 0, z: gameType === '3D' ? 5 : 0 }
+              }
+            }
+          ],
+          scripts: gameSpec.scripts || [],
+          assets: gameSpec.assets || {}
+        };
+      } else if (!projectSpec.scenes || projectSpec.scenes.length === 0) {
+        // If spec doesn't have scenes, create a basic one
+        logger.info('Spec missing scenes, creating basic scene structure...');
+        projectSpec = {
+          ...projectSpec,
+          scenes: [
+            {
+              name: 'Main',
+              type: projectSpec.game?.type || '2D',
+              path: 'res://scenes/Main.tscn',
+              nodes: [
+                {
+                  name: 'Root',
+                  type: projectSpec.game?.type === '3D' ? 'Node3D' : 'Node2D',
+                  position: { x: 0, y: 0, z: 0 },
+                  children: []
+                }
+              ],
+              camera: {
+                type: projectSpec.game?.type === '3D' ? 'Camera3D' : 'Camera2D',
+                position: { x: 0, y: 0, z: 0 }
+              }
+            }
+          ],
+          scripts: projectSpec.scripts || [],
+          assets: projectSpec.assets || {}
+        };
+      }
+      
+      // Ensure settings exist
+      if (!projectSpec.settings) {
+        projectSpec.settings = {
+          window: { width: 1280, height: 720, resizable: true },
+          physics: { enabled: true, gravity: { x: 0, y: 980 } },
+          rendering: {}
+        };
+      }
+      
+      await generateGodotProject({
+        appPath: fullAppPath,
+        spec: projectSpec,
+        regenerateAssets: false
+      });
+      
+      logger.info('✅ Godot project built from spec successfully');
+    } catch (buildError: any) {
+      logger.warn('Failed to build Godot project from spec, will use basic structure:', buildError?.message || buildError);
+      // Continue with basic project structure
+    }
+  }
   
   // Automatically create a web export for preview
   try {
@@ -476,7 +670,8 @@ renderer/rendering_method="forward_plus"
     // Fall back to test export if Godot engine export failed
     if (!exportedWithEngine) {
       logger.info('Creating test web export (Godot engine not available or export failed)');
-      await createTestWebExport(exportPath, null, params.name);
+      // Use the generated spec to customize the test export
+      await createTestWebExport(exportPath, gameSpec, params.name);
     }
     
     logger.info(`✅ Automatically created web export for preview`);
@@ -537,13 +732,8 @@ async function initializeGitRepository(fullAppPath: string) {
   
   // Create initial commit
   await gitCommit({
-    fs,
-    dir: fullAppPath,
+    path: fullAppPath,
     message: "Initial commit - Applaa app created",
-    author: {
-      name: "Applaa",
-      email: "applaa@applaa.com",
-    },
   });
   
   const gitTime = performance.now() - gitStartTime;

@@ -142,8 +142,102 @@ export async function createTestWebExport(
     logger.info(`Created export directory: ${exportPath}`);
   }
   
-  // Escape game name for use in HTML/JS
-  const escapedGameName = gameName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  // Extract game details from spec if available
+  const gameDimension = spec?.game?.type || '2D'; // 2D or 3D
+  const gameDescription = spec?.game?.description || '';
+  const gameNameFromSpec = spec?.game?.name || gameName;
+  
+  // Escape game name for use in HTML/JS (use spec name if available)
+  const escapedGameName = gameNameFromSpec.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const windowWidth = spec?.settings?.window?.width || 800;
+  const windowHeight = spec?.settings?.window?.height || 600;
+  
+  // Determine game genre/theme from description, name, or spec
+  const descriptionLower = (gameDescription + ' ' + gameNameFromSpec + ' ' + gameName).toLowerCase();
+  const genre = spec?.game?.genre?.toLowerCase() || '';
+  const combinedText = descriptionLower + ' ' + genre;
+  
+  let gameType = 'platformer'; // default (platformer, maze, pong, shooter, etc.)
+  let playerColor = '#4a9eff'; // blue
+  let backgroundColor = '#1a1a1a'; // dark
+  let platformColor = '#3c3c3c'; // gray
+  
+  logger.info(`Determining game type from: "${combinedText}"`);
+  
+  // Detect game type based on keywords
+  if (combinedText.includes('maze') || combinedText.includes('labyrinth') || combinedText.includes('explorer')) {
+    gameType = 'maze';
+    playerColor = '#00ff00'; // green
+    backgroundColor = '#0a0a0a'; // very dark
+    platformColor = '#333333'; // dark gray walls
+  } else if (combinedText.includes('pong') || combinedText.includes('ping') || combinedText.includes('paddle')) {
+    gameType = 'pong';
+    playerColor = '#ffffff'; // white
+    backgroundColor = '#000000'; // black
+    platformColor = '#ffffff'; // white
+  } else if (combinedText.includes('shooter') || combinedText.includes('shoot') || combinedText.includes('bullet')) {
+    gameType = 'shooter';
+    playerColor = '#00ffff'; // cyan
+    backgroundColor = '#0a0a1a'; // dark blue
+    platformColor = '#2a2a4a'; // dark blue-gray
+  } else if (combinedText.includes('puzzle') || combinedText.includes('match') || combinedText.includes('tetris') || combinedText.includes('block')) {
+    gameType = 'puzzle';
+    playerColor = '#ffff00'; // yellow
+    backgroundColor = '#1a1a2a'; // dark purple
+    platformColor = '#3a3a5a'; // purple-gray
+  } else if (combinedText.includes('racing') || combinedText.includes('car') || combinedText.includes('speed') || combinedText.includes('race')) {
+    gameType = 'racing';
+    playerColor = '#ff8800'; // orange
+    backgroundColor = '#1a2a1a'; // dark green tint
+    platformColor = '#2a4a2a'; // green-gray
+  } else if (combinedText.includes('zombie') || combinedText.includes('survival') || combinedText.includes('horror')) {
+    gameType = 'zombie';
+    playerColor = '#ff4444'; // red
+    backgroundColor = '#2a1a1a'; // dark red tint
+    platformColor = '#4a2a2a'; // brown
+  } else if (combinedText.includes('space') || combinedText.includes('alien') || combinedText.includes('galaxy') || combinedText.includes('asteroid')) {
+    gameType = 'space';
+    playerColor = '#00ffff'; // cyan
+    backgroundColor = '#0a0a1a'; // dark blue
+    platformColor = '#2a2a4a'; // dark blue-gray
+  } else if (combinedText.includes('mario') || combinedText.includes('platform') || combinedText.includes('jump')) {
+    gameType = 'platformer';
+    playerColor = '#ff0000'; // red (Mario-like)
+    backgroundColor = '#87ceeb'; // sky blue
+    platformColor = '#8b4513'; // brown
+  }
+  
+  logger.info(`Creating test export with type: ${gameType} for game: ${gameNameFromSpec || gameName}`);
+  logger.info(`   Colors - Player: ${playerColor}, Background: ${backgroundColor}, Platform: ${platformColor}`);
+
+  // Import dynamic game generator
+  const { generateGameCode } = await import('./godot_test_game_generator');
+  
+  // Generate game code based on type
+  const gameCode = generateGameCode({
+    gameType,
+    playerColor,
+    backgroundColor,
+    platformColor,
+    windowWidth,
+    windowHeight,
+    gameName: gameNameFromSpec || gameName,
+    gameDescription: gameDescription || ''
+  });
+  
+  // Determine controls text based on game type
+  let controlsText = 'Use ARROW KEYS or WASD to move | SPACE to jump';
+  if (gameType === 'pong') {
+    controlsText = 'Use W/S to move paddle | Click to select (Puzzle)';
+  } else if (gameType === 'shooter' || gameType === 'space') {
+    controlsText = 'Use ARROW KEYS or A/D to move | SPACE to shoot';
+  } else if (gameType === 'maze') {
+    controlsText = 'Use ARROW KEYS or WASD to navigate the maze';
+  } else if (gameType === 'puzzle') {
+    controlsText = 'Click gems to swap and match 3 in a row';
+  } else if (gameType === 'racing') {
+    controlsText = 'Use LEFT/RIGHT or A/D to steer';
+  }
 
   // Create a simple HTML5 canvas game that demonstrates the game concept
   const htmlContent = `<!DOCTYPE html>
@@ -204,11 +298,11 @@ export async function createTestWebExport(
 <body>
     <div id="gameContainer">
         <h1>🎮 ${escapedGameName}</h1>
-        <div class="info">Godot Game Preview - Test Build</div>
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="info">${gameDescription ? gameDescription.substring(0, 100) : 'Godot Game Preview - Test Build'}</div>
+        <canvas id="gameCanvas" width="${windowWidth}" height="${windowHeight}"></canvas>
         <div class="score">Score: <span id="score">0</span></div>
         <div class="controls">
-            Use ARROW KEYS or WASD to move | SPACE to jump
+            ${controlsText}
         </div>
         <div id="status" style="margin-top: 10px; color: #4ade80; font-size: 12px;">Game loaded successfully!</div>
     </div>
@@ -219,178 +313,12 @@ export async function createTestWebExport(
         
         // Game state
         let score = 0;
-        let player = {
-            x: 100,
-            y: 300,
-            width: 40,
-            height: 40,
-            velocityX: 0,
-            velocityY: 0,
-            speed: 5,
-            jumpPower: -12,
-            onGround: false,
-            color: '#4a9eff'
-        };
+        const canvasWidth = ${windowWidth};
+        const canvasHeight = ${windowHeight};
         
-        let platforms = [
-            { x: 0, y: 550, width: 200, height: 50, color: '#3c3c3c' },
-            { x: 250, y: 500, width: 150, height: 50, color: '#3c3c3c' },
-            { x: 450, y: 450, width: 150, height: 50, color: '#3c3c3c' },
-            { x: 650, y: 400, width: 150, height: 50, color: '#3c3c3c' },
-            { x: 0, y: 550, width: 800, height: 50, color: '#2d2d30' } // Ground
-        ];
+        ${gameCode}
         
-        let collectibles = [
-            { x: 300, y: 450, radius: 15, collected: false, color: '#ff8800' },
-            { x: 500, y: 400, radius: 15, collected: false, color: '#ff8800' },
-            { x: 700, y: 350, radius: 15, collected: false, color: '#ff8800' }
-        ];
-        
-        let keys = {};
-        const gravity = 0.6;
-        const friction = 0.8;
-        
-        // Input handling
-        document.addEventListener('keydown', (e) => {
-            keys[e.key.toLowerCase()] = true;
-            if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') && player.onGround) {
-                player.velocityY = player.jumpPower;
-                player.onGround = false;
-            }
-        });
-        
-        document.addEventListener('keyup', (e) => {
-            keys[e.key.toLowerCase()] = false;
-        });
-        
-        // Collision detection
-        function checkCollision(rect1, rect2) {
-            return rect1.x < rect2.x + rect2.width &&
-                   rect1.x + rect1.width > rect2.x &&
-                   rect1.y < rect2.y + rect2.height &&
-                   rect1.y + rect1.height > rect2.y;
-        }
-        
-        function checkPointCollision(point, circle) {
-            const dx = point.x - circle.x;
-            const dy = point.y - circle.y;
-            return dx * dx + dy * dy < circle.radius * circle.radius;
-        }
-        
-        // Update game state
-        function update() {
-            // Handle horizontal movement
-            if (keys['arrowleft'] || keys['a']) {
-                player.velocityX = -player.speed;
-            } else if (keys['arrowright'] || keys['d']) {
-                player.velocityX = player.speed;
-            } else {
-                player.velocityX *= friction;
-            }
-            
-            // Apply gravity
-            player.velocityY += gravity;
-            
-            // Update position
-            player.x += player.velocityX;
-            player.y += player.velocityY;
-            
-            // Check platform collisions
-            player.onGround = false;
-            for (let platform of platforms) {
-                if (checkCollision(player, platform)) {
-                    // Landing on top
-                    if (player.velocityY > 0 && player.y < platform.y) {
-                        player.y = platform.y - player.height;
-                        player.velocityY = 0;
-                        player.onGround = true;
-                    }
-                    // Hitting from sides
-                    else if (player.velocityX > 0) {
-                        player.x = platform.x - player.width;
-                    } else if (player.velocityX < 0) {
-                        player.x = platform.x + platform.width;
-                    }
-                }
-            }
-            
-            // Boundary checks
-            if (player.x < 0) player.x = 0;
-            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-            if (player.y > canvas.height) {
-                player.y = 300;
-                player.x = 100;
-                player.velocityY = 0;
-            }
-            
-            // Check collectible collisions
-            collectibles.forEach((collectible, index) => {
-                if (!collectible.collected) {
-                    const playerCenter = {
-                        x: player.x + player.width / 2,
-                        y: player.y + player.height / 2
-                    };
-                    if (checkPointCollision(playerCenter, collectible)) {
-                        collectible.collected = true;
-                        score += 100;
-                        scoreElement.textContent = score;
-                    }
-                }
-            });
-        }
-        
-        // Render game
-        function render() {
-            // Clear canvas
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw platforms
-            platforms.forEach(platform => {
-                ctx.fillStyle = platform.color;
-                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-                ctx.strokeStyle = '#4a4a4a';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
-            });
-            
-            // Draw collectibles
-            collectibles.forEach(collectible => {
-                if (!collectible.collected) {
-                    ctx.fillStyle = collectible.color;
-                    ctx.beginPath();
-                    ctx.arc(collectible.x, collectible.y, collectible.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = '#ffaa00';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
-            });
-            
-            // Draw player
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
-            ctx.strokeStyle = '#6bb6ff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(player.x, player.y, player.width, player.height);
-            
-            // Draw eyes
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(player.x + 10, player.y + 10, 8, 8);
-            ctx.fillRect(player.x + 22, player.y + 10, 8, 8);
-        }
-        
-        // Game loop
-        function gameLoop() {
-            update();
-            render();
-            requestAnimationFrame(gameLoop);
-        }
-        
-        // Start game
-        gameLoop();
-        
-        console.log('🎮 Godot game preview loaded successfully!');
+        console.log('🎮 Godot game preview loaded successfully! Type: ${gameType}');
     </script>
 </body>
 </html>`;

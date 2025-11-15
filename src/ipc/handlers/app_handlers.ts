@@ -1285,7 +1285,7 @@ renderer/rendering_method="forward_plus"
     },
   );
 
-  ipcMain.handle(
+  handle(
     "read-app-file",
     async (_, { appId, filePath }: { appId: number; filePath: string }) => {
       const app = await getAppSafe(appId);
@@ -1299,19 +1299,45 @@ renderer/rendering_method="forward_plus"
 
       // Check if the path is within the app directory (security check)
       if (!fullPath.startsWith(appPath)) {
+        logger.warn(`Invalid file path attempt: ${filePath} for app ${appId}`);
         throw new Error("Invalid file path");
       }
 
       if (!fs.existsSync(fullPath)) {
-        throw new Error("File not found");
+        // Log the missing file for debugging
+        logger.warn(`File not found: ${filePath} for app ${appId} (full path: ${fullPath})`);
+        // Check if it's a Godot app and suggest alternative paths
+        if (app.appType === 'godot') {
+          const godotProjectPath = path.join(appPath, 'godot-project');
+          if (fs.existsSync(godotProjectPath)) {
+            // Try to find the file in the godot-project directory
+            const altPath = path.join(godotProjectPath, filePath);
+            if (fs.existsSync(altPath)) {
+              logger.info(`Found file in godot-project directory: ${altPath}`);
+              try {
+                const contents = fs.readFileSync(altPath, "utf-8");
+                return contents;
+              } catch (error) {
+                logger.error(`Error reading file from alt path ${altPath}:`, error);
+              }
+            }
+            
+            // For common web app files that don't exist in Godot apps, provide helpful message
+            if (filePath === 'src/App.tsx' || filePath === 'src/App.jsx' || filePath.startsWith('src/')) {
+              logger.info(`Godot app doesn't have ${filePath}. Godot apps use .gd scripts and .tscn scenes in godot-project/`);
+              throw new Error(`Godot apps don't have ${filePath}. Try reading files from godot-project/ directory instead (e.g., godot-project/Loader.gd, godot-project/scenes/Main.tscn)`);
+            }
+          }
+        }
+        throw new Error(`File not found: ${filePath}`);
       }
 
       try {
         const contents = fs.readFileSync(fullPath, "utf-8");
         return contents;
       } catch (error) {
-        logger.error(`Error reading file ${filePath} for app ${appId}:`, error);
-        throw new Error("Failed to read file");
+        logger.error(`Error reading file ${filePath} for app ${appId} (full path: ${fullPath}):`, error);
+        throw new Error(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
   );
