@@ -465,12 +465,21 @@ renderer/rendering_method="forward_plus"
     JSON.stringify({}, null, 2)
   );
   
-  // Automatically create a test web export for preview
+  // Automatically create a web export for preview
   try {
-    const { createTestWebExport } = await import('./godot_handlers');
+    const { createTestWebExport, exportWithGodotEngine } = await import('./godot_handlers');
     const exportPath = path.join(fullAppPath, 'godot-web-export');
-    await createTestWebExport(exportPath, null, params.name);
-    logger.info(`✅ Automatically created test web export for preview`);
+    
+    // Try to export using Godot engine first
+    const exportedWithEngine = await exportWithGodotEngine(projectPath, exportPath, params.name);
+    
+    // Fall back to test export if Godot engine export failed
+    if (!exportedWithEngine) {
+      logger.info('Creating test web export (Godot engine not available or export failed)');
+      await createTestWebExport(exportPath, null, params.name);
+    }
+    
+    logger.info(`✅ Automatically created web export for preview`);
   } catch (exportError) {
     logger.warn('⚠️ Failed to auto-create web export:', exportError);
     // Don't fail project creation if export fails

@@ -11,12 +11,120 @@ import { getDyadAppPath } from "../../paths/paths";
 import { readSettings } from "../../main/settings";
 import { generateGameSpecification } from "../../godot/game_spec_generator";
 import { buildGodotGameFromSpec } from "../../godot/godot_builder";
+import { generateGodotProject } from "../../godot/godot_project_generator";
+import { exportGodotToHTML5, isExportUpToDate } from "../../godot/godot_exporter";
+import type { GameSpecification } from "../../godot/game_spec_schema";
 import { findAvailablePort } from "../utils/port_utils";
+import { execAsync, commandExists } from "../utils/runShellCommand";
 
 const logger = log.scope("godot_handlers");
 
 // Track running HTTP servers for Godot exports
 const godotServers = new Map<number, { server: http.Server; port: number; exportPath: string }>();
+
+/**
+ * Detect if Godot engine is installed on the system
+ */
+async function detectGodotEngine(): Promise<{ installed: boolean; path?: string; version?: string }> {
+  // Try common Godot command names
+  const godotCommands = ['godot', 'godot4', 'godot-headless', 'godot4-headless'];
+  
+  for (const cmd of godotCommands) {
+    try {
+      const exists = await commandExists(cmd);
+      if (exists) {
+        // Try to get version
+        try {
+          const result = await execAsync(`${cmd} --version`, { timeout: 5000 });
+          const version = result.stdout?.trim() || 'unknown';
+          logger.info(`Godot engine detected: ${cmd}, version: ${version}`);
+          return { installed: true, path: cmd, version };
+        } catch {
+          return { installed: true, path: cmd };
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+  
+  // Also check common installation paths
+  const commonPaths: string[] = [];
+  if (process.platform === 'win32') {
+    commonPaths.push(
+      'C:\\Program Files\\Godot\\Godot_v4.x.x_win64.exe',
+      'C:\\Program Files (x86)\\Godot\\Godot_v4.x.x_win64.exe',
+      path.join(process.env.USERPROFILE || '', 'AppData', 'Local', 'Programs', 'Godot', 'Godot.exe')
+    );
+  } else if (process.platform === 'darwin') {
+    commonPaths.push(
+      '/Applications/Godot.app/Contents/MacOS/Godot',
+      path.join(process.env.HOME || '', 'Applications', 'Godot.app', 'Contents', 'MacOS', 'Godot')
+    );
+  } else {
+    commonPaths.push(
+      '/usr/bin/godot',
+      '/usr/local/bin/godot',
+      path.join(process.env.HOME || '', '.local', 'bin', 'godot')
+    );
+  }
+  
+  for (const godotPath of commonPaths) {
+    if (fs.existsSync(godotPath)) {
+      logger.info(`Godot engine found at: ${godotPath}`);
+      return { installed: true, path: godotPath };
+    }
+  }
+  
+  return { installed: false };
+}
+
+/**
+ * Export Godot project to web using Godot engine (if available)
+ */
+export async function exportWithGodotEngine(
+  projectPath: string,
+  exportPath: string,
+  projectName: string
+): Promise<boolean> {
+  const godot = await detectGodotEngine();
+  
+  if (!godot.installed || !godot.path) {
+    logger.info('Godot engine not found, will use test export');
+    return false;
+  }
+  
+  try {
+    logger.info(`Attempting to export Godot project using engine at: ${godot.path}`);
+    
+    // Create export preset configuration
+    // For now, we'll use headless export with web preset
+    // Note: This requires export templates to be installed
+    const exportCommand = process.platform === 'win32'
+      ? `"${godot.path}" --headless --export-release "Web" "${exportPath}" --path "${projectPath}"`
+      : `"${godot.path}" --headless --export-release "Web" "${exportPath}" --path "${projectPath}"`;
+    
+    logger.info(`Running export command: ${exportCommand}`);
+    const result = await execAsync(exportCommand, { 
+      timeout: 60000, // 60 second timeout
+      cwd: projectPath 
+    });
+    
+    // Check if export was successful
+    const indexHtmlPath = path.join(exportPath, 'index.html');
+    if (fs.existsSync(indexHtmlPath)) {
+      logger.info(`✅ Successfully exported Godot project to ${exportPath}`);
+      return true;
+    } else {
+      logger.warn('Godot export command completed but index.html not found');
+      return false;
+    }
+  } catch (error: any) {
+    logger.warn(`Failed to export with Godot engine: ${error.message}`);
+    logger.info('Falling back to test export');
+    return false;
+  }
+}
 
 /**
  * Creates a simple test web export that can be previewed
@@ -26,13 +134,20 @@ export async function createTestWebExport(
   spec: GameSpecification | null,
   gameName: string
 ): Promise<void> {
-  fs.mkdirSync(exportPath, { recursive: true });
+  // Ensure directory exists
+  if (!fs.existsSync(exportPath)) {
+    fs.mkdirSync(exportPath, { recursive: true });
+    logger.info(`Created export directory: ${exportPath}`);
+  }
+  
+  // Escape game name for use in HTML/JS
+  const escapedGameName = gameName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   // Create a simple HTML5 canvas game that demonstrates the game concept
   const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
-    <title>${gameName}</title>
+    <title>${escapedGameName}</title>
     <meta charset="UTF-8">
     <style>
         * {
@@ -86,13 +201,14 @@ export async function createTestWebExport(
 </head>
 <body>
     <div id="gameContainer">
-        <h1>🎮 ${gameName}</h1>
+        <h1>🎮 ${escapedGameName}</h1>
         <div class="info">Godot Game Preview - Test Build</div>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div class="score">Score: <span id="score">0</span></div>
         <div class="controls">
             Use ARROW KEYS or WASD to move | SPACE to jump
         </div>
+        <div id="status" style="margin-top: 10px; color: #4ade80; font-size: 12px;">Game loaded successfully!</div>
     </div>
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -272,13 +388,24 @@ export async function createTestWebExport(
         // Start game
         gameLoop();
         
-        console.log('🎮 Godot game preview loaded:', '${gameName}');
+        console.log('🎮 Godot game preview loaded successfully!');
     </script>
 </body>
 </html>`;
 
-  fs.writeFileSync(path.join(exportPath, "index.html"), htmlContent);
-  logger.info(`Created test web export at ${exportPath}`);
+  const indexHtmlPath = path.join(exportPath, "index.html");
+  fs.writeFileSync(indexHtmlPath, htmlContent);
+  
+  // Verify file was created
+  if (!fs.existsSync(indexHtmlPath)) {
+    throw new Error(`Failed to create index.html at ${indexHtmlPath}`);
+  }
+  
+  logger.info(`✅ Created test web export at ${exportPath}`);
+  
+  // Log file size for debugging
+  const stats = fs.statSync(indexHtmlPath);
+  logger.info(`Test export file size: ${stats.size} bytes`);
 }
 
 export interface GameSpecification {
@@ -368,12 +495,32 @@ export function registerGodotHandlers() {
         const appPath = getDyadAppPath(app.path);
         logger.info(`Building Godot game from spec at ${appPath}`);
 
-        await buildGodotGameFromSpec(appPath, params.spec);
+        // Use the enhanced project generator
+        await generateGodotProject({
+          appPath,
+          spec: params.spec,
+          regenerateAssets: false,
+        });
 
         // Automatically create a web export for preview
         try {
           const exportPath = path.join(appPath, "godot-web-export");
-          await createTestWebExport(exportPath, params.spec, app.name);
+          const projectPath = path.join(appPath, "godot-project");
+          
+          // Try to export using Godot engine first
+          const exportResult = await exportGodotToHTML5({
+            projectPath,
+            exportPath,
+            projectName: app.name,
+            debug: false,
+          });
+          
+          // Fall back to test export if Godot engine export failed
+          if (!exportResult.success) {
+            logger.info('Creating test web export (Godot engine not available or export failed)');
+            await createTestWebExport(exportPath, params.spec, app.name);
+          }
+          
           logger.info(`Automatically created web export for preview at ${exportPath}`);
         } catch (exportError) {
           logger.warn("Failed to auto-create web export:", exportError);
@@ -511,8 +658,14 @@ renderer/rendering_method="forward_plus"
           throw new Error("Godot project not found. Please create a project first.");
         }
 
-        // Create a test web export with a simple playable game
-        await createTestWebExport(exportPath, null, app.name);
+        // Try to export using Godot engine first
+        const exportedWithEngine = await exportWithGodotEngine(projectPath, exportPath, app.name);
+        
+        // Fall back to test export if Godot engine export failed
+        if (!exportedWithEngine) {
+          logger.info('Creating test web export (Godot engine not available or export failed)');
+          await createTestWebExport(exportPath, null, app.name);
+        }
 
         logger.info(`Exported Godot project to ${exportPath}`);
 
@@ -527,6 +680,14 @@ renderer/rendering_method="forward_plus"
           error: error instanceof Error ? error.message : String(error),
         };
       }
+    }
+  );
+
+  // Check if Godot engine is installed
+  ipcMain.handle(
+    "godot:check-engine",
+    async (): Promise<{ installed: boolean; path?: string; version?: string }> => {
+      return await detectGodotEngine();
     }
   );
 
@@ -594,6 +755,17 @@ renderer/rendering_method="forward_plus"
     
     // Create HTTP server to serve static files
     const server = http.createServer((req, res) => {
+      // Handle OPTIONS for CORS
+      if (req.method === 'OPTIONS') {
+        res.writeHead(200, {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        });
+        res.end();
+        return;
+      }
+      
       if (!req.url) {
         res.writeHead(400);
         res.end('Bad Request');
@@ -603,6 +775,8 @@ renderer/rendering_method="forward_plus"
       // Parse URL
       const parsedUrl = url.parse(req.url);
       let filePath = parsedUrl.pathname || '/';
+      
+      logger.debug(`Godot server request: ${req.method} ${filePath}`);
       
       // Default to index.html
       if (filePath === '/') {
@@ -650,11 +824,11 @@ renderer/rendering_method="forward_plus"
         
         // Simple MIME type detection
         const mimeTypes: Record<string, string> = {
-          '.html': 'text/html',
-          '.htm': 'text/html',
-          '.js': 'application/javascript',
-          '.css': 'text/css',
-          '.json': 'application/json',
+          '.html': 'text/html; charset=utf-8',
+          '.htm': 'text/html; charset=utf-8',
+          '.js': 'application/javascript; charset=utf-8',
+          '.css': 'text/css; charset=utf-8',
+          '.json': 'application/json; charset=utf-8',
           '.png': 'image/png',
           '.jpg': 'image/jpeg',
           '.jpeg': 'image/jpeg',
@@ -669,12 +843,22 @@ renderer/rendering_method="forward_plus"
         
         const contentType = mimeTypes[ext] || 'application/octet-stream';
         
-        res.writeHead(200, {
+        // Add CORS headers for iframe loading
+        const headers: Record<string, string> = {
           'Content-Type': contentType,
-          'Content-Length': content.length,
-          'Cache-Control': 'no-cache',
-        });
+          'Content-Length': content.length.toString(),
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        };
+        
+        res.writeHead(200, headers);
         res.end(content);
+        
+        logger.debug(`Served file: ${filePath} (${content.length} bytes, ${contentType})`);
       } catch (error) {
         logger.error(`Error serving file ${resolvedPath}:`, error);
         res.writeHead(500);
@@ -738,23 +922,67 @@ renderer/rendering_method="forward_plus"
         // Check if export exists, if not try to create it
         let hasExport = fs.existsSync(indexHtmlPath);
         
+        // Also check if the export directory exists and has any HTML files
+        if (!hasExport && fs.existsSync(exportPath)) {
+          const files = fs.readdirSync(exportPath);
+          hasExport = files.some(file => file.endsWith('.html') || file === 'index.html');
+          if (hasExport && !fs.existsSync(indexHtmlPath)) {
+            // If there's an HTML file but not index.html, log it
+            logger.info(`Found HTML file in export but not index.html: ${files.find(f => f.endsWith('.html'))}`);
+          }
+        }
+        
         if (!hasExport) {
           // Try to automatically create export if project exists
           const projectPath = path.join(appPath, "godot-project");
           const projectGodotPath = path.join(projectPath, "project.godot");
+          const specPath = path.join(projectPath, "game_spec.json");
           
           if (fs.existsSync(projectGodotPath)) {
-            logger.info(`Export not found for app ${params.appId}, creating test export automatically...`);
+            logger.info(`Export not found for app ${params.appId}, creating export automatically...`);
             try {
-              await createTestWebExport(exportPath, null, app.name);
+              // Always try to create export if it doesn't exist
+              // Try to export using Godot engine first
+              const exportResult = await exportGodotToHTML5({
+                projectPath,
+                exportPath,
+                projectName: app.name,
+                debug: false,
+              });
+              
+              // Fall back to test export if Godot engine export failed
+              if (!exportResult.success) {
+                logger.info('Creating test web export (Godot engine not available or export failed)');
+                let spec: GameSpecification | null = null;
+                if (fs.existsSync(specPath)) {
+                  try {
+                    spec = JSON.parse(fs.readFileSync(specPath, "utf-8"));
+                  } catch {
+                    spec = null;
+                  }
+                }
+                await createTestWebExport(exportPath, spec, app.name);
+              }
+              
+              // Re-check after creating
               hasExport = fs.existsSync(indexHtmlPath);
+              if (!hasExport && fs.existsSync(exportPath)) {
+                // Check for any HTML file
+                const files = fs.readdirSync(exportPath);
+                hasExport = files.some(file => file.endsWith('.html'));
+              }
+              
               if (hasExport) {
-                logger.info(`Successfully created test export for app ${params.appId}`);
+                logger.info(`✅ Successfully created export for app ${params.appId}`);
+              } else {
+                logger.warn(`⚠️ Export creation completed but index.html still not found`);
               }
             } catch (exportError) {
               logger.warn("Failed to auto-create export:", exportError);
             }
           }
+        } else {
+          logger.info(`✅ Export found for app ${params.appId} at ${indexHtmlPath}`);
         }
 
         if (!hasExport) {

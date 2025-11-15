@@ -2919,6 +2919,10 @@ export class IpcClient {
   }): Promise<void> {
     return this.ipcRenderer.invoke("godot:stop-server", params);
   }
+
+  public async checkGodotEngine(): Promise<{ installed: boolean; path?: string; version?: string }> {
+    return this.ipcRenderer.invoke("godot:check-engine");
+  }
 }
 
 // Export singleton instance

@@ -785,6 +785,16 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 const url = godotExportUrl || appUrl || expoUrl;
                 console.log(`✅ Preview iframe loaded successfully: ${url}`);
                 setErrorMessage(undefined);
+                
+                // Try to access iframe content for debugging (may fail due to CORS)
+                try {
+                  const iframe = iframeRef.current;
+                  if (iframe && iframe.contentWindow) {
+                    console.log('Iframe contentWindow accessible');
+                  }
+                } catch (err) {
+                  console.log('Cannot access iframe content (CORS):', err);
+                }
               }}
               onError={(e) => {
                 const url = godotExportUrl || appUrl || expoUrl;

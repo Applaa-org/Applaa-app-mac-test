@@ -11,10 +11,13 @@ export function useGodotExport() {
     queryFn: async () => {
       if (!selectedAppId) return null;
       const ipcClient = IpcClient.getInstance();
-      return await ipcClient.getGodotWebExportUrl({ appId: selectedAppId });
+      const result = await ipcClient.getGodotWebExportUrl({ appId: selectedAppId });
+      console.log(`[useGodotExport] App ${selectedAppId}:`, result);
+      return result;
     },
     enabled: !!selectedAppId,
-    refetchInterval: 5000, // Check every 5 seconds for new exports
+    refetchInterval: 3000, // Check every 3 seconds for new exports
+    retry: 2, // Retry on failure
   });
 
   return {

@@ -96,7 +96,7 @@ export interface App {
   files: string[];
   createdAt: Date;
   updatedAt: Date;
-  appType?: 'web' | 'mobile';
+  appType?: 'web' | 'mobile' | 'godot';
   githubOrg: string | null;
   githubRepo: string | null;
   githubBranch: string | null;
