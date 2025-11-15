@@ -290,6 +290,9 @@ const validInvokeChannels = [
   "godot:create-project",
   "godot:export-web",
   "godot:get-project-status",
+  "godot:get-web-export-url",
+  "godot:stop-server",
+  "godot:check-engine",
 ];
 
 // Add valid receive channels

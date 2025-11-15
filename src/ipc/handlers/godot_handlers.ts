@@ -16,8 +16,10 @@ import { exportGodotToHTML5, isExportUpToDate } from "../../godot/godot_exporter
 import type { GameSpecification } from "../../godot/game_spec_schema";
 import { findAvailablePort } from "../utils/port_utils";
 import { execAsync, commandExists } from "../utils/runShellCommand";
+import { createLoggedHandler } from "./safe_handle";
 
 const logger = log.scope("godot_handlers");
+const handle = createLoggedHandler(logger);
 
 // Track running HTTP servers for Godot exports
 const godotServers = new Map<number, { server: http.Server; port: number; exportPath: string }>();
@@ -457,8 +459,10 @@ export interface GameSpecification {
 }
 
 export function registerGodotHandlers() {
+  logger.info("Registering Godot IPC handlers...");
+  
   // Generate Game Specification JSON from user prompt
-  ipcMain.handle(
+  handle(
     "godot:generate-game-spec",
     async (
       _,
@@ -477,7 +481,7 @@ export function registerGodotHandlers() {
   );
 
   // Build Godot game from specification
-  ipcMain.handle(
+  handle(
     "godot:build-from-spec",
     async (
       _,
@@ -548,7 +552,7 @@ export function registerGodotHandlers() {
   );
 
   // Create Godot project structure
-  ipcMain.handle(
+  handle(
     "godot:create-project",
     async (
       _,
@@ -643,7 +647,7 @@ renderer/rendering_method="forward_plus"
   );
 
   // Export Godot project to web
-  ipcMain.handle(
+  handle(
     "godot:export-web",
     async (
       _,
@@ -693,7 +697,7 @@ renderer/rendering_method="forward_plus"
   );
 
   // Check if Godot engine is installed
-  ipcMain.handle(
+  handle(
     "godot:check-engine",
     async (): Promise<{ installed: boolean; path?: string; version?: string }> => {
       return await detectGodotEngine();
@@ -701,7 +705,7 @@ renderer/rendering_method="forward_plus"
   );
 
   // Get Godot project status
-  ipcMain.handle(
+  handle(
     "godot:get-project-status",
     async (
       _,
@@ -896,7 +900,7 @@ renderer/rendering_method="forward_plus"
   }
 
   // Stop HTTP server for Godot export
-  ipcMain.handle(
+  handle(
     "godot:stop-server",
     async (_, params: { appId: number }): Promise<void> => {
       const serverInfo = godotServers.get(params.appId);
@@ -909,7 +913,7 @@ renderer/rendering_method="forward_plus"
   );
 
   // Get Godot web export URL for preview
-  ipcMain.handle(
+  handle(
     "godot:get-web-export-url",
     async (
       _,
@@ -1120,5 +1124,7 @@ renderer/rendering_method="forward_plus"
       }
     }
   );
+  
+  logger.info("✅ Godot IPC handlers registered successfully");
 }
 
