@@ -1520,6 +1520,220 @@ export class IpcClient {
     return this.ipcRenderer.invoke("expo:reset");
   }
 
+  // Snack Preview Methods (Hot Reload & File Watching)
+  public async snackStartHotReload(params: { appId: number }): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("snack:start-hot-reload", params);
+  }
+
+  public async snackStopHotReload(params: { appId: number }): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("snack:stop-hot-reload", params);
+  }
+
+  public async snackIsWatching(params: { appId: number }): Promise<{
+    isWatching: boolean;
+  }> {
+    return this.ipcRenderer.invoke("snack:is-watching", params);
+  }
+
+  public async snackGetWatchedApps(): Promise<{
+    watchedApps: number[];
+  }> {
+    return this.ipcRenderer.invoke("snack:get-watched-apps");
+  }
+
+  public async snackManualTrigger(params: { appId: number; reason?: string }): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("snack:manual-trigger", params);
+  }
+
+  public async snackUpdateOptions(params: { options: any }): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("snack:update-options", params);
+  }
+
+  public async snackGetOptions(): Promise<{
+    options: any;
+  }> {
+    return this.ipcRenderer.invoke("snack:get-options");
+  }
+
+  // Code Validation Methods
+  public async validateCode(params: { appId: number }): Promise<{
+    total: number;
+    errors: number;
+    warnings: number;
+    info: number;
+    problems: Array<{
+      type: 'error' | 'warning' | 'info';
+      category: 'syntax' | 'dependency' | 'runtime' | 'platform';
+      file: string;
+      line?: number;
+      column?: number;
+      message: string;
+      fix?: string;
+      autoFixable: boolean;
+      code?: string;
+    }>;
+    isValidForPreview: boolean;
+    timestamp: number;
+  }> {
+    return this.ipcRenderer.invoke("code:validate", params);
+  }
+
+  public async autoFixProblem(params: { 
+    appId: number; 
+    problem: {
+      type: 'error' | 'warning' | 'info';
+      category: 'syntax' | 'dependency' | 'runtime' | 'platform';
+      file: string;
+      message: string;
+      fix?: string;
+      autoFixable: boolean;
+      code?: string;
+    };
+  }): Promise<{
+    success: boolean;
+    message: string;
+    filesModified: string[];
+  }> {
+    return this.ipcRenderer.invoke("code:auto-fix", params);
+  }
+
+  public async autoFixAll(params: { 
+    appId: number; 
+    problems: Array<any>;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    filesModified: string[];
+  }> {
+    return this.ipcRenderer.invoke("code:auto-fix-all", params);
+  }
+
+  public async validateAndFix(params: { appId: number }): Promise<{
+    validation: {
+      total: number;
+      errors: number;
+      warnings: number;
+      isValidForPreview: boolean;
+      problems: Array<any>;
+    };
+    fix: {
+      success: boolean;
+      message: string;
+      filesModified: string[];
+    };
+  }> {
+    return this.ipcRenderer.invoke("code:validate-and-fix", params);
+  }
+
+  // Chrome DevTools MCP methods
+  async startChromeDevTools(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("chrome-devtools:start");
+  }
+
+  async stopChromeDevTools(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("chrome-devtools:stop");
+  }
+
+  async navigateChromeDevTools(params: { url: string }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("chrome-devtools:navigate", params);
+  }
+
+  async getConsoleMessages(): Promise<any[]> {
+    return this.ipcRenderer.invoke("chrome-devtools:console-messages");
+  }
+
+  async getNetworkRequests(): Promise<any[]> {
+    return this.ipcRenderer.invoke("chrome-devtools:network-requests");
+  }
+
+  async takeScreenshot(): Promise<{ success: boolean; data?: string; error?: string }> {
+    return this.ipcRenderer.invoke("chrome-devtools:screenshot");
+  }
+
+  async getChromeDevToolsStatus(): Promise<{ connected: boolean }> {
+    return this.ipcRenderer.invoke("chrome-devtools:status");
+  }
+
+  // App Repair Methods
+  async repairApp(appPath: string): Promise<{
+    success: boolean;
+    repaired: boolean;
+    issues: string[];
+    fixes: string[];
+    warnings: string[];
+    updatedDependencies: string[];
+    installedPackages: string[];
+  }> {
+    return this.ipcRenderer.invoke("app:repair", { appPath });
+  }
+
+  async checkRepairNeeded(appPath: string): Promise<{
+    needsRepair: boolean;
+    issues: string[];
+    warnings: string[];
+    missingDependencies: string[];
+    outdatedDependencies: string[];
+  }> {
+    return this.ipcRenderer.invoke("app:check-repair-needed", { appPath });
+  }
+
+  // Runtime Error Integration with Problems Tab
+  async addRuntimeProblem(problem: {
+    file: string;
+    line: number;
+    column: number;
+    message: string;
+    severity: 'error' | 'warning' | 'info';
+    code: string;
+    autoFixable: boolean;
+    source: string;
+    timestamp: number;
+    appId?: number;
+  }): Promise<void> {
+    return this.ipcRenderer.invoke("problems:add-runtime", problem);
+  }
+
+  // ✅ NEW: Manual trigger for Haptics auto-fix
+  async fixHapticsProblems(params: { appId: number }): Promise<{
+    success: boolean;
+    message: string;
+    filesModified: string[];
+  }> {
+    return this.ipcRenderer.invoke("problems:fix-haptics", params);
+  }
+
+  async getRuntimeProblems(appId: number): Promise<Array<{
+    file: string;
+    line: number;
+    column: number;
+    message: string;
+    severity: 'error' | 'warning' | 'info';
+    code: string;
+    autoFixable: boolean;
+    source: string;
+  }>> {
+    return this.ipcRenderer.invoke("problems:get-runtime", appId);
+  }
+
+  async clearRuntimeProblems(appId: number): Promise<void> {
+    return this.ipcRenderer.invoke("problems:clear-runtime", appId);
+  }
+
   // Supabase Authentication Methods
   public async supabaseInitialize(config: {
     url: string;

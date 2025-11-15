@@ -22,11 +22,25 @@ export function useLoadAppFile(appId: number | null, filePath: string | null) {
         setContent(fileContent);
         setError(null);
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // Provide more helpful error messages for common file structure issues
+        let friendlyError = errorMessage;
+        if (errorMessage.includes('File not found')) {
+          if (filePath === 'src/App.tsx') {
+            friendlyError = `File not found: ${filePath}. This app may use Expo Router structure (app/index.tsx) instead of React Native CLI structure (src/App.tsx).`;
+          } else if (filePath === 'app/index.tsx') {
+            friendlyError = `File not found: ${filePath}. This app may use React Native CLI structure (src/App.tsx) instead of Expo Router structure (app/index.tsx).`;
+          } else {
+            friendlyError = `File not found: ${filePath}. The app structure may be incomplete or corrupted.`;
+          }
+        }
+        
         console.error(
           `Error loading file ${filePath} for app ${appId}:`,
           error,
         );
-        setError(error instanceof Error ? error : new Error(String(error)));
+        setError(new Error(friendlyError));
         setContent(null);
       } finally {
         setLoading(false);
