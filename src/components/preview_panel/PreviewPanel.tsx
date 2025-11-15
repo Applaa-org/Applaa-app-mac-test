@@ -78,7 +78,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const { runApp, stopApp, loading, app, refreshAppIframe, restartApp, setAppUrlObj } = useRunApp();
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
-  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, refetch: refetchGodotExport } = useGodotExport();
+  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
   const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
   
@@ -315,15 +315,41 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                           <div className="godot-message-icon">🎮</div>
                           <div className="godot-message-title">Godot Game Project</div>
                           <div className="godot-message-text">
-                            {isLoading 
+                            {isGodotExportLoading 
                               ? "Checking for export..."
                               : hasGodotExport 
                                 ? "Export found but URL is not available. Please try exporting again."
                                 : "No web export found. Creating export automatically..."}
                           </div>
-                          {error && (
-                            <div className="mt-2 text-xs text-red-400">
-                              Error: {error instanceof Error ? error.message : String(error)}
+                          {(godotExportError || (godotExportData && !godotExportData.hasExport && godotExportData.error)) && (
+                            <div className="mt-4 p-4 rounded" style={{ 
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)'
+                            }}>
+                              <div className="text-sm font-semibold text-red-400 mb-2">
+                                ⚠️ Export Error
+                              </div>
+                              <div className="text-xs text-red-300 mb-2">
+                                {godotExportError 
+                                  ? (godotExportError instanceof Error ? godotExportError.message : String(godotExportError))
+                                  : godotExportData?.error || "Unknown error occurred"}
+                              </div>
+                              {(godotExportErrorDetails || godotExportData?.errorDetails) && (
+                                <details className="mt-2">
+                                  <summary className="text-xs text-red-400 cursor-pointer hover:text-red-300">
+                                    Show error details
+                                  </summary>
+                                  <pre className="mt-2 text-xs text-red-200 bg-black/20 p-2 rounded overflow-auto max-h-40">
+                                    {JSON.stringify(godotExportErrorDetails || godotExportData?.errorDetails, null, 2)}
+                                  </pre>
+                                </details>
+                              )}
+                              <div className="mt-3 text-xs text-gray-400">
+                                💡 <strong>Ask the AI assistant to help fix this error.</strong> Copy the error message above and describe what happened. The AI can help diagnose and fix issues with the game specification or export process.
+                              </div>
+                              <div className="mt-2 text-xs text-gray-500">
+                                Common issues: Missing Godot engine, invalid game spec, export path issues, or missing project files.
+                              </div>
                             </div>
                           )}
                           <button

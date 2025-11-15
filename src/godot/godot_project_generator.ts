@@ -26,7 +26,19 @@ export async function generateGodotProject(
   const { appPath, spec } = options;
   const projectPath = path.join(appPath, "godot-project");
 
-  logger.info(`Generating Godot project: ${spec.game.name}`);
+  logger.info(`Generating Godot project: ${spec.game?.name || "Untitled"}`);
+
+  // Validate spec before generating
+  try {
+    const { validateGameSpec } = await import("./game_spec_schema");
+    const validation = validateGameSpec(spec);
+    if (!validation.valid) {
+      throw new Error(`Invalid game specification: ${validation.errors.join(", ")}`);
+    }
+  } catch (validationError: any) {
+    // If validation module doesn't exist or fails, log and continue
+    logger.warn("Could not validate game spec:", validationError);
+  }
 
   // Create directory structure
   const dirs = {

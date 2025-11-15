@@ -19,7 +19,7 @@ export function useCheckProblems(appId: number | null) {
       const ipcClient = IpcClient.getInstance();
       return ipcClient.checkProblems({ appId });
     },
-    enabled: !!appId && settings?.enableAutoFixProblems,
+    enabled: !!appId, // Always enabled to show Godot export errors
     // DO NOT SHOW ERROR TOAST.
   });
 

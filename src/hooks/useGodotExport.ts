@@ -16,7 +16,16 @@ export function useGodotExport() {
       return result;
     },
     enabled: !!selectedAppId,
-    refetchInterval: 3000, // Check every 3 seconds for new exports
+    // Only refetch if export doesn't exist or URL is missing
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // If export exists and URL is available, don't refetch
+      if (data?.hasExport && data?.exportUrl) {
+        return false; // Stop polling
+      }
+      // Otherwise, check every 5 seconds
+      return 5000;
+    },
     retry: 2, // Retry on failure
   });
 
@@ -25,8 +34,10 @@ export function useGodotExport() {
     exportUrl: data?.exportUrl,
     exportPath: data?.exportPath,
     isLoading,
-    error,
+    error: error || (data && !data.hasExport && data.error ? new Error(data.error) : null),
+    errorDetails: data?.errorDetails,
     refetch,
+    data, // Expose full data for error details
   };
 }
 

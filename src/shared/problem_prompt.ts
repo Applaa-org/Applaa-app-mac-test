@@ -11,10 +11,13 @@ export function createProblemFixPrompt(problemReport: ProblemReport, appCategory
   }
 
   const totalProblems = problems.length;
-  let prompt = `Fix these ${totalProblems} TypeScript compile-time error${totalProblems === 1 ? "" : "s"}:\n\n`;
+  const hasGodotErrors = problems.some(p => p.code >= 9997);
+  const errorType = hasGodotErrors ? "error" : "TypeScript compile-time error";
+  let prompt = `Fix these ${totalProblems} ${errorType}${totalProblems === 1 ? "" : "s"}:\n\n`;
 
   problems.forEach((problem, index) => {
-    prompt += `${index + 1}. ${problem.file}:${problem.line}:${problem.column} - ${problem.message} (TS${problem.code})\n`;
+    const codePrefix = problem.code >= 9997 ? "GODOT" : "TS";
+    prompt += `${index + 1}. ${problem.file}:${problem.line}:${problem.column} - ${problem.message} (${codePrefix}${problem.code})\n`;
     if (problem.snippet) {
       prompt += `\`\`\`\n${problem.snippet}\n\`\`\`\n`;
     }
@@ -23,6 +26,24 @@ export function createProblemFixPrompt(problemReport: ProblemReport, appCategory
 
   // Framework-specific guidance
   prompt += `\nPlease fix all errors in a concise way.\n\n`;
+  
+  // Add Godot-specific guidance if there are Godot errors
+  if (hasGodotErrors) {
+    prompt += `🎮 **GODOT-SPECIFIC FIXES:**\n`;
+    prompt += `\n**AUTO-FIX INSTRUCTIONS:**\n`;
+    prompt += `For export errors (GODOT9999, GODOT9998):\n`;
+    prompt += `1. Call the IPC handler: ipcClient.exportGodotWeb({ appId: <appId> })\n`;
+    prompt += `2. This will automatically try to export using Godot engine, or fall back to creating a test export\n`;
+    prompt += `3. After export completes, the preview should automatically refresh\n\n`;
+    prompt += `For project errors (GODOT9997):\n`;
+    prompt += `1. Rebuild the game project by calling: ipcClient.buildGodotFromSpec({ appId: <appId>, spec: <gameSpec> })\n`;
+    prompt += `2. Check the game_spec.json file for any validation errors\n`;
+    prompt += `3. Ensure all required project files (project.godot, Loader.tscn, Loader.gd) are generated\n\n`;
+    prompt += `**MANUAL CHECKS:**\n`;
+    prompt += `- Check if Godot engine is installed and accessible via command line\n`;
+    prompt += `- Verify export templates are available if using Godot engine export\n`;
+    prompt += `- Check the game_spec.json file for any validation errors\n\n`;
+  }
   
   if (appCategory === 'mobile') {
     prompt += `🔧 **EXPO-SPECIFIC FIXES:**\n`;

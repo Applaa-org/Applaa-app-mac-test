@@ -518,13 +518,22 @@ export function registerGodotHandlers() {
           // Fall back to test export if Godot engine export failed
           if (!exportResult.success) {
             logger.info('Creating test web export (Godot engine not available or export failed)');
-            await createTestWebExport(exportPath, params.spec, app.name);
+            try {
+              await createTestWebExport(exportPath, params.spec, app.name);
+              logger.info(`✅ Test web export created successfully`);
+            } catch (testExportError: any) {
+              logger.error("Failed to create test web export:", testExportError);
+              // Log but don't fail - the export will be created on next preview attempt
+            }
+          } else {
+            logger.info(`✅ Godot engine export successful`);
           }
           
           logger.info(`Automatically created web export for preview at ${exportPath}`);
-        } catch (exportError) {
-          logger.warn("Failed to auto-create web export:", exportError);
-          // Don't fail the build if export fails
+        } catch (exportError: any) {
+          logger.error("Failed to auto-create web export:", exportError);
+          // Log the error but don't fail the build - export can be retried later
+          logger.warn(`Export will be retried when preview is opened. Error: ${exportError?.message || String(exportError)}`);
         }
 
         return {
@@ -905,7 +914,7 @@ renderer/rendering_method="forward_plus"
     async (
       _,
       params: { appId: number }
-    ): Promise<{ hasExport: boolean; exportUrl?: string; exportPath?: string }> => {
+    ): Promise<{ hasExport: boolean; exportUrl?: string; exportPath?: string; error?: string; errorDetails?: any }> => {
       try {
         const app = await db.query.apps.findFirst({
           where: eq(apps.id, params.appId),
@@ -961,7 +970,25 @@ renderer/rendering_method="forward_plus"
                     spec = null;
                   }
                 }
-                await createTestWebExport(exportPath, spec, app.name);
+                try {
+                  await createTestWebExport(exportPath, spec, app.name);
+                  logger.info(`✅ Test web export created successfully`);
+                } catch (testExportError: any) {
+                  const errorMsg = testExportError?.message || String(testExportError);
+                  logger.error("Failed to create test web export:", testExportError);
+                  return {
+                    hasExport: false,
+                    error: `Failed to create test export: ${errorMsg}. Original export error: ${exportResult.error || "Unknown"}`,
+                    errorDetails: {
+                      exportPath,
+                      projectPath,
+                      exportResultError: exportResult.error,
+                      exportResultDetails: exportResult.errorDetails,
+                      testExportError: errorMsg,
+                      stack: testExportError?.stack,
+                    },
+                  };
+                }
               }
               
               // Re-check after creating
@@ -975,10 +1002,31 @@ renderer/rendering_method="forward_plus"
               if (hasExport) {
                 logger.info(`✅ Successfully created export for app ${params.appId}`);
               } else {
-                logger.warn(`⚠️ Export creation completed but index.html still not found`);
+                const errorMsg = `Export creation completed but index.html still not found. Check export path: ${exportPath}`;
+                logger.warn(`⚠️ ${errorMsg}`);
+                return {
+                  hasExport: false,
+                  error: errorMsg,
+                  errorDetails: {
+                    exportPath,
+                    projectPath,
+                    filesInExport: fs.existsSync(exportPath) ? fs.readdirSync(exportPath) : [],
+                  },
+                };
               }
-            } catch (exportError) {
-              logger.warn("Failed to auto-create export:", exportError);
+            } catch (exportError: any) {
+              const errorMsg = exportError?.message || String(exportError);
+              logger.error("Failed to auto-create export:", exportError);
+              return {
+                hasExport: false,
+                error: `Failed to create export: ${errorMsg}`,
+                errorDetails: {
+                  exportPath,
+                  projectPath,
+                  originalError: errorMsg,
+                  stack: exportError?.stack,
+                },
+              };
             }
           }
         } else {
@@ -986,7 +1034,51 @@ renderer/rendering_method="forward_plus"
         }
 
         if (!hasExport) {
-          return { hasExport: false };
+          // Check if export directory exists but is empty or has wrong files
+          if (fs.existsSync(exportPath)) {
+            const files = fs.readdirSync(exportPath);
+            const diagnosticInfo = {
+              exportPath,
+              filesInExport: files,
+              projectPath: path.join(appPath, "godot-project"),
+              projectExists: fs.existsSync(path.join(appPath, "godot-project", "project.godot")),
+              specExists: fs.existsSync(path.join(appPath, "godot-project", "game_spec.json")),
+            };
+            
+            return {
+              hasExport: false,
+              error: `Export directory exists but index.html not found. Found files: ${files.join(", ") || "none"}. The export may have failed or the project needs to be rebuilt.`,
+              errorDetails: diagnosticInfo,
+            };
+          }
+          
+          // Check if project exists
+          const projectPath = path.join(appPath, "godot-project");
+          const projectExists = fs.existsSync(path.join(projectPath, "project.godot"));
+          const specExists = fs.existsSync(path.join(projectPath, "game_spec.json"));
+          
+          let errorMessage = "No export found.";
+          if (!projectExists) {
+            errorMessage += " The Godot project has not been created yet. Please build the game first.";
+          } else if (!specExists) {
+            errorMessage += " The game specification file is missing. The project may be incomplete.";
+          } else {
+            errorMessage += " The game project exists but export has not been created. Try clicking 'Create/Refresh Export' button.";
+          }
+          
+          return {
+            hasExport: false,
+            error: errorMessage,
+            errorDetails: {
+              exportPath,
+              projectPath,
+              projectExists,
+              specExists,
+              suggestion: projectExists && specExists 
+                ? "Click 'Create/Refresh Export' to generate the export"
+                : "The game project needs to be built first. Check if there were errors during game creation.",
+            },
+          };
         }
 
         // Start HTTP server to serve the export
@@ -1001,13 +1093,30 @@ renderer/rendering_method="forward_plus"
             exportUrl,
             exportPath,
           };
-        } catch (serverError) {
+        } catch (serverError: any) {
+          const errorMsg = serverError?.message || String(serverError);
           logger.error("Failed to start Godot HTTP server:", serverError);
-          throw new Error(`Failed to start preview server: ${serverError instanceof Error ? serverError.message : String(serverError)}`);
+          return {
+            hasExport: true, // Export exists but server failed
+            error: `Failed to start preview server: ${errorMsg}`,
+            errorDetails: {
+              exportPath,
+              serverError: errorMsg,
+              stack: serverError?.stack,
+            },
+          };
         }
-      } catch (error) {
+      } catch (error: any) {
+        const errorMsg = error?.message || String(error);
         logger.error("Failed to get Godot web export URL:", error);
-        throw error;
+        return {
+          hasExport: false,
+          error: `Failed to get export URL: ${errorMsg}`,
+          errorDetails: {
+            originalError: errorMsg,
+            stack: error?.stack,
+          },
+        };
       }
     }
   );

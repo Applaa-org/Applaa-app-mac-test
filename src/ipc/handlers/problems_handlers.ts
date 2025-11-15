@@ -73,19 +73,72 @@ export function registerProblemsHandlers() {
         fs.existsSync(path.join(appPath, config))
       );
 
-      // For Godot apps without TypeScript config, return empty problem report
-      if (isGodotApp && !hasTypeScriptConfig) {
-        logger.info(`Skipping TypeScript checking for Godot app ${params.appId} (no TypeScript config found)`);
-        return { problems: [] };
+      // Get TypeScript problems (if applicable)
+      let problems: any[] = [];
+      if (!isGodotApp || hasTypeScriptConfig) {
+        try {
+          const problemReport = await generateProblemReport({
+            fullResponse: "",
+            appPath,
+          });
+          problems = problemReport.problems || [];
+        } catch (tscError) {
+          logger.warn("TypeScript checking failed:", tscError);
+        }
       }
 
-      // Call autofix with empty full response to just run TypeScript checking
-      const problemReport = await generateProblemReport({
-        fullResponse: "",
-        appPath,
-      });
+      // For Godot apps, also check for export errors
+      if (isGodotApp) {
+        try {
+          const { getGodotWebExportUrl } = await import("./godot_handlers");
+          // We need to call the handler logic directly, but it's not exported
+          // So we'll check the export status manually
+          const exportPath = path.join(appPath, "godot-web-export");
+          const indexHtmlPath = path.join(exportPath, "index.html");
+          const projectPath = path.join(appPath, "godot-project");
+          const projectGodotPath = path.join(projectPath, "project.godot");
+          
+          // Check for export issues
+          if (fs.existsSync(projectGodotPath)) {
+            if (!fs.existsSync(indexHtmlPath)) {
+              // Check if export directory exists
+              if (fs.existsSync(exportPath)) {
+                const files = fs.readdirSync(exportPath);
+                problems.push({
+                  file: "godot-web-export/index.html",
+                  line: 1,
+                  column: 1,
+                  message: `Godot export is missing index.html. Found files: ${files.join(", ") || "none"}. The game cannot be previewed. Run 'Create/Refresh Export' to generate the export, or check if Godot engine is installed and export templates are available.`,
+                  code: 9999, // Custom code for Godot errors
+                  snippet: `// Godot Export Error: Missing index.html\n// Files found: ${files.join(", ") || "none"}\n// Fix: Run export command or check Godot engine installation`,
+                } as any);
+              } else {
+                problems.push({
+                  file: "godot-web-export/",
+                  line: 1,
+                  column: 1,
+                  message: "Godot web export not found. The game project exists but has not been exported for preview. Click 'Create/Refresh Export' button in the preview panel to generate the export automatically.",
+                  code: 9998, // Custom code for Godot errors
+                  snippet: `// Godot Export Error: Export directory not found\n// Fix: Run export command to create the web export`,
+                } as any);
+              }
+            }
+          } else {
+            problems.push({
+              file: "godot-project/project.godot",
+              line: 1,
+              column: 1,
+              message: "Godot project not found. The game project may not have been created yet. The game project needs to be built first. Check if there were errors during game creation.",
+              code: 9997, // Custom code for Godot errors
+              snippet: `// Godot Project Error: project.godot not found\n// Fix: Rebuild the game project from the game specification`,
+            } as any);
+          }
+        } catch (godotError) {
+          logger.warn("Error checking Godot export status:", godotError);
+        }
+      }
 
-      return problemReport;
+      return { problems };
     } catch (error) {
       logger.error("Error checking problems:", error);
       throw error;
