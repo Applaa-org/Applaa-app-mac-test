@@ -313,7 +313,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                       <div className="godot-preview-container h-full">
                         <div className="godot-message">
                           <div className="godot-message-icon">🎮</div>
-                          <div className="godot-message-title">Godot Game Project</div>
+                          <div className="godot-message-title">Applaa Game Project</div>
                           <div className="godot-message-text">
                             {isGodotExportLoading 
                               ? "Checking for export..."

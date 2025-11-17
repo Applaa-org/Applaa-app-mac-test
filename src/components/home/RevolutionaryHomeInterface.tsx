@@ -325,7 +325,7 @@ export function RevolutionaryHomeInterface({ onChatSubmit }: RevolutionaryHomeIn
         userPrompt={inputValue}
       />
 
-      {/* Godot Game Creation Dialog */}
+      {/* Applaa Game Creation Dialog */}
       <GodotGameCreationDialog
         isOpen={isGodotDialogOpen}
         onClose={() => {

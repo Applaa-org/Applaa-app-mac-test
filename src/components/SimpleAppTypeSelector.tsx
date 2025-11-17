@@ -88,7 +88,7 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
           </div>
         </div>
 
-        {/* Godot Game Tile */}
+        {/* Applaa Game Tile */}
         <div
           onClick={handleGodotSelect}
           className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
@@ -106,10 +106,10 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
             {/* Text */}
             <div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
-                Godot Game
+                Applaa Game
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                Create 2D and 3D games with AI-powered generation using Godot Engine.
+                Create 2D and 3D games with AI-powered generation using Applaa Engine.
               </p>
             </div>
             {/* Decorative Element */}

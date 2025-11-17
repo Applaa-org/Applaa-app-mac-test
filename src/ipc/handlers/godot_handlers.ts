@@ -298,7 +298,7 @@ export async function createTestWebExport(
 <body>
     <div id="gameContainer">
         <h1>🎮 ${escapedGameName}</h1>
-        <div class="info">${gameDescription ? gameDescription.substring(0, 100) : 'Godot Game Preview - Test Build'}</div>
+        <div class="info">${gameDescription ? gameDescription.substring(0, 100) : 'Applaa Game Preview - Test Build'}</div>
         <canvas id="gameCanvas" width="${windowWidth}" height="${windowHeight}"></canvas>
         <div class="score">Score: <span id="score">0</span></div>
         <div class="controls">
@@ -318,7 +318,7 @@ export async function createTestWebExport(
         
         ${gameCode}
         
-        console.log('🎮 Godot game preview loaded successfully! Type: ${gameType}');
+        console.log('🎮 Applaa game preview loaded successfully! Type: ${gameType}');
     </script>
 </body>
 </html>`;
@@ -470,7 +470,7 @@ export function registerGodotHandlers() {
 
         return {
           success: true,
-          message: "Godot game built successfully from specification",
+          message: "Applaa game built successfully from specification",
         };
       } catch (error) {
         logger.error("Failed to build Godot game:", error);

@@ -70,7 +70,7 @@ export function GodotGameCreationDialog({
             spec
           });
 
-          showSuccess('Godot game created and built successfully!');
+          showSuccess('Applaa game created and built successfully!');
         } catch (specError) {
           console.error('Failed to generate/build game spec:', specError);
           showError(new Error('Game created but failed to generate game specification. You can add it manually in the chat.'));
@@ -99,10 +99,10 @@ export function GodotGameCreationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gamepad2 className="h-5 w-5 text-purple-600" />
-            Create Godot Game
+            Create Applaa Game
           </DialogTitle>
           <DialogDescription>
-            Create a new Godot game project. Describe your game idea and we'll generate the game specification and build it automatically.
+            Create a new Applaa game project. Describe your game idea and we'll generate the game specification and build it automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -128,9 +128,9 @@ export function GodotGameCreationDialog({
               rows={5}
               disabled={isCreating}
             />
-            <p className="text-xs text-muted-foreground">
+            {/* <p className="text-xs text-muted-foreground">
               Describe your game and we'll automatically generate the game specification and build the Godot project.
-            </p>
+            </p> */}
           </div>
         </div>
 

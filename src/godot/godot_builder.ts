@@ -13,7 +13,7 @@ export async function buildGodotGameFromSpec(
   spec: GameSpecification
 ): Promise<void> {
   try {
-    logger.info(`Building Godot game from specification: ${spec.game.name}`);
+    logger.info(`Building Applaa game from specification: ${spec.game.name}`);
 
     const projectPath = path.join(appPath, "godot-project");
     const scenesPath = path.join(projectPath, "scenes");
@@ -48,9 +48,9 @@ export async function buildGodotGameFromSpec(
     // Create game manager script
     await createGameManager(scriptsPath, spec);
 
-    logger.info(`Successfully built Godot game: ${spec.game.name}`);
+    logger.info(`Successfully built Applaa game: ${spec.game.name}`);
   } catch (error) {
-    logger.error("Failed to build Godot game:", error);
+    logger.error("Failed to build Applaa game:", error);
     throw error;
   }
 }

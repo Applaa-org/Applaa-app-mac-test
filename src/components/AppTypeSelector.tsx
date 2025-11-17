@@ -130,7 +130,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
               </Label>
             </div>
 
-            {/* Godot Game Option */}
+            {/* Applaa Game Option */}
             <div className="relative">
               <RadioGroupItem 
                 value="godot" 
@@ -146,7 +146,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
                     <Gamepad2 className="h-6 w-6 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">Godot Game</h3>
+                    <h3 className="text-lg font-semibold">Applaa Game</h3>
                     <p className="text-sm text-muted-foreground">2D & 3D games</p>
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Gamepad2 className="h-4 w-4 text-purple-500" />
-                    <span>Godot Engine 4.2+</span>
+                    <span>Applaa Engine</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-purple-500" />
@@ -167,7 +167,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
                 </div>
                 
                 <p className="text-xs text-muted-foreground">
-                  Create 2D and 3D games with AI-powered game generation and automatic Godot project setup.
+                  Create 2D and 3D games with AI-powered game generation and automatic Applaa project setup.
                 </p>
               </Label>
             </div>
@@ -185,7 +185,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
               onClick={handleContinue}
               className="flex items-center gap-2"
             >
-              Continue with {selectedType === 'web' ? 'Web' : selectedType === 'mobile' ? 'Mobile' : 'Godot'} App
+              Continue with {selectedType === 'web' ? 'Web' : selectedType === 'mobile' ? 'Mobile' : 'Applaa Game'} App
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -193,7 +193,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
           {/* Template Preview */}
           <div className="mt-6 p-4 bg-muted/50 rounded-lg">
             <h4 className="text-sm font-medium mb-2">
-              {selectedType === 'web' ? '🌐 Web App Templates:' : selectedType === 'mobile' ? '📱 Mobile App Templates:' : '🎮 Godot Game Features:'}
+              {selectedType === 'web' ? '🌐 Web App Templates:' : selectedType === 'mobile' ? '📱 Mobile App Templates:' : '🎮 Applaa Game Features:'}
             </h4>
             <div className="text-sm text-muted-foreground">
               {selectedType === 'web' ? (
