@@ -17,6 +17,7 @@ export interface ExportOptions {
   projectName: string;
   presetName?: string;
   debug?: boolean;
+  appPath?: string; // App root path for creating vercel.json at root
 }
 
 export interface ExportResult {
@@ -98,6 +99,15 @@ export async function exportGodotToHTML5(
 
     logger.info(`✅ Successfully exported to ${exportPath}`);
     logger.info(`Exported files: ${exportedFiles.join(", ")}`);
+
+    // 6. Create vercel.json for Vercel deployment at app root
+    try {
+      const appPath = options.appPath || path.dirname(exportPath);
+      createVercelConfig(exportPath, appPath);
+    } catch (vercelError: any) {
+      logger.warn(`Failed to create vercel.json: ${vercelError.message}`);
+      // Don't fail the export if vercel.json creation fails
+    }
 
     return {
       success: true,
@@ -235,6 +245,76 @@ variant/gdnative_libraries=""
 
   fs.appendFileSync(projectFile, exportPresetConfig);
   logger.info(`✅ Export preset "${presetName}" added to project.godot`);
+}
+
+/**
+ * Create vercel.json configuration for Godot exports
+ * This ensures proper MIME types for WebAssembly and game files
+ * IMPORTANT: vercel.json must be at the repo root (appPath), not in the export directory
+ */
+export function createVercelConfig(exportPath: string, appPath?: string): void {
+  // Create vercel.json at the app root (where it will be committed to git)
+  // If appPath is provided, use it; otherwise derive from exportPath (go up one level)
+  const vercelJsonPath = appPath 
+    ? path.join(appPath, "vercel.json")
+    : path.join(path.dirname(exportPath), "vercel.json");
+  
+  const vercelConfig = {
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "rewrites": [
+      {
+        "source": "/(.*)",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/(.*)\\.wasm",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/wasm"
+          },
+          {
+            "key": "Cross-Origin-Embedder-Policy",
+            "value": "require-corp"
+          },
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin"
+          }
+        ]
+      },
+      {
+        "source": "/(.*)\\.pck",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/octet-stream"
+          }
+        ]
+      },
+      {
+        "source": "/(.*)\\.js",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/javascript"
+          }
+        ]
+      }
+    ]
+  };
+
+  fs.writeFileSync(vercelJsonPath, JSON.stringify(vercelConfig, null, 2));
+  
+  // Verify the file was created
+  if (fs.existsSync(vercelJsonPath)) {
+    const stats = fs.statSync(vercelJsonPath);
+    logger.info(`✅ Created vercel.json for Vercel deployment at ${vercelJsonPath} (${stats.size} bytes)`);
+  } else {
+    logger.error(`❌ Failed to create vercel.json at ${vercelJsonPath} - file does not exist after write`);
+  }
 }
 
 /**

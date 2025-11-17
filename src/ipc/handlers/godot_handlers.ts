@@ -116,6 +116,18 @@ export async function exportWithGodotEngine(
     const indexHtmlPath = path.join(exportPath, 'index.html');
     if (fs.existsSync(indexHtmlPath)) {
       logger.info(`✅ Successfully exported Godot project to ${exportPath}`);
+      
+      // Create vercel.json for Vercel deployment at app root
+      try {
+        const { createVercelConfig } = await import('../../godot/godot_exporter');
+        // Derive appPath from exportPath (exportPath is typically appPath/godot-web-export)
+        const appPath = path.dirname(exportPath);
+        createVercelConfig(exportPath, appPath);
+      } catch (vercelError: any) {
+        logger.warn(`Failed to create vercel.json: ${vercelError.message}`);
+        // Don't fail the export if vercel.json creation fails
+      }
+      
       return true;
     } else {
       logger.warn('Godot export command completed but index.html not found');
@@ -331,6 +343,17 @@ export async function createTestWebExport(
     throw new Error(`Failed to create index.html at ${indexHtmlPath}`);
   }
   
+  // Create vercel.json for Vercel deployment at app root
+  try {
+    const { createVercelConfig } = await import('../../godot/godot_exporter');
+    // Derive appPath from exportPath (exportPath is typically appPath/godot-web-export)
+    const appPath = path.dirname(exportPath);
+    createVercelConfig(exportPath, appPath);
+  } catch (vercelError: any) {
+    logger.warn(`Failed to create vercel.json for test export: ${vercelError.message}`);
+    // Don't fail the export if vercel.json creation fails
+  }
+  
   logger.info(`✅ Created test web export at ${exportPath}`);
   
   // Log file size for debugging
@@ -445,6 +468,7 @@ export function registerGodotHandlers() {
             exportPath,
             projectName: app.name,
             debug: false,
+            appPath, // Pass appPath so vercel.json is created at root
           });
           
           // Fall back to test export if Godot engine export failed
@@ -889,6 +913,7 @@ renderer/rendering_method="forward_plus"
                 exportPath,
                 projectName: app.name,
                 debug: false,
+                appPath, // Pass appPath so vercel.json is created at root
               });
               
               // Fall back to test export if Godot engine export failed

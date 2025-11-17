@@ -1084,6 +1084,7 @@ export class IpcClient {
     githubUsername: string;
     repoName: string;
     githubToken: string;
+    appId?: number;
   }): Promise<{ success: boolean; url?: string; error?: string }> {
     return this.ipcRenderer.invoke("vercel:deploy", params);
   }
