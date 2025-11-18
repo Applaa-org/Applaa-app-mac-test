@@ -21,6 +21,12 @@ export function useParseRouter(appId: number | null) {
     refreshApp,
   } = useLoadApp(appId);
 
+  // Detect file structure to determine which file to load
+  const isExpoRouterApp = useMemo(() => {
+    if (!app?.files) return false;
+    return app.files.some((f) => f.includes('app/index.tsx') || f.includes('app/_layout.tsx'));
+  }, [app?.files]);
+
   // Load router related file to extract routes for non-Next apps
   // Skip for Godot apps as they don't have src/App.tsx
   const isGodotApp = useMemo(() => {

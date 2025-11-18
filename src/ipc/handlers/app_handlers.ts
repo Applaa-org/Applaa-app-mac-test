@@ -436,6 +436,86 @@ async function killProcessOnPort(port: number): Promise<void> {
   }
 }
 
+// Helper to remove node_modules with retry logic for Windows permission issues
+async function removeNodeModulesWithRetry(nodeModulesPath: string, appId: number): Promise<void> {
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      logger.log(`Attempt ${attempt}/${maxRetries} to remove node_modules for app ${appId}`);
+      
+      // First try to kill any processes that might be locking files
+      if (attempt > 1) {
+        logger.log(`Killing processes that might be locking files in node_modules...`);
+        try {
+          // Kill common processes that might lock files
+          await killPort(8081, "tcp"); // Metro bundler
+          await killPort(8080, "tcp"); // Common dev server port
+          await killPort(3000, "tcp"); // Common dev server port
+        } catch (error) {
+          logger.debug("Error killing processes:", error);
+        }
+        
+        // Wait a bit for processes to release file handles
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+      
+      // Try to remove node_modules
+      await fsPromises.rm(nodeModulesPath, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 500
+      });
+      
+      logger.log(`Successfully removed node_modules for app ${appId} on attempt ${attempt}`);
+      return; // Success!
+      
+    } catch (error) {
+      logger.warn(`Attempt ${attempt}/${maxRetries} failed to remove node_modules for app ${appId}:`, error);
+      
+      if (attempt === maxRetries) {
+        // On final attempt, try a more aggressive approach
+        logger.log(`Final attempt: trying PowerShell-based removal...`);
+        try {
+          const { spawn } = await import('child_process');
+          await new Promise<void>((resolve, reject) => {
+            const psProcess = spawn('powershell', [
+              '-Command',
+              `Remove-Item -Path "${nodeModulesPath}" -Recurse -Force -ErrorAction Stop`
+            ], {
+              stdio: ['pipe', 'pipe', 'pipe']
+            });
+            
+            psProcess.on('close', (code) => {
+              if (code === 0) {
+                logger.log(`Successfully removed node_modules using PowerShell for app ${appId}`);
+                resolve();
+              } else {
+                reject(new Error(`PowerShell removal failed with code ${code}`));
+              }
+            });
+            
+            psProcess.on('error', (error) => {
+              reject(error);
+            });
+          });
+          return; // PowerShell success!
+        } catch (psError) {
+          logger.error(`PowerShell removal also failed for app ${appId}:`, psError);
+          throw new Error(`Failed to remove node_modules after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+      
+      // Wait before retrying
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+      }
+    }
+  }
+}
+
 export function registerAppHandlers() {
   // Return the base path where apps are stored (without the app subfolder)
   handle("get-apps-base-path", async () => {
@@ -1575,11 +1655,15 @@ renderer/rendering_method="forward_plus"
               `Removing node_modules for app ${appId} at ${nodeModulesPath}`,
             );
             if (fs.existsSync(nodeModulesPath)) {
-              await fsPromises.rm(nodeModulesPath, {
-                recursive: true,
-                force: true,
-              });
-              logger.log(`Successfully removed node_modules for app ${appId}`);
+              try {
+                // Try to remove node_modules with retry logic for Windows permission issues
+                await removeNodeModulesWithRetry(nodeModulesPath, appId);
+                logger.log(`Successfully removed node_modules for app ${appId}`);
+              } catch (error) {
+                logger.warn(`Failed to remove node_modules for app ${appId}:`, error);
+                // Continue with restart even if node_modules removal failed
+                // The app will work with existing node_modules
+              }
             } else {
               logger.log(`No node_modules directory found for app ${appId}`);
             }

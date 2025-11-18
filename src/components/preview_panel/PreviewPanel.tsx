@@ -20,10 +20,9 @@ import { Console } from "./Console";
 import { useRunApp } from "@/hooks/useRunApp";
 import { PublishPanel } from "./PublishPanel";
 import { TestingPanel } from "./TestingPanel";
-import { UnifiedExpoPreview } from "../expo/UnifiedExpoPreview";
+import { SnackPoweredPreview } from "../expo/SnackPoweredPreview";
 import { useMemo } from "react";
 import { IpcClient } from "@/ipc/ipc_client";
-import { ExpoTerminalPanel } from "../expo/ExpoTerminalPanel";
 import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
 import { WebPreviewTimeoutPopup } from "../WebPreviewTimeoutPopup";
 import { useExpoUrl } from "@/hooks/useExpoUrl";
@@ -270,7 +269,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             <Panel id="preview-panel" defaultSize={50} minSize={30}>
               <div className="h-full overflow-y-auto">
                 {isExpoApp ? (
-                  <UnifiedExpoPreview />
+                  <SnackPoweredPreview />
                 ) : (
                   <PreviewIframe key={key} loading={loading} />
                 )}
@@ -415,7 +414,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                       </div>
                     </div>
                   ) : isExpoApp ? (
-                    <UnifiedExpoPreview />
+                    <SnackPoweredPreview />
                   ) : (
                     <PreviewIframe key={key} loading={loading} />
                   )

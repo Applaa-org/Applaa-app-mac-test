@@ -41,7 +41,7 @@ interface ExpoStatus {
   qrUrl: string;
   terminalOutput?: string;
   lastHotReload?: number; // Timestamp of last hot reload
-  buildStatus?: 'idle' | 'building' | 'success' | 'error';
+  buildStatus?: 'idle' | 'building' | 'success' | 'error' | 'ready';
   buildProgress?: string; // Build progress message
 }
 
@@ -203,34 +203,105 @@ export function registerExpoHandlers() {
 
       // 🚀 PERFORMANCE OPTIMIZED: Fast dependency management for mobile apps
       if (isMobileApp) {
-        log.log("🎯 Mobile app detected, optimizing dependencies...");
+        log.log("🎯 Mobile app detected, validating dependencies...");
         
-        // Use smart Expo dependency management
-        const { ExpoDependencyManager } = await import("../../lib/expo/ExpoDependencyManager");
+        // 🚀 PRE-PREVIEW VALIDATION: Comprehensive validation before starting preview
+        const { PrePreviewValidator } = await import("../../lib/expo/PrePreviewValidator");
         
         try {
-          // Smart dependency management with conflict resolution
-          const depManager = new ExpoDependencyManager(appPath);
-          const depsReady = await depManager.ensureEssentialDependencies();
+          log.log("🔍 Running pre-preview validation...");
           
-          if (!depsReady) {
-            log.log("📦 Installing core dependencies with optimized package manager...");
+          // Initialize the validator
+          const validator = new PrePreviewValidator(appPath);
+          
+          // Run all validation rules
+          const validationResult = await validator.validateAll();
+          
+          if (!validationResult.passed) {
+            log.log(`🚨 Pre-preview validation failed with ${validationResult.results.filter(r => !r.passed).length} issues:`);
             
-            // Use optimized package manager with performance flags
-            const installProcess = await runPackageManagerCommand("install", [], appPath, {
-              stdio: ['pipe', 'pipe', 'pipe'],
-              env: {
-                ...process.env,
-                CI: "1", // Prevent interactive prompts
-                EXPO_NO_DOCTOR: "1",
-                EXPO_NO_UPDATE_CHECK: "1",
-                NPM_CONFIG_AUDIT: "false", // Skip audit for speed
-                NPM_CONFIG_FUND: "false"   // Skip funding messages
+            // Show all failed validations
+            validationResult.results
+              .filter(r => !r.passed)
+              .forEach(result => {
+                const emoji = result.severity === 'error' ? '❌' : '⚠️';
+                log.log(`  ${emoji} ${result.rule}: ${result.message}`);
+                if (result.details) {
+                  log.log(`    Details: ${result.details}`);
+                }
+              });
+            
+            // Try to fix fixable issues
+            if (validationResult.fixable) {
+              log.log("🔧 Attempting to fix issues...");
+              const fixResult = await validator.fixAll();
+              
+              if (fixResult.success) {
+                log.log(`✅ Fixed ${fixResult.fixes.length} issues:`);
+                fixResult.fixes.forEach(fix => log.log(`  ✅ ${fix.rule}: ${fix.message}`));
+              } else {
+                log.error("❌ Some issues could not be fixed:");
+                fixResult.errors.forEach(error => log.error(`  ❌ ${error}`));
               }
-            });
+            }
+            
+            // Check if we still have critical errors after fixing
+            const stillHasErrors = validationResult.results.some(r => !r.passed && r.severity === 'error');
+            if (stillHasErrors) {
+              throw new Error(`Pre-preview validation failed with critical errors. Please fix the app manually.`);
+            }
+          } else {
+            log.log("✅ Pre-preview validation passed - app is ready");
+          }
+          
+          // 🚀 DYNAMIC APP REPAIRER: Additional repair if needed
+          const { ExpoAppRepairer } = await import("../../lib/expo/ExpoAppRepairer");
+          const repairer = new ExpoAppRepairer(appPath);
+          const repairResult = await repairer.repairApp();
+          
+          if (repairResult.repaired) {
+            log.log(`🔧 Additional repair completed! Fixed ${repairResult.fixes.length} issues:`);
+            repairResult.fixes.forEach(fix => log.log(`  ✅ ${fix}`));
+          }
+          
+          if (!repairResult.success) {
+            log.error("❌ App repair failed:");
+            repairResult.issues.forEach(issue => log.error(`  ❌ ${issue}`));
+            throw new Error(`App repair failed: ${repairResult.issues.join(', ')}`);
+          }
+          
+        } catch (validationError) {
+          log.warn("⚠️ Dependency validation failed, attempting fallback installation:", validationError);
+          
+          // Fallback: Use smart Expo dependency management
+          const { ExpoDependencyManager } = await import("../../lib/expo/ExpoDependencyManager");
+          
+          try {
+            // Smart dependency management with conflict resolution
+            const depManager = new ExpoDependencyManager(appPath);
+            const depsReady = await depManager.ensureEssentialDependencies();
+            
+            if (!depsReady) {
+              log.log("📦 Installing core dependencies with optimized package manager...");
+              
+              // Import runPackageManagerCommand
+              const { runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
+              
+              // Use optimized package manager with performance flags
+              const installProcess = await runPackageManagerCommand("install", [], appPath, {
+                stdio: ['pipe', 'pipe', 'pipe'],
+                env: {
+                  ...process.env,
+                  CI: "1", // Prevent interactive prompts
+                  EXPO_NO_DOCTOR: "1",
+                  EXPO_NO_UPDATE_CHECK: "1",
+                  NPM_CONFIG_AUDIT: "false", // Skip audit for speed
+                  NPM_CONFIG_FUND: "false"   // Skip funding messages
+                }
+              });
 
-            await new Promise((resolve, reject) => {
-              installProcess.on('close', (code) => {
+              await new Promise((resolve, reject) => {
+                installProcess.on('close', (code) => {
                 if (code === 0) {
                   log.log("✅ Dependencies installed successfully with optimizations");
                   resolve(true);
@@ -294,6 +365,34 @@ export function registerExpoHandlers() {
           }
         } catch (err) {
           log.warn("Could not check/install Expo SDK:", err);
+        }
+
+        // 🚀 METRO CONFIGURATION CHECK: Ensure Metro is properly configured
+        try {
+          const metroConfigPath = path.join(appPath, 'metro.config.js');
+          if (!fs.existsSync(metroConfigPath)) {
+            log.log("📦 Creating Metro configuration for proper bundling...");
+            
+            const metroConfig = `const { getDefaultConfig } = require('expo/metro-config');
+
+const config = getDefaultConfig(__dirname);
+
+// Enable web support
+config.resolver.platforms = ['ios', 'android', 'native', 'web'];
+
+// Ensure proper asset handling
+config.transformer.assetPlugins = ['expo-asset/tools/hashAssetFiles'];
+
+module.exports = config;
+`;
+            
+            fs.writeFileSync(metroConfigPath, metroConfig);
+            log.log("✅ Metro configuration created");
+          } else {
+            log.log("✅ Metro configuration already exists");
+          }
+        } catch (err) {
+          log.warn("Could not create Metro configuration:", err);
         }
       }
 
@@ -432,6 +531,7 @@ export function registerExpoHandlers() {
         "start",
         "--clear", // --reset-cache is not supported in new Expo CLI, --clear is sufficient
         "--port", availablePort.toString(), // Use our auto-detected available port
+        "--web", // 🚀 CRITICAL: Always start with web mode enabled
         ...(useTunnel ? ["--tunnel"] : [])
       ];
 
@@ -459,8 +559,8 @@ export function registerExpoHandlers() {
             }
           });
 
-          // Wait a bit to see if it starts successfully
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          // Wait longer for Expo and Metro to fully initialize
+          await new Promise((resolve) => setTimeout(resolve, 5000));
           
           if (expoProcess && !expoProcess.killed) {
             log.log(`Successfully started Expo with: ${command} ${subcommand}`);
@@ -542,23 +642,98 @@ export function registerExpoHandlers() {
           }
         }
 
-        // 🎯 STEP 3: Capture web URL after pressing 'w'
-        const webMatch = output.match(/(?:Local|Web):\s+(https?:\/\/localhost:\d+)/i);
-        if (webMatch && hasStartedWeb) {
-          expoStatus.webUrl = webMatch[1];
-          log.log(`🌐 Web URL captured: ${webMatch[1]}`);
+        // 🚀 METRO BUNDLER DETECTION: Look for Metro bundler startup messages
+        if (output.includes('Metro waiting on') || output.includes('Metro bundler') || output.includes('Metro server')) {
+          log.log(`🚇 Metro bundler detected: ${output.trim()}`);
+          expoStatus.buildStatus = 'building';
+        }
+        
+        // 🚀 METRO BUNDLER READY: Look for Metro ready messages
+        if (output.includes('Metro waiting on') || output.includes('Ready!') || output.includes('Metro server running')) {
+          log.log(`✅ Metro bundler ready: ${output.trim()}`);
+          expoStatus.buildStatus = 'ready';
+          
+          // 🚀 HEALTH CHECK: Verify Metro bundler is actually serving content
+          if (expoStatus.webUrl) {
+            setTimeout(async () => {
+              try {
+                const response = await fetch(expoStatus.webUrl);
+                if (response.ok) {
+                  log.log(`✅ Metro bundler health check passed: ${expoStatus.webUrl} is serving content`);
+                  expoStatus.buildStatus = 'ready';
+                } else {
+                  log.warn(`⚠️ Metro bundler health check failed: ${expoStatus.webUrl} returned ${response.status}`);
+                  expoStatus.buildStatus = 'error';
+                }
+              } catch (error) {
+                log.warn(`⚠️ Metro bundler health check failed: ${expoStatus.webUrl} is not accessible - ${error}`);
+                expoStatus.buildStatus = 'error';
+              }
+            }, 2000); // Wait 2 seconds for Metro to fully start
+          }
         }
 
-        // 🎯 STEP 4: Also capture tunnel URLs if tunnel mode is enabled
+        // 🎯 STEP 3: Capture web URL after pressing 'w' - ENHANCED PATTERNS
+        const webPatterns = [
+          /(?:Local|Web):\s+(https?:\/\/localhost:\d+)/i,
+          /(?:Web):\s+(https?:\/\/localhost:\d+)/i,
+          /(?:Local):\s+(https?:\/\/localhost:\d+)/i,
+          /https?:\/\/localhost:\d+/g,
+          /(?:Web server running at|Local server running at|Development server running at):\s*(https?:\/\/localhost:\d+)/i,
+          /(?:Metro waiting on|Metro server running on):\s*(https?:\/\/localhost:\d+)/i,
+          /(?:Press w │ open web):\s*(https?:\/\/localhost:\d+)/i
+        ];
+        
+        for (const pattern of webPatterns) {
+          const webMatch = output.match(pattern);
+          if (webMatch) {
+            const webUrl = webMatch[1] || webMatch[0];
+            if (webUrl && webUrl.includes('localhost')) {
+              expoStatus.webUrl = webUrl;
+              log.log(`🌐 Web URL captured: ${webUrl}`);
+              break;
+            }
+          }
+        }
+
+        // 🎯 STEP 4: Also capture tunnel URLs if tunnel mode is enabled - ENHANCED
         if (useTunnel && !expoStatus.tunnelUrl) {
-          const tunnelMatch = output.match(/(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev)/i) ||
-                             output.match(/(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct)/i) ||
-                             output.match(/(exp:\/\/[a-zA-Z0-9.-]+\.exp\.direct)/i);
-          if (tunnelMatch) {
-            expoStatus.tunnelUrl = tunnelMatch[1];
-            // Prefer tunnel URL for QR code if tunnel is enabled
-            expoStatus.qrUrl = tunnelMatch[1];
-            log.log(`🚇 Tunnel URL found: ${tunnelMatch[1]}`);
+          const tunnelPatterns = [
+            /(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev)/i,
+            /(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct)/i,
+            /(exp:\/\/[a-zA-Z0-9.-]+\.exp\.direct)/i,
+            /(https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io)/i,
+            /(https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app)/i,
+            /(?:Tunnel|ngrok):\s*(https?:\/\/[^\s\n\r]+)/i
+          ];
+          
+          for (const pattern of tunnelPatterns) {
+            const tunnelMatch = output.match(pattern);
+            if (tunnelMatch) {
+              expoStatus.tunnelUrl = tunnelMatch[1];
+              // Prefer tunnel URL for QR code if tunnel is enabled
+              expoStatus.qrUrl = tunnelMatch[1];
+              log.log(`🚇 Tunnel URL found: ${tunnelMatch[1]}`);
+              break;
+            }
+          }
+          
+          // 🚀 FALLBACK: If no tunnel URL found but tunnel is enabled, try to generate one
+          if (!expoStatus.tunnelUrl && output.includes('Tunnel') && output.includes('ngrok')) {
+            log.log(`🚇 Tunnel detected in output but URL not captured, attempting manual generation...`);
+            // Try to extract ngrok URL manually
+            const ngrokMatch = output.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok[^\s\n\r]*/i);
+            if (ngrokMatch) {
+              expoStatus.tunnelUrl = ngrokMatch[0];
+              expoStatus.qrUrl = ngrokMatch[0];
+              log.log(`🚇 Manual tunnel URL extraction: ${ngrokMatch[0]}`);
+            }
+          }
+          
+          // 🚀 AGGRESSIVE FALLBACK: If still no tunnel URL, try to generate one using LAN URL
+          if (!expoStatus.tunnelUrl && useTunnel && expoStatus.lanUrl) {
+            log.log(`🚇 No tunnel URL found, using LAN URL as fallback for QR code: ${expoStatus.lanUrl}`);
+            expoStatus.qrUrl = expoStatus.lanUrl;
           }
         }
 
@@ -575,15 +750,46 @@ export function registerExpoHandlers() {
 
         // Only set webUrl when Metro is actually ready to serve content
         if (detectedWebUrl && !expoStatus.webUrl) {
-          // Wait for Metro to be fully ready before exposing the URL
-          if (output.includes('Metro waiting') || 
+          // 🚀 ENHANCED: More flexible Metro ready detection
+          const isMetroReady = output.includes('Metro waiting') || 
               output.includes('Logs for your project') || 
               output.includes('› Press') ||
-              (output.includes('Bundled') && output.includes('ms'))) {
+              output.includes('Press w │ open web') ||
+              output.includes('Press a │ open Android') ||
+              output.includes('Press i │ open iOS') ||
+              output.includes('Metro') ||
+              (output.includes('Bundled') && output.includes('ms')) ||
+              output.includes('Starting Metro Bundler') ||
+              output.includes('Metro bundler running') ||
+              output.includes('Ready!') ||
+              // 🚀 FALLBACK: If we see the URL pattern, assume it's ready after a short delay
+              (detectedWebUrl.includes('localhost') && output.includes('http'));
+              
+          if (isMetroReady) {
             expoStatus.webUrl = detectedWebUrl;
             log.log(`✅ Metro bundler is ready! Setting web URL: ${expoStatus.webUrl}`);
           } else {
             log.log(`⏳ Metro bundler detected but not ready yet: ${detectedWebUrl}`);
+            // 🚀 FALLBACK: Set URL after 5 seconds if Metro patterns aren't found
+            setTimeout(() => {
+              if (!expoStatus.webUrl && detectedWebUrl) {
+                expoStatus.webUrl = detectedWebUrl;
+                log.log(`🚀 Fallback: Setting web URL after timeout: ${expoStatus.webUrl}`);
+                
+                // 🚀 HEALTH CHECK: Verify the URL is actually serving content
+                fetch(detectedWebUrl)
+                  .then(response => {
+                    if (response.ok) {
+                      log.log(`✅ Health check passed: ${detectedWebUrl} is serving content`);
+                    } else {
+                      log.warn(`⚠️ Health check failed: ${detectedWebUrl} returned ${response.status}`);
+                    }
+                  })
+                  .catch(error => {
+                    log.warn(`⚠️ Health check failed: ${detectedWebUrl} is not accessible:`, error.message);
+                  });
+              }
+            }, 5000);
           }
         }
 
@@ -739,6 +945,13 @@ export function registerExpoHandlers() {
           }
         }
 
+        // 🚀 METRO BUNDLER ERROR DETECTION: Look for Metro-specific errors
+        if (output.includes('Metro') || output.includes('bundler') || output.includes('bundling')) {
+          log.error(`🚇 Metro bundler error: ${output.trim()}`);
+          expoStatus.buildStatus = 'error';
+          expoStatus.buildProgress = 'Metro bundler error detected';
+        }
+
         // Check for common Expo errors that might cause process to stop
         if (output.includes('EADDRINUSE') || output.includes('port') && output.includes('use')) {
           log.error("Port conflict detected:", output);
@@ -822,11 +1035,11 @@ export function registerExpoHandlers() {
 
       log.log("Expo dev server started successfully");
       return expoStatus;
-
-    } catch (error) {
+    }
+    } catch (error: any) {
       log.error("Failed to start Expo:", error);
       expoStatus.isRunning = false;
-      return { success: false, error: error.message, isRunning: false };
+      return { success: false, error: error?.message || String(error), isRunning: false };
     } finally {
       // Always reset the mutex, even on error
       isStarting = false;
@@ -882,7 +1095,10 @@ export function registerExpoHandlers() {
     try {
       const fetch = (await import('node-fetch')).default;
       const startTime = Date.now();
-      const response = await fetch(expoStatus.webUrl, { timeout: 5000 });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(expoStatus.webUrl, { signal: controller.signal as any });
+      clearTimeout(timeoutId);
       const responseTime = Date.now() - startTime;
       const healthy = response.ok;
       

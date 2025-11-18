@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { DyadWrite } from "./DyadWrite";
 import { DyadRename } from "./DyadRename";
 import { DyadDelete } from "./DyadDelete";
+import { DyadMkdir } from "./DyadMkdir";
 import { DyadAddDependency } from "./DyadAddDependency";
 import { DyadExecuteSql } from "./DyadExecuteSql";
 import { DyadAddIntegration } from "./DyadAddIntegration";
@@ -132,6 +133,7 @@ function preprocessUnclosedTags(content: string): {
     "applaa-update-file", // Support for applaa-update-file tags (alias for applaa-write)
     "applaa-file-delete", // Support for applaa-file-delete tags (alias for applaa-delete)
     "applaa-file-removal", // Support for applaa-file-removal tags (alias for applaa-delete)
+    "applaa-mkdir", // Support for applaa-mkdir tags (create directories)
     "applaa-rename",
     "applaa-delete",
     "applaa-add-dependency",
@@ -217,6 +219,7 @@ function parseCustomTags(content: string): ContentPiece[] {
     "applaa-update-file", // Support for applaa-update-file tags (alias for applaa-write)
     "applaa-file-delete", // Support for applaa-file-delete tags (alias for applaa-delete)
     "applaa-file-removal", // Support for applaa-file-removal tags (alias for applaa-delete)
+    "applaa-mkdir", // Support for applaa-mkdir tags (create directories)
     "applaa-rename",
     "applaa-delete",
     "applaa-add-dependency",
@@ -319,6 +322,7 @@ function renderCustomTag(
     'applaa-file': 'dyad-write',
     'applaa-create-file': 'dyad-write', 
     'applaa-update-file': 'dyad-write',
+    'applaa-mkdir': 'dyad-mkdir', // Directory creation
     'applaa-rename': 'dyad-rename',
     'applaa-delete': 'dyad-delete',
     'applaa-file-delete': 'dyad-delete',
@@ -395,6 +399,19 @@ function renderCustomTag(
         >
           {content}
         </DyadDelete>
+      );
+
+    case "dyad-mkdir":
+      return (
+        <DyadMkdir
+          node={{
+            properties: {
+              path: attributes.path || "",
+            },
+          }}
+        >
+          {content}
+        </DyadMkdir>
       );
 
     case "dyad-add-dependency":
