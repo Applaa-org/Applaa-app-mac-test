@@ -73,6 +73,7 @@ import { registerLocalBuildHandlers } from "./handlers/local_build_handlers";
 import { registerAndroidDependencyHandlers } from "./handlers/android_dependency_checker";
 import { registerAutoInstallerHandlers } from "./handlers/auto_installer";
 import { registerPrerequisiteInstallerHandlers } from "./handlers/prerequisite_installer";
+import { registerGodotHandlers } from "./handlers/godot_handlers";
 
 
 export function registerIpcHandlers() {
@@ -173,6 +174,10 @@ export function registerIpcHandlers() {
   // 🚀 Prerequisite Installer
   console.log('🚀 Registering prerequisite installer handlers...');
   registerPrerequisiteInstallerHandlers();
+  
+  // 🎮 Godot Engine Integration
+  console.log('🎮 Registering Godot handlers...');
+  registerGodotHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

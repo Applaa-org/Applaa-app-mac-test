@@ -234,6 +234,16 @@ async function executeAppLocalNode({
   event: Electron.IpcMainInvokeEvent;
   isNeon: boolean;
 }): Promise<void> {
+  // Check if this is a Godot app - Godot apps don't need npm dependencies
+  const app = await getAppSafe(appId);
+  const isGodotApp = app?.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+  
+  if (isGodotApp) {
+    logger.info(`🎮 Godot app detected (${path.basename(appPath)}), skipping npm dependency installation`);
+    // Godot apps don't run dev servers, so we should not start a process
+    throw new Error("Godot apps don't use npm dev servers. Use the Godot editor or export functionality instead.");
+  }
+  
   // 🚀 PERFORMANCE: Use hermetic package manager strategy for consistent dependency management
   const { getBestPackageManager, ensurePnpmAvailable } = await import("../../lib/hermetic-runtime");
   const packageManager = await getBestPackageManager(appPath);
@@ -785,15 +795,18 @@ export function registerAppHandlers() {
       // Return immediately with task info (non-blocking)
       // We still need to return app and chatId for backwards compatibility
       // but they'll be available from the task result when completed
+      // Determine app type
+      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot')
+        ? params.appType
+        : (params.framework === 'expo' || params.framework === 'flutter')
+          ? 'mobile'
+          : 'web';
+      
       const quickApp = {
         id: -1, // Temporary ID
         name: params.name,
         path: params.name,
-        appType: (params.appType === 'mobile' || params.appType === 'web')
-          ? params.appType
-          : (params.framework === 'expo' || params.framework === 'flutter')
-            ? 'mobile'
-            : 'web'
+        appType: appType
       };
       
       return { taskId, app: quickApp, chatId: -1 };
@@ -822,23 +835,24 @@ export function registerAppHandlers() {
       }
       
       await ensureWorkspaceInitialized();
-      const appRelPath2 = getAppRelativePath(
-        params.name,
-        (params.appType === 'mobile' || params.framework === 'expo') ? 'mobile' : 'web'
-      );
-      const fullAppPath = getDyadAppPath(appRelPath2);
-      if (fs.existsSync(fullAppPath)) {
-        // 🚨 FIX: Provide helpful duplicate name handling instead of generic error
-        const suggestedName = await generateUniqueAppName(params.name, params.appType);
-        throw new Error(`DUPLICATE_APP_NAME:${params.name}:${suggestedName}`);
-      }
       
       // Determine app type from explicit params, then framework hint, fallback to web
-      const appType = (params.appType === 'mobile' || params.appType === 'web')
+      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot')
         ? params.appType
         : (params.framework === 'expo' || params.framework === 'flutter')
           ? 'mobile'
           : 'web';
+      
+      const appRelPath2 = getAppRelativePath(
+        params.name,
+        appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
+      );
+      const fullAppPath = getDyadAppPath(appRelPath2);
+      if (fs.existsSync(fullAppPath)) {
+        // 🚨 FIX: Provide helpful duplicate name handling instead of generic error
+        const suggestedName = await generateUniqueAppName(params.name, appType);
+        throw new Error(`DUPLICATE_APP_NAME:${params.name}:${suggestedName}`);
+      }
       
       // Create a new app using a minimal, legacy-safe insert to avoid
       // referencing columns that might not exist (e.g., display_name)
@@ -880,11 +894,56 @@ export function registerAppHandlers() {
 
       // 🚀 PERFORMANCE FIX: Template creation already handles Git initialization
       // Pass template info to avoid race condition with settings
-      const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
-      await createFromTemplate({
-        fullAppPath,
-        templateId,
-      });
+      if (appType === 'godot') {
+        // For Godot apps, create the project structure
+        // Create Godot project files directly
+        fs.mkdirSync(fullAppPath, { recursive: true });
+        const projectPath = path.join(fullAppPath, "godot-project");
+        fs.mkdirSync(projectPath, { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "scenes"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "scripts"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "assets"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "assets", "sprites"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "assets", "sounds"), { recursive: true });
+        fs.mkdirSync(path.join(projectPath, "assets", "music"), { recursive: true });
+        
+        const projectGodot = `; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="${params.name}"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1152
+window/size/viewport_height=648
+window/size/resizable=true
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+`;
+        
+        fs.writeFileSync(path.join(projectPath, "project.godot"), projectGodot);
+        fs.writeFileSync(path.join(projectPath, "game_spec.json"), JSON.stringify({}, null, 2));
+        
+        // Initialize Git for Godot project
+        await git.init({
+          fs: fs,
+          dir: fullAppPath,
+          defaultBranch: "main",
+        });
+      } else {
+        const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
+        await createFromTemplate({
+          fullAppPath,
+          templateId,
+        });
+      }
 
       // 🚀 PERFORMANCE: Get commit hash from template creation (no duplicate Git ops)
       let commitHash: string;
@@ -1306,7 +1365,7 @@ export function registerAppHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handle(
     "read-app-file",
     async (_, { appId, filePath }: { appId: number; filePath: string }) => {
       const app = await getAppSafe(appId);
@@ -1320,19 +1379,45 @@ export function registerAppHandlers() {
 
       // Check if the path is within the app directory (security check)
       if (!fullPath.startsWith(appPath)) {
+        logger.warn(`Invalid file path attempt: ${filePath} for app ${appId}`);
         throw new Error("Invalid file path");
       }
 
       if (!fs.existsSync(fullPath)) {
-        throw new Error("File not found");
+        // Log the missing file for debugging
+        logger.warn(`File not found: ${filePath} for app ${appId} (full path: ${fullPath})`);
+        // Check if it's a Godot app and suggest alternative paths
+        if (app.appType === 'godot') {
+          const godotProjectPath = path.join(appPath, 'godot-project');
+          if (fs.existsSync(godotProjectPath)) {
+            // Try to find the file in the godot-project directory
+            const altPath = path.join(godotProjectPath, filePath);
+            if (fs.existsSync(altPath)) {
+              logger.info(`Found file in godot-project directory: ${altPath}`);
+              try {
+                const contents = fs.readFileSync(altPath, "utf-8");
+                return contents;
+              } catch (error) {
+                logger.error(`Error reading file from alt path ${altPath}:`, error);
+              }
+            }
+            
+            // For common web app files that don't exist in Godot apps, provide helpful message
+            if (filePath === 'src/App.tsx' || filePath === 'src/App.jsx' || filePath.startsWith('src/')) {
+              logger.info(`Godot app doesn't have ${filePath}. Godot apps use .gd scripts and .tscn scenes in godot-project/`);
+              throw new Error(`Godot apps don't have ${filePath}. Try reading files from godot-project/ directory instead (e.g., godot-project/Loader.gd, godot-project/scenes/Main.tscn)`);
+            }
+          }
+        }
+        throw new Error(`File not found: ${filePath}`);
       }
 
       try {
         const contents = fs.readFileSync(fullPath, "utf-8");
         return contents;
       } catch (error) {
-        logger.error(`Error reading file ${filePath} for app ${appId}:`, error);
-        throw new Error("Failed to read file");
+        logger.error(`Error reading file ${filePath} for app ${appId} (full path: ${fullPath}):`, error);
+        throw new Error(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
   );
@@ -1373,9 +1458,17 @@ export function registerAppHandlers() {
           throw new Error("App not found");
         }
 
+        const appPath = getDyadAppPath(app.path);
+        const isGodotApp = app.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+
+        if (isGodotApp) {
+          logger.log(`🎮 Godot app detected (${app.name}), cannot run - Godot apps don't use dev servers. Use the Godot editor or export functionality instead.`);
+          // Return successfully - Godot apps don't need to be "run" like web/mobile apps
+          return;
+        }
+
         logger.debug(`Starting app ${appId} in path ${app.path}`);
 
-        const appPath = getDyadAppPath(app.path);
         try {
           // Kill any orphaned process on port 32100 (in case previous run left it)
           await killProcessOnPort(32100);
@@ -1397,6 +1490,56 @@ export function registerAppHandlers() {
             runningApps.delete(appId);
           }
           throw new Error(`Failed to run app ${appId}: ${error.message}`);
+        }
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "start-app",
+    async (
+      event: Electron.IpcMainInvokeEvent,
+      { appId }: { appId: number },
+    ): Promise<void> => {
+      logger.log(`Starting app ${appId}`);
+      return withLock(appId, async () => {
+        try {
+          // Check if this is a Godot app first
+          const app = await getAppSafe(appId);
+          if (!app) {
+            throw new Error("App not found");
+          }
+
+          const appPath = getDyadAppPath(app.path);
+          const isGodotApp = app.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+
+          if (isGodotApp) {
+            logger.log(`🎮 Godot app detected (${app.name}), cannot start - Godot apps don't use dev servers. Use the Godot editor or export functionality instead.`);
+            // Return successfully - Godot apps don't need to be "started" like web/mobile apps
+            return;
+          }
+
+          // Check if app is already running
+          const appInfo = runningApps.get(appId);
+          if (appInfo) {
+            logger.log(`App ${appId} is already running (processId ${appInfo.processId})`);
+            return;
+          }
+
+          // Kill any orphaned process on port 32100
+          await killProcessOnPort(32100);
+
+          await executeApp({
+            appPath,
+            appId,
+            event,
+            isNeon: !!app.neonProjectId,
+          });
+
+          return;
+        } catch (error) {
+          logger.error(`Error starting app ${appId}:`, error);
+          throw error;
         }
       });
     },
@@ -1465,6 +1608,29 @@ export function registerAppHandlers() {
       logger.log(`Restarting app ${appId}`);
       return withLock(appId, async () => {
         try {
+          // Check if this is a Godot app first
+          const app = await getAppSafe(appId);
+          if (!app) {
+            throw new Error("App not found");
+          }
+
+          const appPath = getDyadAppPath(app.path);
+          const isGodotApp = app.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+
+          if (isGodotApp) {
+            logger.log(`🎮 Godot app detected (${app.name}), skipping restart - Godot apps don't use dev servers`);
+            // Just stop any running processes if they exist
+            const appInfo = runningApps.get(appId);
+            if (appInfo) {
+              const { process, processId } = appInfo;
+              logger.log(`Stopping any running processes for Godot app ${appId} (processId ${processId})`);
+              await killProcess(process);
+              runningApps.delete(appId);
+            }
+            // Return successfully - Godot apps don't need to be "restarted" like web/mobile apps
+            return;
+          }
+
           // First stop the app if it's running
           const appInfo = runningApps.get(appId);
           if (appInfo) {
@@ -1481,15 +1647,6 @@ export function registerAppHandlers() {
 
           // Kill any orphaned process on port 32100 (in case previous run left it)
           await killProcessOnPort(32100);
-
-          // Now start the app again (legacy-safe)
-          const app = await getAppSafe(appId);
-
-          if (!app) {
-            throw new Error("App not found");
-          }
-
-          const appPath = getDyadAppPath(app.path);
 
           // Remove node_modules if requested
           if (removeNodeModules) {

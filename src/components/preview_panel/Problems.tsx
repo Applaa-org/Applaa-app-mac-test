@@ -27,16 +27,21 @@ interface ProblemItemProps {
 }
 
 const ProblemItem = ({ problem }: ProblemItemProps) => {
+  const isGodotError = problem.code >= 9997;
   return (
     <div className="flex items-start gap-3 p-3 border-b border-border hover:bg-[var(--background-darkest)] transition-colors">
       <div className="flex-shrink-0 mt-0.5">
-        <XCircle size={16} className="text-red-500" />
+        <XCircle size={16} className={isGodotError ? "text-orange-500" : "text-red-500"} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <FileText size={14} className="text-muted-foreground flex-shrink-0" />
           <span className="text-sm font-medium truncate">{problem.file}</span>
-
+          {isGodotError && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">
+              GODOT
+            </span>
+          )}
           <span className="text-xs text-muted-foreground">
             {problem.line}:{problem.column}
           </span>
@@ -44,6 +49,16 @@ const ProblemItem = ({ problem }: ProblemItemProps) => {
         <p className="text-sm text-foreground leading-relaxed">
           {problem.message}
         </p>
+        {isGodotError && problem.snippet && (
+          <details className="mt-2">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+              Show fix details
+            </summary>
+            <pre className="mt-1 text-xs text-muted-foreground bg-[var(--background-darkest)] p-2 rounded overflow-auto">
+              {problem.snippet}
+            </pre>
+          </details>
+        )}
       </div>
     </div>
   );

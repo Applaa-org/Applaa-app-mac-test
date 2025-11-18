@@ -10,10 +10,11 @@ import {
   Zap,
   Code,
   Palette,
-  ArrowRight
+  ArrowRight,
+  Gamepad2
 } from "lucide-react";
 
-export type AppType = 'web' | 'mobile';
+export type AppType = 'web' | 'mobile' | 'godot';
 
 interface AppTypeSelectorProps {
   onAppTypeSelected: (appType: AppType) => void;
@@ -43,7 +44,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
           <RadioGroup 
             value={selectedType} 
             onValueChange={(value) => setSelectedType(value as AppType)}
-            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
             {/* Web App Option */}
             <div className="relative">
@@ -128,6 +129,48 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
                 </p>
               </Label>
             </div>
+
+            {/* Applaa Game Option */}
+            <div className="relative">
+              <RadioGroupItem 
+                value="godot" 
+                id="godot" 
+                className="peer sr-only" 
+              />
+              <Label 
+                htmlFor="godot" 
+                className="flex flex-col items-start p-6 border-2 rounded-lg cursor-pointer transition-all hover:border-purple-300 peer-checked:border-purple-500 peer-checked:bg-purple-50/50 space-y-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Gamepad2 className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">Applaa Game</h3>
+                    <p className="text-sm text-muted-foreground">2D & 3D games</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Gamepad2 className="h-4 w-4 text-purple-500" />
+                    <span>Applaa Engine</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-purple-500" />
+                    <span>AI-Generated Game Specs</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Palette className="h-4 w-4 text-purple-500" />
+                    <span>Auto-Generated Scenes & Scripts</span>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-muted-foreground">
+                  Create 2D and 3D games with AI-powered game generation and automatic Applaa project setup.
+                </p>
+              </Label>
+            </div>
           </RadioGroup>
 
           {/* Action Buttons */}
@@ -142,7 +185,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
               onClick={handleContinue}
               className="flex items-center gap-2"
             >
-              Continue with {selectedType === 'web' ? 'Web' : 'Mobile'} App
+              Continue with {selectedType === 'web' ? 'Web' : selectedType === 'mobile' ? 'Mobile' : 'Applaa Game'} App
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -150,7 +193,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
           {/* Template Preview */}
           <div className="mt-6 p-4 bg-muted/50 rounded-lg">
             <h4 className="text-sm font-medium mb-2">
-              {selectedType === 'web' ? '🌐 Web App Templates:' : '📱 Mobile App Templates:'}
+              {selectedType === 'web' ? '🌐 Web App Templates:' : selectedType === 'mobile' ? '📱 Mobile App Templates:' : '🎮 Applaa Game Features:'}
             </h4>
             <div className="text-sm text-muted-foreground">
               {selectedType === 'web' ? (
@@ -158,9 +201,15 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
                   <strong>React.js Template:</strong> Modern SPA with Vite, Tailwind, and Shadcn UI components<br/>
                   <strong>Next.js Template:</strong> Full-stack with SSR, API routes, and optimized performance
                 </>
-              ) : (
+              ) : selectedType === 'mobile' ? (
                 <>
                   <strong>Expo Mobile Template:</strong> Cross-platform app with Expo SDK 53, Gluestack UI, bottom navigation, and native device features
+                </>
+              ) : (
+                <>
+                  <strong>AI Game Generation:</strong> Describe your game idea and get a complete Game Specification JSON<br/>
+                  <strong>Auto-Build:</strong> Automatically generates Godot scenes, scripts, and project structure from your spec<br/>
+                  <strong>Web Export:</strong> Export games to web format for easy preview and sharing
                 </>
               )}
             </div>

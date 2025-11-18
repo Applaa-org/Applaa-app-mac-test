@@ -35,6 +35,7 @@ import { HomeChatInput } from '@/components/chat/HomeChatInput';
 // Re-enabled after fixing process.platform issues
 import { MobileFrameworkPicker } from '@/components/mobile/MobileFrameworkPicker';
 import { AppCreationWizard } from '@/components/creation/AppCreationWizard';
+import { GodotGameCreationDialog } from '@/components/godot/GodotGameCreationDialog';
 import type { Framework, TemplateOption, Platform } from '@/lib/mobile/types';
 
 interface AppType {
@@ -64,6 +65,7 @@ export function RevolutionaryHomeInterface({ onChatSubmit }: RevolutionaryHomeIn
   const [selectedAppType, setSelectedAppType] = useState<AppType | null>(null);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isMobilePickerOpen, setIsMobilePickerOpen] = useState(false);
+  const [isGodotDialogOpen, setIsGodotDialogOpen] = useState(false);
 
   // Handle chat submission
   const handleChatSubmit = useCallback(async (options?: any) => {
@@ -83,6 +85,9 @@ export function RevolutionaryHomeInterface({ onChatSubmit }: RevolutionaryHomeIn
       setIsMobilePickerOpen(true);
     } else if (appType.id === 'web-apps') {
       setIsWizardOpen(true);
+    } else if (appType.id === 'godot-games') {
+      // Handle Godot game creation
+      setIsGodotDialogOpen(true);
     } else {
       // For other types, show coming soon message
       alert(`🚀 ${appType.name} Creation!\n\n${appType.description}\n\nThis feature is coming soon in Applaa!`);
@@ -317,6 +322,16 @@ export function RevolutionaryHomeInterface({ onChatSubmit }: RevolutionaryHomeIn
         isOpen={isWizardOpen}
         onClose={handleWizardClose}
         onComplete={handleWizardComplete}
+        userPrompt={inputValue}
+      />
+
+      {/* Applaa Game Creation Dialog */}
+      <GodotGameCreationDialog
+        isOpen={isGodotDialogOpen}
+        onClose={() => {
+          setIsGodotDialogOpen(false);
+          setSelectedAppType(null);
+        }}
         userPrompt={inputValue}
       />
     </div>

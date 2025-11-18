@@ -28,13 +28,17 @@ export function useParseRouter(appId: number | null) {
   }, [app?.files]);
 
   // Load router related file to extract routes for non-Next apps
-  const routerFilePath = isExpoRouterApp ? "app/index.tsx" : "src/App.tsx";
+  // Skip for Godot apps as they don't have src/App.tsx
+  const isGodotApp = useMemo(() => {
+    return app?.appType === 'godot';
+  }, [app?.appType]);
+  
   const {
     content: routerContent,
     loading: routerFileLoading,
     error: routerFileError,
     refreshFile,
-  } = useLoadAppFile(appId, routerFilePath);
+  } = useLoadAppFile(appId && !isGodotApp ? appId : null, "src/App.tsx");
 
   // Detect Next.js app by presence of next.config.* in file list
   const isNextApp = useMemo(() => {

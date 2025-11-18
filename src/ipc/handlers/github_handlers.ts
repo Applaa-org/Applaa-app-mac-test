@@ -7,6 +7,7 @@ import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 import * as schema from "../../db/schema";
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { getDyadAppPath } from "../../paths/paths";
 import { db } from "../../db";
 import { apps } from "../../db/schema";
@@ -894,6 +895,20 @@ async function handleAutoPushToGithub(
     // 5. Stage all changes (blanket add to avoid misses)
     logger.info("AUTOPUSH: Staging all changes with 'add .'...");
     await git.add({ fs, dir, filepath: "." });
+    
+    // Explicitly ensure vercel.json is staged if it exists (for Godot apps)
+    const vercelJsonPath = path.join(dir, "vercel.json");
+    if (fs.existsSync(vercelJsonPath)) {
+      try {
+        await git.add({ fs, dir, filepath: "vercel.json" });
+        logger.info("AUTOPUSH: ✅ Explicitly staged vercel.json");
+      } catch (e) {
+        logger.warn(`AUTOPUSH: Failed to explicitly stage vercel.json: ${String(e)}`);
+      }
+    } else {
+      logger.info("AUTOPUSH: vercel.json not found (may not be needed for this app type)");
+    }
+    
     // Log status matrix to verify files are detected
     try {
       const matrixPreview = await git.statusMatrix({ fs, dir });

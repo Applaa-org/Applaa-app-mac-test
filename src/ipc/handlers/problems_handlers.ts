@@ -6,6 +6,8 @@ import { generateProblemReport } from "../processors/tsc";
 import { getDyadAppPath } from "@/paths/paths";
 import log from "electron-log";
 import { createLoggedHandler } from "./safe_handle";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { CodeValidator } from "../../services/code-validator";
 import { AutoFixer } from "../../services/auto-fixer";
 import type { Problem } from "../ipc_types";
@@ -68,177 +70,81 @@ export function registerProblemsHandlers() {
 
       const appPath = getDyadAppPath(app.path);
 
-      // 🚀 ENHANCED: Run both TypeScript checking AND platform validation
-      logger.info(`[ProblemsHandler] Running comprehensive checks for app ${params.appId}`);
-
-      // 1. Run TypeScript checking (existing)
-      const tscReport = await generateProblemReport({
-        fullResponse: "",
-        appPath,
-      });
-
-      // 2. Run platform validation (new CodeValidator)
-      let platformProblems: Problem[] = [];
-      let autoFixableProblemsFromValidator: any[] = [];
+      // Check if this is a Godot app
+      const isGodotApp = app.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
       
-      try {
-        logger.info(`[ProblemsHandler] Starting platform validation for app path: ${appPath}`);
-        
-        // 🚀 NEW: Pass app info to CodeValidator for app type detection
-        const appInfo = {
-          appType: app.appType,
-          files: app.files
-        };
-        logger.info(`[ProblemsHandler] App info:`, { appType: app.appType, fileCount: app.files?.length || 0 });
-        
-        const validator = new CodeValidator(appPath, appInfo);
-        const validationResult = await validator.validateApp();
-        
-        logger.info(`[ProblemsHandler] Validation result:`, {
-          total: validationResult.total,
-          errors: validationResult.errors,
-          warnings: validationResult.warnings,
-          isValidForPreview: validationResult.isValidForPreview
-        });
-        
-        logger.info(`[ProblemsHandler] Raw problems from validator:`, validationResult.problems.map(p => ({
-          type: p.type,
-          category: p.category,
-          file: p.file,
-          message: p.message,
-          autoFixable: p.autoFixable,
-          code: p.code
-        })));
-        
-        // Store auto-fixable problems for later
-        autoFixableProblemsFromValidator = validationResult.problems.filter(p => p.autoFixable);
-        logger.info(`[ProblemsHandler] Found ${autoFixableProblemsFromValidator.length} auto-fixable problems`);
-        
-        // Convert validation problems to the format expected by the UI (shared/tsc_types.ts)
-        platformProblems = validationResult.problems.map(p => ({
-          file: p.file,
-          line: p.line || 0,
-          column: p.column || 0,
-          message: `[${p.category.toUpperCase()}] ${p.message}`,
-          code: p.type === 'error' ? 2000 : 1000, // Use numeric codes: 2000 for errors, 1000 for warnings
-          snippet: p.code || '' // Use the code snippet if available
-        }));
-        
-        logger.info(`[ProblemsHandler] Converted ${platformProblems.length} platform-specific issues to UI format`);
-      } catch (error) {
-        logger.error(`[ProblemsHandler] Platform validation failed:`, error);
-      }
+      // Check if TypeScript config exists
+      const possibleConfigs = ['tsconfig.app.json', 'tsconfig.json'];
+      const hasTypeScriptConfig = possibleConfigs.some(config => 
+        fs.existsSync(path.join(appPath, config))
+      );
 
-      // 3. Merge both problem sets
-      const mergedProblems = [...tscReport.problems, ...platformProblems];
-      
-      // 4. Auto-fix any auto-fixable platform problems (Scenario B)
-      if (autoFixableProblemsFromValidator.length > 0) {
-        logger.info(`[ProblemsHandler] Auto-fixing ${autoFixableProblemsFromValidator.length} platform issues...`);
-        logger.info(`[ProblemsHandler] Auto-fixable problems:`, autoFixableProblemsFromValidator.map(p => ({
-          message: p.message,
-          code: p.code,
-          autoFixable: p.autoFixable,
-          category: p.category
-        })));
-        
+      // Get TypeScript problems (if applicable)
+      let problems: any[] = [];
+      if (!isGodotApp || hasTypeScriptConfig) {
         try {
-          // 🚀 NEW: Pass app info to AutoFixer for app type detection
-          const autoFixer = new AutoFixer(appPath, appInfo);
-          let fixedCount = 0;
-          let needsDependencyInstall = false;
-          
-          for (const problem of autoFixableProblemsFromValidator) {
-            logger.info(`[ProblemsHandler] Attempting to fix: ${problem.message} (${problem.code})`);
-            const fixResult = await autoFixer.fixProblem(problem);
-            logger.info(`[ProblemsHandler] Fix result:`, fixResult);
-            
-            if (fixResult.success) {
-              fixedCount++;
-              logger.info(`[ProblemsHandler] ✅ Auto-fixed: ${problem.message}`);
-              
-              // 🚀 NEW: Check if this fix requires dependency installation
-              if (fixResult.filesModified.some(f => f.startsWith('INSTALL:') || f.startsWith('REMOVE_NODE_MODULES') || f.startsWith('REINSTALL_MODULE:'))) {
-                needsDependencyInstall = true;
-                logger.info(`[ProblemsHandler] This fix requires dependency installation`);
-              }
-              
-              // Remove fixed problem from the merged list
-              const messageToRemove = `[${problem.category.toUpperCase()}] ${problem.message}`;
-              const index = mergedProblems.findIndex(p => p.message === messageToRemove);
-              if (index > -1) {
-                mergedProblems.splice(index, 1);
-                logger.info(`[ProblemsHandler] Removed fixed problem from merged list`);
-              } else {
-                logger.warn(`[ProblemsHandler] Could not find problem to remove: ${messageToRemove}`);
-              }
-            } else {
-              logger.warn(`[ProblemsHandler] ❌ Failed to auto-fix: ${problem.message} - ${fixResult.message}`);
-            }
-          }
-          
-          // 🚀 NEW: Install dependencies if needed
-          if (needsDependencyInstall) {
-            logger.info(`[ProblemsHandler] Installing dependencies after auto-fix...`);
-            try {
-              const { spawn } = await import('child_process');
-              
-              // Run npm install with clean install
-              const installProcess = spawn('npm', ['install', '--legacy-peer-deps', '--force'], {
-                cwd: appPath,
-                shell: true,
-                stdio: ['pipe', 'pipe', 'pipe']
-              });
-              
-              let installOutput = '';
-              let installError = '';
-              
-              installProcess.stdout?.on('data', (data) => {
-                installOutput += data.toString();
-                logger.info(`[npm install] ${data.toString().trim()}`);
-              });
-              
-              installProcess.stderr?.on('data', (data) => {
-                installError += data.toString();
-                logger.info(`[npm install:err] ${data.toString().trim()}`);
-              });
-              
-              await new Promise((resolve, reject) => {
-                installProcess.on('close', (code) => {
-                  if (code === 0) {
-                    logger.info(`[ProblemsHandler] ✅ Dependencies installed successfully`);
-                    resolve(true);
-                  } else {
-                    logger.error(`[ProblemsHandler] ❌ npm install failed with code ${code}`);
-                    reject(new Error(`npm install failed with code ${code}`));
-                  }
-                });
-                
-                installProcess.on('error', (error) => {
-                  logger.error(`[ProblemsHandler] ❌ npm install process error:`, error);
-                  reject(error);
-                });
-              });
-              
-            } catch (installError) {
-              logger.error(`[ProblemsHandler] Failed to install dependencies:`, installError);
-            }
-          }
-          
-          logger.info(`[ProblemsHandler] Auto-fix summary: ${fixedCount}/${autoFixableProblemsFromValidator.length} problems fixed`);
-        } catch (error) {
-          logger.error(`[ProblemsHandler] Auto-fix failed with error:`, error);
+          const problemReport = await generateProblemReport({
+            fullResponse: "",
+            appPath,
+          });
+          problems = problemReport.problems || [];
+        } catch (tscError) {
+          logger.warn("TypeScript checking failed:", tscError);
         }
-      } else {
-        logger.info(`[ProblemsHandler] No auto-fixable problems found`);
       }
 
-      logger.info(`[ProblemsHandler] Total problems: ${mergedProblems.length} (${mergedProblems.filter(p => p.code >= 2000).length} errors)`);
+      // For Godot apps, also check for export errors
+      if (isGodotApp) {
+        try {
+          const { getGodotWebExportUrl } = await import("./godot_handlers");
+          // We need to call the handler logic directly, but it's not exported
+          // So we'll check the export status manually
+          const exportPath = path.join(appPath, "godot-web-export");
+          const indexHtmlPath = path.join(exportPath, "index.html");
+          const projectPath = path.join(appPath, "godot-project");
+          const projectGodotPath = path.join(projectPath, "project.godot");
+          
+          // Check for export issues
+          if (fs.existsSync(projectGodotPath)) {
+            if (!fs.existsSync(indexHtmlPath)) {
+              // Check if export directory exists
+              if (fs.existsSync(exportPath)) {
+                const files = fs.readdirSync(exportPath);
+                problems.push({
+                  file: "godot-web-export/index.html",
+                  line: 1,
+                  column: 1,
+                  message: `Godot export is missing index.html. Found files: ${files.join(", ") || "none"}. The game cannot be previewed. Run 'Create/Refresh Export' to generate the export, or check if Godot engine is installed and export templates are available.`,
+                  code: 9999, // Custom code for Godot errors
+                  snippet: `// Godot Export Error: Missing index.html\n// Files found: ${files.join(", ") || "none"}\n// Fix: Run export command or check Godot engine installation`,
+                } as any);
+              } else {
+                problems.push({
+                  file: "godot-web-export/",
+                  line: 1,
+                  column: 1,
+                  message: "Godot web export not found. The game project exists but has not been exported for preview. Click 'Create/Refresh Export' button in the preview panel to generate the export automatically.",
+                  code: 9998, // Custom code for Godot errors
+                  snippet: `// Godot Export Error: Export directory not found\n// Fix: Run export command to create the web export`,
+                } as any);
+              }
+            }
+          } else {
+            problems.push({
+              file: "godot-project/project.godot",
+              line: 1,
+              column: 1,
+              message: "Godot project not found. The game project may not have been created yet. The game project needs to be built first. Check if there were errors during game creation.",
+              code: 9997, // Custom code for Godot errors
+              snippet: `// Godot Project Error: project.godot not found\n// Fix: Rebuild the game project from the game specification`,
+            } as any);
+          }
+        } catch (godotError) {
+          logger.warn("Error checking Godot export status:", godotError);
+        }
+      }
 
-      return {
-        ...tscReport,
-        problems: mergedProblems
-      };
+      return { problems };
     } catch (error) {
       logger.error("Error checking problems:", error);
       throw error;

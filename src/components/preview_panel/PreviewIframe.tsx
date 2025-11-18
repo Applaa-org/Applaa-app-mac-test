@@ -128,7 +128,7 @@ const ErrorBanner = ({ error, onDismiss, onAIFix }: ErrorBannerProps) => {
 };
 
 // Preview iframe component
-export const PreviewIframe = ({ loading }: { loading: boolean }) => {
+export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; godotExportUrl?: string }) => {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const { appUrl, originalUrl } = useAtomValue(appUrlAtom);
   const { expoUrl } = useExpoUrl();
@@ -454,16 +454,10 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   // Display loading state
   if (loading) {
     return (
-      <div className="flex flex-col h-full relative">
-        <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-gray-50 dark:bg-gray-950">
-          <div className="relative w-5 h-5 animate-spin">
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-primary rounded-full"></div>
-            <div className="absolute bottom-0 left-0 w-2 h-2 bg-primary rounded-full opacity-80"></div>
-            <div className="absolute bottom-0 right-0 w-2 h-2 bg-primary rounded-full opacity-60"></div>
-          </div>
-          <p className="text-gray-600 dark:text-gray-300">
-            Preparing app preview...
-          </p>
+      <div className="flex flex-col h-full relative godot-preview-container">
+        <div className="godot-loading">
+          <div className="godot-spinner"></div>
+          <p className="mt-4">Preparing app preview...</p>
         </div>
       </div>
     );
@@ -472,8 +466,12 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   // Display message if no app is selected
   if (selectedAppId === null) {
     return (
-      <div className="p-4 text-gray-500 dark:text-gray-400">
-        Select an app to see the preview.
+      <div className="godot-preview-container h-full">
+        <div className="godot-message">
+          <div className="godot-message-icon">🎮</div>
+          <div className="godot-message-title">No App Selected</div>
+          <div className="godot-message-text">Select an app from the sidebar to see the preview.</div>
+        </div>
       </div>
     );
   }
@@ -537,22 +535,18 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full godot-preview-container">
       
-      {/* Browser-style header */}
-      <div className="flex items-center p-2 border-b space-x-2 ">
+      {/* Godot-style toolbar */}
+      <div className="godot-toolbar">
         {/* Navigation Buttons */}
-        <div className="flex space-x-1">
+        <div className="flex gap-1">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={handleActivateComponentSelector}
-                  className={`p-1 rounded transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isPicking
-                      ? "bg-purple-500 text-white hover:bg-purple-600 dark:bg-purple-600 dark:hover:bg-purple-700"
-                      : " text-purple-700 hover:bg-purple-200  dark:text-purple-300 dark:hover:bg-purple-900"
-                  }`}
+                  className={`godot-button godot-button-icon ${isPicking ? "godot-button-primary" : ""}`}
                   disabled={loading || !selectedAppId}
                   data-testid="preview-pick-element-button"
                 >
@@ -571,7 +565,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
             </Tooltip>
           </TooltipProvider>
           <button
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
+            className="godot-button godot-button-icon"
             disabled={!canGoBack || loading || !selectedAppId}
             onClick={handleNavigateBack}
             data-testid="preview-navigate-back-button"
@@ -579,7 +573,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
             <ArrowLeft size={16} />
           </button>
           <button
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
+            className="godot-button godot-button-icon"
             disabled={!canGoForward || loading || !selectedAppId}
             onClick={handleNavigateForward}
             data-testid="preview-navigate-forward-button"
@@ -588,7 +582,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
           </button>
           <button
             onClick={handleReload}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
+            className="godot-button godot-button-icon"
             disabled={loading || !selectedAppId}
             data-testid="preview-refresh-button"
           >
@@ -600,7 +594,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
         <div className="relative flex-grow min-w-20">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <div className="flex items-center justify-between px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm text-gray-700 dark:text-gray-200 cursor-pointer w-full min-w-0">
+              <div className="godot-address-bar flex items-center justify-between cursor-pointer">
                 <span className="truncate flex-1 mr-2 min-w-0">
                   {navigationHistory[currentHistoryPosition]
                     ? new URL(navigationHistory[currentHistoryPosition])
@@ -610,34 +604,34 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
                 <ChevronDown size={14} className="flex-shrink-0" />
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-full">
+            <DropdownMenuContent className="w-full godot-dropdown-content">
               {availableRoutes.length > 0 ? (
                 availableRoutes.map((route) => (
                   <DropdownMenuItem
                     key={route.path}
                     onClick={() => navigateToRoute(route.path)}
-                    className="flex justify-between"
+                    className="flex justify-between godot-dropdown-item"
                   >
                     <span>{route.label}</span>
-                    <span className="text-gray-500 dark:text-gray-400 text-xs">
+                    <span className="text-xs" style={{ color: 'var(--godot-text-secondary)' }}>
                       {route.path}
                     </span>
                   </DropdownMenuItem>
                 ))
               ) : (
-                <DropdownMenuItem disabled>Loading routes...</DropdownMenuItem>
+                <DropdownMenuItem disabled className="godot-dropdown-item">Loading routes...</DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2">
           {/* Local Deployment Group */}
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center gap-1">
             <button
               onClick={onRestart}
-              className="flex items-center space-x-1 px-3 py-1 rounded-md text-sm hover:bg-[var(--background-darkest)] transition-colors"
+              className="godot-button"
               title="Restart App"
             >
               <Power size={16} />
@@ -651,7 +645,7 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
                   IpcClient.getInstance().openExternalUrl(originalUrl);
                 }
               }}
-              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
+              className="godot-button godot-button-icon"
               title="Open in Browser"
               disabled={!originalUrl}
             >
@@ -686,27 +680,27 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
             {savedUrls.githubRepoUrl && (
               <button
                 onClick={() => handleUrlClick(savedUrls.githubRepoUrl!)}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                className="godot-button godot-button-icon"
                 title="Open GitHub Repository"
               >
-                <Github size={16} className="text-gray-600 dark:text-gray-400" />
+                <Github size={16} />
               </button>
             )}
             
             {savedUrls.vercelDeploymentUrl && (
               <button
                 onClick={() => handleUrlClick(savedUrls.vercelDeploymentUrl!)}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                className="godot-button godot-button-icon"
                 title="Open Vercel Deployment"
               >
-                <Globe size={16} className="text-gray-600 dark:text-gray-400" />
+                <Globe size={16} />
               </button>
             )}
           </div>
         </div>
       </div>
 
-      <div className="relative flex-grow ">
+      <div className="relative flex-grow godot-panel">
         <AutoErrorFixBanner />
         <ErrorBanner
           error={errorMessage}
@@ -748,63 +742,73 @@ export const PreviewIframe = ({ loading }: { loading: boolean }) => {
           <div className="flex flex-col h-full">
             {/* Show regular app preview during streaming */}
             <div className="flex-1 relative">
-              {!appUrl && !expoUrl ? (
-                <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
-                  <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-500" />
-                    <p className="text-gray-500 dark:text-gray-400">Loading your app...</p>
-                  </div>
+              {!appUrl && !expoUrl && !godotExportUrl ? (
+                <div className="godot-loading">
+                  <div className="godot-spinner"></div>
+                  <p className="mt-4">Loading your app...</p>
                 </div>
               ) : (
-                <iframe
-                  data-testid="preview-iframe-element"
-                  onLoad={(e) => {
-                    const url = appUrl || expoUrl;
-                    console.log(`✅ Preview iframe loaded successfully: ${url}`);
-                    setErrorMessage(undefined);
-                  }}
-                  onError={(e) => {
-                    const url = appUrl || expoUrl;
-                    console.error(`❌ Preview iframe failed to load: ${url}`, e);
-                    setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
-                  }}
-                  ref={iframeRef}
-                  key={reloadKey}
-                  title={`Preview for App ${selectedAppId}`}
-                  className="w-full h-full border-none bg-white dark:bg-gray-950"
-                  src={appUrl || expoUrl || undefined}
-                  allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
-                />
+                <div className="godot-iframe-wrapper h-full">
+                  <iframe
+                    data-testid="preview-iframe-element"
+                    onLoad={(e) => {
+                      const url = godotExportUrl || appUrl || expoUrl;
+                      console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                      setErrorMessage(undefined);
+                    }}
+                    onError={(e) => {
+                      const url = godotExportUrl || appUrl || expoUrl;
+                      console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                      setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
+                    }}
+                    ref={iframeRef}
+                    key={reloadKey}
+                    title={`Preview for App ${selectedAppId}`}
+                    className="w-full h-full border-none"
+                    src={godotExportUrl || appUrl || expoUrl || undefined}
+                    allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
+                  />
+                </div>
               )}
             </div>
           </div>
-        ) : !appUrl && !expoUrl ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-500" />
-              <p className="text-gray-500 dark:text-gray-400">Loading your app...</p>
-            </div>
+        ) : !appUrl && !expoUrl && !godotExportUrl ? (
+          <div className="godot-loading">
+            <div className="godot-spinner"></div>
+            <p className="mt-4">Loading your app...</p>
           </div>
         ) : (
-          <iframe
-            data-testid="preview-iframe-element"
-            onLoad={(e) => {
-              const url = appUrl || expoUrl;
-              console.log(`✅ Preview iframe loaded successfully: ${url}`);
-              setErrorMessage(undefined);
-            }}
-            onError={(e) => {
-              const url = appUrl || expoUrl;
-              console.error(`❌ Preview iframe failed to load: ${url}`, e);
-              setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
-            }}
-            ref={iframeRef}
-            key={reloadKey}
-            title={`Preview for App ${selectedAppId}`}
-            className="w-full h-full border-none bg-white dark:bg-gray-950"
-            src={appUrl || expoUrl || undefined}
-            allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
-          />
+          <div className="godot-iframe-wrapper h-full">
+            <iframe
+              data-testid="preview-iframe-element"
+              onLoad={(e) => {
+                const url = godotExportUrl || appUrl || expoUrl;
+                console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                setErrorMessage(undefined);
+                
+                // Try to access iframe content for debugging (may fail due to CORS)
+                try {
+                  const iframe = iframeRef.current;
+                  if (iframe && iframe.contentWindow) {
+                    console.log('Iframe contentWindow accessible');
+                  }
+                } catch (err) {
+                  console.log('Cannot access iframe content (CORS):', err);
+                }
+              }}
+              onError={(e) => {
+                const url = godotExportUrl || appUrl || expoUrl;
+                console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
+              }}
+              ref={iframeRef}
+              key={reloadKey}
+              title={`Preview for App ${selectedAppId}`}
+              className="w-full h-full border-none"
+              src={godotExportUrl || appUrl || expoUrl || undefined}
+              allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
+            />
+          </div>
         )}
       </div>
 

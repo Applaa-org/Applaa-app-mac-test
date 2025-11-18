@@ -475,11 +475,12 @@ async function handleDisconnectVercelProject(
 // --- Direct Vercel Deployment Handler ---
 async function handleDeployToVercel(
   event: IpcMainInvokeEvent,
-  { vercelToken, githubUsername, repoName, githubToken }: {
+  { vercelToken, githubUsername, repoName, githubToken, appId }: {
     vercelToken: string;
     githubUsername: string;
     repoName: string;
     githubToken: string;
+    appId?: number;
   },
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
@@ -500,8 +501,60 @@ async function handleDeployToVercel(
     const repoData = await repoResponse.json();
     const repoId = repoData.id;
 
-    // 2. Prepare Vercel payload
-    const deploymentPayload = {
+    // 2. Detect app type if appId is provided
+    let projectSettings: {
+      framework?: string | null;
+      installCommand?: string | null;
+      buildCommand?: string | null;
+      outputDirectory?: string;
+    } | undefined;
+
+    if (appId) {
+      try {
+        const app = await db.query.apps.findFirst({ where: eq(apps.id, appId) });
+        if (app) {
+          const isGodotApp = app.appType === 'godot' || 
+            (app.files && app.files.some(file => 
+              file.includes('godot-project') || 
+              file.includes('project.godot') ||
+              file.includes('game_spec.json')
+            ));
+
+          if (isGodotApp) {
+            // Godot apps are static - no build step needed
+            projectSettings = {
+              framework: null, // Static site, no framework
+              installCommand: null, // No npm install needed
+              buildCommand: null, // No build step - files are already exported
+              outputDirectory: "godot-web-export" // Where Godot exports are stored
+            };
+            logger.info("🎮 Detected Godot app - using static deployment settings");
+          } else {
+            // Default to Vite settings for web apps
+            projectSettings = {
+              framework: "vite",
+              installCommand: "npm install",
+              buildCommand: "npm run build",
+              outputDirectory: "dist"
+            };
+          }
+        }
+      } catch (appError: any) {
+        logger.warn(`Failed to detect app type for appId ${appId}: ${appError.message}`);
+        // Continue with default settings
+      }
+    }
+
+    // 3. Prepare Vercel payload
+    const deploymentPayload: {
+      name: string;
+      gitSource: {
+        type: "github";
+        repoId: number;
+        ref: string;
+      };
+      projectSettings?: typeof projectSettings;
+    } = {
       name: repoName,
       gitSource: {
         type: "github",
@@ -510,7 +563,11 @@ async function handleDeployToVercel(
       },
     };
 
-    // 3. Call Vercel API
+    if (projectSettings) {
+      deploymentPayload.projectSettings = projectSettings;
+    }
+
+    // 4. Call Vercel API
     const deploymentResponse = await fetch("https://api.vercel.com/v13/deployments", {
       method: "POST",
       headers: {

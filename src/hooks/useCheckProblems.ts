@@ -59,12 +59,7 @@ export function useCheckProblems(appId: number | null) {
         };
       }
     },
-    enabled: !!appId && settings?.enableAutoFixProblems,
-    // Add retry configuration to prevent getting stuck
-    retry: 1,
-    retryDelay: 1000,
-    // Add stale time to prevent constant refetching
-    staleTime: 30000, // 30 seconds
+    enabled: !!appId, // Always enabled to show Godot export errors
     // DO NOT SHOW ERROR TOAST.
   });
 

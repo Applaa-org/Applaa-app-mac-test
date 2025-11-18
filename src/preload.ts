@@ -311,6 +311,15 @@ const validInvokeChannels = [
   "prerequisites:install",
   "prerequisites:status",
   "prerequisites:progress",
+  // Godot Engine channels
+  "godot:generate-game-spec",
+  "godot:build-from-spec",
+  "godot:create-project",
+  "godot:export-web",
+  "godot:get-project-status",
+  "godot:get-web-export-url",
+  "godot:stop-server",
+  "godot:check-engine",
 ];
 
 // Add valid receive channels

@@ -52,7 +52,7 @@ export interface CreateAppParams {
   slug?: string;
   // Platform hints so main process can persist correct app_type
   framework?: 'web' | 'expo' | 'flutter';
-  appType?: 'web' | 'mobile';
+  appType?: 'web' | 'mobile' | 'godot';
   // Optional extras passed by some creators
   template?: string;
   platforms?: string[];
@@ -96,7 +96,7 @@ export interface App {
   files: string[];
   createdAt: Date;
   updatedAt: Date;
-  appType?: 'web' | 'mobile';
+  appType?: 'web' | 'mobile' | 'godot';
   githubOrg: string | null;
   githubRepo: string | null;
   githubBranch: string | null;

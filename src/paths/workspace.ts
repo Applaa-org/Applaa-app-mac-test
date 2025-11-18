@@ -6,7 +6,7 @@ import { readSettings } from "../main/settings";
 
 const logger = log.scope("workspace");
 
-export type AppKind = "web" | "mobile";
+export type AppKind = "web" | "mobile" | "godot";
 
 /**
  * Returns the workspace root directory where all apps/packages live.
@@ -61,6 +61,7 @@ async function fallbackWorkspaceInit(root: string): Promise<void> {
   fs.mkdirSync(root, { recursive: true });
   fs.mkdirSync(path.join(root, "apps", "web"), { recursive: true });
   fs.mkdirSync(path.join(root, "apps", "mobile"), { recursive: true });
+  fs.mkdirSync(path.join(root, "apps", "godot"), { recursive: true });
   fs.mkdirSync(path.join(root, "packages"), { recursive: true });
 
   // pnpm-workspace.yaml

@@ -25,7 +25,7 @@ interface ParallelAppCreationParams {
   displayName?: string;
   packageId?: string;
   slug?: string;
-  appType: 'web' | 'mobile';
+  appType: 'web' | 'mobile' | 'godot';
   framework: 'web' | 'expo' | 'flutter';
   prompt?: string;
   attachments?: any[];
@@ -46,26 +46,54 @@ const taskManager = getBackgroundTaskManager();
 
 /**
  * 🔧 Generate a unique app name by appending numbers
+ * Checks both filesystem and database to ensure uniqueness
  */
-async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' = 'web'): Promise<string> {
-  let counter = 2;
-  let suggestedName = `${baseName}-${counter}`;
-  
-  while (counter <= 10) { // Limit to prevent infinite loops
-    const testRelPath = getAppRelativePath(suggestedName, appType);
+async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' = 'web'): Promise<string> {
+  // Helper to check if a name is available (both filesystem and database)
+  const isNameAvailable = async (name: string): Promise<boolean> => {
+    // Check filesystem
+    const testRelPath = getAppRelativePath(name, appType);
     const testFullPath = getDyadAppPath(testRelPath);
-    
-    if (!fs.existsSync(testFullPath)) {
-      return suggestedName;
+    if (fs.existsSync(testFullPath)) {
+      return false;
     }
     
+    // Check database
+    const existingApp = await db.query.apps.findFirst({
+      where: eq(apps.name, name),
+    });
+    if (existingApp) {
+      return false;
+    }
+    
+    return true;
+  };
+  
+  // First check the base name
+  if (await isNameAvailable(baseName)) {
+    return baseName;
+  }
+  
+  // Try with numbers
+  let counter = 2;
+  while (counter <= 100) { // Increased limit to handle more duplicates
+    const suggestedName = `${baseName}-${counter}`;
+    if (await isNameAvailable(suggestedName)) {
+      return suggestedName;
+    }
     counter++;
-    suggestedName = `${baseName}-${counter}`;
   }
   
   // If we can't find a unique name with numbers, add timestamp
   const timestamp = Date.now().toString().slice(-6);
-  return `${baseName}-${timestamp}`;
+  const timestampName = `${baseName}-${timestamp}`;
+  if (await isNameAvailable(timestampName)) {
+    return timestampName;
+  }
+  
+  // Last resort: add random suffix
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  return `${baseName}-${randomSuffix}`;
 }
 
 /**
@@ -105,23 +133,58 @@ export function registerParallelAppCreationHandlers() {
       // 2. Quick path validation (10ms)
       const pathStart = performance.now();
       await ensureWorkspaceInitialized();
-      const appRelPath = getAppRelativePath(
-        params.name,
-        (params.appType === 'mobile' || params.framework === 'expo') ? 'mobile' : 'web'
+      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot')
+        ? params.appType
+        : (params.framework === 'expo' || params.framework === 'flutter')
+          ? 'mobile'
+          : 'web';
+      
+      // Check if app name already exists (filesystem or database)
+      let finalAppName = params.name;
+      let appRelPath = getAppRelativePath(
+        finalAppName,
+        appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
       );
-      const fullAppPath = getDyadAppPath(appRelPath);
-      if (fs.existsSync(fullAppPath)) {
-        // 🚨 FIX: Provide helpful duplicate name handling instead of generic error
-        const suggestedName = await generateUniqueAppName(params.name, params.appType);
-        throw new Error(`DUPLICATE_APP_NAME:${params.name}:${suggestedName}`);
+      let fullAppPath = getDyadAppPath(appRelPath);
+      const existingAppInDb = await db.query.apps.findFirst({
+        where: eq(apps.name, finalAppName),
+      });
+      
+      // Track if name was changed
+      const originalName = params.name;
+      
+      // If name exists, automatically use a unique name
+      if (fs.existsSync(fullAppPath) || existingAppInDb) {
+        logger.info(`App name "${params.name}" already exists, generating unique name...`);
+        finalAppName = await generateUniqueAppName(params.name, appType);
+        logger.info(`Using unique app name: "${finalAppName}"`);
+        
+        // Update params with the new name
+        params.name = finalAppName;
+        
+        // Recalculate paths with the new name
+        appRelPath = getAppRelativePath(
+          finalAppName,
+          appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
+        );
+        fullAppPath = getDyadAppPath(appRelPath);
+        
+        // Verify the new path doesn't exist (shouldn't, but double-check)
+        if (fs.existsSync(fullAppPath)) {
+          throw new Error(`Generated unique name "${finalAppName}" still conflicts. Please try a different name.`);
+        }
       }
       const pathTime = performance.now() - pathStart;
       
       // 3. Create minimal DB entries (20ms)
       const dbStart = performance.now();
+      // Update displayName if it matches the original name (so it matches the final name)
+      const displayName = (params.displayName === originalName || !params.displayName) 
+        ? finalAppName 
+        : params.displayName;
       const info = db.$client
         .prepare("INSERT INTO apps (name, path, app_type, status) VALUES (?, ?, ?, ?)")
-        .run(params.name, appRelPath, params.appType, 'creating');
+        .run(finalAppName, appRelPath, appType, 'creating');
       const insertedId = Number(info.lastInsertRowid);
       
       // 4. Create chat immediately (30ms)
@@ -149,7 +212,7 @@ export function registerParallelAppCreationHandlers() {
       if (row?.createdAt && typeof row.createdAt === "number") {
         row.createdAt = new Date(row.createdAt * 1000);
       }
-      row.displayName = params.displayName;
+      row.displayName = displayName;
       row.packageId = params.packageId;
       row.slug = params.slug;
       
@@ -255,20 +318,30 @@ async function createAppBackgroundTasks(
     updateProgress(50, 'Creating template files...');
     const templateStart = performance.now();
     const templatePromise = (async () => {
-      await createTemplateFiles(fullAppPath, params.framework, params);
-      // ✅ Template files copied without modification - no healing needed
-      // Original Dyad approach: templates are pristine and don't need healing
-      logger.info('✅ Template files copied without modification - preserving original Dyad approach');
+      if (params.appType === 'godot') {
+        // For Godot apps, create the project structure
+        await createGodotProjectFiles(fullAppPath, params);
+      } else {
+        await createTemplateFiles(fullAppPath, params.framework, params);
+        // ✅ Template files copied without modification - no healing needed
+        // Original Dyad approach: templates are pristine and don't need healing
+        logger.info('✅ Template files copied without modification - preserving original Dyad approach');
+      }
     })();
     
     updateProgress(60, 'Initializing git repository...');
     const gitStart = performance.now();
     const gitPromise = initializeGitRepository(fullAppPath);
     
-    // 🚀 OPTIMIZATION: Install dependencies immediately after template copy
-    updateProgress(70, 'Installing dependencies...');
+    // 🚀 OPTIMIZATION: Install dependencies immediately after template copy (skip for Godot)
     const dependencyStart = performance.now();
-    const dependencyPromise = installDependenciesForNewApp(fullAppPath, appId, params.framework);
+    const dependencyPromise = params.appType === 'godot' 
+      ? Promise.resolve() // Godot doesn't need npm dependencies
+      : installDependenciesForNewApp(fullAppPath, appId, params.framework);
+    
+    if (params.appType !== 'godot') {
+      updateProgress(70, 'Installing dependencies...');
+    }
     
     // 🚀 PARALLEL PREBUILD: Start prebuild process for instant previews (Expo only)
     if (params.framework === 'expo') {
@@ -346,6 +419,271 @@ async function createAppBackgroundTasks(
 }
 
 /**
+ * Create Godot project files
+ */
+async function createGodotProjectFiles(
+  fullAppPath: string,
+  params: ParallelAppCreationParams
+) {
+  // Create the project structure directly
+  const projectPath = path.join(fullAppPath, 'godot-project');
+  fs.mkdirSync(projectPath, { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'scenes'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'assets'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'assets', 'sprites'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'assets', 'sounds'), { recursive: true });
+  fs.mkdirSync(path.join(projectPath, 'assets', 'music'), { recursive: true });
+  
+  // Create basic project.godot
+  const projectGodot = `; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="${params.name}"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1152
+window/size/viewport_height=648
+window/size/resizable=true
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+`;
+  
+  fs.writeFileSync(path.join(projectPath, 'project.godot'), projectGodot);
+  
+  // Try to generate game spec from prompt if provided
+  let gameSpec: any = null;
+  const userPrompt = params.prompt || params.initialPrompt; // Support both parameter names
+  if (userPrompt && userPrompt.trim()) {
+    try {
+      logger.info(`Generating game spec from prompt: ${userPrompt.substring(0, 100)}...`);
+      const { generateGameSpecification } = await import('../../godot/game_spec_generator');
+      const { readSettings } = await import('../../main/settings');
+      const settings = readSettings();
+      gameSpec = await generateGameSpecification(userPrompt, settings);
+      logger.info(`✅ Generated game spec: ${gameSpec.game?.name || 'Unknown'}`);
+      logger.info(`   Description: ${gameSpec.game?.description || 'N/A'}`);
+      logger.info(`   Type: ${gameSpec.game?.type || 'N/A'}`);
+    } catch (specError: any) {
+      logger.warn('Failed to generate game spec from prompt, using default:', specError?.message || specError);
+      // Continue with null spec - will use default test game
+    }
+  } else {
+    logger.info('No prompt provided, will use default test game');
+  }
+  
+  // Save game spec (or empty if generation failed)
+  fs.writeFileSync(
+    path.join(projectPath, 'game_spec.json'),
+    JSON.stringify(gameSpec || {}, null, 2)
+  );
+  
+  // If we have a valid spec, build the actual Godot project from it
+  if (gameSpec && gameSpec.game) {
+    try {
+      logger.info('Building Godot project from generated spec...');
+      const { generateGodotProject } = await import('../../godot/godot_project_generator');
+      
+      // Convert the spec format if needed
+      // game_spec_generator may return old format (player, enemies, levels)
+      // project generator expects new format (scenes, scripts)
+      let projectSpec: any = gameSpec;
+      
+      // Check if spec uses old format (has player/enemies/levels but no scenes)
+      if ((gameSpec.player || gameSpec.enemies || gameSpec.levels) && !gameSpec.scenes) {
+        logger.info('Converting spec from old format to new format...');
+        const gameType = gameSpec.game?.type || '2D';
+        const rootType = gameType === '3D' ? 'Node3D' : 'Node2D';
+        
+        // Build nodes array from player, enemies, and levels
+        const nodes: any[] = [];
+        
+        // Add player node
+        if (gameSpec.player) {
+          const playerNode: any = {
+            name: gameSpec.player.name || 'Player',
+            type: gameType === '3D' ? 'CharacterBody3D' : 'CharacterBody2D',
+            position: { x: 100, y: 300, z: 0 },
+            children: []
+          };
+          
+          // Add sprite for 2D or mesh for 3D
+          if (gameType === '2D') {
+            playerNode.children = [
+              {
+                name: 'Sprite2D',
+                type: 'Sprite2D',
+                position: { x: 0, y: 0 },
+                properties: {
+                  texture: gameSpec.player.sprite || ''
+                }
+              }
+            ];
+          } else {
+            playerNode.children = [
+              {
+                name: 'MeshInstance3D',
+                type: 'MeshInstance3D',
+                position: { x: 0, y: 0, z: 0 },
+                properties: {
+                  mesh: 'res://assets/models/player.gltf'
+                }
+              }
+            ];
+          }
+          
+          nodes.push(playerNode);
+        }
+        
+        // Add camera
+        nodes.push({
+          name: 'Camera',
+          type: gameType === '3D' ? 'Camera3D' : 'Camera2D',
+          position: { x: 0, y: 0, z: 5 },
+          properties: gameType === '3D' ? { fov: 75 } : {}
+        });
+        
+        // Add enemies as children
+        if (gameSpec.enemies && Array.isArray(gameSpec.enemies)) {
+          gameSpec.enemies.forEach((enemy: any, index: number) => {
+            const enemyNode: any = {
+              name: enemy.name || `Enemy${index}`,
+              type: gameType === '3D' ? 'CharacterBody3D' : 'CharacterBody2D',
+              position: { x: 300 + index * 100, y: 300, z: 0 },
+              children: []
+            };
+            
+            if (gameType === '2D') {
+              enemyNode.children = [
+                {
+                  name: 'Sprite2D',
+                  type: 'Sprite2D',
+                  position: { x: 0, y: 0 },
+                  properties: {
+                    texture: enemy.sprite || ''
+                  }
+                }
+              ];
+            }
+            
+            nodes.push(enemyNode);
+          });
+        }
+        
+        // Convert to new format
+        projectSpec = {
+          game: gameSpec.game,
+          settings: gameSpec.settings || {
+            window: { width: 1280, height: 720, resizable: true },
+            physics: { enabled: true, gravity: { x: 0, y: 980 } },
+            rendering: {}
+          },
+          scenes: [
+            {
+              name: 'Main',
+              type: gameType,
+              path: 'res://scenes/Main.tscn',
+              nodes: [
+                {
+                  name: 'Root',
+                  type: rootType,
+                  position: { x: 0, y: 0, z: 0 },
+                  children: nodes
+                }
+              ],
+              camera: {
+                type: gameType === '3D' ? 'Camera3D' : 'Camera2D',
+                position: { x: 0, y: 0, z: gameType === '3D' ? 5 : 0 }
+              }
+            }
+          ],
+          scripts: gameSpec.scripts || [],
+          assets: gameSpec.assets || {}
+        };
+      } else if (!projectSpec.scenes || projectSpec.scenes.length === 0) {
+        // If spec doesn't have scenes, create a basic one
+        logger.info('Spec missing scenes, creating basic scene structure...');
+        projectSpec = {
+          ...projectSpec,
+          scenes: [
+            {
+              name: 'Main',
+              type: projectSpec.game?.type || '2D',
+              path: 'res://scenes/Main.tscn',
+              nodes: [
+                {
+                  name: 'Root',
+                  type: projectSpec.game?.type === '3D' ? 'Node3D' : 'Node2D',
+                  position: { x: 0, y: 0, z: 0 },
+                  children: []
+                }
+              ],
+              camera: {
+                type: projectSpec.game?.type === '3D' ? 'Camera3D' : 'Camera2D',
+                position: { x: 0, y: 0, z: 0 }
+              }
+            }
+          ],
+          scripts: projectSpec.scripts || [],
+          assets: projectSpec.assets || {}
+        };
+      }
+      
+      // Ensure settings exist
+      if (!projectSpec.settings) {
+        projectSpec.settings = {
+          window: { width: 1280, height: 720, resizable: true },
+          physics: { enabled: true, gravity: { x: 0, y: 980 } },
+          rendering: {}
+        };
+      }
+      
+      await generateGodotProject({
+        appPath: fullAppPath,
+        spec: projectSpec,
+        regenerateAssets: false
+      });
+      
+      logger.info('✅ Godot project built from spec successfully');
+    } catch (buildError: any) {
+      logger.warn('Failed to build Godot project from spec, will use basic structure:', buildError?.message || buildError);
+      // Continue with basic project structure
+    }
+  }
+  
+  // Automatically create a web export for preview
+  try {
+    const { createTestWebExport, exportWithGodotEngine } = await import('./godot_handlers');
+    const exportPath = path.join(fullAppPath, 'godot-web-export');
+    
+    // Try to export using Godot engine first
+    const exportedWithEngine = await exportWithGodotEngine(projectPath, exportPath, params.name);
+    
+    // Fall back to test export if Godot engine export failed
+    if (!exportedWithEngine) {
+      logger.info('Creating test web export (Godot engine not available or export failed)');
+      // Use the generated spec to customize the test export
+      await createTestWebExport(exportPath, gameSpec, params.name);
+    }
+    
+    logger.info(`✅ Automatically created web export for preview`);
+  } catch (exportError) {
+    logger.warn('⚠️ Failed to auto-create web export:', exportError);
+    // Don't fail project creation if export fails
+  }
+  
+  logger.info(`✅ Godot project structure created at ${projectPath}`);
+}
+
+/**
  * Optimized template creation with parallel file operations
  */
 async function createTemplateFiles(fullAppPath: string, framework: string, params: ParallelAppCreationParams) {
@@ -394,13 +732,8 @@ async function initializeGitRepository(fullAppPath: string) {
   
   // Create initial commit
   await gitCommit({
-    fs,
-    dir: fullAppPath,
+    path: fullAppPath,
     message: "Initial commit - Applaa app created",
-    author: {
-      name: "Applaa",
-      email: "applaa@applaa.com",
-    },
   });
   
   const gitTime = performance.now() - gitStartTime;

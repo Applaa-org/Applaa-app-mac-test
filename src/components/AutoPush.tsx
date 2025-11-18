@@ -794,7 +794,8 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   vercelToken,
                   githubUsername,
                   repoName,
-                  githubToken
+                  githubToken,
+                  appId: appId || undefined
                 });
 
                 if (deploymentResult.success) {
@@ -829,6 +830,42 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   const repoData = await repoResponse.json();
                   const repoId = repoData.id;
 
+                  // Detect if this is a Godot app
+                  const isGodotApp = currentApp?.appType === 'godot' || 
+                    (currentApp?.files && currentApp.files.some(file => 
+                      file.includes('godot-project') || 
+                      file.includes('project.godot') ||
+                      file.includes('game_spec.json')
+                    ));
+
+                  // Set projectSettings based on app type
+                  let projectSettings: {
+                    framework?: string | null;
+                    installCommand?: string | null;
+                    buildCommand?: string | null;
+                    outputDirectory?: string;
+                  };
+
+                  if (isGodotApp) {
+                    // Godot apps are static - no build step needed
+                    // Files are already exported to godot-web-export directory
+                    projectSettings = {
+                      framework: null, // Static site, no framework
+                      installCommand: null, // No npm install needed
+                      buildCommand: null, // No build step - files are already exported
+                      outputDirectory: "godot-web-export" // Where Godot exports are stored
+                    };
+                    logger.info("🎮 Detected Godot app - using static deployment settings");
+                  } else {
+                    // Default to Vite settings for web apps
+                    projectSettings = {
+                      framework: "vite",
+                      installCommand: "npm install",
+                      buildCommand: "npm run build",
+                      outputDirectory: "dist"
+                    };
+                  }
+
                   const deploymentPayload = {
                     name: vercelProjectName,
                     target: "production",
@@ -837,12 +874,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                       repoId: repoId,
                       ref: "main",
                     },
-                    projectSettings: {
-                      framework: "vite",
-                      installCommand: "npm install",
-                      buildCommand: "npm run build",
-                      outputDirectory: "dist"
-                    }
+                    projectSettings
                   };
                   
                   const deploymentResponse = await fetch("https://api.vercel.com/v13/deployments", {

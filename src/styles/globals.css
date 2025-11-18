@@ -322,3 +322,256 @@
 .text-xs-sm {
   font-size: 0.82rem;
 }
+
+/* 🎮 Godot Gaming Style Theme */
+:root {
+  /* Godot Editor Color Palette */
+  --godot-bg-primary: #1e1e1e;
+  --godot-bg-secondary: #2d2d30;
+  --godot-bg-tertiary: #3c3c3c;
+  --godot-accent-orange: #ff8800;
+  --godot-accent-orange-hover: #ff6b35;
+  --godot-accent-blue: #4a9eff;
+  --godot-accent-blue-hover: #6bb6ff;
+  --godot-text-primary: #cccccc;
+  --godot-text-secondary: #999999;
+  --godot-text-bright: #ffffff;
+  --godot-border: #3c3c3c;
+  --godot-border-hover: #4a4a4a;
+  --godot-success: #4ade80;
+  --godot-warning: #fbbf24;
+  --godot-error: #f87171;
+}
+
+/* Godot-style preview container */
+.godot-preview-container {
+  background: var(--godot-bg-primary);
+  color: var(--godot-text-primary);
+  font-family: var(--default-font-family);
+}
+
+/* Godot-style header/toolbar */
+.godot-toolbar {
+  background: var(--godot-bg-secondary);
+  border-bottom: 1px solid var(--godot-border);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.godot-button {
+  background: var(--godot-bg-tertiary);
+  border: 1px solid var(--godot-border);
+  color: var(--godot-text-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.godot-button:hover {
+  background: var(--godot-bg-tertiary);
+  border-color: var(--godot-border-hover);
+  color: var(--godot-text-bright);
+}
+
+.godot-button:active {
+  background: var(--godot-bg-primary);
+}
+
+.godot-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.godot-button:disabled:hover {
+  background: var(--godot-bg-tertiary);
+  border-color: var(--godot-border);
+  color: var(--godot-text-primary);
+}
+
+.godot-button-primary {
+  background: var(--godot-accent-orange);
+  border-color: var(--godot-accent-orange);
+  color: var(--godot-text-bright);
+}
+
+.godot-button-primary:hover {
+  background: var(--godot-accent-orange-hover);
+  border-color: var(--godot-accent-orange-hover);
+}
+
+.godot-button-icon {
+  padding: 6px;
+  min-width: 28px;
+  justify-content: center;
+}
+
+/* Godot-style address bar */
+.godot-address-bar {
+  background: var(--godot-bg-primary);
+  border: 1px solid var(--godot-border);
+  color: var(--godot-text-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--default-mono-font-family);
+  flex: 1;
+  min-width: 0;
+}
+
+.godot-address-bar:focus {
+  outline: 2px solid var(--godot-accent-blue);
+  outline-offset: -1px;
+  border-color: var(--godot-accent-blue);
+}
+
+/* Godot-style panel/content area */
+.godot-panel {
+  background: var(--godot-bg-primary);
+  color: var(--godot-text-primary);
+}
+
+.godot-panel-content {
+  background: var(--godot-bg-secondary);
+  border: 1px solid var(--godot-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Godot-style status/loading indicators */
+.godot-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--godot-text-secondary);
+}
+
+.godot-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--godot-border);
+  border-top-color: var(--godot-accent-orange);
+  border-radius: 50%;
+  animation: godot-spin 0.8s linear infinite;
+}
+
+@keyframes godot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Godot-style badge/label */
+.godot-badge {
+  background: var(--godot-bg-tertiary);
+  border: 1px solid var(--godot-border);
+  color: var(--godot-text-primary);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.godot-badge-success {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: var(--godot-success);
+  color: var(--godot-success);
+}
+
+.godot-badge-warning {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: var(--godot-warning);
+  color: var(--godot-warning);
+}
+
+.godot-badge-error {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: var(--godot-error);
+  color: var(--godot-error);
+}
+
+/* Godot-style iframe wrapper */
+.godot-iframe-wrapper {
+  background: var(--godot-bg-primary);
+  border: 1px solid var(--godot-border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.godot-iframe-wrapper iframe {
+  background: #ffffff;
+  border: none;
+}
+
+/* Dark mode iframe background */
+.dark .godot-iframe-wrapper iframe {
+  background: #1a1a1a;
+}
+
+/* Godot-style message/placeholder */
+.godot-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+  text-align: center;
+  color: var(--godot-text-secondary);
+}
+
+.godot-message-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+
+.godot-message-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--godot-text-primary);
+  margin-bottom: 8px;
+}
+
+.godot-message-text {
+  font-size: 14px;
+  color: var(--godot-text-secondary);
+  line-height: 1.5;
+  max-width: 400px;
+}
+
+/* Godot-style dropdown menu */
+.godot-dropdown-content {
+  background: var(--godot-bg-secondary) !important;
+  border: 1px solid var(--godot-border) !important;
+  border-radius: 4px !important;
+  padding: 4px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.godot-dropdown-item {
+  color: var(--godot-text-primary) !important;
+  padding: 8px 12px !important;
+  border-radius: 3px !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+}
+
+.godot-dropdown-item:hover {
+  background: var(--godot-bg-tertiary) !important;
+  color: var(--godot-text-bright) !important;
+}
+
+.godot-dropdown-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

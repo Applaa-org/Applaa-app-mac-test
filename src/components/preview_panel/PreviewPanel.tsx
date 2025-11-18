@@ -27,6 +27,8 @@ import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
 import { WebPreviewTimeoutPopup } from "../WebPreviewTimeoutPopup";
 import { useExpoUrl } from "@/hooks/useExpoUrl";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
+import { useGodotExport } from "@/hooks/useGodotExport";
+import { useQuery } from "@tanstack/react-query";
 // DesignTab removed for MVP
 
 interface ConsoleHeaderProps {
@@ -75,8 +77,37 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const { runApp, stopApp, loading, app, refreshAppIframe, restartApp, setAppUrlObj } = useRunApp();
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
+  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
   const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
+  
+  // Detect if this is a Godot app (must be defined before useQuery that uses it)
+  const isGodotApp = useMemo(() => {
+    if (!app) return false;
+    // Check app type first (most reliable)
+    if (app.appType === 'godot') return true;
+    // Check files for Godot project indicators
+    if (app.files && app.files.length > 0) {
+      return app.files.some(file => 
+        file.includes('godot-project') || 
+        file.includes('project.godot') ||
+        file.includes('game_spec.json') ||
+        file.includes('Loader.tscn') ||
+        file.includes('Loader.gd')
+      );
+    }
+    return false;
+  }, [app?.appType, app?.files]);
+  
+  // Check if Godot engine is installed
+  const { data: godotEngine } = useQuery({
+    queryKey: ["godot-engine-check"],
+    queryFn: async () => {
+      const ipcClient = IpcClient.getInstance();
+      return await ipcClient.checkGodotEngine();
+    },
+    enabled: isGodotApp,
+  });
 
   // Web preview timeout hook (only for non-Expo apps)
   const {
@@ -134,9 +165,9 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
         console.debug("Starting new app", selectedAppId);
         // Force refresh the preview iframe when switching apps
         refreshAppIframe();
-        // Only run regular web server for non-Expo apps
-        // Expo apps will be handled by BattleTestedExpoPreview component
-        if (!isExpoApp) {
+        // Skip running for Godot apps - they don't use dev servers
+        // Skip running for Expo apps - they will be handled by BattleTestedExpoPreview component
+        if (!isExpoApp && !isGodotApp) {
           // Clear Expo status when switching to non-Expo app to prevent showing old mobile preview
           const ipcClient = IpcClient.getInstance();
           // Use simpleExpoStop to clear the correct status that useExpoUrl checks
@@ -164,13 +195,17 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             currentRunningApp,
           );
           stopApp(currentRunningApp);
+          // Stop Godot server if it was running
+          if (isGodotApp) {
+            IpcClient.getInstance().stopGodotServer({ appId: currentRunningApp }).catch(console.error);
+          }
           runningAppIdRef.current = null; // Clear ref on stop
         }
       }
     };
     // Dependencies: run effect when selectedAppId or app type changes.
     // runApp/stopApp are stable due to useCallback.
-  }, [selectedAppId, runApp, stopApp, isExpoApp, refreshAppIframe, restartApp, setAppUrlObj]);
+  }, [selectedAppId, runApp, stopApp, isExpoApp, isGodotApp, refreshAppIframe, restartApp, setAppUrlObj]);
 
   // Auto-start disabled - using BattleTestedExpoPreview's built-in auto-start instead
   return (
@@ -269,15 +304,111 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
               <div className="h-full overflow-y-auto">
                 {previewMode === "preview" ? (
                   // Show appropriate component based on app type
-                  // Show loading state when app is loading, when switching between app types, or when web server is starting
-                  (loading || !app || (app && !isExpoApp && !appUrl?.originalUrl)) ? (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                        <p className="text-lg font-medium mb-2">
+                  // Godot apps - show export if available, otherwise show message
+                  isGodotApp ? (
+                    hasGodotExport && godotExportUrl ? (
+                      <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
+                    ) : (
+                      <div className="godot-preview-container h-full">
+                        <div className="godot-message">
+                          <div className="godot-message-icon">🎮</div>
+                          <div className="godot-message-title">Applaa Game Project</div>
+                          <div className="godot-message-text">
+                            {isGodotExportLoading 
+                              ? "Checking for export..."
+                              : hasGodotExport 
+                                ? "Export found but URL is not available. Please try exporting again."
+                                : "No web export found. Creating export automatically..."}
+                          </div>
+                          {(godotExportError || (godotExportData && !godotExportData.hasExport && godotExportData.error)) && (
+                            <div className="mt-4 p-4 rounded" style={{ 
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)'
+                            }}>
+                              <div className="text-sm font-semibold text-red-400 mb-2">
+                                ⚠️ Export Error
+                              </div>
+                              <div className="text-xs text-red-300 mb-2">
+                                {godotExportError 
+                                  ? (godotExportError instanceof Error ? godotExportError.message : String(godotExportError))
+                                  : godotExportData?.error || "Unknown error occurred"}
+                              </div>
+                              {(godotExportErrorDetails || godotExportData?.errorDetails) && (
+                                <details className="mt-2">
+                                  <summary className="text-xs text-red-400 cursor-pointer hover:text-red-300">
+                                    Show error details
+                                  </summary>
+                                  <pre className="mt-2 text-xs text-red-200 bg-black/20 p-2 rounded overflow-auto max-h-40">
+                                    {JSON.stringify(godotExportErrorDetails || godotExportData?.errorDetails, null, 2)}
+                                  </pre>
+                                </details>
+                              )}
+                              <div className="mt-3 text-xs text-gray-400">
+                                💡 <strong>Ask the AI assistant to help fix this error.</strong> Copy the error message above and describe what happened. The AI can help diagnose and fix issues with the game specification or export process.
+                              </div>
+                              <div className="mt-2 text-xs text-gray-500">
+                                Common issues: Missing Godot engine, invalid game spec, export path issues, or missing project files.
+                              </div>
+                            </div>
+                          )}
+                          <button
+                            onClick={async () => {
+                              if (selectedAppId) {
+                                const ipcClient = IpcClient.getInstance();
+                                // Force create export
+                                try {
+                                  await ipcClient.exportGodotWeb({ appId: selectedAppId });
+                                  // Refetch export URL after a delay
+                                  setTimeout(() => {
+                                    refetchGodotExport();
+                                  }, 2000);
+                                } catch (err) {
+                                  console.error("Failed to export:", err);
+                                }
+                              }
+                            }}
+                            className="mt-4 px-4 py-2 rounded godot-button godot-button-primary"
+                            style={{ 
+                              background: 'var(--godot-accent-orange)',
+                              color: 'var(--godot-text-primary)',
+                              border: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isGodotExportLoading ? "Creating Export..." : "Create/Refresh Export"}
+                          </button>
+                          {godotEngine && (
+                            <div className="mt-4 p-3 rounded" style={{ 
+                              background: godotEngine.installed 
+                                ? 'rgba(74, 222, 128, 0.1)' 
+                                : 'rgba(251, 191, 36, 0.1)',
+                              border: `1px solid ${godotEngine.installed ? 'var(--godot-success)' : 'var(--godot-warning)'}`
+                            }}>
+                              <div className="text-sm" style={{ 
+                                color: godotEngine.installed ? 'var(--godot-success)' : 'var(--godot-warning)' 
+                              }}>
+                                {godotEngine.installed ? (
+                                  <>✅ Godot Engine detected {godotEngine.version ? `(${godotEngine.version})` : ''}</>
+                                ) : (
+                                  <>⚠️ Godot Engine not found. Install Godot for full export support, or use the test preview.</>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          <div className="mt-4 text-xs" style={{ color: 'var(--godot-text-secondary)' }}>
+                            Project location: {app?.path || 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  ) : (loading || !app || (app && !isExpoApp && !appUrl?.originalUrl)) ? (
+                    <div className="godot-preview-container h-full">
+                      <div className="godot-loading">
+                        <div className="godot-spinner"></div>
+                        <p className="mt-4 godot-message-title">
                           {loading ? "Loading App..." : "Preview is loading..."}
                         </p>
-                        <p className="text-sm">
+                        <p className="mt-2 godot-message-text">
                           {loading ? "Please wait while the app is being loaded." : "Please wait while the preview loads."}
                         </p>
                       </div>
@@ -297,10 +428,11 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                 
                 {/* Debug fallback - improved logic to handle loading states */}
                 {!app && !loading && !selectedAppId && (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    <div className="text-center">
-                      <p className="text-lg font-medium mb-2">No App Selected</p>
-                      <p className="text-sm">Please select an app from the sidebar to see the preview.</p>
+                  <div className="godot-preview-container h-full">
+                    <div className="godot-message">
+                      <div className="godot-message-icon">🎮</div>
+                      <div className="godot-message-title">No App Selected</div>
+                      <div className="godot-message-text">Please select an app from the sidebar to see the preview.</div>
                     </div>
                   </div>
                 )}

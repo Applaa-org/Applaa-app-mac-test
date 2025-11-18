@@ -140,8 +140,16 @@ async function performBackgroundInstallation(appId: number): Promise<void> {
     const appPath = getDyadAppPath(appData.path);
     const packageJsonPath = path.join(appPath, 'package.json');
     const nodeModulesPath = path.join(appPath, 'node_modules');
+    const godotProjectPath = path.join(appPath, 'godot-project', 'project.godot');
 
     logger.info(`📂 Installing dependencies for: ${appData.name} at ${appPath}`);
+
+    // Check if this is a Godot app - Godot apps don't need npm dependencies
+    if (appData.appType === 'godot' || fs.existsSync(godotProjectPath)) {
+      logger.info(`🎮 Godot app detected (${appData.name}), skipping npm dependency installation`);
+      installationStatus.set(appId, { status: 'completed', timestamp: Date.now() });
+      return;
+    }
 
     // Verify package.json exists
     if (!fs.existsSync(packageJsonPath)) {

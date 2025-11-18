@@ -12,13 +12,14 @@ import { HomeChatInput } from '@/components/chat/HomeChatInput';
 import { SimpleAppTypeSelector } from './SimpleAppTypeSelector';
 import { ComingSoonCards } from './ComingSoonCards';
 import { FeaturedGames } from './FeaturedGames';
+import { GodotGameCreationInput } from '@/components/godot/GodotGameCreationInput';
 // 🚀 PERFORMANCE: Commented out for MVP - move to website as marketing content
 // import { ComingSoonTiles } from './ComingSoonTiles';
 import { IpcClient } from '@/ipc/ipc_client';
 import { useSettings } from '@/hooks/useSettings';
 import { useApplaaPro } from '@/hooks/useApplaaPro';
 import { useNavigate } from '@tanstack/react-router';
-import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb } from 'lucide-react';
+import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, Gamepad2 } from 'lucide-react';
 
 interface SimpleHomeInterfaceProps {
   onChatSubmit?: (options?: any) => Promise<void>;
@@ -34,14 +35,15 @@ type ExampleIdea = {
 export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) {
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
   const navigate = useNavigate();
-  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | null>(null);
+  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | null>(null);
   const { updateSettings } = useSettings();
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
 
   // Handle app type selection
-  const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter') => {
+  const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot') => {
     console.log('[SimpleHomeInterface] App type selected:', type);
+    
     setSelectedAppType(type);
 
     // Update settings based on selection
@@ -69,7 +71,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
     }
   }, [updateSettings]);
 
-  // When app type changes, load static ideas (performance optimized)
+  // When app type changes, load static ideas (including Godot)
   useEffect(() => {
     if (selectedAppType) {
       setIdeas(getStaticIdeas(selectedAppType));
@@ -184,6 +186,8 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                   <div className="w-8 h-8 rounded-md bg-white/70 dark:bg-gray-800/70 flex items-center justify-center shadow-sm">
                     {selectedAppType === 'web' ? (
                       <Globe className="h-4 w-4 text-emerald-600" />
+                    ) : selectedAppType === 'godot' ? (
+                      <Gamepad2 className="h-4 w-4 text-purple-600" />
                     ) : (
                       <Smartphone className="h-4 w-4 text-blue-600" />
                     )}
@@ -191,11 +195,11 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                   <div>
                     <div className="text-[10px] uppercase tracking-wide text-gray-600">Building a</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {selectedAppType === 'web' ? 'Web App' : selectedAppType === 'expo' ? 'Expo Mobile App' : 'Flutter Mobile App'}
+                      {selectedAppType === 'web' ? 'Web App' : selectedAppType === 'expo' ? 'Expo Mobile App' : selectedAppType === 'flutter' ? 'Flutter Mobile App' : 'Applaa Game'}
                     </div>
                     <div className="mt-1">
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                        {selectedAppType === 'web' ? 'Framework: React (default)' : selectedAppType === 'expo' ? 'Framework: Expo' : 'Framework: Flutter'}
+                        {selectedAppType === 'web' ? 'Framework: React (default)' : selectedAppType === 'expo' ? 'Framework: Expo' : selectedAppType === 'flutter' ? 'Framework: Flutter' : 'Engine: Applaa'}
                       </span>
                     </div>
                   </div>
@@ -217,17 +221,27 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                 What do you want to build?
               </h2>
               <p className="text-lg text-gray-600">
-                Describe your {selectedAppType === 'web' ? 'web app' : 'mobile app'} and we'll create it for you
+                Describe your {selectedAppType === 'web' ? 'web app' : selectedAppType === 'godot' ? 'game' : 'mobile app'} and we'll create it for you
               </p>
             </div>
             
-            <HomeChatInput
-              onSubmit={handleChatSubmit}
-              placeholder={`Describe your ${selectedAppType === 'web' ? 'web app' : 'mobile app'}... (e.g., "A todo app with dark mode and sync")`}
-              showPlatformSelector={false}
-              showSparkSelector={true}
-              appType={selectedAppType}
-            />
+            {selectedAppType === 'godot' ? (
+              <GodotGameCreationInput
+                onGameCreated={() => {
+                  setSelectedAppType(null);
+                  setInputValue('');
+                }}
+                initialDescription={inputValue}
+              />
+            ) : (
+              <HomeChatInput
+                onSubmit={handleChatSubmit}
+                placeholder={`Describe your ${selectedAppType === 'web' ? 'web app' : 'mobile app'}... (e.g., "A todo app with dark mode and sync")`}
+                showPlatformSelector={false}
+                showSparkSelector={true}
+                appType={selectedAppType}
+              />
+            )}
           </div>
 
           {/* Inspiration Ideas - Always visible with Shuffle */}
@@ -248,7 +262,10 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               {ideas.map((idea, index) => (
                 <button
                   key={`${idea.title}-${index}`}
-                  onClick={() => setInputValue(idea.prompt)}
+                  onClick={() => {
+                    setInputValue(idea.prompt);
+                    // For Godot, the component will pick up the value via initialDescription prop
+                  }}
                   className="p-4 text-left bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl text-sm transition-all flex items-start gap-3 shadow-sm"
                 >
                   <span className="text-xl leading-none pt-0.5">{idea.emoji}</span>
@@ -272,7 +289,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
 
 // PERFORMANCE: Simple static ideas (like Dyad) - no complex generation
-function getStaticIdeas(type: 'web' | 'expo' | 'flutter'): ExampleIdea[] {
+function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea[] {
   if (type === 'web') {
     return [
       {
@@ -351,7 +368,7 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter'): ExampleIdea[] {
         prompt: "Build a music player app with playlist management, background playback, audio controls, and modern UI using Expo."
       }
     ];
-  } else { // flutter
+  } else if (type === 'flutter') {
     return [
       {
         title: "Shopping List",
@@ -388,6 +405,45 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter'): ExampleIdea[] {
         description: "Guided meditation with timers.\nProgress tracking and ambient sounds.",
         emoji: "🧘",
         prompt: "Build a meditation timer app with guided sessions, ambient sounds, progress tracking, and calming Flutter UI design."
+      }
+    ];
+  } else { // godot
+    return [
+      {
+        title: "2D Platformer",
+        description: "Jump between platforms, collect coins.\nDefeat enemies and reach the goal.",
+        emoji: "🎮",
+        prompt: "A 2D platformer where the player jumps between platforms, collects coins, and defeats enemies to reach the goal."
+      },
+      {
+        title: "Space Shooter",
+        description: "Shoot enemies in space.\nPower-ups and boss battles.",
+        emoji: "🚀",
+        prompt: "A space shooter game where the player controls a spaceship, shoots enemies, collects power-ups, and fights boss battles."
+      },
+      {
+        title: "Puzzle Game",
+        description: "Match tiles and solve puzzles.\nMultiple levels with increasing difficulty.",
+        emoji: "🧩",
+        prompt: "A puzzle game with tile matching mechanics, multiple levels with increasing difficulty, and satisfying visual feedback."
+      },
+      {
+        title: "Racing Game",
+        description: "Race against time or opponents.\nMultiple tracks and vehicles.",
+        emoji: "🏎️",
+        prompt: "A racing game with multiple tracks, different vehicles, time trials, and competitive racing mechanics."
+      },
+      {
+        title: "Endless Runner",
+        description: "Run and jump to avoid obstacles.\nProgressive difficulty and scoring.",
+        emoji: "🏃",
+        prompt: "An endless runner game where the player runs and jumps to avoid obstacles, with progressive difficulty and scoring system."
+      },
+      {
+        title: "Tower Defense",
+        description: "Build towers to defend.\nMultiple enemy types and upgrades.",
+        emoji: "🏰",
+        prompt: "A tower defense game where players build towers to defend against waves of enemies, with multiple enemy types and tower upgrades."
       }
     ];
   }

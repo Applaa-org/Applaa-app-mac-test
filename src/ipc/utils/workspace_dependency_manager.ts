@@ -78,6 +78,13 @@ class WorkspaceDependencyManager {
    * 🔧 INTEGRATION: Works with hermetic runtime for consistent package manager usage
    */
   async installDependenciesForApp(appPath: string): Promise<void> {
+    // Check if this is a Godot app - Godot apps don't need npm dependencies
+    const godotProjectPath = path.join(appPath, 'godot-project', 'project.godot');
+    if (await this.fileExists(godotProjectPath)) {
+      logger.log(`🎮 Godot app detected (${path.basename(appPath)}), skipping npm dependency installation`);
+      return;
+    }
+    
     const startTime = Date.now();
     const { dependencies, fromShared } = await this.getDependenciesForApp(appPath);
 
