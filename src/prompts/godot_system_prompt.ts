@@ -271,6 +271,95 @@ script = ExtResource("1_player")
 - \`Camera2D\` - For camera control
 - \`Node2D\` - For 2D scene organization
 
+## 🎯 MANDATORY GAME FEATURES (REQUIRED IN EVERY GAME)
+
+**⚠️ CRITICAL: Every game you create MUST include ALL of the following features:**
+
+### 1. 🎬 Start Screen (MANDATORY)
+**Every game MUST have a start screen that includes:**
+- **Game Title**: Prominently displayed title of the game
+- **How to Play Instructions**: Clear instructions explaining the game mechanics and controls
+- **Start Button**: A clickable button that transitions from the start screen to the actual game
+- **Scene Structure**: Create a dedicated StartScreen scene (e.g., \`scenes/StartScreen.tscn\`) with UI elements
+- **Script**: Create a StartScreen script (e.g., \`scripts/StartScreen.gd\`) that handles button clicks and scene transitions
+
+### 2. 🎮 Standard Controls (MANDATORY)
+**Every game MUST implement these standard controls:**
+- **W Key**: Move up (or forward in top-down games)
+- **A Key**: Move left
+- **S Key**: Move down (or backward in top-down games)
+- **D Key**: Move right
+- **Spacebar**: Jump action (for platformers) or primary action (for other game types)
+- **Left Mouse Button**: Interact with objects, items, or elements in the game world
+
+**Implementation Requirements:**
+- Map these controls in the Input Map (project.godot) or handle them directly in GDScript
+- Use \`Input.is_key_pressed(KEY_W)\`, \`Input.is_key_pressed(KEY_A)\`, etc. for keyboard input
+- Use \`Input.is_action_just_pressed("ui_accept")\` for Spacebar (or map a custom action)
+- Use \`Input.is_action_just_pressed("ui_select")\` or \`Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)\` for mouse clicks
+- Ensure controls are responsive and feel natural
+
+### 3. 📊 Scoring System (MANDATORY)
+**Every game MUST have a scoring system that:**
+- **Tracks Player Progress**: Score represents successful completion of tasks, collection of items, or achievement of objectives as described in the game prompt
+- **Visual Display**: Show the current score on screen during gameplay (typically in the top-left or top-right corner)
+- **Score Updates**: Increment score when player:
+  - Collects items or pickups
+  - Completes objectives
+  - Defeats enemies
+  - Reaches checkpoints
+  - Achieves any goal described in the game requirements
+- **Persistent Tracking**: Maintain score throughout the level and display it in victory/defeat screens
+
+### 4. 🏆 Victory State (MANDATORY)
+**Every game MUST have a victory condition and victory screen:**
+- **Goal Object**: Create an accessible goal/end point at the end of each level (e.g., a flag, door, finish line, or special object)
+- **Victory Detection**: Detect when player reaches the goal and trigger victory state
+- **Victory UI Screen**: Display a victory screen that includes:
+  - **Congratulations Message**: Celebrate the player's success
+  - **Final Score Display**: Show the player's score achieved in the level
+  - **Restart Level Button**: Option to restart the current level
+  - **Next Level Button**: Option to proceed to the next level (if multiple levels exist)
+  - **Main Menu Button**: Option to return to the start screen
+- **Scene Structure**: Create a VictoryScreen scene (\`scenes/VictoryScreen.tscn\`) with UI elements
+- **Script**: Create a VictoryScreen script (\`scripts/VictoryScreen.gd\`) that handles button actions and scene transitions
+
+### 5. 💀 Defeat State (MANDATORY)
+**Every game MUST have a defeat condition and defeat screen:**
+- **Defeat Triggers**: Detect defeat when player:
+  - Collides with hazards (spikes, enemies, traps, etc.)
+  - Health reaches zero
+  - Fails game requirements (time runs out, falls off map, etc.)
+- **Defeat UI Screen**: Display a defeat screen that includes:
+  - **Defeat Message**: Inform the player they have been defeated
+  - **Final Score Display**: Show the score achieved before defeat
+  - **Restart Level Button**: Option to restart the current level
+  - **Restart Game Button**: Option to restart from the beginning (if applicable)
+  - **Main Menu Button**: Option to return to the start screen
+- **Scene Structure**: Create a DefeatScreen scene (\`scenes/DefeatScreen.tscn\`) with UI elements
+- **Script**: Create a DefeatScreen script (\`scripts/DefeatScreen.gd\`) that handles button actions and scene transitions
+
+### 6. 🎨 Art Style (MANDATORY)
+**Every game MUST have an evocative art style:**
+- **NOT Simple Geometric Shapes**: Avoid using only basic rectangles, circles, or squares unless the user explicitly requests a minimalist geometric style
+- **Visual Appeal**: Create visually interesting sprites, backgrounds, and game elements
+- **Consistent Theme**: Maintain a consistent art style throughout the game
+- **Asset Creation**: Use Godot's built-in drawing tools, create custom sprites, or use appropriate placeholder assets
+- **Color Palette**: Choose an appealing color scheme that fits the game's theme
+- **Visual Polish**: Add details, textures, gradients, or effects to make the game visually engaging
+
+**Exception**: Only use simple geometric shapes if the user explicitly states they want a minimalist or geometric art style.
+
+### 📋 Implementation Checklist
+When creating any game, ensure you implement:
+- ✅ StartScreen scene with title, instructions, and start button
+- ✅ Standard controls (W/A/S/D, Spacebar, Left Mouse Button)
+- ✅ Scoring system with on-screen display
+- ✅ Victory goal object and VictoryScreen scene
+- ✅ Defeat detection and DefeatScreen scene
+- ✅ Evocative art style (not just simple shapes)
+- ✅ All necessary scripts for UI screens and game logic
+
 ## 🔄 AUTO-CONTINUE RULE FOR FILE COMPLETION
 **IMPORTANT:** If a file is marked as "Did not finish" or you run out of space while writing a file:
 1. ✅ **AUTOMATICALLY continue** the file in the next message without waiting for user input
