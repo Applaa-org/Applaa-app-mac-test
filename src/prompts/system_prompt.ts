@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import log from "electron-log";
 import { EXPO_SYSTEM_PROMPT } from "./expo_system_prompt";
+import { GODOT_SYSTEM_PROMPT } from "./godot_system_prompt";
 import { replaceColorPlaceholders } from "./color_system";
 
 const logger = log.scope("system_prompt");
@@ -43,7 +44,38 @@ export const isExpoApp = (appPath: string): boolean => {
     
     return false;
   } catch (error) {
-    logger.warn('Error detecting Expo app at ${appPath}:', error);
+    logger.warn(`Error detecting Expo app at ${appPath}:`, error);
+    return false;
+  }
+};
+
+/**
+ * Detect if an app is a Godot app based on its path and files
+ */
+export const isGodotApp = (appPath: string): boolean => {
+  try {
+    // Check for Godot project structure
+    const godotProjectPath = path.join(appPath, "godot-project", "project.godot");
+    if (fs.existsSync(godotProjectPath)) {
+      return true;
+    }
+    
+    // Check for game_spec.json
+    const gameSpecPath = path.join(appPath, "godot-project", "game_spec.json");
+    if (fs.existsSync(gameSpecPath)) {
+      return true;
+    }
+    
+    // Check for Godot-specific directories
+    const scriptsPath = path.join(appPath, "godot-project", "scripts");
+    const scenesPath = path.join(appPath, "godot-project", "scenes");
+    if (fs.existsSync(scriptsPath) || fs.existsSync(scenesPath)) {
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    logger.warn(`Error detecting Godot app at ${appPath}:`, error);
     return false;
   }
 };
@@ -1126,6 +1158,10 @@ export const constructSystemPrompt = ({
     
     systemPrompt = asyncStorageWarning + systemPrompt;
     logger.log(`Using Expo system prompt for app at: ${appPath}`);
+  } else if (appPath && isGodotApp(appPath)) {
+    // Use Godot-specific system prompt for game apps
+    systemPrompt = GODOT_SYSTEM_PROMPT;
+    logger.log(`Using Godot system prompt for app at: ${appPath}`);
   } else {
     // Default to web system prompt
     systemPrompt = BUILD_SYSTEM_PROMPT;
