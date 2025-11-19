@@ -219,37 +219,68 @@ export async function createTestWebExport(
     platformColor = '#8b4513'; // brown
   }
   
-  logger.info(`Creating test export with type: ${gameType} for game: ${gameNameFromSpec || gameName}`);
-  logger.info(`   Colors - Player: ${playerColor}, Background: ${backgroundColor}, Platform: ${platformColor}`);
-
   // Import dynamic game generator
-  const { generateGameCode } = await import('./godot_test_game_generator');
+  const { generateGameCode, generateGameFromSpec } = await import('./godot_test_game_generator');
   
-  // Generate game code based on type
-  const gameCode = generateGameCode({
-    gameType,
-    playerColor,
-    backgroundColor,
-    platformColor,
-    windowWidth,
-    windowHeight,
-    gameName: gameNameFromSpec || gameName,
-    gameDescription: gameDescription || ''
-  });
+  let gameCode: string;
+  let controlsText: string;
   
-  // Determine controls text based on game type
-  let controlsText = 'Use ARROW KEYS or WASD to move | SPACE to jump';
-  if (gameType === 'pong') {
-    controlsText = 'Use W/S to move paddle | Click to select (Puzzle)';
-  } else if (gameType === 'shooter' || gameType === 'space') {
-    controlsText = 'Use ARROW KEYS or A/D to move | SPACE to shoot';
-  } else if (gameType === 'maze') {
-    controlsText = 'Use ARROW KEYS or WASD to navigate the maze';
-  } else if (gameType === 'puzzle') {
-    controlsText = 'Click gems to swap and match 3 in a row';
-  } else if (gameType === 'racing') {
-    controlsText = 'Use LEFT/RIGHT or A/D to steer';
+  // If we have a valid spec with game data, use the spec-based generator
+  if (spec && spec.game && spec.player && spec.enemies && spec.levels) {
+    logger.info(`Creating game from specification: ${spec.game.name || gameNameFromSpec || gameName}`);
+    logger.info(`   Player: ${spec.player.name}, Health: ${spec.player.health}, Speed: ${spec.player.speed}`);
+    logger.info(`   Enemies: ${spec.enemies.length}, Levels: ${spec.levels.length}`);
+    
+    // Use spec-based generator
+    gameCode = generateGameFromSpec({
+      spec,
+      windowWidth,
+      windowHeight
+    });
+    
+    // Determine controls based on player abilities
+    const abilities = spec.player.abilities || [];
+    if (abilities.includes('shoot') && abilities.includes('jump')) {
+      controlsText = 'Use ARROW KEYS or A/D to move | W/UP to jump | SPACE to shoot';
+    } else if (abilities.includes('shoot')) {
+      controlsText = 'Use ARROW KEYS or A/D to move | SPACE to shoot';
+    } else if (abilities.includes('jump')) {
+      controlsText = 'Use ARROW KEYS or WASD to move | SPACE to jump';
+    } else {
+      controlsText = 'Use ARROW KEYS or WASD to move';
+    }
+  } else {
+    // Fall back to keyword-based predefined game types
+    logger.info(`Creating test export with type: ${gameType} for game: ${gameNameFromSpec || gameName}`);
+    logger.info(`   Colors - Player: ${playerColor}, Background: ${backgroundColor}, Platform: ${platformColor}`);
+    
+    // Generate game code based on type
+    gameCode = generateGameCode({
+      gameType,
+      playerColor,
+      backgroundColor,
+      platformColor,
+      windowWidth,
+      windowHeight,
+      gameName: gameNameFromSpec || gameName,
+      gameDescription: gameDescription || ''
+    });
+    
+    // Determine controls text based on game type
+    controlsText = 'Use ARROW KEYS or WASD to move | SPACE to jump';
+    if (gameType === 'pong') {
+      controlsText = 'Use W/S to move paddle | Click to select (Puzzle)';
+    } else if (gameType === 'shooter' || gameType === 'space') {
+      controlsText = 'Use ARROW KEYS or A/D to move | SPACE to shoot';
+    } else if (gameType === 'maze') {
+      controlsText = 'Use ARROW KEYS or WASD to navigate the maze';
+    } else if (gameType === 'puzzle') {
+      controlsText = 'Click gems to swap and match 3 in a row';
+    } else if (gameType === 'racing') {
+      controlsText = 'Use LEFT/RIGHT or A/D to steer';
+    }
   }
+  
 
   // Create a simple HTML5 canvas game that demonstrates the game concept
   const htmlContent = `<!DOCTYPE html>
