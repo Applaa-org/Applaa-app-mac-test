@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Monitor, Smartphone } from "lucide-react";
+import { Monitor, Smartphone, Gamepad2 } from "lucide-react";
 
-export type AppFilterType = "web" | "mobile";
+export type AppFilterType = "web" | "mobile" | "game";
 
 interface AppTypeFilterProps {
   onChange: (filterType: AppFilterType) => void;
@@ -16,7 +16,7 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
   // Load from localStorage on initial mount
   useEffect(() => {
     const savedFilter = localStorage.getItem("applaa-app-filter") as AppFilterType | null;
-    if (savedFilter && (savedFilter === "web" || savedFilter === "mobile")) {
+    if (savedFilter && (savedFilter === "web" || savedFilter === "mobile" || savedFilter === "game")) {
       setSelectedFilter(savedFilter);
       onChange(savedFilter);
     }
@@ -63,6 +63,20 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
           >
             <Smartphone className="h-3 w-3" />
             <span>Mobile</span>
+          </Label>
+        </div>
+
+        <div className="flex items-center">
+          <RadioGroupItem value="game" id="filter-game" className="sr-only peer" />
+          <Label 
+            htmlFor="filter-game"
+            className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded-md cursor-pointer transition-colors
+              ${selectedFilter === "game" 
+                ? "bg-purple-600 text-white" 
+                : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <Gamepad2 className="h-3 w-3" />
+            <span>Game</span>
           </Label>
         </div>
       </RadioGroup>

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor } from "lucide-react";
+import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor, Gamepad2 } from "lucide-react";
 import { useAtom, useSetAtom } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import {
@@ -28,7 +28,8 @@ const getCategoryGradient = (category: AppCategory): string => {
     web: "bg-gradient-to-r from-blue-500 to-cyan-500",
     mobile: "bg-gradient-to-r from-green-500 to-emerald-500", 
     flutter: "bg-gradient-to-r from-blue-600 to-indigo-600",
-    capacitor: "bg-gradient-to-r from-orange-500 to-red-500"
+    capacitor: "bg-gradient-to-r from-orange-500 to-red-500",
+    game: "bg-gradient-to-r from-purple-500 to-pink-500"
   };
   return gradients[category] || gradients.web;
 };
@@ -39,7 +40,8 @@ const getCategoryIconComponent = (category: AppCategory) => {
     web: <Code2 {...iconProps} />,
     mobile: <Smartphone {...iconProps} />,
     flutter: <Smartphone {...iconProps} />,
-    capacitor: <Zap {...iconProps} />
+    capacitor: <Zap {...iconProps} />,
+    game: <Gamepad2 {...iconProps} />
   };
   return icons[category] || icons.web;
 };
@@ -79,7 +81,7 @@ export function AppList({ show }: { show?: boolean }) {
   // Advanced features temporarily disabled for core stability
   // const { isAuthenticated } = useSupabaseAuth();
   const [showCloudSync, setShowCloudSync] = useState(false);
-  const [appFilter, setAppFilter] = useState<AppFilterType>("all");
+  const [appFilter, setAppFilter] = useState<AppFilterType>("web");
   
   // Temporary fallback values
   const isAuthenticated = false;
@@ -104,7 +106,8 @@ export function AppList({ show }: { show?: boolean }) {
       web: [],
       mobile: [],
       flutter: [],
-      capacitor: []
+      capacitor: [],
+      game: []
     };
     
     filteredApps.forEach(app => {

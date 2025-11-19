@@ -1,6 +1,6 @@
 import type { App } from "@/ipc/ipc_types";
 
-export type AppCategory = 'web' | 'mobile' | 'flutter' | 'capacitor';
+export type AppCategory = 'web' | 'mobile' | 'flutter' | 'capacitor' | 'game';
 
 // Store for external app type data (will be populated by the AppList component)
 const appTypeCache = new Map<number, AppCategory>();
@@ -23,6 +23,8 @@ export function detectAppCategory(app: App): AppCategory {
       return 'mobile';
     } else if (app.appType === 'web') {
       return 'web';
+    } else if (app.appType === 'godot') {
+      return 'game';
     }
   }
   
@@ -82,6 +84,15 @@ export function detectAppCategory(app: App): AppCategory {
     return 'flutter';
   }
   
+  // Check for Godot game (has godot-project/project.godot or project.godot)
+  const hasGodotProject = app.files.some(file => 
+    file === 'project.godot' || file === 'godot-project/project.godot' || file.endsWith('/project.godot')
+  );
+  
+  if (hasGodotProject) {
+    return 'game';
+  }
+  
   // Default to web app
   return 'web';
 }
@@ -99,6 +110,8 @@ export function getCategoryLabel(category: AppCategory): string {
       return 'Flutter Apps';
     case 'capacitor':
       return 'Capacitor Apps';
+    case 'game':
+      return 'Games';
     default:
       return 'Apps';
   }
@@ -117,6 +130,8 @@ export function getCategoryIcon(category: AppCategory): string {
       return '🎯';
     case 'capacitor':
       return '⚡';
+    case 'game':
+      return '🎮';
     default:
       return '📁';
   }
