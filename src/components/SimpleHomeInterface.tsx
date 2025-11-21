@@ -20,6 +20,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useApplaaPro } from '@/hooks/useApplaaPro';
 import { useNavigate } from '@tanstack/react-router';
 import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, Gamepad2 } from 'lucide-react';
+import { GODOT_GAMES_DATA, getEmojiForGame } from '@/data/godotGamesData';
 
 interface SimpleHomeInterfaceProps {
   onChatSubmit?: (options?: any) => Promise<void>;
@@ -39,6 +40,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const { updateSettings } = useSettings();
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
+  const [visibleIdeasCount, setVisibleIdeasCount] = useState<number>(6);
 
   // Handle app type selection
   const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot') => {
@@ -75,6 +77,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   useEffect(() => {
     if (selectedAppType) {
       setIdeas(getStaticIdeas(selectedAppType));
+      setVisibleIdeasCount(6); // Reset to 6 when app type changes
     }
   }, [selectedAppType]);
 
@@ -101,6 +104,15 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const handleShuffleIdeas = () => {
     if (!selectedAppType) return;
     setIdeas(getStaticIdeas(selectedAppType));
+    setVisibleIdeasCount(6); // Reset to 6 when shuffling
+  };
+
+  const handleShowMore = () => {
+    setVisibleIdeasCount(ideas.length); // Show all ideas
+  };
+
+  const handleShowLess = () => {
+    setVisibleIdeasCount(6); // Show only first 6
   };
 
   return (
@@ -249,7 +261,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
             <div className="flex items-center justify-between mb-3 px-0.5">
               <div className="flex items-center gap-2 text-gray-600">
                 <Lightbulb className="h-4 w-4 text-amber-500" />
-                <span className="text-sm">Need inspiration?</span>
+                <span className="text-sm">Choose from 1000's of Game templates</span>
               </div>
               <button
                 onClick={handleShuffleIdeas}
@@ -259,7 +271,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ideas.map((idea, index) => (
+              {ideas.slice(0, visibleIdeasCount).map((idea, index) => (
                 <button
                   key={`${idea.title}-${index}`}
                   onClick={() => {
@@ -279,6 +291,25 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                 </button>
               ))}
             </div>
+            {ideas.length > 6 && (
+              <div className="flex justify-center mt-4">
+                {visibleIdeasCount < ideas.length ? (
+                  <button
+                    onClick={handleShowMore}
+                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700"
+                  >
+                    Show More ({ideas.length - visibleIdeasCount} more)
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleShowLess}
+                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700"
+                  >
+                    Show Less
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -408,7 +439,8 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
       }
     ];
   } else { // godot
-    return [
+    // Original 6 games
+    const originalGames: ExampleIdea[] = [
       {
         title: "2D Platformer",
         description: "Jump between platforms, collect coins.\nDefeat enemies and reach the goal.",
@@ -446,5 +478,23 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
         prompt: "A tower defense game where players build towers to defend against waves of enemies, with multiple enemy types and tower upgrades."
       }
     ];
+
+    // Convert CSV games to ExampleIdea format with exact prompts
+    const csvGames: ExampleIdea[] = GODOT_GAMES_DATA.map(game => {
+      // Extract a short description from the first sentence of details, or use game name
+      const firstSentence = game.details.split('.')[0] || game.name;
+      const shortDesc = firstSentence.length > 100 
+        ? firstSentence.substring(0, 97) + '...'
+        : firstSentence;
+      
+      return {
+        title: game.name,
+        description: shortDesc + '\nClick to use the full detailed prompt.',
+        emoji: getEmojiForGame(game.name),
+        prompt: game.details // Use exact prompt from CSV
+      };
+    });
+
+    return [...originalGames, ...csvGames];
   }
 }
