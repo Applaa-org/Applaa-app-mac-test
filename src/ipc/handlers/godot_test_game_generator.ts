@@ -3,6 +3,8 @@
  * Generates different game types based on the game specification
  */
 
+import type { GameSpecification } from './godot_handlers';
+
 export interface GameConfig {
   gameType: string;
   playerColor: string;
@@ -12,6 +14,12 @@ export interface GameConfig {
   windowHeight: number;
   gameName: string;
   gameDescription: string;
+}
+
+export interface SpecBasedGameConfig {
+  spec: GameSpecification;
+  windowWidth: number;
+  windowHeight: number;
 }
 
 export function generateGameCode(config: GameConfig): string {
@@ -737,6 +745,316 @@ function generatePlatformerGame(config: GameConfig): string {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(player.x + 10, player.y + 10, 8, 8);
             ctx.fillRect(player.x + 22, player.y + 10, 8, 8);
+        }
+        
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+    `;
+}
+
+/**
+ * Generate game code from actual GameSpecification
+ * This creates a unique game based on the spec instead of predefined types
+ */
+export function generateGameFromSpec(config: SpecBasedGameConfig): string {
+  const { spec, windowWidth, windowHeight } = config;
+  
+  // Extract player info
+  const player = spec.player || { health: 100, speed: 200, abilities: [] };
+  const playerSpeed = Math.max(2, Math.min(10, (player.speed || 200) / 40)); // Normalize speed
+  const playerHealth = player.health || 100;
+  const canJump = player.abilities?.includes('jump') || false;
+  const canShoot = player.abilities?.includes('shoot') || false;
+  
+  // Extract enemies
+  const enemies = spec.enemies || [];
+  
+  // Extract levels and obstacles
+  const firstLevel = spec.levels?.[0] || {};
+  const obstacles = firstLevel.obstacles || [];
+  const spawnPoint = firstLevel.spawnPoints?.[0] || { x: 100, y: windowHeight - 100 };
+  
+  // Extract game logic
+  const winCondition = spec.logic?.winCondition || 'defeat_all_enemies';
+  const pointsPerKill = spec.logic?.scoring?.pointsPerKill || 100;
+  const pointsPerLevel = spec.logic?.scoring?.pointsPerLevel || 500;
+  
+  // Determine background color based on level background
+  const backgroundColors: Record<string, string> = {
+    'forest': '#2d5016',
+    'desert': '#d4a574',
+    'space': '#0a0a1a',
+    'city': '#4a4a4a',
+    'custom': '#1a1a1a'
+  };
+  const backgroundColor = backgroundColors[firstLevel.background?.toLowerCase() || 'custom'] || '#1a1a1a';
+  
+  // Generate platforms from obstacles
+  const platforms = obstacles
+    .filter(obs => obs.type === 'platform' || obs.type === 'wall')
+    .map(obs => ({
+      x: obs.position.x,
+      y: obs.position.y,
+      width: 150,
+      height: 30,
+      color: '#3c3c3c'
+    }));
+  
+  // Add ground platform
+  platforms.push({
+    x: 0,
+    y: windowHeight - 50,
+    width: windowWidth,
+    height: 50,
+    color: '#2d2d30'
+  });
+  
+  // Generate enemies from spec
+  const enemyObjects = enemies.map((enemy, index) => ({
+    x: 200 + index * 150,
+    y: windowHeight - 150 - (index % 3) * 50,
+    width: 30,
+    height: 30,
+    speed: Math.max(0.5, Math.min(3, (enemy.speed || 100) / 50)),
+    health: enemy.health || 50,
+    maxHealth: enemy.health || 50,
+    damage: enemy.damage || 10,
+    behavior: enemy.behavior || 'patrol',
+    color: enemy.type === 'boss' ? '#ff0000' : enemy.type === 'flying' ? '#00ffff' : '#ff8800',
+    direction: index % 2 === 0 ? 1 : -1,
+    patrolStart: 200 + index * 150,
+    patrolDistance: 100
+  }));
+  
+  // Generate bullets if player can shoot
+  const bullets: Array<{x: number, y: number, width: number, height: number, speed: number}> = [];
+  let lastShot = 0;
+  
+  return `
+        // Game generated from specification: ${spec.game?.name || 'Untitled'}
+        let player = {
+            x: ${spawnPoint.x},
+            y: ${spawnPoint.y},
+            width: 40,
+            height: 40,
+            velocityX: 0,
+            velocityY: 0,
+            speed: ${playerSpeed},
+            jumpPower: -12,
+            onGround: false,
+            health: ${playerHealth},
+            maxHealth: ${playerHealth},
+            color: '#4a9eff'
+        };
+        
+        let platforms = ${JSON.stringify(platforms)};
+        let enemies = ${JSON.stringify(enemyObjects)};
+        let bullets = [];
+        let keys = {};
+        let gameWon = false;
+        let gameOver = false;
+        const gravity = 0.6;
+        const friction = 0.8;
+        let lastShot = 0;
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            ${canJump && !canShoot ? `if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') && player.onGround) {
+                player.velocityY = player.jumpPower;
+                player.onGround = false;
+            }` : canJump && canShoot ? `if ((e.key === 'ArrowUp' || e.key === 'w') && player.onGround) {
+                player.velocityY = player.jumpPower;
+                player.onGround = false;
+            }` : ''}
+            ${canShoot ? `if (e.key === ' ') {
+                const now = Date.now();
+                if (now - lastShot > 200) {
+                    bullets.push({
+                        x: player.x + player.width / 2,
+                        y: player.y,
+                        width: 4,
+                        height: 10,
+                        speed: 8
+                    });
+                    lastShot = now;
+                }
+            }` : ''}
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+        
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+        
+        function update() {
+            if (gameWon || gameOver) return;
+            
+            // Player movement
+            if (keys['arrowleft'] || keys['a']) {
+                player.velocityX = -player.speed;
+            } else if (keys['arrowright'] || keys['d']) {
+                player.velocityX = player.speed;
+            } else {
+                player.velocityX *= friction;
+            }
+            
+            ${canJump ? `player.velocityY += gravity;` : ''}
+            player.x += player.velocityX;
+            ${canJump ? `player.y += player.velocityY;` : ''}
+            
+            ${canJump ? `player.onGround = false;
+            for (let platform of platforms) {
+                if (checkCollision(player, platform)) {
+                    if (player.velocityY > 0 && player.y < platform.y) {
+                        player.y = platform.y - player.height;
+                        player.velocityY = 0;
+                        player.onGround = true;
+                    } else if (player.velocityX > 0) {
+                        player.x = platform.x - player.width;
+                    } else if (player.velocityX < 0) {
+                        player.x = platform.x + platform.width;
+                    }
+                }
+            }` : ''}
+            
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+            if (player.y > canvas.height) {
+                player.y = ${spawnPoint.y};
+                player.x = ${spawnPoint.x};
+                player.velocityY = 0;
+            }
+            
+            // Update bullets
+            ${canShoot ? `bullets = bullets.filter(bullet => {
+                bullet.y -= bullet.speed;
+                return bullet.y > 0;
+            });` : ''}
+            
+            // Update enemies
+            enemies.forEach((enemy, ei) => {
+                if (enemy.health <= 0) return;
+                
+                if (enemy.behavior === 'patrol') {
+                    enemy.x += enemy.speed * enemy.direction;
+                    if (Math.abs(enemy.x - enemy.patrolStart) > enemy.patrolDistance) {
+                        enemy.direction *= -1;
+                    }
+                } else if (enemy.behavior === 'chase') {
+                    const dx = player.x - enemy.x;
+                    const dy = player.y - enemy.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0) {
+                        enemy.x += (dx / dist) * enemy.speed;
+                        enemy.y += (dy / dist) * enemy.speed;
+                    }
+                }
+                
+                // Check collision with player
+                if (checkCollision(player, enemy)) {
+                    player.health -= enemy.damage;
+                    if (player.health <= 0) {
+                        gameOver = true;
+                    }
+                }
+                
+                // Check bullet collisions
+                ${canShoot ? `bullets.forEach((bullet, bi) => {
+                    if (checkCollision(bullet, enemy)) {
+                        enemy.health -= 20;
+                        bullets.splice(bullets.indexOf(bullet), 1);
+                        if (enemy.health <= 0) {
+                            score += ${pointsPerKill};
+                            scoreElement.textContent = score;
+                        }
+                    }
+                });` : ''}
+            });
+            
+            // Check win condition
+            const aliveEnemies = enemies.filter(e => e.health > 0).length;
+            if ('${winCondition}' === 'defeat_all_enemies' && aliveEnemies === 0) {
+                gameWon = true;
+                score += ${pointsPerLevel};
+                scoreElement.textContent = score;
+            }
+        }
+        
+        function render() {
+            ctx.fillStyle = '${backgroundColor}';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw platforms
+            platforms.forEach(platform => {
+                ctx.fillStyle = platform.color;
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                ctx.strokeStyle = '#4a4a4a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+            });
+            
+            // Draw enemies
+            enemies.forEach(enemy => {
+                if (enemy.health <= 0) return;
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                // Health bar
+                const healthPercent = enemy.health / enemy.maxHealth;
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(enemy.x, enemy.y - 5, enemy.width, 3);
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(enemy.x, enemy.y - 5, enemy.width * healthPercent, 3);
+            });
+            
+            // Draw bullets
+            ${canShoot ? `bullets.forEach(bullet => {
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });` : ''}
+            
+            // Draw player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.strokeStyle = '#6bb6ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(player.x, player.y, player.width, player.height);
+            
+            // Player health bar
+            const playerHealthPercent = player.health / player.maxHealth;
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(player.x, player.y - 8, player.width, 4);
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(player.x, player.y - 8, player.width * playerHealthPercent, 4);
+            
+            // Game over / win messages
+            if (gameWon) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left';
+            } else if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ff0000';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left';
+            }
         }
         
         function gameLoop() {
