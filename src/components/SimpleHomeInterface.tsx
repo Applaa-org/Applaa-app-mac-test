@@ -19,7 +19,7 @@ import { IpcClient } from '@/ipc/ipc_client';
 import { useSettings } from '@/hooks/useSettings';
 import { useApplaaPro } from '@/hooks/useApplaaPro';
 import { useNavigate } from '@tanstack/react-router';
-import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, ExternalLink, Gamepad2 } from 'lucide-react';
+import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, ExternalLink, Gamepad2, Play } from 'lucide-react';
 import { GODOT_GAMES_DATA, getEmojiForGame } from '@/data/godotGamesData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -319,10 +319,11 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                           e.stopPropagation();
                           handlePlayGame(idea.previewUrl!);
                         }}
-                        className="w-8 h-8 rounded-full bg-white/90 dark:bg-gray-800/90 flex items-center justify-center shadow-sm hover:bg-white dark:hover:bg-gray-800 transition-colors"
+                        className="h-8 px-2 rounded-full bg-green-600 dark:bg-green-500 flex items-center justify-center gap-1.5 shadow-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
                         title="Preview Game"
                       >
-                        <ExternalLink className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                        <Play className="h-3.5 w-3.5 text-white fill-white" />
+                        <span className="text-xs font-medium text-white">Play</span>
                       </button>
                     </div>
                   )}
