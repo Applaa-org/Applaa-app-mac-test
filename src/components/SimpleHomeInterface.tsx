@@ -439,46 +439,6 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
       }
     ];
   } else { // godot
-    // Original 6 games
-    const originalGames: ExampleIdea[] = [
-      {
-        title: "2D Platformer",
-        description: "Jump between platforms, collect coins.\nDefeat enemies and reach the goal.",
-        emoji: "🎮",
-        prompt: "A 2D platformer where the player jumps between platforms, collects coins, and defeats enemies to reach the goal."
-      },
-      {
-        title: "Space Shooter",
-        description: "Shoot enemies in space.\nPower-ups and boss battles.",
-        emoji: "🚀",
-        prompt: "A space shooter game where the player controls a spaceship, shoots enemies, collects power-ups, and fights boss battles."
-      },
-      {
-        title: "Puzzle Game",
-        description: "Match tiles and solve puzzles.\nMultiple levels with increasing difficulty.",
-        emoji: "🧩",
-        prompt: "A puzzle game with tile matching mechanics, multiple levels with increasing difficulty, and satisfying visual feedback."
-      },
-      {
-        title: "Racing Game",
-        description: "Race against time or opponents.\nMultiple tracks and vehicles.",
-        emoji: "🏎️",
-        prompt: "A racing game with multiple tracks, different vehicles, time trials, and competitive racing mechanics."
-      },
-      {
-        title: "Endless Runner",
-        description: "Run and jump to avoid obstacles.\nProgressive difficulty and scoring.",
-        emoji: "🏃",
-        prompt: "An endless runner game where the player runs and jumps to avoid obstacles, with progressive difficulty and scoring system."
-      },
-      {
-        title: "Tower Defense",
-        description: "Build towers to defend.\nMultiple enemy types and upgrades.",
-        emoji: "🏰",
-        prompt: "A tower defense game where players build towers to defend against waves of enemies, with multiple enemy types and tower upgrades."
-      }
-    ];
-
     // Convert CSV games to ExampleIdea format with exact prompts
     const csvGames: ExampleIdea[] = GODOT_GAMES_DATA.map(game => {
       // Extract a short description from the first sentence of details, or use game name
@@ -495,6 +455,6 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
       };
     });
 
-    return [...originalGames, ...csvGames];
+    return csvGames;
   }
 }

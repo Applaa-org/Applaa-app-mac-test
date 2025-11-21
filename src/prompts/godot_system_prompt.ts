@@ -648,34 +648,52 @@ script = ExtResource("1_player")
 
 **⚠️ CRITICAL: Every game you create MUST include ALL of the following features:**
 
-### 1. 🎬 Start Screen (MANDATORY)
-**Every game MUST have a start screen that includes:**
+### 1. 🎬 Start Screen (MANDATORY - MUST ALWAYS WORK)
+**⚠️ CRITICAL: Every game MUST have a start screen that ALWAYS works and includes:**
 - **Game Title**: Prominently displayed title of the game
-- **How to Play Instructions**: Clear instructions explaining the game mechanics and controls
+- **How to Play Instructions**: Clear, visible instructions explaining:
+  - Game mechanics and objectives
+  - ALL controls (W/A/S/D, Arrow Keys, Spacebar, Mouse)
+  - How to play the game
+  - What the player needs to do to win
 - **Start Button**: A clickable button that transitions from the start screen to the actual game
+- **Keyboard Support**: Players should be able to press Enter or Spacebar to start the game
 - **Scene Structure**: Create a dedicated StartScreen scene (e.g., \`scenes/StartScreen.tscn\`) with UI elements
 - **Script**: Create a StartScreen script (e.g., \`scripts/StartScreen.gd\`) that handles button clicks and scene transitions
+- **For HTML Preview**: The \`godot-web-export/index.html\` MUST include a start screen overlay that shows before the game starts
 
-### 2. 🎮 Standard Controls (MANDATORY)
-**Every game MUST implement these standard controls:**
-- **W Key**: Move up (or forward in top-down games)
-- **A Key**: Move left
-- **S Key**: Move down (or backward in top-down games)
-- **D Key**: Move right
-- **Spacebar**: Jump action (for platformers) or primary action (for other game types)
-- **Left Mouse Button**: Interact with objects, items, or elements in the game world
+**⚠️ THE START SCREEN MUST ALWAYS BE VISIBLE AND FUNCTIONAL - NO EXCEPTIONS**
+
+### 2. 🎮 Standard Controls (MANDATORY - MUST ALWAYS WORK)
+**⚠️ CRITICAL: Every game MUST implement these standard controls and they MUST ALWAYS work:**
+- **W Key**: Move up (or forward in top-down games) - MUST WORK
+- **A Key**: Move left - MUST WORK
+- **S Key**: Move down (or backward in top-down games) - MUST WORK
+- **D Key**: Move right - MUST WORK
+- **Arrow Keys**: Alternative to WASD - MUST WORK (↑/↓/←/→)
+- **Spacebar**: Jump action (for platformers) or primary action (for other game types) - MUST WORK
+- **Left Mouse Button**: Interact with objects, items, or elements in the game world - MUST WORK
 
 **Implementation Requirements:**
+- **ALWAYS implement BOTH WASD AND Arrow Keys** - Players should be able to use either
 - Map these controls in the Input Map (project.godot) or handle them directly in GDScript
 - Use \`Input.is_key_pressed(KEY_W)\`, \`Input.is_key_pressed(KEY_A)\`, etc. for keyboard input
+- **ALSO check for Arrow Keys**: \`Input.is_key_pressed(KEY_UP)\`, \`Input.is_key_pressed(KEY_LEFT)\`, etc.
 - Use \`Input.is_action_just_pressed("ui_accept")\` for Spacebar (or map a custom action)
 - Use \`Input.is_action_just_pressed("ui_select")\` or \`Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)\` for mouse clicks
+- **For HTML Preview**: In \`index.html\`, ALWAYS implement keyboard event listeners for both WASD and Arrow Keys
 - Ensure controls are responsive and feel natural
+- **Test that controls work immediately** - No delays or setup required
 
-### 3. 📊 Scoring System (MANDATORY)
-**Every game MUST have a scoring system that:**
+**⚠️ CONTROLS MUST WORK IMMEDIATELY WHEN THE GAME STARTS - NO EXCEPTIONS**
+
+### 3. 📊 Scoring System (MANDATORY - MUST ALWAYS WORK)
+**⚠️ CRITICAL: Every game MUST have a scoring system that ALWAYS works:**
 - **Tracks Player Progress**: Score represents successful completion of tasks, collection of items, or achievement of objectives as described in the game prompt
 - **Visual Display**: Show the current score on screen during gameplay (typically in the top-left or top-right corner)
+  - **MUST be visible at all times during gameplay**
+  - **MUST update in real-time** as the score changes
+  - Use a clear, readable font and color (e.g., green or white text on dark background)
 - **Score Updates**: Increment score when player:
   - Collects items or pickups
   - Completes objectives
@@ -683,6 +701,9 @@ script = ExtResource("1_player")
   - Reaches checkpoints
   - Achieves any goal described in the game requirements
 - **Persistent Tracking**: Maintain score throughout the level and display it in victory/defeat screens
+- **For HTML Preview**: The score MUST be displayed in \`index.html\` and MUST update when score changes
+
+**⚠️ THE SCORE MUST ALWAYS BE VISIBLE AND UPDATING - NO EXCEPTIONS**
 
 ### 4. 🏆 Victory State (MANDATORY)
 **Every game MUST have a victory condition and victory screen:**
@@ -761,4 +782,3 @@ When creating any game, ensure you implement:
 
 [[AI_RULES]]
 `;
-
