@@ -19,7 +19,10 @@ import { IpcClient } from '@/ipc/ipc_client';
 import { useSettings } from '@/hooks/useSettings';
 import { useApplaaPro } from '@/hooks/useApplaaPro';
 import { useNavigate } from '@tanstack/react-router';
-import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, Gamepad2 } from 'lucide-react';
+import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, ExternalLink, Gamepad2, Play } from 'lucide-react';
+import { GODOT_GAMES_DATA, getEmojiForGame } from '@/data/godotGamesData';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface SimpleHomeInterfaceProps {
   onChatSubmit?: (options?: any) => Promise<void>;
@@ -30,6 +33,7 @@ type ExampleIdea = {
   description: string; // 2–3 lines max
   emoji: string;
   prompt: string; // full prompt to inject
+  previewUrl?: string; // Optional preview URL
 };
 
 export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) {
@@ -39,6 +43,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const { updateSettings } = useSettings();
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
+  const [visibleIdeasCount, setVisibleIdeasCount] = useState<number>(6);
+  const [selectedGameUrl, setSelectedGameUrl] = useState<string | null>(null);
+  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
 
   // Handle app type selection
   const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot') => {
@@ -75,6 +82,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   useEffect(() => {
     if (selectedAppType) {
       setIdeas(getStaticIdeas(selectedAppType));
+      setVisibleIdeasCount(6); // Reset to 6 when app type changes
     }
   }, [selectedAppType]);
 
@@ -101,6 +109,31 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const handleShuffleIdeas = () => {
     if (!selectedAppType) return;
     setIdeas(getStaticIdeas(selectedAppType));
+    setVisibleIdeasCount(6); // Reset to 6 when shuffling
+  };
+
+  const handleShowMore = () => {
+    setVisibleIdeasCount(ideas.length); // Show all ideas
+  };
+
+  const handleShowLess = () => {
+    setVisibleIdeasCount(6); // Show only first 6
+  };
+
+  const handlePlayGame = (url: string) => {
+    setSelectedGameUrl(url);
+    setIsGameModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsGameModalOpen(false);
+    setSelectedGameUrl(null);
+  };
+
+  const handleOpenExternal = () => {
+    if (selectedGameUrl) {
+      window.open(selectedGameUrl, '_blank');
+    }
   };
 
   return (
@@ -249,7 +282,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
             <div className="flex items-center justify-between mb-3 px-0.5">
               <div className="flex items-center gap-2 text-gray-600">
                 <Lightbulb className="h-4 w-4 text-amber-500" />
-                <span className="text-sm">Need inspiration?</span>
+                <span className="text-sm">Choose from 1000's of Game templates</span>
               </div>
               <button
                 onClick={handleShuffleIdeas}
@@ -259,29 +292,101 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ideas.map((idea, index) => (
-                <button
+              {ideas.slice(0, visibleIdeasCount).map((idea, index) => (
+                <div
                   key={`${idea.title}-${index}`}
-                  onClick={() => {
-                    setInputValue(idea.prompt);
-                    // For Godot, the component will pick up the value via initialDescription prop
-                  }}
-                  className="p-4 text-left bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl text-sm transition-all flex items-start gap-3 shadow-sm"
+                  className="p-4 text-left bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl text-sm transition-all flex items-start gap-3 shadow-sm relative group"
                 >
-                  <span className="text-xl leading-none pt-0.5">{idea.emoji}</span>
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900 mb-1">{idea.title}</div>
-                    <p className="text-gray-600 text-[13px] leading-relaxed mb-2 whitespace-pre-line">
-                      {idea.description}
-                    </p>
-
+                  <span className="text-xl leading-none pt-0.5 flex-shrink-0">{idea.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => {
+                        setInputValue(idea.prompt);
+                        // For Godot, the component will pick up the value via initialDescription prop
+                      }}
+                      className="w-full text-left"
+                    >
+                      <div className="font-medium text-gray-900 mb-1">{idea.title}</div>
+                      <p className="text-gray-600 text-[13px] leading-relaxed mb-2 whitespace-pre-line">
+                        {idea.description}
+                      </p>
+                    </button>
                   </div>
-                </button>
+                  {idea.previewUrl && (
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayGame(idea.previewUrl!);
+                        }}
+                        className="h-8 px-2 rounded-full bg-green-600 dark:bg-green-500 flex items-center justify-center gap-1.5 shadow-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
+                        title="Preview Game"
+                      >
+                        <Play className="h-3.5 w-3.5 text-white fill-white" />
+                        <span className="text-xs font-medium text-white">Play</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
+            {ideas.length > 6 && (
+              <div className="flex justify-center mt-4">
+                {visibleIdeasCount < ideas.length ? (
+                  <button
+                    onClick={handleShowMore}
+                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700"
+                  >
+                    Show More ({ideas.length - visibleIdeasCount} more)
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleShowLess}
+                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700"
+                  >
+                    Show Less
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Game Preview Modal - Same as Hub */}
+      <Dialog open={isGameModalOpen} onOpenChange={setIsGameModalOpen}>
+        <DialogContent className="!max-w-none !w-[98vw] !h-[95vh] p-0" style={{ width: '98vw', height: '95vh', maxWidth: 'none', maxHeight: 'none' }}>
+          <DialogHeader className="p-6 pb-0 mt-2">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold">
+                Playing Game
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenExternal}
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open in New Tab
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          {selectedGameUrl && (
+            <div className="flex-1 p-6 pt-0" style={{ height: 'calc(95vh - 120px)' }}>
+              <iframe
+                src={selectedGameUrl}
+                className="w-full h-full border-0 rounded-lg"
+                title="Game Preview"
+                allow="fullscreen; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ height: 'calc(95vh - 120px)' }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -408,43 +513,23 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
       }
     ];
   } else { // godot
-    return [
-      {
-        title: "2D Platformer",
-        description: "Jump between platforms, collect coins.\nDefeat enemies and reach the goal.",
-        emoji: "🎮",
-        prompt: "A 2D platformer where the player jumps between platforms, collects coins, and defeats enemies to reach the goal."
-      },
-      {
-        title: "Space Shooter",
-        description: "Shoot enemies in space.\nPower-ups and boss battles.",
-        emoji: "🚀",
-        prompt: "A space shooter game where the player controls a spaceship, shoots enemies, collects power-ups, and fights boss battles."
-      },
-      {
-        title: "Puzzle Game",
-        description: "Match tiles and solve puzzles.\nMultiple levels with increasing difficulty.",
-        emoji: "🧩",
-        prompt: "A puzzle game with tile matching mechanics, multiple levels with increasing difficulty, and satisfying visual feedback."
-      },
-      {
-        title: "Racing Game",
-        description: "Race against time or opponents.\nMultiple tracks and vehicles.",
-        emoji: "🏎️",
-        prompt: "A racing game with multiple tracks, different vehicles, time trials, and competitive racing mechanics."
-      },
-      {
-        title: "Endless Runner",
-        description: "Run and jump to avoid obstacles.\nProgressive difficulty and scoring.",
-        emoji: "🏃",
-        prompt: "An endless runner game where the player runs and jumps to avoid obstacles, with progressive difficulty and scoring system."
-      },
-      {
-        title: "Tower Defense",
-        description: "Build towers to defend.\nMultiple enemy types and upgrades.",
-        emoji: "🏰",
-        prompt: "A tower defense game where players build towers to defend against waves of enemies, with multiple enemy types and tower upgrades."
-      }
-    ];
+    // Convert CSV games to ExampleIdea format with exact prompts
+    const csvGames: ExampleIdea[] = GODOT_GAMES_DATA.map(game => {
+      // Extract a short description from the first sentence of details, or use game name
+      const firstSentence = game.details.split('.')[0] || game.name;
+      const shortDesc = firstSentence.length > 100 
+        ? firstSentence.substring(0, 97) + '...'
+        : firstSentence;
+      
+      return {
+        title: game.name,
+        description: shortDesc + '\nClick to use the full detailed prompt.',
+        emoji: getEmojiForGame(game.name),
+        prompt: game.details, // Use exact prompt from CSV
+        previewUrl: game.previewUrl // Include preview URL if available
+      };
+    });
+
+    return csvGames;
   }
 }
