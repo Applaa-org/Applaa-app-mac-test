@@ -39,6 +39,20 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
         className="flex gap-0.5"
       >
         <div className="flex items-center flex-1 min-w-0">
+          <RadioGroupItem value="game" id="filter-game" className="sr-only peer" />
+          <Label 
+            htmlFor="filter-game"
+            className={`flex items-center gap-1 px-1.5 py-1 text-xs rounded-md cursor-pointer transition-colors flex-1 justify-center
+              ${selectedFilter === "game" 
+                ? "bg-purple-600 text-white" 
+                : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <Gamepad2 className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">Game</span>
+          </Label>
+        </div>
+
+        <div className="flex items-center flex-1 min-w-0">
           <RadioGroupItem value="web" id="filter-web" className="sr-only peer" />
           <Label 
             htmlFor="filter-web"
@@ -63,20 +77,6 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
           >
             <Smartphone className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">Mobile</span>
-          </Label>
-        </div>
-
-        <div className="flex items-center flex-1 min-w-0">
-          <RadioGroupItem value="game" id="filter-game" className="sr-only peer" />
-          <Label 
-            htmlFor="filter-game"
-            className={`flex items-center gap-1 px-1.5 py-1 text-xs rounded-md cursor-pointer transition-colors flex-1 justify-center
-              ${selectedFilter === "game" 
-                ? "bg-purple-600 text-white" 
-                : "text-muted-foreground hover:bg-muted"}`}
-          >
-            <Gamepad2 className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">Game</span>
           </Label>
         </div>
       </RadioGroup>
