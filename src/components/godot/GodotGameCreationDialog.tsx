@@ -77,10 +77,17 @@ export function GodotGameCreationDialog({
         }
       }
 
-      // Navigate to the chat
+      // Navigate to the chat with initial prompt so it appears in chat history
+      // Include both game name and description so users can see what they created
+      const finalPrompt = gameDescription.trim() 
+        ? `Create a game called "${gameName}"\n\n${gameDescription}`
+        : `Create a ${gameName} game`;
       router.navigate({
         to: '/chat',
-        search: { id: result.chatId }
+        search: { 
+          id: result.chatId,
+          initialPrompt: finalPrompt
+        }
       });
 
       onClose();
