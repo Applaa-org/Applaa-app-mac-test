@@ -1,15 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Sparkles, Rocket } from 'lucide-react';
+import { Loader2, SendHorizontalIcon } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
 import { useRouter } from '@tanstack/react-router';
 import { useSetAtom } from 'jotai';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
 import { showError, showSuccess } from '@/lib/toast';
-import { ModelPicker } from '@/components/ModelPicker';
+import { ChatInputControls } from '@/components/ChatInputControls';
 
 interface GodotGameCreationInputProps {
   onGameCreated?: () => void;
@@ -111,45 +110,40 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
         />
       </div>
 
-      {/* Main Description Input - Large and prominent, clean like web/mobile */}
+      {/* Main Description Input - Large and prominent, matching web input style */}
       <div className="relative flex flex-col space-y-2 border border-border rounded-lg bg-(--background-lighter) shadow-sm">
-        <Textarea
-          id="gameDescription"
-          value={gameDescription}
-          onChange={(e) => setGameDescription(e.target.value)}
-          placeholder="Describe your game idea... e.g., 'A 2D platformer where the player jumps between platforms, collects coins, and defeats enemies'"
-          rows={2}
-          disabled={isCreating}
-          className="text-base resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] p-4"
-        />
+        <div className="flex items-start space-x-2">
+          <Textarea
+            id="gameDescription"
+            value={gameDescription}
+            onChange={(e) => setGameDescription(e.target.value)}
+            placeholder='Describe your game idea... (e.g., "A 2D platformer where the player jumps between platforms, collects coins, and defeats enemies")'
+            rows={2}
+            disabled={isCreating}
+            className="flex-1 text-base resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] p-4"
+          />
 
-        {/* Controls at bottom of input box - Model selector on left, Build button on right */}
+          {/* Build button on the right, inside input area - matching web input style */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleCreate}
+              disabled={!gameName.trim() || isCreating}
+              className="px-2 py-2 mt-1 mr-2 hover:bg-(--background-darkest) text-(--sidebar-accent-fg) rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Build game"
+            >
+              {isCreating ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <SendHorizontalIcon size={20} />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Controls at bottom of input box - matching web input style */}
         <div className="pt-2 pb-2 border-t border-border">
           <div className="px-2">
-            <div className="flex items-center justify-between">
-              {/* Left: Model selector */}
-              <ModelPicker />
-              
-              {/* Right: Build button */}
-              <Button
-                onClick={handleCreate}
-                disabled={!gameName.trim() || isCreating}
-                variant="outline"
-                className="border-orange-300 text-orange-600 hover:bg-orange-50"
-              >
-                {isCreating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Building...
-                  </>
-                ) : (
-                  <>
-                    <Rocket className="mr-2 h-4 w-4" />
-                    Build
-                  </>
-                )}
-              </Button>
-            </div>
+            <ChatInputControls showImportButton={true} showPlatformSelector={false} />
           </div>
         </div>
       </div>
