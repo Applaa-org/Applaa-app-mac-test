@@ -294,17 +294,19 @@ const createWindow = () => {
 
   // 🚀 COOP/COEP headers for WASM threads/WebGPU support (Whisper optimization)
   // Only apply in production to avoid blob URL issues in development
-  if (process.env.NODE_ENV === 'production') {
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Cross-Origin-Opener-Policy': ['same-origin'],
-          'Cross-Origin-Embedder-Policy': ['require-corp'],
-        },
-      });
-    });
-  } else {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...details.responseHeaders };
+    
+    // Add COOP/COEP headers only in production
+    if (process.env.NODE_ENV === 'production') {
+      responseHeaders['Cross-Origin-Opener-Policy'] = ['same-origin'];
+      responseHeaders['Cross-Origin-Embedder-Policy'] = ['require-corp'];
+    }
+    
+    callback({ responseHeaders });
+  });
+  
+  if (process.env.NODE_ENV !== 'production') {
     console.log('🔧 COOP/COEP headers disabled in development to allow blob URLs for WASM');
   }
   

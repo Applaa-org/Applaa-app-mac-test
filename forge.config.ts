@@ -3,6 +3,14 @@ import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
+import { config as loadDotenv } from "dotenv";
+import { execSync } from "child_process";
+import * as path from "path";
+
+// Load environment variables from .env file
+loadDotenv();
+
+// Removed custom codesign helper; rely on packager osxSign/osxNotarize and staple in hooks
 
 // Based on https://github.com/electron/forge/blob/6b2d547a7216c30fde1e1fddd1118eee5d872945/packages/plugin/vite/src/VitePlugin.ts#L124
 const ignore = (file: string) => {
@@ -70,6 +78,25 @@ const config: ForgeConfig = {
     ],
     icon: "./assets/icon/logo.ico",
     asar: true,
+    // Code signing
+    osxSign: {
+      identity: "Developer ID Application: Applaa Ltd (P7VCYRVVPQ)",
+      hardenedRuntime: true,
+      entitlements: "entitlements.plist",
+      "entitlements-inherit": "entitlements.plist",
+      "gatekeeper-assess": false,
+      "signature-flags": "library",
+    } as any,
+    // Notarization
+    osxNotarize:
+      process.platform === 'darwin' && process.env.APPLE_ID && (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD)
+        ? {
+            tool: "notarytool",
+            appleId: process.env.APPLE_ID as string,
+            appleIdPassword: (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD) as string,
+            teamId: process.env.APPLE_TEAM_ID || process.env.TEAM_ID || "P7VCYRVVPQ",
+          } as any
+        : undefined,
     asarUnpack: [
       "node_modules/@google/gemini-cli/**",
       "node_modules/onnxruntime-react-native/**",
@@ -84,7 +111,7 @@ const config: ForgeConfig = {
     //   "vendor/node20"
     // ],
     ignore,
-  },
+  } as any,
   rebuildConfig: {
     extraModules: [
       "better-sqlite3",
@@ -101,23 +128,227 @@ const config: ForgeConfig = {
   },
   // Makers for creating distributable packages
   makers: [
-    {
-      name: "@electron-forge/maker-squirrel",
-      config: {
-        name: "Applaa",
-        authors: "Applaa Team",
-        description: "Your local AI app builder with beautiful orange and green design",
-        setupIcon: "./assets/icon/logo.ico",
-        noMsi: false,
+    // Windows makers (only include on Windows)
+    ...(process.platform === 'win32' ? [
+      {
+        name: "@electron-forge/maker-squirrel",
+        config: {
+          name: "Applaa",
+          authors: "Applaa Team",
+          description: "Your local AI app builder with beautiful orange and green design",
+          setupIcon: "./assets/icon/logo.ico",
+          noMsi: false,
+        },
       },
-    },
+    ] : []),
+    // Cross-platform ZIP maker
     {
       name: "@electron-forge/maker-zip",
       config: {
         platforms: ["darwin", "linux", "win32"],
       },
     },
+    // macOS DMG maker (only include on macOS)
+    ...(process.platform === 'darwin' ? [
+      {
+        name: "@electron-forge/maker-dmg",
+        config: {
+          name: "Applaa",
+          format: "UDZO",
+          icon: "./assets/icon/logo.icns",
+          iconSize: 100,
+          contents: (opts) => {
+            return [
+              { x: 380, y: 280, type: "link", path: "/Applications" },
+              { x: 110, y: 280, type: "file", path: opts.appPath },
+            ];
+          },
+        },
+      },
+    ] : []),
   ],
+  hooks: {
+    postPackage: async (forgeConfig, packageResults) => {
+      // Verify and re-staple the .app after packaging (if not already stapled)
+      // This ensures the .app is stapled before ZIP/DMG creation
+      // Also remove quarantine attributes to prevent "damaged" errors
+      try {
+      const results = Array.isArray(packageResults) ? packageResults : [packageResults];
+      for (const result of results) {
+          if (result.platform !== 'darwin') continue;
+          
+          // Find the .app bundle
+          let appPath: string | undefined;
+          if (result.outputPaths) {
+            const outputPaths = Array.isArray(result.outputPaths) ? result.outputPaths : [result.outputPaths];
+            appPath = outputPaths.find((p: string) => p && p.endsWith('.app'));
+          }
+          if (!appPath && result.outputPath) {
+            appPath = result.outputPath.endsWith('.app') ? result.outputPath : undefined;
+          }
+          
+          if (appPath && require('fs').existsSync(appPath)) {
+            // Remove ALL extended attributes recursively to prevent "damaged" errors
+            // This ensures the .app is completely clean before stapling
+            try {
+              execSync(`xattr -cr "${appPath}"`, { stdio: 'pipe' });
+              console.log(`🧹 Removed all extended attributes from ${appPath}`);
+              
+              // Verify signature is still valid after removing attributes
+              execSync(`codesign --verify --deep --strict "${appPath}"`, { stdio: 'pipe' });
+              console.log(`✅ Signature verified after attribute removal`);
+            } catch (e) {
+              console.warn(`⚠️ Could not remove attributes or verify signature: ${e}`);
+            }
+            
+            // Verify staple
+            try {
+              const validateOutput = execSync(`xcrun stapler validate "${appPath}"`, { encoding: 'utf8', stdio: 'pipe' });
+              if (!validateOutput.includes('The validate action worked!')) {
+                console.log(`📎 Stapling ${appPath}...`);
+                execSync(`xcrun stapler staple "${appPath}"`, { stdio: 'inherit' });
+              } else {
+                console.log(`✅ App is already stapled: ${appPath}`);
+              }
+            } catch (e: any) {
+              // If validate fails, try to staple
+              try {
+                console.log(`📎 Stapling ${appPath}...`);
+                execSync(`xcrun stapler staple "${appPath}"`, { stdio: 'inherit' });
+              } catch (stapleError) {
+                console.warn(`⚠️ Could not staple ${appPath}: ${stapleError}`);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`⚠️ postPackage hook encountered an error: ${e}`);
+      }
+    },
+    postMake: async (forgeConfig, makeResults) => {
+      // Re-create ZIP files with ditto to preserve extended attributes and signatures
+      // This ensures maximum compatibility across different download methods
+      try {
+        const results = Array.isArray(makeResults) ? makeResults : [makeResults];
+        const fs = require('fs');
+        
+        for (const result of results) {
+          if (result.platform !== 'darwin') continue;
+          
+          // Get artifacts (ZIP files, DMG files, etc.)
+          const artifacts = Array.isArray(result.artifacts) ? result.artifacts : [];
+          
+          // Process ZIP files
+          for (const artifact of artifacts) {
+            if (!artifact.endsWith('.zip')) continue;
+            
+            const zipPath = artifact;
+            const zipName = path.basename(zipPath);
+            const tempDir = path.join(__dirname, '.tmp-zip-repack');
+            const tempZipPath = zipPath + '.tmp';
+            
+            try {
+              console.log(`📦 Re-creating ZIP with ditto: ${zipName}`);
+              
+              // Create temp directory
+              if (fs.existsSync(tempDir)) {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+              }
+              fs.mkdirSync(tempDir, { recursive: true });
+              
+              // Extract existing ZIP using ditto (preserves extended attributes)
+              execSync(`ditto -x -k "${zipPath}" "${tempDir}"`, { stdio: 'pipe' });
+              
+              // Find the .app bundle in extracted files
+              const findApp = (dir: string): string | undefined => {
+                try {
+                  const entries = fs.readdirSync(dir, { withFileTypes: true });
+                  for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory() && entry.name.endsWith('.app')) {
+                      return fullPath;
+                    } else if (entry.isDirectory()) {
+                      const found = findApp(fullPath);
+                      if (found) return found;
+                    }
+                  }
+                } catch {}
+                return undefined;
+              };
+              
+              const appPath = findApp(tempDir);
+              if (!appPath || !fs.existsSync(appPath)) {
+                console.warn(`⚠️ Could not find .app in ZIP: ${zipName}`);
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                continue;
+              }
+              
+              // Remove ALL extended attributes recursively to prevent "damaged" errors
+              // This ensures the app is completely clean before re-zipping
+              try {
+                execSync(`xattr -cr "${appPath}"`, { stdio: 'pipe' });
+                console.log(`🧹 Removed all extended attributes from app before re-zipping`);
+                
+                // Verify signature is still valid
+                execSync(`codesign --verify --deep --strict "${appPath}"`, { stdio: 'pipe' });
+              } catch (e) {
+                console.warn(`⚠️ Could not remove attributes or verify signature: ${e}`);
+              }
+              
+              // Verify the app is stapled before re-zipping
+              try {
+                const validateOutput = execSync(`xcrun stapler validate "${appPath}"`, { encoding: 'utf8', stdio: 'pipe' });
+                if (!validateOutput.includes('The validate action worked!')) {
+                  console.log(`📎 Stapling app before re-zipping...`);
+                  execSync(`xcrun stapler staple "${appPath}"`, { stdio: 'inherit' });
+                }
+              } catch (e) {
+                // Try to staple anyway
+                try {
+                  execSync(`xcrun stapler staple "${appPath}"`, { stdio: 'pipe' });
+                } catch {}
+              }
+              
+              // Create new ZIP with ditto (preserves extended attributes and signatures)
+              // --sequesterRsrc is CRITICAL: prevents quarantine attributes from being included in ZIP
+              execSync(`ditto -c -k --sequesterRsrc --keepParent "${appPath}" "${tempZipPath}"`, { stdio: 'inherit' });
+              
+              // Verify the new ZIP contains a valid app
+              const verifyDir = path.join(__dirname, '.tmp-zip-verify');
+              if (fs.existsSync(verifyDir)) {
+                fs.rmSync(verifyDir, { recursive: true, force: true });
+              }
+              fs.mkdirSync(verifyDir, { recursive: true });
+              execSync(`ditto -x -k "${tempZipPath}" "${verifyDir}"`, { stdio: 'pipe' });
+              const verifyAppPath = findApp(verifyDir);
+              if (verifyAppPath) {
+                const validateResult = execSync(`xcrun stapler validate "${verifyAppPath}"`, { encoding: 'utf8', stdio: 'pipe' });
+                if (validateResult.includes('The validate action worked!')) {
+                  // Replace old ZIP
+                  fs.renameSync(tempZipPath, zipPath);
+                  console.log(`✅ ZIP re-created and verified: ${zipName}`);
+                } else {
+                  console.warn(`⚠️ Re-created ZIP failed validation: ${zipName}`);
+                  if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath);
+                }
+              }
+              fs.rmSync(verifyDir, { recursive: true, force: true });
+              
+              // Cleanup
+              fs.rmSync(tempDir, { recursive: true, force: true });
+            } catch (e) {
+              console.warn(`⚠️ Could not re-create ZIP ${zipName}: ${e}`);
+              // Cleanup on error
+              if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+              if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`⚠️ postMake hook encountered an error: ${e}`);
+      }
+    },
+  },
   plugins: [
     new AutoUnpackNativesPlugin({}),
     new VitePlugin({
