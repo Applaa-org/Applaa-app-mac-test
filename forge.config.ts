@@ -86,8 +86,9 @@ const config: ForgeConfig = {
     ignore,
   },
   rebuildConfig: {
-    extraModules: [
-      "better-sqlite3",
+    // Use onlyModules to explicitly control which modules to rebuild
+    // This prevents auto-detection of better-sqlite3 which requires Windows SDK
+    onlyModules: [
       "onnxruntime-react-native", 
       "react-native-transformers",
       "@react-native-async-storage/async-storage",

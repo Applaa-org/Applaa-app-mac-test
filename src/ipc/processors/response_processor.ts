@@ -289,7 +289,7 @@ export async function processFullResponseActions(
       // Delete the file if it exists
       if (fs.existsSync(fullFilePath)) {
         if (fs.lstatSync(fullFilePath).isDirectory()) {
-          fs.rmdirSync(fullFilePath, { recursive: true });
+          fs.rmSync(fullFilePath, { recursive: true, force: true });
         } else {
           fs.unlinkSync(fullFilePath);
         }

@@ -8,14 +8,16 @@
   spellcheck: true;
 }
 
-/* Ensure spell check underlines are visible */
-.spell-check-enabled::spelling-error {
+/* Note: spelling-error and grammar-error pseudo-elements are not standard CSS
+   Electron's built-in spell checker handles these automatically via the context menu
+   These styles are commented out to avoid build warnings */
+/* .spell-check-enabled::spelling-error {
   text-decoration: underline wavy red;
 }
 
 .spell-check-enabled::grammar-error {
   text-decoration: underline wavy green;
-}
+} */
 
 /* Load Geist Font */
 
