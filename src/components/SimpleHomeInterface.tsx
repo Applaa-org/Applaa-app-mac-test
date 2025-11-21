@@ -19,8 +19,10 @@ import { IpcClient } from '@/ipc/ipc_client';
 import { useSettings } from '@/hooks/useSettings';
 import { useApplaaPro } from '@/hooks/useApplaaPro';
 import { useNavigate } from '@tanstack/react-router';
-import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, Gamepad2 } from 'lucide-react';
+import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, ExternalLink, Gamepad2 } from 'lucide-react';
 import { GODOT_GAMES_DATA, getEmojiForGame } from '@/data/godotGamesData';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface SimpleHomeInterfaceProps {
   onChatSubmit?: (options?: any) => Promise<void>;
@@ -31,6 +33,7 @@ type ExampleIdea = {
   description: string; // 2–3 lines max
   emoji: string;
   prompt: string; // full prompt to inject
+  previewUrl?: string; // Optional preview URL
 };
 
 export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) {
@@ -41,6 +44,8 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
   const [visibleIdeasCount, setVisibleIdeasCount] = useState<number>(6);
+  const [selectedGameUrl, setSelectedGameUrl] = useState<string | null>(null);
+  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
 
   // Handle app type selection
   const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot') => {
@@ -113,6 +118,22 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
   const handleShowLess = () => {
     setVisibleIdeasCount(6); // Show only first 6
+  };
+
+  const handlePlayGame = (url: string) => {
+    setSelectedGameUrl(url);
+    setIsGameModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsGameModalOpen(false);
+    setSelectedGameUrl(null);
+  };
+
+  const handleOpenExternal = () => {
+    if (selectedGameUrl) {
+      window.open(selectedGameUrl, '_blank');
+    }
   };
 
   return (
@@ -272,23 +293,40 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {ideas.slice(0, visibleIdeasCount).map((idea, index) => (
-                <button
+                <div
                   key={`${idea.title}-${index}`}
-                  onClick={() => {
-                    setInputValue(idea.prompt);
-                    // For Godot, the component will pick up the value via initialDescription prop
-                  }}
-                  className="p-4 text-left bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl text-sm transition-all flex items-start gap-3 shadow-sm"
+                  className="p-4 text-left bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl text-sm transition-all flex items-start gap-3 shadow-sm relative group"
                 >
-                  <span className="text-xl leading-none pt-0.5">{idea.emoji}</span>
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900 mb-1">{idea.title}</div>
-                    <p className="text-gray-600 text-[13px] leading-relaxed mb-2 whitespace-pre-line">
-                      {idea.description}
-                    </p>
-
+                  <span className="text-xl leading-none pt-0.5 flex-shrink-0">{idea.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => {
+                        setInputValue(idea.prompt);
+                        // For Godot, the component will pick up the value via initialDescription prop
+                      }}
+                      className="w-full text-left"
+                    >
+                      <div className="font-medium text-gray-900 mb-1">{idea.title}</div>
+                      <p className="text-gray-600 text-[13px] leading-relaxed mb-2 whitespace-pre-line">
+                        {idea.description}
+                      </p>
+                    </button>
                   </div>
-                </button>
+                  {idea.previewUrl && (
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayGame(idea.previewUrl!);
+                        }}
+                        className="w-8 h-8 rounded-full bg-white/90 dark:bg-gray-800/90 flex items-center justify-center shadow-sm hover:bg-white dark:hover:bg-gray-800 transition-colors"
+                        title="Preview Game"
+                      >
+                        <ExternalLink className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
             {ideas.length > 6 && (
@@ -313,6 +351,41 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
           </div>
         </div>
       )}
+
+      {/* Game Preview Modal - Same as Hub */}
+      <Dialog open={isGameModalOpen} onOpenChange={setIsGameModalOpen}>
+        <DialogContent className="!max-w-none !w-[98vw] !h-[95vh] p-0" style={{ width: '98vw', height: '95vh', maxWidth: 'none', maxHeight: 'none' }}>
+          <DialogHeader className="p-6 pb-0 mt-2">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold">
+                Playing Game
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenExternal}
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open in New Tab
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          {selectedGameUrl && (
+            <div className="flex-1 p-6 pt-0" style={{ height: 'calc(95vh - 120px)' }}>
+              <iframe
+                src={selectedGameUrl}
+                className="w-full h-full border-0 rounded-lg"
+                title="Game Preview"
+                allow="fullscreen; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ height: 'calc(95vh - 120px)' }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -451,7 +524,8 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
         title: game.name,
         description: shortDesc + '\nClick to use the full detailed prompt.',
         emoji: getEmojiForGame(game.name),
-        prompt: game.details // Use exact prompt from CSV
+        prompt: game.details, // Use exact prompt from CSV
+        previewUrl: game.previewUrl // Include preview URL if available
       };
     });
 
