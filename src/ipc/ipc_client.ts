@@ -3125,7 +3125,7 @@ export class IpcClient {
 
   public async getGodotWebExportUrl(params: {
     appId: number;
-  }): Promise<{ hasExport: boolean; exportUrl?: string; exportPath?: string }> {
+  }): Promise<{ hasExport: boolean; exportUrl?: string; exportPath?: string; error?: string; errorDetails?: any }> {
     return this.ipcRenderer.invoke("godot:get-web-export-url", params);
   }
 

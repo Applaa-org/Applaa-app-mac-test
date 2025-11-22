@@ -2,9 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useAtomValue } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
+import { useGodotProjectStatus } from "./useGodotProjectStatus";
 
 export function useGodotExport() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  const { hasProject } = useGodotProjectStatus();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["godot-export", selectedAppId],
@@ -15,7 +17,8 @@ export function useGodotExport() {
       console.log(`[useGodotExport] App ${selectedAppId}:`, result);
       return result;
     },
-    enabled: !!selectedAppId,
+    // Only enable export query if project exists
+    enabled: !!selectedAppId && hasProject,
     // Only refetch if export doesn't exist or URL is missing
     refetchInterval: (query) => {
       const data = query.state.data;

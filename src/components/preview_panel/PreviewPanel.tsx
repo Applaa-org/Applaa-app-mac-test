@@ -28,6 +28,7 @@ import { WebPreviewTimeoutPopup } from "../WebPreviewTimeoutPopup";
 import { useExpoUrl } from "@/hooks/useExpoUrl";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
 import { useGodotExport } from "@/hooks/useGodotExport";
+import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
 import { useQuery } from "@tanstack/react-query";
 // DesignTab removed for MVP
 
@@ -74,10 +75,12 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [showConfigurePanel, setShowConfigurePanel] = useAtom(showConfigurePanelAtom);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [showProblemsPanel, setShowProblemsPanel] = useState(false);
-  const { runApp, stopApp, loading, app, refreshAppIframe, restartApp, setAppUrlObj } = useRunApp();
+  const { runApp, stopApp, loading, app, refreshAppIframe, restartApp } = useRunApp();
+  const [, setAppUrlObj] = useAtom(appUrlAtom);
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
   const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
+  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading } = useGodotProjectStatus();
   const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
   
@@ -304,23 +307,49 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
               <div className="h-full overflow-y-auto">
                 {previewMode === "preview" ? (
                   // Show appropriate component based on app type
-                  // Godot apps - show export if available, otherwise show message
+                  // Godot apps - show loading until project is built, then show export if available
                   isGodotApp ? (
-                    hasGodotExport && godotExportUrl ? (
+                    // First check if project exists - show loading if it doesn't
+                    // Also check if we're still loading the project status
+                    !hasGodotProject || isGodotProjectLoading ? (
+                      <div className="godot-preview-container h-full">
+                        <div className="godot-message">
+                          <div className="godot-message-icon">🎮</div>
+                          <div className="godot-message-title">Building Game...</div>
+                          <div className="godot-message-text">
+                            {isGodotProjectLoading 
+                              ? "Checking project status..."
+                              : "Creating game project from specification. This may take a moment..."}
+                          </div>
+                          <div className="mt-4 godot-loading">
+                            <div className="godot-spinner"></div>
+                            <p className="mt-4" style={{ color: 'var(--godot-text-secondary)' }}>Please wait while we build your game...</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : hasGodotProject && !isGodotProjectLoading && hasGodotExport && godotExportUrl ? (
+                      // Project exists AND export is ready AND we're not loading - show preview
                       <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
                     ) : (
+                      // Project exists but export is not ready
                       <div className="godot-preview-container h-full">
                         <div className="godot-message">
                           <div className="godot-message-icon">🎮</div>
                           <div className="godot-message-title">Applaa Game Project</div>
                           <div className="godot-message-text">
                             {isGodotExportLoading 
-                              ? "Checking for export..."
+                              ? "Creating web export..."
                               : hasGodotExport 
                                 ? "Export found but URL is not available. Please try exporting again."
-                                : "No web export found. Creating export automatically..."}
+                                : "Project ready! Creating web export automatically..."}
                           </div>
-                          {(godotExportError || (godotExportData && !godotExportData.hasExport && godotExportData.error)) && (
+                          {isGodotExportLoading && (
+                            <div className="mt-4 godot-loading">
+                              <div className="godot-spinner"></div>
+                              <p className="mt-4" style={{ color: 'var(--godot-text-secondary)' }}>Creating web export...</p>
+                            </div>
+                          )}
+                          {(godotExportError || (godotExportData && !godotExportData.hasExport && 'error' in godotExportData && godotExportData.error)) && (
                             <div className="mt-4 p-4 rounded" style={{ 
                               background: 'rgba(239, 68, 68, 0.1)',
                               border: '1px solid rgba(239, 68, 68, 0.3)'
@@ -331,15 +360,15 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                               <div className="text-xs text-red-300 mb-2">
                                 {godotExportError 
                                   ? (godotExportError instanceof Error ? godotExportError.message : String(godotExportError))
-                                  : godotExportData?.error || "Unknown error occurred"}
+                                  : (godotExportData && 'error' in godotExportData ? String(godotExportData.error) : "Unknown error occurred")}
                               </div>
-                              {(godotExportErrorDetails || godotExportData?.errorDetails) && (
+                              {(godotExportErrorDetails || (godotExportData && 'errorDetails' in godotExportData && godotExportData.errorDetails)) && (
                                 <details className="mt-2">
                                   <summary className="text-xs text-red-400 cursor-pointer hover:text-red-300">
                                     Show error details
                                   </summary>
                                   <pre className="mt-2 text-xs text-red-200 bg-black/20 p-2 rounded overflow-auto max-h-40">
-                                    {JSON.stringify(godotExportErrorDetails || godotExportData?.errorDetails, null, 2)}
+                                    {JSON.stringify(godotExportErrorDetails || (godotExportData && 'errorDetails' in godotExportData ? godotExportData.errorDetails : null), null, 2)}
                                   </pre>
                                 </details>
                               )}
