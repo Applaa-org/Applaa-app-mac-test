@@ -696,6 +696,7 @@ renderer/rendering_method="forward_plus"
     ): Promise<{
       hasProject: boolean;
       hasSpec: boolean;
+      isBuilding: boolean;
       projectPath?: string;
       specPath?: string;
     }> => {
@@ -716,10 +717,16 @@ renderer/rendering_method="forward_plus"
           path.join(projectPath, "project.godot")
         );
         const hasSpec = fs.existsSync(specPath);
+        
+        // Check if app is still being built (status is 'building')
+        // Even if project.godot exists, if status is 'building', the game is not complete yet
+        const appStatus = (app as any).status;
+        const isBuilding = appStatus === 'building' || appStatus === 'creating';
 
         return {
           hasProject,
           hasSpec,
+          isBuilding,
           projectPath: hasProject ? projectPath : undefined,
           specPath: hasSpec ? specPath : undefined,
         };

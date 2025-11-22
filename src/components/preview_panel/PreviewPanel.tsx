@@ -80,7 +80,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
   const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
-  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading } = useGodotProjectStatus();
+  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading, isBuilding: isGodotBuilding } = useGodotProjectStatus();
   const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
   
@@ -309,9 +309,9 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                   // Show appropriate component based on app type
                   // Godot apps - show loading until project is built, then show export if available
                   isGodotApp ? (
-                    // First check if project exists - show loading if it doesn't
+                    // First check if project exists OR if app is still building - show loading if either is true
                     // Also check if we're still loading the project status
-                    !hasGodotProject || isGodotProjectLoading ? (
+                    !hasGodotProject || isGodotProjectLoading || isGodotBuilding ? (
                       <div className="godot-preview-container h-full">
                         <div className="godot-message">
                           <div className="godot-message-icon">🎮</div>
@@ -319,7 +319,9 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                           <div className="godot-message-text">
                             {isGodotProjectLoading 
                               ? "Checking project status..."
-                              : "Creating game project from specification. This may take a moment..."}
+                              : isGodotBuilding
+                                ? "Game is being created. This may take a moment..."
+                                : "Creating game project from specification. This may take a moment..."}
                           </div>
                           <div className="mt-4 godot-loading">
                             <div className="godot-spinner"></div>
@@ -327,7 +329,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                           </div>
                         </div>
                       </div>
-                    ) : hasGodotProject && !isGodotProjectLoading && hasGodotExport && godotExportUrl ? (
+                    ) : hasGodotProject && !isGodotProjectLoading && !isGodotBuilding && hasGodotExport && godotExportUrl ? (
                       // Project exists AND export is ready AND we're not loading - show preview
                       <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
                     ) : (

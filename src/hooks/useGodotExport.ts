@@ -6,7 +6,7 @@ import { useGodotProjectStatus } from "./useGodotProjectStatus";
 
 export function useGodotExport() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
-  const { hasProject } = useGodotProjectStatus();
+  const { hasProject, isBuilding } = useGodotProjectStatus();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["godot-export", selectedAppId],
@@ -17,8 +17,8 @@ export function useGodotExport() {
       console.log(`[useGodotExport] App ${selectedAppId}:`, result);
       return result;
     },
-    // Only enable export query if project exists
-    enabled: !!selectedAppId && hasProject,
+    // Only enable export query if project exists AND is not building
+    enabled: !!selectedAppId && hasProject && !isBuilding,
     // Only refetch if export doesn't exist or URL is missing
     refetchInterval: (query) => {
       const data = query.state.data;

@@ -3117,6 +3117,7 @@ export class IpcClient {
   }): Promise<{
     hasProject: boolean;
     hasSpec: boolean;
+    isBuilding: boolean;
     projectPath?: string;
     specPath?: string;
   }> {

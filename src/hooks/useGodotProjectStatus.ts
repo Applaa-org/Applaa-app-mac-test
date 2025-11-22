@@ -15,11 +15,11 @@ export function useGodotProjectStatus() {
       return result;
     },
     enabled: !!selectedAppId,
-    // Poll every 2 seconds if project doesn't exist yet
+    // Poll every 2 seconds if project doesn't exist yet or is still building
     refetchInterval: (query) => {
       const data = query.state.data;
-      // If project exists, stop polling
-      if (data?.hasProject) {
+      // If project exists AND is not building, stop polling
+      if (data?.hasProject && !data?.isBuilding) {
         return false;
       }
       // Otherwise, check every 2 seconds
@@ -31,6 +31,7 @@ export function useGodotProjectStatus() {
   return {
     hasProject: data?.hasProject ?? false,
     hasSpec: data?.hasSpec ?? false,
+    isBuilding: data?.isBuilding ?? false,
     projectPath: data?.projectPath,
     specPath: data?.specPath,
     isLoading,
