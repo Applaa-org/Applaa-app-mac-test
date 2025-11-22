@@ -49,6 +49,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
         deployment_status TEXT DEFAULT 'not_deployed',
         last_deployment_at INTEGER,
         deployment_notes TEXT,
+        show_in_hub INTEGER DEFAULT 0,
         chat_context TEXT,
         app_type TEXT DEFAULT 'web'
       )
@@ -313,6 +314,7 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
   const hasLocalApkBuiltAt = tableInfo.some(col => col.name === 'local_apk_built_at');
   const hasLocalAabBuiltAt = tableInfo.some(col => col.name === 'local_aab_built_at');
   const hasLocalIpaBuiltAt = tableInfo.some(col => col.name === 'local_ipa_built_at');
+  const hasShowInHub = tableInfo.some(col => col.name === 'show_in_hub');
   
   if (!hasAppType) {
     logger.log("Adding missing app_type column to apps table");
@@ -462,6 +464,13 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
     logger.log("Adding missing local_ipa_built_at column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN local_ipa_built_at INTEGER").run();
     logger.log("Successfully added local_ipa_built_at column");
+  }
+  
+  // 🌐 HUB VISIBILITY: Add show_in_hub column for user consent
+  if (!hasShowInHub) {
+    logger.log("Adding missing show_in_hub column to apps table for Hub visibility consent");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN show_in_hub INTEGER DEFAULT 0").run();
+    logger.log("Successfully added show_in_hub column - Hub visibility consent enabled!");
   }
 }
 

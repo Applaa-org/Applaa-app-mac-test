@@ -32,6 +32,13 @@ const validInvokeChannels = [
   "get-chat",
   "get-chats",
   "get-chat-logs",
+  "console-db-data",
+  "sync-all-apps-to-supabase",
+  "test-sync-single-app",
+  "test-sync-single-app-direct",
+  "verify-app-in-supabase",
+  "list-apps-in-supabase",
+  "test-supabase-connection",
   "list-apps",
   "get-app",
   "get-app-env-vars",
@@ -411,4 +418,65 @@ contextBridge.exposeInMainWorld("applaaTerminal", {
 // Expose shell API
 contextBridge.exposeInMainWorld("applaaShell", {
   openExternal: (url: string) => ipcRenderer.invoke("shell:open-external", url),
+});
+
+// Expose a simple function to view database data in browser console
+contextBridge.exposeInMainWorld("viewAppData", async () => {
+  try {
+    const result = await ipcRenderer.invoke("console-db-data");
+    
+    if (result.success) {
+      console.group("🔍 Applaa Database Data");
+      console.log("📊 Summary:", result.summary);
+      console.log("\n📋 Apps:");
+      console.table(result.apps);
+      console.log("\n💬 Chats:");
+      console.table(result.chats);
+      console.log("\n📝 Versions:");
+      console.table(result.versions);
+      console.log("\n💬 Message Counts:");
+      console.table(result.messageCounts);
+      console.groupEnd();
+      
+      // Also return the data for further inspection
+      return result;
+    } else {
+      console.error("❌ Error:", result.error);
+      return result;
+    }
+  } catch (error) {
+    console.error("❌ Failed to fetch database data:", error);
+    throw error;
+  }
+});
+
+// Also expose it via window.electron for consistency
+contextBridge.exposeInMainWorld("applaa", {
+  viewAppData: async () => {
+    try {
+      const result = await ipcRenderer.invoke("console-db-data");
+      
+      if (result.success) {
+        console.group("🔍 Applaa Database Data");
+        console.log("📊 Summary:", result.summary);
+        console.log("\n📋 Apps:");
+        console.table(result.apps);
+        console.log("\n💬 Chats:");
+        console.table(result.chats);
+        console.log("\n📝 Versions:");
+        console.table(result.versions);
+        console.log("\n💬 Message Counts:");
+        console.table(result.messageCounts);
+        console.groupEnd();
+        
+        return result;
+      } else {
+        console.error("❌ Error:", result.error);
+        return result;
+      }
+    } catch (error) {
+      console.error("❌ Failed to fetch database data:", error);
+      throw error;
+    }
+  },
 });

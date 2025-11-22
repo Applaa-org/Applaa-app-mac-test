@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import log from 'electron-log';
 import { readSettings, writeSettings } from '../../main/settings';
 import { loadWordPressConfig, getWordPressAuthEndpoint } from '../../lib/wordpress-config';
+import { syncWordPressUserToSupabase } from '../../lib/supabase';
 
 // WordPress Auth state management
 let isAuthenticated = false;
@@ -133,6 +134,21 @@ export function registerWordPressAuthHandlers() {
         // Continue without saving to settings - authentication still works
       }
       
+      // Sync WordPress user to Supabase (non-blocking)
+      try {
+        await syncWordPressUserToSupabase({
+          email: currentUser.email,
+          username: currentUser.username,
+          display_name: currentUser.display_name,
+          id: currentUser.id,
+          roles: currentUser.roles,
+          avatar_url: currentUser.avatar_url,
+        });
+      } catch (error) {
+        log.warn('Failed to sync WordPress user to Supabase (non-critical):', error);
+        // Don't fail login if Supabase sync fails
+      }
+      
       log.info('WordPress user authenticated successfully:', currentUser.username);
       return { 
         success: true, 
@@ -202,6 +218,33 @@ export function registerWordPressAuthHandlers() {
       };
     } catch (error) {
       log.error('WordPress registration failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
+  // Sync WordPress user to Supabase (manual trigger)
+  ipcMain.handle('wordpress:sync-to-supabase', async () => {
+    try {
+      if (!currentUser || !isAuthenticated) {
+        return { success: false, error: 'No WordPress user logged in' };
+      }
+
+      const profile = await syncWordPressUserToSupabase({
+        email: currentUser.email,
+        username: currentUser.username,
+        display_name: currentUser.display_name,
+        id: currentUser.id,
+        roles: currentUser.roles,
+        avatar_url: currentUser.avatar_url,
+      });
+
+      if (!profile) {
+        return { success: false, error: 'Supabase not configured or sync failed' };
+      }
+
+      return { success: true, profile };
+    } catch (error) {
+      log.error('Failed to sync WordPress user to Supabase:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   });

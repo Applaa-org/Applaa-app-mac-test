@@ -12,6 +12,7 @@ import { HomeChatInput } from '@/components/chat/HomeChatInput';
 import { SimpleAppTypeSelector } from './SimpleAppTypeSelector';
 import { ComingSoonCards } from './ComingSoonCards';
 import { FeaturedGames } from './FeaturedGames';
+import { YourDeployedApps } from './YourDeployedApps';
 import { GodotGameCreationInput } from '@/components/godot/GodotGameCreationInput';
 // 🚀 PERFORMANCE: Commented out for MVP - move to website as marketing content
 // import { ComingSoonTiles } from './ComingSoonTiles';
@@ -173,6 +174,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
       {!selectedAppType ? (
         <>
           <SimpleAppTypeSelector onSelection={handleAppTypeSelection} />
+          
+          {/* Your Deployed Apps */}
+          <YourDeployedApps className="mt-12" />
           
           {/* Featured Games */}
           <FeaturedGames className="mt-12" />

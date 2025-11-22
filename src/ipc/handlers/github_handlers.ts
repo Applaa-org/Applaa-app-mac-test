@@ -629,6 +629,14 @@ async function handleDisconnectGithubRepo(
       githubBranch: null,
     })
     .where(eq(apps.id, appId));
+  
+  // Sync app to Supabase (non-blocking)
+  try {
+    const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
+    await syncAppByIdToSupabase(appId);
+  } catch (error) {
+    logger.warn('Failed to sync app to Supabase (non-critical):', error);
+  }
 }
 
 

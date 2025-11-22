@@ -71,6 +71,27 @@ function getEmojiForGame(name: string): string {
 }
 
 export const GODOT_GAMES_DATA: GodotGameData[] = [
+
+  {
+    name: "3D endless obstacle",
+    previewUrl: ' https://applaa-temple-run.vercel.app/',
+    details:
+    `Create a complete, fully playable, mobile-optimized 3D endless obstacle runner game in Godot inspired by Temple Run, but not copying it. Build an auto-running character who continuously runs forward on a three-lane ancient jungle temple pathway. The core mechanics must support lane switching, jumping, sliding, tilting movement, obstacle avoidance, and power-up pickups. The game must have a procedural path system that generates new terrain chunks ahead of the player dynamically, including straight paths, left turns, right turns, broken bridges, stairs, elevated platforms, narrow cliff edges, collapsing segments, temples, ruins, and special challenge segments. Each terrain chunk must be defined as a reusable Godot scene that can spawn obstacles and pickups at random spawn points.
+Implement left/right swipe or key input to switch lanes instantly, but include animation blending for smooth visual transitions. Up input triggers a jump using a full-body animation; down triggers a slide that lowers the collision shape. Add stumble states when the player clips an obstacle; after two stumbles, the chasing enemy catches the player. Include an enemy chase system where a guardian spirit or golem follows the player at a fixed distance; if the player stumbles, reduce the distance; if the player collects speed boosts, increase distance. Add falling animations, hit reactions, coin pickup effects, and edge‑grabbing animations if the player barely misses a jump.
+
+Include obstacles such as fallen trees, spike floors, rolling stones, swinging blades, flames, collapsing floors, sudden gaps, narrow balance beams, rotating pillars, temple traps, breakable walls, and branched paths. Each obstacle is its own scene with defined collision shapes, activation triggers, animations, and failure conditions.
+
+Add a full scoring system based on distance, coins, combos, and missions. Add coin pickups arranged in curved patterns, lanes, arcs over jumps, and special magnet-friendly arrangements. Power-ups include magnet (collect all coins around player), speed boost (auto-dodge obstacles for a duration), shield (1-hit protection), double coin multiplier, slow-motion, and path preview (show obstacles ahead as holograms). Add visual UI indicators for active power-ups with countdown timers.
+
+Design the UI with a high-quality mobile layout: main menu with animated background, character select, upgrades menu, mission panel, coin/gem shop, settings, pause menu, revive screen, game over screen, daily rewards popup, and achievement notifications. Implement offline save for high scores, missions, and purchases.
+
+Include multiple characters with small ability variations (longer magnet duration, faster lane switching, slower stumble penalty). All characters must use the same skeleton and animation set.
+
+Provide haptic feedback triggers for mobile, sound effects for jumps, hits, pickups, footsteps, environment ambiance (wind, temple echoes, birds), and theme music with dynamic layers. Add camera smoothing, field-of-view changes during speed boosts, dynamic motion blur, god rays, fog, and dust particles for atmosphere.
+
+Output full Godot structure in JSON: scene hierarchy for player, path chunks, obstacles, power-ups, UI layers, camera rig, enemy chaser, sound system, VFX, and scripts. Include the procedural chunk spawner, obstacle manager, pickup manager, power-up controller, and difficulty scaler. Difficulty should increase based on distance, gradually increasing speed, obstacle density, and terrain complexity. Ensure mobile performance is optimized.`
+  },
+
   {
     name: "Abstract Speedster",
     previewUrl: "https://applaa-abstract-speedster.vercel.app",
@@ -179,48 +200,11 @@ Assets folder with placeholder images and sounds.
 Clear README explaining setup and constants.`,
   },
   {
-    name: "Collect & Run Challenge",
-    previewUrl: "https://applaa-collect-run-challenge-3.vercel.app",
-    details: `🚀 BOOST MY APP: Apply premium design enhancements to this application:
-
-🎨 VISUAL ENHANCEMENTS:
-
-Add modern gradients and premium color schemes
-
-Implement glassmorphism effects and subtle shadows
-
-Enhance typography with proper font weights and hierarchy
-
-Add micro-animations and smooth transitions
-
-Improve card designs with rounded corners and better spacing
-
-💎 INTERACTIVE IMPROVEMENTS:
-
-Add hover effects and touch feedback
-
-Implement loading states and skeleton screens
-
-Enhance navigation with badges and meaningful icons
-
-Add pull-to-refresh and smooth page transitions
-
-Improve form interactions with real-time validation
-
-📱 USER EXPERIENCE:
-
-Optimize for mobile-first responsive design
-
-Add engaging empty states and error handling
-
-Implement search functionality with live filtering
-
-Add more realistic mock data (8-12 items per section)
-
-Enhance accessibility with proper contrast and ARIA labels
-
-Continue building on what's already there while applying these premium design patterns.`,
+    name: "Snake Game",
+    previewUrl: "https://applaa-snake-2.vercel.app",
+    details: `2D top-down arcade game inspired by Centipede, rendered with simple vector graphics (Nokia 3310 screen colors: high contrast green/monochrome/blue), bright, bold colors for targets, pixelated score display, retro aesthetic with smooth modern animation polish. Player is a small triangle shooting a segmented enemy line (the "worm").`,
   },
+ 
   {
     name: "Flying Adventure",
     previewUrl: "https://applaa-flying-adventure.vercel.app",
@@ -307,11 +291,7 @@ Experience
 
 Magical, calm but adventurous, nature-themed.`,
   },
-  {
-    name: "Snake Game",
-    previewUrl: "https://applaa-snake-2.vercel.app",
-    details: `2D top-down arcade game inspired by Centipede, rendered with simple vector graphics (Nokia 3310 screen colors: high contrast green/monochrome/blue), bright, bold colors for targets, pixelated score display, retro aesthetic with smooth modern animation polish. Player is a small triangle shooting a segmented enemy line (the "worm").`,
-  },
+ 
   {
     name: "Royal Stak Cards",
     previewUrl: "https://applaa-royal-stack.vercel.app",

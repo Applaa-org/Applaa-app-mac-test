@@ -1097,6 +1097,7 @@ export class IpcClient {
     vercelDeploymentUrl?: string;
     deploymentStatus?: string;
     deploymentNotes?: string;
+    showInHub?: boolean;
   }): Promise<void> {
     await this.ipcRenderer.invoke("app:update-deployment-urls", params);
   }
@@ -1219,6 +1220,117 @@ export class IpcClient {
 
   public async getChatLogs(chatId: number): Promise<ChatLogsData> {
     return this.ipcRenderer.invoke("get-chat-logs", chatId);
+  }
+
+  public async consoleDbData(): Promise<{
+    success: boolean;
+    summary?: {
+      apps: number;
+      chats: number;
+      messages: number;
+      versions: number;
+      languageModels: number;
+      providers: number;
+    };
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("console-db-data");
+  }
+
+  // Test sync single app to Supabase (for debugging)
+  public async testSyncSingleApp(appId: number): Promise<{
+    success: boolean;
+    message?: string;
+    appId?: number;
+    appName?: string;
+    error?: string;
+    errorCode?: string;
+    errorDetails?: string;
+    errorHint?: string;
+    fullError?: any;
+  }> {
+    return this.ipcRenderer.invoke("test-sync-single-app", { appId });
+  }
+
+  // Test sync using direct API call (shows in network tab)
+  public async testSyncSingleAppDirect(appId: number): Promise<{
+    success: boolean;
+    message?: string;
+    appId?: number;
+    appName?: string;
+    supabaseId?: string;
+    error?: string;
+    errorCode?: string;
+    errorDetails?: string;
+    errorHint?: string;
+    status?: number;
+    response?: any;
+    fullError?: any;
+  }> {
+    return this.ipcRenderer.invoke("test-sync-single-app-direct", { appId });
+  }
+
+  // Sync all apps to Supabase
+  public async syncAllAppsToSupabase(): Promise<{
+    success: boolean;
+    results?: {
+      total: number;
+      success: number;
+      failed: number;
+      errors: string[];
+    };
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("sync-all-apps-to-supabase");
+  }
+
+  // Verify app in Supabase
+  public async verifyAppInSupabase(appId: number): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+    code?: string;
+  }> {
+    return this.ipcRenderer.invoke("verify-app-in-supabase", { appId });
+  }
+
+  // List all apps in Supabase (for debugging)
+  public async listAppsInSupabase(): Promise<{
+    success: boolean;
+    totalApps?: number;
+    userDisplayName?: string | null;
+    userAppsCount?: number;
+    allApps?: any[];
+    userApps?: any[];  // Current user's apps
+    publicApps?: any[];  // All public apps
+    sampleApp?: any;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("list-apps-in-supabase");
+  }
+
+  // Test Supabase connection and data push
+  public async testSupabaseConnection(): Promise<{
+    success: boolean;
+    results?: {
+      connection: { success: boolean; error: string | null };
+      config: { hasUrl: boolean; hasServiceKey: boolean; url: string | null };
+      wordpress: { hasDisplayName: boolean; displayName: string | null };
+      tableExists: { success: boolean; error: string | null };
+      testInsert: { success: boolean; error: string | null; recordId: string | null };
+      testRead: { success: boolean; error: string | null; data: any };
+      testDelete: { success: boolean; error: string | null };
+    };
+    summary?: {
+      connection: string;
+      table: string;
+      insert: string;
+      read: string;
+    };
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("test-supabase-connection");
   }
 
   public async uploadToSignedUrl(
@@ -3053,6 +3165,15 @@ export class IpcClient {
     error?: string;
   }> {
     return this.ipcRenderer.invoke("wordpress:logout");
+  }
+
+  // Sync WordPress user to Supabase
+  public async wordpressSyncToSupabase(): Promise<{
+    success: boolean;
+    profile?: any;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:sync-to-supabase");
   }
 
   public async wordpressGetCurrentUser(): Promise<{

@@ -705,6 +705,20 @@ export function registerAppHandlers() {
         // displayName, packageId, and slug are now properly retrieved from database
         const app = row;
 
+        // Sync app to Supabase (non-blocking)
+        try {
+          const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
+          const settings = readSettings();
+          const userDisplayName = settings.wordpressAuth?.user?.display_name;
+          if (userDisplayName) {
+            await syncAppByIdToSupabase(app.id, userDisplayName);
+          } else {
+            log.warn('Skipping Supabase sync: No WordPress display_name found');
+          }
+        } catch (error) {
+          log.warn('Failed to sync app to Supabase (non-critical):', error);
+        }
+
         const chatCreateStart = performance.now();
         updateProgress(30, "Creating initial chat...");
         const [chat] = await db
@@ -1243,14 +1257,16 @@ renderer/rendering_method="forward_plus"
         vercelDeploymentUrl?: string;
         deploymentStatus?: string;
         deploymentNotes?: string;
+        showInHub?: boolean;
       },
     ): Promise<void> => {
-      const { appId, githubRepoUrl, vercelDeploymentUrl, deploymentStatus, deploymentNotes } = params;
+      const { appId, githubRepoUrl, vercelDeploymentUrl, deploymentStatus, deploymentNotes, showInHub } = params;
       logger.info(`Updating deployment URLs for app ${appId}:`, { 
         githubRepoUrl, 
         vercelDeploymentUrl, 
         deploymentStatus,
-        deploymentNotes 
+        deploymentNotes,
+        showInHub
       });
       
       // Fetch app first for safety and to potentially backfill org/repo
@@ -1286,12 +1302,14 @@ renderer/rendering_method="forward_plus"
       const hasDeploymentStatus = columnNames.includes('deployment_status');
       const hasLastDeploymentAt = columnNames.includes('last_deployment_at');
       const hasDeploymentNotes = columnNames.includes('deployment_notes');
+      const hasShowInHub = columnNames.includes('show_in_hub');
       
       logger.info(`Database columns check:`, {
         hasGithubRepoUrl,
         hasDeploymentStatus,
         hasLastDeploymentAt,
         hasDeploymentNotes,
+        hasShowInHub,
         allColumns: columnNames
       });
 
@@ -1317,6 +1335,11 @@ renderer/rendering_method="forward_plus"
         (updateValues as any).deploymentNotes = deploymentNotes || null;
       }
       
+      // Update show in hub consent (new field - only if column exists)
+      if (typeof showInHub !== "undefined" && hasShowInHub) {
+        (updateValues as any).showInHub = showInHub ? 1 : 0;
+      }
+      
       // Update last deployment timestamp (new field - only if column exists)
       if ((githubRepoUrl || vercelDeploymentUrl) && hasLastDeploymentAt) {
         (updateValues as any).lastDeploymentAt = new Date();
@@ -1335,6 +1358,20 @@ renderer/rendering_method="forward_plus"
         try {
           await db.update(apps).set(updateValues as any).where(eq(apps.id, appId));
           logger.info(`Successfully updated deployment URLs for app ${appId}`);
+          
+          // Sync app to Supabase (non-blocking)
+          try {
+            const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
+            const settings = readSettings();
+            const userDisplayName = settings.wordpressAuth?.user?.display_name;
+            if (userDisplayName) {
+              await syncAppByIdToSupabase(appId, userDisplayName);
+            } else {
+              log.warn('Skipping Supabase sync: No WordPress display_name found');
+            }
+          } catch (error) {
+            log.warn('Failed to sync app update to Supabase (non-critical):', error);
+          }
         } catch (updateError) {
           logger.error(`Failed to update app ${appId}:`, updateError);
           // Try to update only the existing columns if the new ones fail
@@ -2227,6 +2264,686 @@ renderer/rendering_method="forward_plus"
     } catch (error) {
       logger.error("Error selecting directory:", error);
       throw new Error(`Failed to select directory: ${error.message}`);
+    }
+  });
+
+  // Test sync single app to Supabase (for debugging)
+  ipcMain.handle("test-sync-single-app", async (_, { appId }: { appId: number }) => {
+    try {
+      const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
+      
+      const app = await db.query.apps.findFirst({ 
+        where: eq(apps.id, appId) 
+      });
+
+      if (!app) {
+        return { success: false, error: `App ${appId} not found` };
+      }
+
+      // Get WordPress display_name
+      const settings = readSettings();
+      const wpUser = settings.wordpressAuth?.user;
+      const userDisplayName = wpUser?.display_name;
+      
+      if (!userDisplayName) {
+        return { 
+          success: false, 
+          error: 'No WordPress user display_name found. Please log in with WordPress first.',
+        };
+      }
+
+      logger.info(`Testing sync for app: ${app.name} (ID: ${appId}) with display_name: ${userDisplayName}`);
+      
+      await syncAppByIdToSupabase(appId, userDisplayName);
+      
+      return { 
+        success: true, 
+        message: `App ${app.name} synced successfully`,
+        appId: appId,
+        appName: app.name,
+      };
+    } catch (error: any) {
+      logger.error(`Test sync failed for app ${appId}:`, error);
+      return {
+        success: false,
+        error: error.message,
+        errorCode: error.code,
+        errorDetails: error.details,
+        errorHint: error.hint,
+        status: error.status,
+        fullError: {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          status: error.status,
+          response: error.response,
+        },
+      };
+    }
+  });
+
+  // Test sync using direct API call (shows in network tab)
+  ipcMain.handle("test-sync-single-app-direct", async (_, { appId }: { appId: number }) => {
+    try {
+      const { syncAppToSupabaseDirect } = await import('../../lib/supabase_direct_sync');
+      
+      const app = await db.query.apps.findFirst({ 
+        where: eq(apps.id, appId) 
+      });
+
+      if (!app) {
+        return { success: false, error: `App ${appId} not found` };
+      }
+
+      // Get WordPress display_name from settings
+      const settings = readSettings();
+      const wpUser = settings.wordpressAuth?.user;
+      const userDisplayName = wpUser?.display_name;
+      
+      if (!userDisplayName) {
+        logger.error('No WordPress display_name found in settings');
+        logger.error('Settings wordpressAuth:', settings.wordpressAuth);
+        return { 
+          success: false, 
+          error: 'No WordPress user display_name found. Please log in with WordPress first.',
+          debug: {
+            hasWordPressAuth: !!settings.wordpressAuth,
+            isAuthenticated: settings.wordpressAuth?.isAuthenticated,
+            hasUser: !!wpUser,
+            user: wpUser,
+          },
+        };
+      }
+
+      logger.info(`Testing direct API sync for app: ${app.name} (ID: ${appId}) with display_name: ${userDisplayName}`);
+      
+      const result = await syncAppToSupabaseDirect({
+        id: app.id,
+        name: app.name,
+        path: app.path,
+        appType: app.appType,
+        status: app.status,
+        githubOrg: app.githubOrg,
+        githubRepo: app.githubRepo,
+        githubBranch: app.githubBranch,
+        githubRepoUrl: app.githubRepoUrl,
+        vercelProjectId: app.vercelProjectId,
+        vercelProjectName: app.vercelProjectName,
+        vercelTeamId: app.vercelTeamId,
+        vercelDeploymentUrl: app.vercelDeploymentUrl,
+        supabaseProjectId: app.supabaseProjectId,
+        neonProjectId: app.neonProjectId,
+        neonDevelopmentBranchId: app.neonDevelopmentBranchId,
+        neonPreviewBranchId: app.neonPreviewBranchId,
+        easBuildUrl: app.easBuildUrl,
+        easDeploymentUrl: app.easDeploymentUrl,
+        easProjectId: app.easProjectId,
+        easBuildId: app.easBuildId,
+        localApkPath: app.localApkPath,
+        localAabPath: app.localAabPath,
+        localIpaPath: app.localIpaPath,
+        localApkBuiltAt: app.localApkBuiltAt ? Number(app.localApkBuiltAt) : null,
+        localAabBuiltAt: app.localAabBuiltAt ? Number(app.localAabBuiltAt) : null,
+        localIpaBuiltAt: app.localIpaBuiltAt ? Number(app.localIpaBuiltAt) : null,
+        deploymentStatus: app.deploymentStatus,
+        lastDeploymentAt: app.lastDeploymentAt ? Number(app.lastDeploymentAt) : null,
+        deploymentNotes: app.deploymentNotes,
+      }, userDisplayName);
+      
+      return { 
+        success: true, 
+        message: `App ${app.name} synced successfully via direct API`,
+        appId: appId,
+        appName: app.name,
+        supabaseId: result.id,
+      };
+    } catch (error: any) {
+      logger.error(`Direct API sync failed for app ${appId}:`, error);
+      return {
+        success: false,
+        error: error.message,
+        errorCode: error.code,
+        errorDetails: error.details,
+        errorHint: error.hint,
+        status: error.status,
+        response: error.response,
+        fullError: {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          status: error.status,
+          response: error.response,
+        },
+      };
+    }
+  });
+
+  // Sync all apps to Supabase (manual trigger)
+  ipcMain.handle("sync-all-apps-to-supabase", async () => {
+    try {
+      // Get WordPress display_name once at the start
+      const settings = readSettings();
+      const wpUser = settings.wordpressAuth?.user;
+      const userDisplayName = wpUser?.display_name;
+      
+      if (!userDisplayName) {
+        logger.error('No WordPress display_name found. Please log in with WordPress first.');
+        return {
+          success: false,
+          error: 'No WordPress user display_name found. Please log in with WordPress first.',
+          debug: {
+            hasWordPressAuth: !!settings.wordpressAuth,
+            isAuthenticated: settings.wordpressAuth?.isAuthenticated,
+            hasUser: !!wpUser,
+            user: wpUser,
+          },
+        };
+      }
+      
+      logger.info(`Syncing apps to Supabase for user: ${userDisplayName}`);
+      
+      const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
+      const allApps = await db.query.apps.findMany();
+      
+      logger.info(`Syncing ${allApps.length} apps to Supabase...`);
+      
+      const results = {
+        total: allApps.length,
+        success: 0,
+        failed: 0,
+        errors: [] as string[],
+        failedApps: [] as Array<{
+          appId: number;
+          appName: string;
+          error: string;
+          errorCode?: string;
+          errorDetails?: string;
+          errorHint?: string;
+        }>,
+      };
+      
+      for (const app of allApps) {
+        try {
+          await syncAppByIdToSupabase(app.id, userDisplayName);
+          results.success++;
+          logger.info(`✅ Synced app: ${app.name} (ID: ${app.id})`);
+        } catch (error: any) {
+          results.failed++;
+          const errorMsg = `App ${app.id} (${app.name}): ${error.message}`;
+          results.errors.push(errorMsg);
+          results.failedApps.push({
+            appId: app.id as number,
+            appName: app.name as string,
+            error: error.message || String(error),
+            errorCode: error.code as string | undefined,
+            errorDetails: error.details as string | undefined,
+            errorHint: error.hint as string | undefined,
+          });
+          logger.error(`❌ Failed to sync app ${app.id} (${app.name}):`, error);
+          logger.error(`   Error code: ${error.code || 'N/A'}`);
+          logger.error(`   Error details: ${error.details || 'N/A'}`);
+          logger.error(`   Error hint: ${error.hint || 'N/A'}`);
+        }
+      }
+      
+      logger.info(`Sync complete: ${results.success} succeeded, ${results.failed} failed`);
+      
+      if (results.failed > 0) {
+        logger.error(`\n❌ ${results.failed} apps failed to sync:`);
+        results.failedApps.forEach((failedApp) => {
+          logger.error(`   - App ${failedApp.appId} (${failedApp.appName}):`);
+          logger.error(`     Error: ${failedApp.error}`);
+          if (failedApp.errorCode) logger.error(`     Code: ${failedApp.errorCode}`);
+          if (failedApp.errorDetails) logger.error(`     Details: ${failedApp.errorDetails}`);
+          if (failedApp.errorHint) logger.error(`     Hint: ${failedApp.errorHint}`);
+        });
+      }
+      
+      return {
+        success: results.failed === 0,
+        results,
+        message: `Synced ${results.success} of ${results.total} apps to Supabase${results.failed > 0 ? ` (${results.failed} failed)` : ''}`,
+        failedApps: results.failedApps,
+      };
+    } catch (error: any) {
+      logger.error('Failed to sync apps to Supabase:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  // Verify app in Supabase (for debugging)
+  ipcMain.handle("verify-app-in-supabase", async (_, { appId }: { appId: number }) => {
+    try {
+      const { verifyAppInSupabase } = await import('../../lib/supabase');
+      const { getWordPressUserDisplayName } = await import('../../lib/supabase');
+      
+      const userDisplayName = getWordPressUserDisplayName();
+      if (!userDisplayName) {
+        return { success: false, error: 'No WordPress user display_name found' };
+      }
+
+      const result = await verifyAppInSupabase(appId, userDisplayName);
+      
+      if (result.success) {
+        logger.info(`✅ App ${appId} verified in Supabase for user: ${userDisplayName}`);
+        logger.info(`   Supabase record:`, result.data);
+      } else {
+        logger.warn(`❌ App ${appId} not found in Supabase: ${result.error}`);
+      }
+      
+      return result;
+    } catch (error: any) {
+      logger.error('Failed to verify app in Supabase:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  // List all apps in Supabase (for debugging - uses service role)
+  ipcMain.handle("list-apps-in-supabase", async () => {
+    try {
+      // Get WordPress display_name from settings (already imported)
+      const settings = readSettings();
+      const wpUser = settings.wordpressAuth?.user;
+      const userDisplayName = wpUser?.display_name || null;
+      
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const supabaseUrl = process.env.SUPABASE_URL;
+
+      if (!serviceRoleKey || !supabaseUrl) {
+        return { success: false, error: 'Supabase not configured' };
+      }
+
+      const { createClient } = require('@supabase/supabase-js');
+      
+      const adminClient = createClient(
+        supabaseUrl,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
+
+      // Get all apps (service role bypasses RLS)
+      const { data: allApps, error: allError } = await adminClient
+        .from('user_apps')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (allError) {
+        logger.error('Error fetching all apps:', allError);
+        logger.error('Error code:', allError.code);
+        logger.error('Error message:', allError.message);
+        logger.error('Error details:', allError.details);
+        logger.error('Error hint:', allError.hint);
+        
+        // Try to check if table exists
+        try {
+          const { data: tableCheck, error: tableError } = await adminClient
+            .from('user_apps')
+            .select('id')
+            .limit(1);
+          logger.info('Table check result:', { data: tableCheck, error: tableError });
+        } catch (checkErr) {
+          logger.error('Table check failed:', checkErr);
+        }
+        
+        return { 
+          success: false, 
+          error: allError.message,
+          errorCode: allError.code,
+          errorDetails: allError.details,
+          errorHint: allError.hint,
+        };
+      }
+      
+      logger.info(`Query returned ${allApps?.length || 0} apps from user_apps table`);
+
+      // Get all apps with show_in_hub = true (public apps with consent)
+      let publicApps = [];
+      const { data: publicAppsData, error: publicError } = await adminClient
+        .from('user_apps')
+        .select('*')
+        .eq('show_in_hub', true)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (!publicError && publicAppsData) {
+        publicApps = publicAppsData;
+        logger.info(`Found ${publicApps.length} public apps (show_in_hub = true)`);
+      } else if (publicError) {
+        logger.warn(`Error querying public apps:`, publicError);
+      }
+
+      // Get apps for current user - try both user_display_name and user_email
+      let userApps = [];
+      if (userDisplayName) {
+        // Try user_display_name first (new schema)
+        const { data: userAppsData, error: userError } = await adminClient
+          .from('user_apps')
+          .select('*')
+          .eq('user_display_name', userDisplayName)
+          .eq('show_in_hub', true)  // Only consented apps
+          .order('created_at', { ascending: false });
+
+        if (!userError && userAppsData) {
+          userApps = userAppsData;
+          logger.info(`Found ${userApps.length} apps for current user: ${userDisplayName}`);
+        } else if (userError) {
+          logger.warn(`Error querying by user_display_name:`, userError);
+        }
+        
+        // Also try user_email (old schema) as fallback
+        const settings = readSettings();
+        const wpUser = settings.wordpressAuth?.user;
+        if (wpUser?.email && userApps.length === 0) {
+          const { data: userAppsDataEmail, error: userErrorEmail } = await adminClient
+            .from('user_apps')
+            .select('*')
+            .eq('user_email', wpUser.email)
+            .eq('show_in_hub', true)  // Only consented apps
+            .order('created_at', { ascending: false });
+
+          if (!userErrorEmail && userAppsDataEmail) {
+            userApps = userAppsDataEmail;
+            logger.info(`Found ${userApps.length} apps with user_email: ${wpUser.email}`);
+          }
+        }
+      }
+      
+      // If still no apps, check what user_display_name values actually exist
+      if (userApps.length === 0 && allApps && allApps.length > 0) {
+        const uniqueDisplayNames = [...new Set(allApps.map((app: any) => app.user_display_name).filter(Boolean))];
+        const uniqueEmails = [...new Set(allApps.map((app: any) => app.user_email).filter(Boolean))];
+        logger.warn(`No apps found for display_name "${userDisplayName}"`);
+        logger.warn(`Available user_display_name values:`, uniqueDisplayNames);
+        logger.warn(`Available user_email values:`, uniqueEmails);
+        logger.warn(`Your display_name: ${userDisplayName}`);
+        
+        // Show sample app to see what's actually stored
+        if (allApps.length > 0) {
+          logger.warn(`Sample app user_display_name: "${allApps[0]?.user_display_name}"`);
+          logger.warn(`Sample app user_email: "${allApps[0]?.user_email}"`);
+        }
+      }
+      
+      // Also try to get all apps and show sample
+      logger.info(`Total apps in Supabase: ${allApps?.length || 0}`);
+      logger.info(`Apps for user ${userDisplayName}: ${userApps.length}`);
+      if (allApps && allApps.length > 0) {
+        logger.info('Sample app:', JSON.stringify(allApps[0], null, 2));
+      }
+
+      logger.info(`Found ${allApps?.length || 0} total apps in Supabase`);
+      logger.info(`Found ${userApps.length} apps for user: ${userDisplayName || 'N/A'}`);
+      
+      // Debug: Check what user_display_name values exist
+      if (allApps && allApps.length > 0) {
+        const uniqueDisplayNames = [...new Set(allApps.map((app: any) => app.user_display_name).filter(Boolean))];
+        const uniqueEmails = [...new Set(allApps.map((app: any) => app.user_email).filter(Boolean))];
+        logger.info(`Unique user_display_name values in Supabase:`, uniqueDisplayNames);
+        logger.info(`Unique user_email values in Supabase:`, uniqueEmails);
+        logger.info(`Your display_name: ${userDisplayName}`);
+        logger.info(`Sample app user_display_name:`, allApps[0]?.user_display_name);
+        logger.info(`Sample app user_email:`, allApps[0]?.user_email);
+      } else {
+        logger.warn(`⚠️ No apps found in Supabase. This could mean:`);
+        logger.warn(`   1. Table is empty`);
+        logger.warn(`   2. Table name is wrong`);
+        logger.warn(`   3. RLS is blocking even service role (unlikely)`);
+        logger.warn(`   4. Data is in a different table`);
+        
+        // Try a simple count query
+        try {
+          const { count, error: countError } = await adminClient
+            .from('user_apps')
+            .select('*', { count: 'exact', head: true });
+          logger.info(`Table count query result:`, { count, error: countError });
+        } catch (countErr) {
+          logger.error('Count query failed:', countErr);
+        }
+      }
+
+      return {
+        success: true,
+        totalApps: publicApps?.length || 0,
+        userDisplayName: userDisplayName || null,
+        userAppsCount: userApps.length,
+        allApps: publicApps || [],  // All public apps
+        userApps: userApps,  // Current user's apps
+        publicApps: publicApps,  // Same as allApps for clarity
+        sampleApp: publicApps && publicApps.length > 0 ? publicApps[0] : null,
+        debug: {
+          uniqueDisplayNames: publicApps ? [...new Set(publicApps.map((app: any) => app.user_display_name).filter(Boolean))] : [],
+          uniqueEmails: publicApps ? [...new Set(publicApps.map((app: any) => app.user_email).filter(Boolean))] : [],
+          sampleAppDisplayName: publicApps && publicApps.length > 0 ? publicApps[0]?.user_display_name : null,
+          sampleAppEmail: publicApps && publicApps.length > 0 ? publicApps[0]?.user_email : null,
+        },
+      };
+    } catch (error: any) {
+      logger.error('Failed to list apps in Supabase:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  // Test Supabase connection and data push (comprehensive diagnostic)
+  ipcMain.handle("test-supabase-connection", async () => {
+    const results = {
+      connection: { success: false, error: null as string | null },
+      config: { hasUrl: false, hasServiceKey: false, url: null as string | null },
+      wordpress: { hasDisplayName: false, displayName: null as string | null },
+      tableExists: { success: false, error: null as string | null },
+      testInsert: { success: false, error: null as string | null, recordId: null as string | null },
+      testRead: { success: false, error: null as string | null, data: null as any },
+      testDelete: { success: false, error: null as string | null },
+    };
+
+    try {
+      // 1. Check configuration
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const supabaseUrl = process.env.SUPABASE_URL;
+      
+      results.config.hasUrl = !!supabaseUrl;
+      results.config.hasServiceKey = !!serviceRoleKey;
+      results.config.url = supabaseUrl || null;
+
+      if (!serviceRoleKey || !supabaseUrl) {
+        results.connection.success = false;
+        results.connection.error = 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment';
+        return { success: false, results };
+      }
+
+      // 2. Check WordPress display_name
+      // Get full WordPress user info for debugging
+      // Use the already imported readSettings from the top of the file
+      const settings = readSettings();
+      const wpUser = settings.wordpressAuth?.user;
+      const wpAuth = settings.wordpressAuth;
+      
+      // Check for display_name in multiple possible fields
+      const displayName = wpUser?.display_name || wpUser?.name || null;
+      
+      results.wordpress.hasDisplayName = !!displayName;
+      results.wordpress.displayName = displayName;
+      
+      // Add more debug info
+      results.wordpress = {
+        ...results.wordpress,
+        isAuthenticated: wpAuth?.isAuthenticated || false,
+        hasUser: !!wpUser,
+        hasEmail: !!wpUser?.email,
+        hasUsername: !!wpUser?.username,
+        fullUser: wpUser ? {
+          id: wpUser.id,
+          username: wpUser.username,
+          email: wpUser.email,
+          display_name: wpUser.display_name,
+        } : null,
+      };
+
+      if (!displayName) {
+        results.connection.success = false;
+        results.connection.error = 'No WordPress user display_name found. Please log in with WordPress.';
+        return { success: false, results };
+      }
+
+      const userDisplayName = displayName;
+
+      // 3. Test connection
+      const { createClient } = require('@supabase/supabase-js');
+      
+      const adminClient = createClient(
+        supabaseUrl,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
+
+      results.connection.success = true;
+
+      // 4. Check if table exists
+      try {
+        const { error: tableError } = await adminClient
+          .from('user_apps')
+          .select('id')
+          .limit(1);
+
+        if (tableError) {
+          results.tableExists.success = false;
+          results.tableExists.error = tableError.message;
+        } else {
+          results.tableExists.success = true;
+        }
+      } catch (error: any) {
+        results.tableExists.success = false;
+        results.tableExists.error = error.message;
+      }
+
+      // 5. Test insert - try user_display_name first, fallback to user_email if needed
+      let testAppData: any = {
+        user_display_name: userDisplayName,
+        local_app_id: 999999, // Test ID
+        app_name: 'TEST_APP_DELETE_ME',
+        app_type: 'web' as const,
+        status: 'test',
+      };
+
+      try {
+        const { data: insertData, error: insertError } = await adminClient
+          .from('user_apps')
+          .insert(testAppData)
+          .select()
+          .single();
+
+        if (insertError) {
+          // If insert failed due to user_email NOT NULL constraint
+          if (insertError.message?.includes('user_email') && insertError.message?.includes('not-null')) {
+            results.testInsert.success = false;
+            results.testInsert.error = `❌ Table schema issue: user_email column is NOT NULL. Please run this SQL in Supabase:\n\nALTER TABLE public.user_apps ALTER COLUMN user_email DROP NOT NULL;\n\nOr run the full migration: fix_user_email_not_null.sql`;
+            logger.error('Test insert failed - user_email is NOT NULL. Migration needed.');
+          } else {
+            results.testInsert.success = false;
+            results.testInsert.error = insertError.message;
+            logger.error('Test insert failed:', insertError);
+          }
+        } else {
+          results.testInsert.success = true;
+          results.testInsert.recordId = insertData.id;
+          logger.info('✅ Test insert successful, record ID:', insertData.id);
+        }
+      } catch (error: any) {
+        results.testInsert.success = false;
+        results.testInsert.error = error.message;
+        logger.error('Test insert exception:', error);
+      }
+
+      // 6. Test read
+      if (results.testInsert.success && results.testInsert.recordId) {
+        try {
+          const { data: readData, error: readError } = await adminClient
+            .from('user_apps')
+            .select('*')
+            .eq('id', results.testInsert.recordId)
+            .single();
+
+          if (readError) {
+            results.testRead.success = false;
+            results.testRead.error = readError.message;
+            logger.error('Test read failed:', readError);
+          } else {
+            results.testRead.success = true;
+            results.testRead.data = readData;
+            logger.info('✅ Test read successful:', readData);
+          }
+        } catch (error: any) {
+          results.testRead.success = false;
+          results.testRead.error = error.message;
+          logger.error('Test read exception:', error);
+        }
+      }
+
+      // 7. Clean up test record
+      if (results.testInsert.recordId) {
+        try {
+          const { error: deleteError } = await adminClient
+            .from('user_apps')
+            .delete()
+            .eq('id', results.testInsert.recordId);
+
+          if (deleteError) {
+            results.testDelete.success = false;
+            results.testDelete.error = deleteError.message;
+            logger.warn('Test delete failed (non-critical):', deleteError);
+          } else {
+            results.testDelete.success = true;
+            logger.info('✅ Test record deleted');
+          }
+        } catch (error: any) {
+          results.testDelete.success = false;
+          results.testDelete.error = error.message;
+          logger.warn('Test delete exception (non-critical):', error);
+        }
+      }
+
+      const allTestsPassed = 
+        results.connection.success &&
+        results.tableExists.success &&
+        results.testInsert.success &&
+        results.testRead.success;
+
+      return {
+        success: allTestsPassed,
+        results,
+        summary: {
+          connection: results.connection.success ? '✅ Connected' : '❌ Failed',
+          table: results.tableExists.success ? '✅ Exists' : '❌ Missing',
+          insert: results.testInsert.success ? '✅ Works' : '❌ Failed',
+          read: results.testRead.success ? '✅ Works' : '❌ Failed',
+        },
+      };
+    } catch (error: any) {
+      logger.error('Test Supabase connection failed:', error);
+      results.connection.success = false;
+      results.connection.error = error.message;
+      return { success: false, results, error: error.message };
     }
   });
 }

@@ -232,6 +232,95 @@ export function registerDebugHandlers() {
     },
   );
 
+  ipcMain.handle("console-db-data", async () => {
+    try {
+      const { db } = await import("@/db");
+      const { apps, chats, messages, versions } = await import("@/db/schema");
+      const { sql } = await import("drizzle-orm");
+      
+      // Get all apps with formatted data
+      const allApps = await db.select().from(apps);
+      const formattedApps = allApps.map((app) => ({
+        id: app.id,
+        name: app.name,
+        path: app.path,
+        type: app.appType || 'web',
+        status: app.status || 'ready',
+        createdAt: app.createdAt ? new Date(app.createdAt).toISOString() : null,
+        vercelDeploymentUrl: app.vercelDeploymentUrl || null,
+        vercelProjectId: app.vercelProjectId || null,
+        vercelProjectName: app.vercelProjectName || null,
+        githubRepoUrl: app.githubRepoUrl || null,
+        githubOrg: app.githubOrg || null,
+        githubRepo: app.githubRepo || null,
+        supabaseProjectId: app.supabaseProjectId || null,
+        neonProjectId: app.neonProjectId || null,
+        easDeploymentUrl: app.easDeploymentUrl || null,
+        easBuildUrl: app.easBuildUrl || null,
+        deploymentStatus: app.deploymentStatus || 'not_deployed',
+        lastDeploymentAt: app.lastDeploymentAt ? new Date(app.lastDeploymentAt).toISOString() : null,
+      }));
+
+      // Get all chats
+      const allChats = await db.select().from(chats);
+      const formattedChats = allChats.map((chat) => ({
+        id: chat.id,
+        appId: chat.appId,
+        title: chat.title || 'Untitled',
+        createdAt: chat.createdAt ? new Date(chat.createdAt).toISOString() : null,
+      }));
+
+      // Get message count per chat
+      const messageCounts = await db.select({
+        chatId: messages.chatId,
+        count: sql<number>`COUNT(*)`.as('count'),
+      }).from(messages).groupBy(messages.chatId);
+
+      // Get all versions
+      const allVersions = await db.select().from(versions);
+      const formattedVersions = allVersions.map((version) => ({
+        id: version.id,
+        appId: version.appId,
+        commitHash: version.commitHash,
+        createdAt: version.createdAt ? new Date(version.createdAt).toISOString() : null,
+      }));
+
+      const result = {
+        success: true,
+        summary: {
+          totalApps: allApps.length,
+          totalChats: allChats.length,
+          totalMessages: (await db.select().from(messages)).length,
+          totalVersions: allVersions.length,
+        },
+        apps: formattedApps,
+        chats: formattedChats,
+        versions: formattedVersions,
+        messageCounts: messageCounts.map(m => ({ chatId: m.chatId, count: m.count })),
+      };
+
+      // Also log to main process console for debugging
+      console.log("\n🔍 Applaa Database Data");
+      console.log("═".repeat(80));
+      console.log(`📊 Summary: ${result.summary.totalApps} apps, ${result.summary.totalChats} chats, ${result.summary.totalMessages} messages`);
+      console.log("\n📋 Apps:");
+      formattedApps.forEach((app) => {
+        console.log(`  [${app.id}] ${app.name} (${app.type})`);
+        if (app.vercelDeploymentUrl) console.log(`    → Vercel: ${app.vercelDeploymentUrl}`);
+        if (app.githubRepoUrl) console.log(`    → GitHub: ${app.githubRepoUrl}`);
+        if (app.easDeploymentUrl) console.log(`    → EAS: ${app.easDeploymentUrl}`);
+      });
+      
+      return result;
+    } catch (error: any) {
+      console.error("❌ Error reading database:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
   console.log("Registered debug IPC handlers");
 }
 
