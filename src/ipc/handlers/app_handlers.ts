@@ -1257,14 +1257,16 @@ renderer/rendering_method="forward_plus"
         vercelDeploymentUrl?: string;
         deploymentStatus?: string;
         deploymentNotes?: string;
+        showInHub?: boolean;
       },
     ): Promise<void> => {
-      const { appId, githubRepoUrl, vercelDeploymentUrl, deploymentStatus, deploymentNotes } = params;
+      const { appId, githubRepoUrl, vercelDeploymentUrl, deploymentStatus, deploymentNotes, showInHub } = params;
       logger.info(`Updating deployment URLs for app ${appId}:`, { 
         githubRepoUrl, 
         vercelDeploymentUrl, 
         deploymentStatus,
-        deploymentNotes 
+        deploymentNotes,
+        showInHub
       });
       
       // Fetch app first for safety and to potentially backfill org/repo
@@ -1300,12 +1302,14 @@ renderer/rendering_method="forward_plus"
       const hasDeploymentStatus = columnNames.includes('deployment_status');
       const hasLastDeploymentAt = columnNames.includes('last_deployment_at');
       const hasDeploymentNotes = columnNames.includes('deployment_notes');
+      const hasShowInHub = columnNames.includes('show_in_hub');
       
       logger.info(`Database columns check:`, {
         hasGithubRepoUrl,
         hasDeploymentStatus,
         hasLastDeploymentAt,
         hasDeploymentNotes,
+        hasShowInHub,
         allColumns: columnNames
       });
 
@@ -1329,6 +1333,11 @@ renderer/rendering_method="forward_plus"
       // Update deployment notes (new field - only if column exists)
       if (typeof deploymentNotes !== "undefined" && hasDeploymentNotes) {
         (updateValues as any).deploymentNotes = deploymentNotes || null;
+      }
+      
+      // Update show in hub consent (new field - only if column exists)
+      if (typeof showInHub !== "undefined" && hasShowInHub) {
+        (updateValues as any).showInHub = showInHub ? 1 : 0;
       }
       
       // Update last deployment timestamp (new field - only if column exists)

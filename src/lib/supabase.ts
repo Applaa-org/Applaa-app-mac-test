@@ -81,6 +81,7 @@ export interface Database {
           deployment_status: string | null;
           last_deployment_at: string | null;
           deployment_notes: string | null;
+          show_in_hub: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -117,6 +118,7 @@ export interface Database {
           deployment_status?: string | null;
           last_deployment_at?: string | null;
           deployment_notes?: string | null;
+          show_in_hub?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -153,6 +155,7 @@ export interface Database {
           deployment_status?: string | null;
           last_deployment_at?: string | null;
           deployment_notes?: string | null;
+          show_in_hub?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -631,6 +634,7 @@ export async function syncAppToSupabase(
     deploymentStatus?: string | null;
     lastDeploymentAt?: number | null;
     deploymentNotes?: string | null;
+    showInHub?: boolean | null;
   },
   userDisplayName: string
 ) {

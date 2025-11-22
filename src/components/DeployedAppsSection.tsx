@@ -37,11 +37,12 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
         const result = await IpcClient.getInstance().listAppsInSupabase();
         
         if (result.success && result.userApps) {
-          // Filter apps that are deployed (have deployment URL or status is deployed)
+          // Filter apps that are deployed (have deployment URL or status is deployed) AND have user consent
           const deployedApps = result.userApps.filter((app: any) => {
             const hasDeploymentUrl = app.vercel_deployment_url || app.eas_deployment_url;
             const isDeployed = app.deployment_status === 'deployed';
-            return hasDeploymentUrl || isDeployed;
+            const hasConsent = app.show_in_hub === true;
+            return (hasDeploymentUrl || isDeployed) && hasConsent;
           });
           
           setApps(deployedApps);

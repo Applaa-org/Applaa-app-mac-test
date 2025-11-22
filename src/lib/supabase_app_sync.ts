@@ -64,6 +64,7 @@ export async function syncAppByIdToSupabase(appId: number, userDisplayName: stri
         deploymentStatus: app.deploymentStatus,
         lastDeploymentAt: app.lastDeploymentAt ? Number(app.lastDeploymentAt) : null,
         deploymentNotes: app.deploymentNotes,
+        showInHub: app.showInHub ?? false,
       }, userDisplayName);
 
       if (!result) {

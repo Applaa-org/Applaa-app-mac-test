@@ -1097,6 +1097,7 @@ export class IpcClient {
     vercelDeploymentUrl?: string;
     deploymentStatus?: string;
     deploymentNotes?: string;
+    showInHub?: boolean;
   }): Promise<void> {
     await this.ipcRenderer.invoke("app:update-deployment-urls", params);
   }

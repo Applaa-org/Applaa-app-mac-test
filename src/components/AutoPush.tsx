@@ -548,6 +548,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
   const [repoName, setRepoName] = useState(projectName);
   const [vercelProjectName, setVercelProjectName] = useState(generateVercelProjectName(projectName));
   const [deployToVercel, setDeployToVercel] = useState<boolean>(AUTOPUSH_CONFIG.DEFAULT_DEPLOY_TO_VERCEL);
+  const [showInHub, setShowInHub] = useState(false);
   const [vercelProjectValidation, setVercelProjectValidation] = useState<{
     valid: boolean;
     available: boolean;
@@ -926,7 +927,8 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         await IpcClient.getInstance().updateAppDeploymentUrls({
           appId: currentApp.id,
           githubRepoUrl: githubRepoUrl,
-          vercelDeploymentUrl: finalVercelUrl || undefined
+          vercelDeploymentUrl: finalVercelUrl || undefined,
+          showInHub: showInHub
         });
         console.log(`✅ Saved deployment URLs for app ${currentApp.id}`);
       } catch (error) {
@@ -1089,6 +1091,28 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               {deployToVercel && " If Vercel deployment is enabled, it will deploy your app directly to Vercel using the deployment API."}
             </p>
           </div> */}
+        </div>
+
+        {/* Show in Hub Consent Checkbox */}
+        <div className="space-y-3 mb-4">
+          <div className="flex items-start space-x-2">
+            <input
+              type="checkbox"
+              id="show-in-hub-consent"
+              checked={showInHub}
+              onChange={(e) => setShowInHub(e.target.checked)}
+              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+            />
+            <label 
+              htmlFor="show-in-hub-consent" 
+              className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex-1"
+            >
+              <span className="font-medium">Show this app in Hub</span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
+                By checking this, you consent to make this app visible in the Hub for others to discover and use.
+              </span>
+            </label>
+          </div>
         </div>
 
         <Button 
