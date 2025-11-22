@@ -30,6 +30,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:console": "npx ts-node scripts/console-db-data.ts",
     "prettier:check": "npx prettier --check .",
     "prettier": "npx prettier --write .",
     "presubmit": "npm run prettier:check && npm run lint",

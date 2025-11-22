@@ -470,6 +470,14 @@ async function handleDisconnectVercelProject(
       vercelDeploymentUrl: null,
     })
     .where(eq(apps.id, appId));
+  
+  // Sync app to Supabase (non-blocking)
+  try {
+    const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
+    await syncAppByIdToSupabase(appId);
+  } catch (error) {
+    logger.warn('Failed to sync app to Supabase (non-critical):', error);
+  }
 }
 
 // --- Direct Vercel Deployment Handler ---
@@ -629,4 +637,12 @@ export async function updateAppVercelProject({
       vercelDeploymentUrl: deploymentUrl,
     })
     .where(eq(schema.apps.id, appId));
+  
+  // Sync app to Supabase (non-blocking)
+  try {
+    const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
+    await syncAppByIdToSupabase(appId);
+  } catch (error) {
+    logger.warn('Failed to sync app to Supabase (non-critical):', error);
+  }
 }
