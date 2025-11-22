@@ -1302,7 +1302,8 @@ export class IpcClient {
     userDisplayName?: string | null;
     userAppsCount?: number;
     allApps?: any[];
-    userApps?: any[];
+    userApps?: any[];  // Current user's apps
+    publicApps?: any[];  // All public apps
     sampleApp?: any;
     error?: string;
   }> {

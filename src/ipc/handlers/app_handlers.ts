@@ -2610,6 +2610,22 @@ renderer/rendering_method="forward_plus"
       
       logger.info(`Query returned ${allApps?.length || 0} apps from user_apps table`);
 
+      // Get all apps with show_in_hub = true (public apps with consent)
+      let publicApps = [];
+      const { data: publicAppsData, error: publicError } = await adminClient
+        .from('user_apps')
+        .select('*')
+        .eq('show_in_hub', true)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (!publicError && publicAppsData) {
+        publicApps = publicAppsData;
+        logger.info(`Found ${publicApps.length} public apps (show_in_hub = true)`);
+      } else if (publicError) {
+        logger.warn(`Error querying public apps:`, publicError);
+      }
+
       // Get apps for current user - try both user_display_name and user_email
       let userApps = [];
       if (userDisplayName) {
@@ -2618,11 +2634,12 @@ renderer/rendering_method="forward_plus"
           .from('user_apps')
           .select('*')
           .eq('user_display_name', userDisplayName)
+          .eq('show_in_hub', true)  // Only consented apps
           .order('created_at', { ascending: false });
 
         if (!userError && userAppsData) {
           userApps = userAppsData;
-          logger.info(`Found ${userApps.length} apps with user_display_name: ${userDisplayName}`);
+          logger.info(`Found ${userApps.length} apps for current user: ${userDisplayName}`);
         } else if (userError) {
           logger.warn(`Error querying by user_display_name:`, userError);
         }
@@ -2635,6 +2652,7 @@ renderer/rendering_method="forward_plus"
             .from('user_apps')
             .select('*')
             .eq('user_email', wpUser.email)
+            .eq('show_in_hub', true)  // Only consented apps
             .order('created_at', { ascending: false });
 
           if (!userErrorEmail && userAppsDataEmail) {
@@ -2699,17 +2717,18 @@ renderer/rendering_method="forward_plus"
 
       return {
         success: true,
-        totalApps: allApps?.length || 0,
+        totalApps: publicApps?.length || 0,
         userDisplayName: userDisplayName || null,
         userAppsCount: userApps.length,
-        allApps: allApps || [],
-        userApps: userApps,
-        sampleApp: allApps && allApps.length > 0 ? allApps[0] : null,
+        allApps: publicApps || [],  // All public apps
+        userApps: userApps,  // Current user's apps
+        publicApps: publicApps,  // Same as allApps for clarity
+        sampleApp: publicApps && publicApps.length > 0 ? publicApps[0] : null,
         debug: {
-          uniqueDisplayNames: allApps ? [...new Set(allApps.map((app: any) => app.user_display_name).filter(Boolean))] : [],
-          uniqueEmails: allApps ? [...new Set(allApps.map((app: any) => app.user_email).filter(Boolean))] : [],
-          sampleAppDisplayName: allApps && allApps.length > 0 ? allApps[0]?.user_display_name : null,
-          sampleAppEmail: allApps && allApps.length > 0 ? allApps[0]?.user_email : null,
+          uniqueDisplayNames: publicApps ? [...new Set(publicApps.map((app: any) => app.user_display_name).filter(Boolean))] : [],
+          uniqueEmails: publicApps ? [...new Set(publicApps.map((app: any) => app.user_email).filter(Boolean))] : [],
+          sampleAppDisplayName: publicApps && publicApps.length > 0 ? publicApps[0]?.user_display_name : null,
+          sampleAppEmail: publicApps && publicApps.length > 0 ? publicApps[0]?.user_email : null,
         },
       };
     } catch (error: any) {

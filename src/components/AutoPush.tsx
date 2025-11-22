@@ -548,7 +548,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
   const [repoName, setRepoName] = useState(projectName);
   const [vercelProjectName, setVercelProjectName] = useState(generateVercelProjectName(projectName));
   const [deployToVercel, setDeployToVercel] = useState<boolean>(AUTOPUSH_CONFIG.DEFAULT_DEPLOY_TO_VERCEL);
-  const [showInHub, setShowInHub] = useState(false);
+  const [showInHub, setShowInHub] = useState(true);
   const [vercelProjectValidation, setVercelProjectValidation] = useState<{
     valid: boolean;
     available: boolean;
@@ -1011,13 +1011,13 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               className="rounded border-gray-300"
             />
             <Label htmlFor="deploy-vercel" className="text-sm">
-              Also deploy to Vercel
+              Also deploy to Cloud
             </Label>
           </div>
 
           {deployToVercel && (
             <div>
-              <Label htmlFor="vercel-project-name">Vercel Project Name</Label>
+              <Label htmlFor="vercel-project-name"> Project Name</Label>
               <p className="text-xs text-gray-500 mb-2">
                 Automatically generated from repository name. Special characters are removed and converted to lowercase.
               </p>
@@ -1109,8 +1109,8 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
             >
               <span className="font-medium">Show this app in Hub</span>
               <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
-                By checking this, you consent to make this app visible in the Hub for others to discover and use.
-              </span>
+              By checking this, you consent to make this app visible in the Hub for others to discover and use.
+              Your game will also be ranked, with options to monetise based on ratings.              </span>
             </label>
           </div>
         </div>

@@ -2,12 +2,13 @@
  * Deployed Apps Section Component
  * 
  * Displays apps from Supabase that are deployed and ready to use
+ * Shows two sections: "Your Deployed Apps" and "Deployed by Others"
  */
 
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Globe, Smartphone, Gamepad2, Loader2 } from 'lucide-react';
+import { ExternalLink, Globe, Smartphone, Gamepad2, Loader2, User } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
 
 interface DeployedApp {
@@ -17,6 +18,7 @@ interface DeployedApp {
   vercel_deployment_url: string | null;
   eas_deployment_url?: string | null;
   deployment_status: string | null;
+  user_display_name?: string | null;
 }
 
 interface DeployedAppsSectionProps {
@@ -26,7 +28,9 @@ interface DeployedAppsSectionProps {
 export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps) {
   const [selectedAppUrl, setSelectedAppUrl] = useState<string | null>(null);
   const [isAppModalOpen, setIsAppModalOpen] = useState(false);
-  const [apps, setApps] = useState<DeployedApp[]>([]);
+  const [yourApps, setYourApps] = useState<DeployedApp[]>([]);
+  const [othersApps, setOthersApps] = useState<DeployedApp[]>([]);
+  const [currentUserDisplayName, setCurrentUserDisplayName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,16 +40,33 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
         setIsLoading(true);
         const result = await IpcClient.getInstance().listAppsInSupabase();
         
-        if (result.success && result.userApps) {
-          // Filter apps that are deployed (have deployment URL or status is deployed) AND have user consent
-          const deployedApps = result.userApps.filter((app: any) => {
-            const hasDeploymentUrl = app.vercel_deployment_url || app.eas_deployment_url;
-            const isDeployed = app.deployment_status === 'deployed';
-            const hasConsent = app.show_in_hub === true;
-            return (hasDeploymentUrl || isDeployed) && hasConsent;
-          });
+        if (result.success) {
+          setCurrentUserDisplayName(result.userDisplayName || null);
           
-          setApps(deployedApps);
+          // Filter function for deployed apps with consent
+          const filterDeployed = (apps: any[]) => {
+            return apps.filter((app: any) => {
+              const hasDeploymentUrl = app.vercel_deployment_url || app.eas_deployment_url;
+              const isDeployed = app.deployment_status === 'deployed';
+              const hasConsent = app.show_in_hub === true;
+              return (hasDeploymentUrl || isDeployed) && hasConsent;
+            });
+          };
+          
+          // Your apps (from userApps)
+          const yourDeployedApps = result.userApps 
+            ? filterDeployed(result.userApps)
+            : [];
+          setYourApps(yourDeployedApps);
+          
+          // Others' apps (from publicApps, excluding your own)
+          const allPublicApps = result.publicApps || result.allApps || [];
+          const othersDeployedApps = filterDeployed(
+            allPublicApps.filter((app: any) => 
+              app.user_display_name !== result.userDisplayName
+            )
+          );
+          setOthersApps(othersDeployedApps);
         } else {
           setError(result.error || 'Failed to load apps');
         }
@@ -106,15 +127,68 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
     return app.vercel_deployment_url || app.eas_deployment_url || null;
   };
 
+  const renderAppCard = (app: DeployedApp) => {
+    const appUrl = getAppUrl(app);
+    if (!appUrl) return null;
+
+    return (
+      <div
+        key={app.id}
+        onClick={() => handleLoadApp(appUrl)}
+        className="group relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+      >
+        {/* App Type Badge */}
+        <div className="p-4 pb-3">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+              {getAppTypeIcon(app.app_type)}
+            </div>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {getAppTypeLabel(app.app_type)}
+            </span>
+          </div>
+        </div>
+
+        {/* App Info */}
+        <div className="px-4 pb-4">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            {app.app_name}
+          </h3>
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            {app.user_display_name && (
+              <>
+                <User className="h-3 w-3" />
+                <span>{app.user_display_name}</span>
+              </>
+            )}
+            {app.deployment_status === 'deployed' && (
+              <span className="ml-auto">Deployed</span>
+            )}
+          </div>
+        </div>
+
+        {/* External Link Icon */}
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="w-8 h-8 rounded-full bg-white/90 dark:bg-gray-800/90 flex items-center justify-center shadow-sm">
+            <ExternalLink className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+          </div>
+        </div>
+
+        {/* Hover Effect Border */}
+        <div className="absolute inset-0 rounded-xl border-2 border-transparent group-hover:border-blue-500/20 transition-colors duration-300 pointer-events-none" />
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <section className={`mb-12 ${className}`}>
         <header className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Your Deployed Apps
+            Deployed Apps
           </h2>
           <p className="text-md text-gray-600 dark:text-gray-400">
-            Apps from Supabase that are deployed and ready to use
+            Loading apps from Supabase...
           </p>
         </header>
         <div className="flex items-center justify-center py-12">
@@ -129,7 +203,7 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
       <section className={`mb-12 ${className}`}>
         <header className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Your Deployed Apps
+            Deployed Apps
           </h2>
         </header>
         <div className="text-center py-12 text-red-500">
@@ -139,68 +213,50 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
     );
   }
 
-  if (apps.length === 0) {
+  const hasAnyApps = yourApps.length > 0 || othersApps.length > 0;
+
+  if (!hasAnyApps) {
     return null;
   }
 
   return (
     <>
       <section className={`mb-12 ${className}`}>
-        <header className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Your Deployed Apps
-          </h2>
-          <p className="text-md text-gray-600 dark:text-gray-400">
-            Apps from Supabase that are deployed and ready to use - click to load
-          </p>
-        </header>
+        {/* Your Deployed Apps Section */}
+        {yourApps.length > 0 && (
+          <div className="mb-8">
+            <header className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Your Deployed Apps
+              </h2>
+              <p className="text-md text-gray-600 dark:text-gray-400">
+                Your apps that are deployed and ready to use - click to load
+              </p>
+            </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {apps.map((app) => {
-            const appUrl = getAppUrl(app);
-            if (!appUrl) return null;
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {yourApps.map((app) => renderAppCard(app))}
+            </div>
+          </div>
+        )}
 
-            return (
-              <div
-                key={app.id}
-                onClick={() => handleLoadApp(appUrl)}
-                className="group relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
-              >
-                {/* App Type Badge */}
-                <div className="p-4 pb-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                      {getAppTypeIcon(app.app_type)}
-                    </div>
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      {getAppTypeLabel(app.app_type)}
-                    </span>
-                  </div>
-                </div>
+        {/* Deployed by Others Section */}
+        {othersApps.length > 0 && (
+          <div>
+            <header className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Deployed by Others
+              </h2>
+              <p className="text-md text-gray-600 dark:text-gray-400">
+                Apps created by other users - click to explore
+              </p>
+            </header>
 
-                {/* App Info */}
-                <div className="px-4 pb-4">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {app.app_name}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {app.deployment_status === 'deployed' ? 'Deployed' : 'Ready'}
-                  </p>
-                </div>
-
-                {/* External Link Icon */}
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="w-8 h-8 rounded-full bg-white/90 dark:bg-gray-800/90 flex items-center justify-center shadow-sm">
-                    <ExternalLink className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  </div>
-                </div>
-
-                {/* Hover Effect Border */}
-                <div className="absolute inset-0 rounded-xl border-2 border-transparent group-hover:border-blue-500/20 transition-colors duration-300 pointer-events-none" />
-              </div>
-            );
-          })}
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {othersApps.map((app) => renderAppCard(app))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* App Modal */}
@@ -240,4 +296,3 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
     </>
   );
 }
-
