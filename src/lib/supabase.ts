@@ -731,7 +731,16 @@ export async function syncAppToSupabase(
       deployment_status: appData.deploymentStatus || 'not_deployed',
       last_deployment_at: safeTimestampToISO(appData.lastDeploymentAt),
       deployment_notes: appData.deploymentNotes || null,
+      show_in_hub: appData.showInHub === true || appData.showInHub === 1,
     };
+    
+    // Debug: Log show_in_hub value being sent to Supabase
+    log.info(`📤 Syncing show_in_hub to Supabase:`, {
+      appId: appData.id,
+      appName: appData.name,
+      showInHub: appData.showInHub,
+      show_in_hub: appDataToSync.show_in_hub,
+    });
 
     if (existingApp) {
       // Update existing app

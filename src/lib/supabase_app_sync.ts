@@ -32,6 +32,13 @@ export async function syncAppByIdToSupabase(appId: number, userDisplayName: stri
       return;
     }
 
+    // Debug: Log showInHub value
+    log.info(`📋 App ${appId} showInHub value from DB:`, {
+      raw: app.showInHub,
+      type: typeof app.showInHub,
+      converted: app.showInHub === true || app.showInHub === 1 || (typeof app.showInHub === 'boolean' && app.showInHub),
+    });
+
     try {
       const result = await syncAppToSupabase({
         id: app.id,
@@ -64,7 +71,7 @@ export async function syncAppByIdToSupabase(appId: number, userDisplayName: stri
         deploymentStatus: app.deploymentStatus,
         lastDeploymentAt: app.lastDeploymentAt ? Number(app.lastDeploymentAt) : null,
         deploymentNotes: app.deploymentNotes,
-        showInHub: app.showInHub ?? false,
+        showInHub: app.showInHub === true || app.showInHub === 1 || (typeof app.showInHub === 'boolean' && app.showInHub),
       }, userDisplayName);
 
       if (!result) {
