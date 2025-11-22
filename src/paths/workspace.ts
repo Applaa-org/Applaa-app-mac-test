@@ -20,11 +20,44 @@ export function getWorkspaceRoot(): string {
 }
 
 /**
+ * Sanitizes app name to remove invalid characters for file system paths
+ * Windows: < > : " | ? * \ /
+ * Unix: / and null bytes
+ */
+function sanitizeAppName(name: string): string {
+  // Replace invalid characters with hyphens
+  // Windows invalid chars: < > : " | ? * \ /
+  // Also handle leading/trailing spaces and dots
+  let sanitized = name
+    .replace(/[<>:"|?*\\/]/g, "-")  // Replace invalid chars with hyphens
+    .replace(/\s+/g, "-")            // Replace spaces with hyphens
+    .replace(/\.+$/, "")              // Remove trailing dots
+    .replace(/^\.+/, "")             // Remove leading dots
+    .replace(/-+/g, "-")             // Collapse multiple hyphens
+    .replace(/^-+/, "")              // Remove leading hyphens
+    .replace(/-+$/, "");             // Remove trailing hyphens
+  
+  // Ensure it's not empty
+  if (!sanitized || sanitized.length === 0) {
+    sanitized = "app";
+  }
+  
+  // Limit length to avoid path issues
+  if (sanitized.length > 100) {
+    sanitized = sanitized.substring(0, 100);
+  }
+  
+  return sanitized;
+}
+
+/**
  * Returns the relative path under the workspace for a given app name and kind
  * e.g. apps/web/my-app or apps/mobile/my-app
+ * App name is sanitized to remove invalid file system characters
  */
 export function getAppRelativePath(appName: string, kind: AppKind): string {
-  return path.join("apps", kind, appName);
+  const sanitizedName = sanitizeAppName(appName);
+  return path.join("apps", kind, sanitizedName);
 }
 
 /**

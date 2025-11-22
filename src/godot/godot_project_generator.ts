@@ -28,35 +28,7 @@ export async function generateGodotProject(
 
   logger.info(`Generating Godot project: ${spec.game?.name || "Untitled"}`);
 
-  // Validate spec before generating
-  try {
-    const { validateGameSpec } = await import("./game_spec_schema");
-    const validation = validateGameSpec(spec);
-    if (!validation.valid) {
-      throw new Error(`Invalid game specification: ${validation.errors.join(", ")}`);
-    }
-  } catch (validationError: any) {
-    // If validation module doesn't exist or fails, log and continue
-    logger.warn("Could not validate game spec:", validationError);
-  }
-
-  // Create directory structure
-  const dirs = {
-    project: projectPath,
-    scenes: path.join(projectPath, "scenes"),
-    scripts: path.join(projectPath, "scripts"),
-    assets: path.join(projectPath, "assets"),
-    sprites: path.join(projectPath, "assets", "sprites"),
-    models: path.join(projectPath, "assets", "models"),
-    audio: path.join(projectPath, "assets", "audio"),
-    fonts: path.join(projectPath, "assets", "fonts"),
-  };
-
-  for (const dir of Object.values(dirs)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  // 1. Normalize spec first to ensure it has required fields
+  // 1. Normalize spec first to ensure it has required fields BEFORE validation
   const normalizedSpec: GameSpecification = {
     game: {
       name: spec.game?.name || "Untitled Game",
@@ -81,39 +53,90 @@ export async function generateGodotProject(
       },
       ...spec.settings,
     },
-    scenes: spec.scenes || [],
+    // Ensure scenes array exists - create a default scene if missing
+    scenes: spec.scenes && Array.isArray(spec.scenes) && spec.scenes.length > 0 
+      ? spec.scenes 
+      : [{
+          name: "Main",
+          type: (spec.game?.type === "2D" || spec.game?.type === "3D") ? spec.game.type : "2D",
+          path: "res://scenes/Main.tscn",
+          nodes: [{
+            name: "Root",
+            type: (spec.game?.type === "3D") ? "Node3D" : "Node2D",
+            position: { x: 0, y: 0, z: 0 },
+            children: []
+          }],
+          camera: {
+            type: (spec.game?.type === "3D") ? "Camera3D" : "Camera2D",
+            position: { x: 0, y: 0, z: 0 }
+          }
+        }],
     assets: spec.assets || {},
     scripts: spec.scripts || [],
     ui: spec.ui,
   };
 
-  // 1. Generate project.godot
+  // 2. Validate normalized spec before generating
+  try {
+    const { validateGameSpec } = await import("./game_spec_schema");
+    const validation = validateGameSpec(normalizedSpec);
+    if (!validation.valid) {
+      throw new Error(`Invalid game specification: ${validation.errors.join(", ")}`);
+    }
+  } catch (validationError: any) {
+    // If validation module doesn't exist or fails, log and continue
+    logger.warn("Could not validate game spec:", validationError);
+  }
+
+  // 3. Ensure parent directory exists before creating project directory
+  const parentDir = path.dirname(projectPath);
+  if (!fs.existsSync(parentDir)) {
+    fs.mkdirSync(parentDir, { recursive: true });
+  }
+
+  // 4. Create directory structure
+  const dirs = {
+    project: projectPath,
+    scenes: path.join(projectPath, "scenes"),
+    scripts: path.join(projectPath, "scripts"),
+    assets: path.join(projectPath, "assets"),
+    sprites: path.join(projectPath, "assets", "sprites"),
+    models: path.join(projectPath, "assets", "models"),
+    audio: path.join(projectPath, "assets", "audio"),
+    fonts: path.join(projectPath, "assets", "fonts"),
+  };
+
+  for (const dir of Object.values(dirs)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  // 5. Generate project.godot
   await generateProjectFile(projectPath, normalizedSpec);
 
-  // 2. Save game_spec.json (ensure it has proper structure)
+  // 6. Save game_spec.json (ensure it has proper structure)
   const specPath = path.join(projectPath, "game_spec.json");
   fs.writeFileSync(specPath, JSON.stringify(normalizedSpec, null, 2));
 
-  // 3. Generate Loader scene (entry point)
+  // 7. Generate Loader scene (entry point)
   await generateLoaderScene(projectPath, normalizedSpec);
 
-  // 4. Generate all scenes from spec
-  const scenes = spec.scenes || [];
+  // 8. Generate all scenes from spec
+  const scenes = normalizedSpec.scenes || [];
   for (const sceneSpec of scenes) {
     await generateScene(projectPath, sceneSpec, normalizedSpec);
   }
 
-  // 5. Generate all scripts
-  if (spec.scripts) {
-    for (const scriptSpec of spec.scripts) {
+  // 9. Generate all scripts
+  if (normalizedSpec.scripts) {
+    for (const scriptSpec of normalizedSpec.scripts) {
       await generateScript(projectPath, scriptSpec);
     }
   }
 
-  // 6. Generate assets
+  // 10. Generate assets
   await generateAssets(projectPath, normalizedSpec, options.regenerateAssets ?? false);
 
-  // 7. Generate UI if specified
+  // 11. Generate UI if specified
   if (normalizedSpec.ui) {
     await generateUI(projectPath, normalizedSpec.ui, normalizedSpec);
   }
