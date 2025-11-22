@@ -8,6 +8,7 @@ import { TemplateCard } from "@/components/TemplateCard";
 import { CreateAppDialog } from "@/components/CreateAppDialog";
 import { NeonConnector } from "@/components/NeonConnector";
 import { GamesSection } from "@/components/GamesSection";
+import { DeployedAppsSection } from "@/components/DeployedAppsSection";
 
 const HubPage: React.FC = () => {
   const router = useRouter();
@@ -50,6 +51,9 @@ const HubPage: React.FC = () => {
             {isLoading && " Loading additional templates..."}
           </p>
         </header>
+
+        {/* Deployed Apps Section */}
+        <DeployedAppsSection />
 
         {/* Games Section */}
         <GamesSection />
