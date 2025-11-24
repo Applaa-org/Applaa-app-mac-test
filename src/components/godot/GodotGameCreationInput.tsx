@@ -111,30 +111,15 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
 
       setSelectedAppId(result.app.id);
 
-      if (gameDescription.trim()) {
-        try {
-          const spec = await ipcClient.generateGameSpec({
-            appId: result.app.id,
-            prompt: gameDescription
-          });
-
-          await ipcClient.buildGodotGameFromSpec({
-            appId: result.app.id,
-            spec
-          });
-
-          showSuccess('Applaa game created and built successfully!');
-        } catch (specError) {
-          console.error('Failed to generate/build game spec:', specError);
-          showError(new Error('Game created but failed to generate game specification. You can add it manually in the chat.'));
-        }
-      }
-
-      // Navigate to the chat with initial prompt so it appears in chat history
-      // Include both game name and description so users can see what they created
+      // Navigate to chat immediately - don't wait for spec generation/build
+      // The user can generate the spec and build in the chat if needed
       const chatPrompt = gameDescription.trim() 
         ? `Create a game called "${gameName}"\n\n${gameDescription}`
         : `Create a ${gameName} game`;
+      
+      // Reset loading state before navigation for instant UI response
+      setIsCreating(false);
+      
       router.navigate({
         to: '/chat',
         search: { 
@@ -147,12 +132,29 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
       setGameName('');
       setGameDescription('');
       setShowNameDialog(false);
+
+      // Generate spec and build in the background (fire and forget)
+      if (gameDescription.trim()) {
+        ipcClient.generateGameSpec({
+          appId: result.app.id,
+          prompt: gameDescription
+        }).then((spec) => {
+          return ipcClient.buildGodotGameFromSpec({
+            appId: result.app.id,
+            spec
+          });
+        }).then(() => {
+          showSuccess('Applaa game created and built successfully!');
+        }).catch((specError) => {
+          console.error('Failed to generate/build game spec:', specError);
+          // Don't show error to user - they can do it manually in chat
+        });
+      }
     } catch (error) {
       // Clear prompt on error
       setGameCreationPrompt(null);
-      showError(error as Error);
-    } finally {
       setIsCreating(false);
+      showError(error as Error);
     }
   }, [gameName, gameDescription, ipcClient, router, setSelectedAppId, onGameCreated]);
 

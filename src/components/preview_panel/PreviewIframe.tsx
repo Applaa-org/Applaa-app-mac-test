@@ -4,6 +4,7 @@ import {
   appOutputAtom,
   previewErrorMessageAtom,
   globalPublishStateAtom,
+  gameCreationPromptAtom,
 } from "@/atoms/appAtoms";
 import { useExpoUrl } from "@/hooks/useExpoUrl";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
@@ -49,6 +50,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useRunApp } from "@/hooks/useRunApp";
+import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
+import { useGodotExport } from "@/hooks/useGodotExport";
 
 interface ErrorBannerProps {
   error: string | undefined;
@@ -140,7 +143,14 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   const selectedChatId = useAtomValue(selectedChatIdAtom);
   // 🚨 DYAD PATTERN: Use simple global streaming atom
   const isStreaming = useAtomValue(isStreamingAtom);
+  const gameCreationPrompt = useAtomValue(gameCreationPromptAtom);
   const { streamMessage } = useStreamChat({ hasChatId: false });
+  
+  // Check if this is a Godot app and if it's building
+  // Use the hook's exportUrl to get current status (prop might be stale)
+  const { hasExport: hasGodotExport, exportUrl: currentGodotExportUrl, isLoading: isGodotExportLoading } = useGodotExport();
+  const isGodotApp = !!(godotExportUrl || currentGodotExportUrl);
+  const { isBuilding: isGodotBuilding, isLoading: isGodotProjectLoading, hasProject: hasGodotProject } = useGodotProjectStatus();
   
   // 🚫 DISABLED: Auto-error detection to match Dyad's approach
   // const { detectConsoleErrors } = useAutoErrorFix({ enabled: true });
@@ -740,37 +750,83 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
 
         {isStreaming ? (
           <div className="flex flex-col h-full">
-            {/* Show regular app preview during streaming */}
-            <div className="flex-1 relative">
-              {!appUrl && !expoUrl && !godotExportUrl ? (
-                <div className="godot-loading">
-                  <div className="godot-spinner"></div>
-                  <p className="mt-4">Loading your app...</p>
+            {/* Show "Building Game..." loader if Godot app - always show when streaming because game is being actively built/updated */}
+            {/* Even if export exists, if chat is streaming, the game is still being modified */}
+            {isGodotApp ? (
+              <div className="godot-preview-container h-full">
+                <div className="godot-message">
+                  <div className="godot-message-icon">🎮</div>
+                  <div className="godot-message-title">Building Game...</div>
+                  <div className="godot-message-text">
+                    {isStreaming
+                      ? "AI is generating your game. This may take a moment..."
+                      : isGodotProjectLoading 
+                        ? "Checking project status..."
+                        : isGodotBuilding
+                          ? "Game is being created. This may take a moment..."
+                          : !hasGodotProject
+                            ? "Creating game project from specification. This may take a moment..."
+                            : isGodotExportLoading
+                              ? "Creating web export..."
+                              : !hasGodotExport
+                                ? "Project ready! Creating web export automatically..."
+                                : !currentGodotExportUrl
+                                  ? "Preparing game for preview..."
+                                  : "Preparing game for preview..."}
+                  </div>
+                  {/* Show user's prompt if available */}
+                  {gameCreationPrompt && (
+                    <div className="mt-3 p-3 rounded" style={{ 
+                      background: 'rgba(139, 92, 246, 0.1)',
+                      border: '1px solid rgba(139, 92, 246, 0.3)'
+                    }}>
+                      <div className="text-xs font-semibold mb-1" style={{ color: 'var(--godot-text-primary)' }}>
+                        Creating your game:
+                      </div>
+                      <div className="text-sm" style={{ color: 'var(--godot-text-secondary)' }}>
+                        "{gameCreationPrompt}"
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-4 godot-loading">
+                    <div className="godot-spinner"></div>
+                    <p className="mt-4" style={{ color: 'var(--godot-text-secondary)' }}>Please wait while we build your game...</p>
+                  </div>
                 </div>
-              ) : (
-                <div className="godot-iframe-wrapper h-full">
-                  <iframe
-                    data-testid="preview-iframe-element"
-                    onLoad={(e) => {
-                      const url = godotExportUrl || appUrl || expoUrl;
-                      console.log(`✅ Preview iframe loaded successfully: ${url}`);
-                      setErrorMessage(undefined);
-                    }}
-                    onError={(e) => {
-                      const url = godotExportUrl || appUrl || expoUrl;
-                      console.error(`❌ Preview iframe failed to load: ${url}`, e);
-                      setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
-                    }}
-                    ref={iframeRef}
-                    key={reloadKey}
-                    title={`Preview for App ${selectedAppId}`}
-                    className="w-full h-full border-none"
-                    src={godotExportUrl || appUrl || expoUrl || undefined}
-                    allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
-                  />
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              // Show regular app preview during streaming (only if not building)
+              <div className="flex-1 relative">
+                {!appUrl && !expoUrl && !currentGodotExportUrl ? (
+                  <div className="godot-loading">
+                    <div className="godot-spinner"></div>
+                    <p className="mt-4">Loading your app...</p>
+                  </div>
+                ) : (
+                  <div className="godot-iframe-wrapper h-full">
+                    <iframe
+                      data-testid="preview-iframe-element"
+                      onLoad={(e) => {
+                        const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                        console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                        setErrorMessage(undefined);
+                      }}
+                      onError={(e) => {
+                        const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                        console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                        setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
+                      }}
+                      ref={iframeRef}
+                      key={reloadKey}
+                      title={`Preview for App ${selectedAppId}`}
+                      className="w-full h-full border-none"
+                      src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
+                      allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : !appUrl && !expoUrl && !godotExportUrl ? (
           <div className="godot-loading">
