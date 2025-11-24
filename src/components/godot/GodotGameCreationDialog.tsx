@@ -8,7 +8,7 @@ import { Loader2, Gamepad2, Sparkles } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
 import { useRouter } from '@tanstack/react-router';
 import { useSetAtom } from 'jotai';
-import { selectedAppIdAtom } from '@/atoms/appAtoms';
+import { selectedAppIdAtom, gameCreationPromptAtom } from '@/atoms/appAtoms';
 import { showError, showSuccess } from '@/lib/toast';
 
 interface GodotGameCreationDialogProps {
@@ -27,6 +27,7 @@ export function GodotGameCreationDialog({
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
   const setSelectedAppId = useSetAtom(selectedAppIdAtom);
+  const setGameCreationPrompt = useSetAtom(gameCreationPromptAtom);
   const ipcClient = IpcClient.getInstance();
 
   const handleCreate = useCallback(async () => {
@@ -39,12 +40,17 @@ export function GodotGameCreationDialog({
     try {
       // Use create-app-instant for Godot apps to get background file creation
       const normalizedName = gameName.trim().toLowerCase().replace(/\s+/g, '-');
+      const finalPrompt = gameDescription || `Create a ${gameName} game`;
+      
+      // Set the game creation prompt immediately so it shows in the preview
+      setGameCreationPrompt(finalPrompt);
+      
       const result = await ipcClient.createAppInstant({
         name: normalizedName,
         displayName: gameName,
         appType: 'godot',
         framework: 'web', // Not used for Godot but required by the interface
-        prompt: gameDescription || `Create a ${gameName} game`
+        prompt: finalPrompt
       });
 
       // Show notification if name was auto-changed
@@ -94,6 +100,8 @@ export function GodotGameCreationDialog({
       setGameName('');
       setGameDescription('');
     } catch (error) {
+      // Clear prompt on error
+      setGameCreationPrompt(null);
       showError(error as Error);
     } finally {
       setIsCreating(false);

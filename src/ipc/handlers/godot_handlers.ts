@@ -478,55 +478,76 @@ export function registerGodotHandlers() {
           throw new Error(`App ${params.appId} not found`);
         }
 
+        // Set status to 'building' at the start
+        db.$client
+          .prepare("UPDATE apps SET status = ? WHERE id = ?")
+          .run('building', params.appId);
+        logger.info(`Set app ${params.appId} status to 'building'`);
+
         const appPath = getDyadAppPath(app.path);
         logger.info(`Building Godot game from spec at ${appPath}`);
 
-        // Use the enhanced project generator
-        await generateGodotProject({
-          appPath,
-          spec: params.spec,
-          regenerateAssets: false,
-        });
-
-        // Automatically create a web export for preview
         try {
-          const exportPath = path.join(appPath, "godot-web-export");
-          const projectPath = path.join(appPath, "godot-project");
-          
-          // Try to export using Godot engine first
-          const exportResult = await exportGodotToHTML5({
-            projectPath,
-            exportPath,
-            projectName: app.name,
-            debug: false,
-            appPath, // Pass appPath so vercel.json is created at root
+          // Use the enhanced project generator
+          await generateGodotProject({
+            appPath,
+            spec: params.spec,
+            regenerateAssets: false,
           });
-          
-          // Fall back to test export if Godot engine export failed
-          if (!exportResult.success) {
-            logger.info('Creating test web export (Godot engine not available or export failed)');
-            try {
-              await createTestWebExport(exportPath, params.spec, app.name);
-              logger.info(`✅ Test web export created successfully`);
-            } catch (testExportError: any) {
-              logger.error("Failed to create test web export:", testExportError);
-              // Log but don't fail - the export will be created on next preview attempt
-            }
-          } else {
-            logger.info(`✅ Godot engine export successful`);
-          }
-          
-          logger.info(`Automatically created web export for preview at ${exportPath}`);
-        } catch (exportError: any) {
-          logger.error("Failed to auto-create web export:", exportError);
-          // Log the error but don't fail the build - export can be retried later
-          logger.warn(`Export will be retried when preview is opened. Error: ${exportError?.message || String(exportError)}`);
-        }
 
-        return {
-          success: true,
-          message: "Applaa game built successfully from specification",
-        };
+          // Automatically create a web export for preview
+          try {
+            const exportPath = path.join(appPath, "godot-web-export");
+            const projectPath = path.join(appPath, "godot-project");
+            
+            // Try to export using Godot engine first
+            const exportResult = await exportGodotToHTML5({
+              projectPath,
+              exportPath,
+              projectName: app.name,
+              debug: false,
+              appPath, // Pass appPath so vercel.json is created at root
+            });
+            
+            // Fall back to test export if Godot engine export failed
+            if (!exportResult.success) {
+              logger.info('Creating test web export (Godot engine not available or export failed)');
+              try {
+                await createTestWebExport(exportPath, params.spec, app.name);
+                logger.info(`✅ Test web export created successfully`);
+              } catch (testExportError: any) {
+                logger.error("Failed to create test web export:", testExportError);
+                // Log but don't fail - the export will be created on next preview attempt
+              }
+            } else {
+              logger.info(`✅ Godot engine export successful`);
+            }
+            
+            logger.info(`Automatically created web export for preview at ${exportPath}`);
+          } catch (exportError: any) {
+            logger.error("Failed to auto-create web export:", exportError);
+            // Log the error but don't fail the build - export can be retried later
+            logger.warn(`Export will be retried when preview is opened. Error: ${exportError?.message || String(exportError)}`);
+          }
+
+          // Set status to 'ready' when build completes successfully
+          db.$client
+            .prepare("UPDATE apps SET status = ? WHERE id = ?")
+            .run('ready', params.appId);
+          logger.info(`Set app ${params.appId} status to 'ready'`);
+
+          return {
+            success: true,
+            message: "Applaa game built successfully from specification",
+          };
+        } catch (buildError) {
+          // Set status to 'ready' even on error so the UI doesn't stay stuck
+          db.$client
+            .prepare("UPDATE apps SET status = ? WHERE id = ?")
+            .run('ready', params.appId);
+          logger.error(`Build failed for app ${params.appId}, setting status to 'ready'`);
+          throw buildError;
+        }
       } catch (error) {
         logger.error("Failed to build Godot game:", error);
         throw error;

@@ -8,7 +8,7 @@ import { Loader2, SendHorizontalIcon, Gamepad2, AlertCircle, CheckCircle } from 
 import { IpcClient } from '@/ipc/ipc_client';
 import { useRouter } from '@tanstack/react-router';
 import { useSetAtom } from 'jotai';
-import { selectedAppIdAtom } from '@/atoms/appAtoms';
+import { selectedAppIdAtom, gameCreationPromptAtom } from '@/atoms/appAtoms';
 import { showError, showSuccess } from '@/lib/toast';
 import { ChatInputControls } from '@/components/ChatInputControls';
 import { cn } from '@/lib/utils';
@@ -28,6 +28,7 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
   const [suggestedName, setSuggestedName] = useState('');
   const router = useRouter();
   const setSelectedAppId = useSetAtom(selectedAppIdAtom);
+  const setGameCreationPrompt = useSetAtom(gameCreationPromptAtom);
   const ipcClient = IpcClient.getInstance();
 
   // Update description when initialDescription changes
@@ -91,12 +92,17 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
     setIsCreating(true);
     try {
       const normalizedName = gameName.trim().toLowerCase().replace(/\s+/g, '-');
+      const finalPrompt = gameDescription || `Create a ${gameName} game`;
+      
+      // Set the game creation prompt immediately so it shows in the preview
+      setGameCreationPrompt(finalPrompt);
+      
       const result = await ipcClient.createAppInstant({
         name: normalizedName,
         displayName: gameName,
         appType: 'godot',
         framework: 'web',
-        prompt: gameDescription || `Create a ${gameName} game`
+        prompt: finalPrompt
       });
 
       if (result.app.name !== normalizedName) {
@@ -126,14 +132,14 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
 
       // Navigate to the chat with initial prompt so it appears in chat history
       // Include both game name and description so users can see what they created
-      const finalPrompt = gameDescription.trim() 
+      const chatPrompt = gameDescription.trim() 
         ? `Create a game called "${gameName}"\n\n${gameDescription}`
         : `Create a ${gameName} game`;
       router.navigate({
         to: '/chat',
         search: { 
           id: result.chatId,
-          initialPrompt: finalPrompt
+          initialPrompt: chatPrompt
         }
       });
 
@@ -142,6 +148,8 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
       setGameDescription('');
       setShowNameDialog(false);
     } catch (error) {
+      // Clear prompt on error
+      setGameCreationPrompt(null);
       showError(error as Error);
     } finally {
       setIsCreating(false);
