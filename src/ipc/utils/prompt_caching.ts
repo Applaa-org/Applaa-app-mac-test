@@ -153,6 +153,11 @@ class ApplicationCache {
       totalHits
     };
   }
+
+  clear(): void {
+    this.cache.clear();
+    logger.log("Application cache cleared");
+  }
 }
 
 // Global application cache instance

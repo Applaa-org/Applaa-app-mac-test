@@ -38,3 +38,6 @@ export const envVarsAtom = atom<Record<string, string | undefined>>({});
 export const previewPanelKeyAtom = atom<number>(0);
 
 export const previewErrorMessageAtom = atom<string | undefined>(undefined);
+
+// Atom for storing the current game creation prompt (shown in building screen)
+export const gameCreationPromptAtom = atom<string | null>(null);

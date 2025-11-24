@@ -8,7 +8,7 @@ import { Loader2, Gamepad2, Sparkles } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
 import { useRouter } from '@tanstack/react-router';
 import { useSetAtom } from 'jotai';
-import { selectedAppIdAtom } from '@/atoms/appAtoms';
+import { selectedAppIdAtom, gameCreationPromptAtom } from '@/atoms/appAtoms';
 import { showError, showSuccess } from '@/lib/toast';
 
 interface GodotGameCreationDialogProps {
@@ -27,6 +27,7 @@ export function GodotGameCreationDialog({
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
   const setSelectedAppId = useSetAtom(selectedAppIdAtom);
+  const setGameCreationPrompt = useSetAtom(gameCreationPromptAtom);
   const ipcClient = IpcClient.getInstance();
 
   const handleCreate = useCallback(async () => {
@@ -39,12 +40,17 @@ export function GodotGameCreationDialog({
     try {
       // Use create-app-instant for Godot apps to get background file creation
       const normalizedName = gameName.trim().toLowerCase().replace(/\s+/g, '-');
+      const finalPrompt = gameDescription || `Create a ${gameName} game`;
+      
+      // Set the game creation prompt immediately so it shows in the preview
+      setGameCreationPrompt(finalPrompt);
+      
       const result = await ipcClient.createAppInstant({
         name: normalizedName,
         displayName: gameName,
         appType: 'godot',
         framework: 'web', // Not used for Godot but required by the interface
-        prompt: gameDescription || `Create a ${gameName} game`
+        prompt: finalPrompt
       });
 
       // Show notification if name was auto-changed
@@ -54,34 +60,15 @@ export function GodotGameCreationDialog({
 
       setSelectedAppId(result.app.id);
 
-      // Note: create-app-instant creates Godot project files in the background
-      // We don't need to call createGodotProject separately as it's handled by the background task
-
-      // If user provided a description, generate game spec and build
-      if (gameDescription.trim()) {
-        try {
-          const spec = await ipcClient.generateGameSpec({
-            appId: result.app.id,
-            prompt: gameDescription
-          });
-
-          await ipcClient.buildGodotGameFromSpec({
-            appId: result.app.id,
-            spec
-          });
-
-          showSuccess('Applaa game created and built successfully!');
-        } catch (specError) {
-          console.error('Failed to generate/build game spec:', specError);
-          showError(new Error('Game created but failed to generate game specification. You can add it manually in the chat.'));
-        }
-      }
-
-      // Navigate to the chat with initial prompt so it appears in chat history
-      // Include both game name and description so users can see what they created
+      // Navigate to chat immediately - don't wait for spec generation/build
+      // The user can generate the spec and build in the chat if needed
       const finalPrompt = gameDescription.trim() 
         ? `Create a game called "${gameName}"\n\n${gameDescription}`
         : `Create a ${gameName} game`;
+      
+      // Reset loading state before navigation for instant UI response
+      setIsCreating(false);
+      
       router.navigate({
         to: '/chat',
         search: { 
@@ -93,10 +80,29 @@ export function GodotGameCreationDialog({
       onClose();
       setGameName('');
       setGameDescription('');
+
+      // Generate spec and build in the background (fire and forget)
+      if (gameDescription.trim()) {
+        ipcClient.generateGameSpec({
+          appId: result.app.id,
+          prompt: gameDescription
+        }).then((spec) => {
+          return ipcClient.buildGodotGameFromSpec({
+            appId: result.app.id,
+            spec
+          });
+        }).then(() => {
+          showSuccess('Applaa game created and built successfully!');
+        }).catch((specError) => {
+          console.error('Failed to generate/build game spec:', specError);
+          // Don't show error to user - they can do it manually in chat
+        });
+      }
     } catch (error) {
-      showError(error as Error);
-    } finally {
+      // Clear prompt on error
+      setGameCreationPrompt(null);
       setIsCreating(false);
+      showError(error as Error);
     }
   }, [gameName, gameDescription, ipcClient, router, setSelectedAppId, onClose]);
 
