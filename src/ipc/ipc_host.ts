@@ -74,6 +74,8 @@ import { registerAndroidDependencyHandlers } from "./handlers/android_dependency
 import { registerAutoInstallerHandlers } from "./handlers/auto_installer";
 import { registerPrerequisiteInstallerHandlers } from "./handlers/prerequisite_installer";
 import { registerGodotHandlers } from "./handlers/godot_handlers";
+import { registerGamesHandlers } from "./handlers/games_handlers";
+import { registerGameTemplatesHandlers } from "./handlers/game_templates_handlers";
 
 
 export function registerIpcHandlers() {
@@ -178,6 +180,14 @@ export function registerIpcHandlers() {
   // 🎮 Godot Engine Integration
   console.log('🎮 Registering Godot handlers...');
   registerGodotHandlers();
+  
+  // 🎮 Custom Games Management
+  console.log('🎮 Registering games handlers...');
+  registerGamesHandlers();
+  
+  // 🎮 Game Templates Management
+  console.log('🎮 Registering game templates handlers...');
+  registerGameTemplatesHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

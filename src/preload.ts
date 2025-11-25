@@ -327,6 +327,18 @@ const validInvokeChannels = [
   "godot:get-web-export-url",
   "godot:stop-server",
   "godot:check-engine",
+  // Games Management channels
+  "games:list",
+  "games:create",
+  "games:update",
+  "games:delete",
+  "games:test-image-url",
+  "games:test-all-images",
+  // Game Templates Management channels
+  "game-templates:list",
+  "game-templates:create",
+  "game-templates:update",
+  "game-templates:delete",
 ];
 
 // Add valid receive channels
@@ -476,6 +488,45 @@ contextBridge.exposeInMainWorld("applaa", {
       }
     } catch (error) {
       console.error("❌ Failed to fetch database data:", error);
+      throw error;
+    }
+  },
+  testGameImages: async () => {
+    try {
+      console.log("🔍 Testing all game image URLs...");
+      const results = await ipcRenderer.invoke("games:test-all-images");
+      
+      console.group("📸 Game Image URL Test Results");
+      
+      const accessible = results.filter((r: any) => r.accessible);
+      const failed = results.filter((r: any) => !r.accessible);
+      
+      console.log(`✅ Accessible: ${accessible.length}/${results.length}`);
+      console.log(`❌ Failed: ${failed.length}/${results.length}`);
+      
+      if (accessible.length > 0) {
+        console.log("\n✅ Accessible Images:");
+        console.table(accessible.map((r: any) => ({
+          Game: r.gameName,
+          URL: r.imageUrl,
+          Status: r.statusCode,
+        })));
+      }
+      
+      if (failed.length > 0) {
+        console.log("\n❌ Failed Images:");
+        console.table(failed.map((r: any) => ({
+          Game: r.gameName,
+          URL: r.imageUrl,
+          Error: r.error || `Status: ${r.statusCode}`,
+        })));
+      }
+      
+      console.groupEnd();
+      
+      return results;
+    } catch (error) {
+      console.error("❌ Failed to test image URLs:", error);
       throw error;
     }
   },

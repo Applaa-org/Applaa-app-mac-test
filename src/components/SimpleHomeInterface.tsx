@@ -24,6 +24,12 @@ import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, ExternalLink,
 import { GODOT_GAMES_DATA, getEmojiForGame } from '@/data/godotGamesData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { AddGameTemplateDialog } from './AddGameTemplateDialog';
+import { EditGameTemplateDialog } from './EditGameTemplateDialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Edit2, Trash2, Plus } from 'lucide-react';
+import { showError, showSuccess } from '@/lib/toast';
 
 interface SimpleHomeInterfaceProps {
   onChatSubmit?: (options?: any) => Promise<void>;
@@ -47,6 +53,11 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const [visibleIdeasCount, setVisibleIdeasCount] = useState<number>(6);
   const [selectedGameUrl, setSelectedGameUrl] = useState<string | null>(null);
   const [isGameModalOpen, setIsGameModalOpen] = useState(false);
+  const [isAddTemplateDialogOpen, setIsAddTemplateDialogOpen] = useState(false);
+  const [isEditTemplateDialogOpen, setIsEditTemplateDialogOpen] = useState(false);
+  const [templateToEdit, setTemplateToEdit] = useState<{ id: string; name: string; details: string; previewUrl?: string | null; imageUrl?: string | null; emoji?: string | null; appType: 'web' | 'expo' | 'flutter' | 'godot' } | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Handle app type selection
   const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot') => {
@@ -79,13 +90,53 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
     }
   }, [updateSettings]);
 
-  // When app type changes, load static ideas (including Godot)
+  const ipcClient = IpcClient.getInstance();
+  const queryClient = useQueryClient();
+
+  // Fetch game templates from Supabase
+  const { data: gameTemplates = [], isLoading: isLoadingTemplates } = useQuery({
+    queryKey: ['game-templates', selectedAppType],
+    queryFn: async () => {
+      if (!selectedAppType) return [];
+      try {
+        const templates = await ipcClient.listGameTemplates({ appType: selectedAppType });
+        return templates;
+      } catch (error) {
+        console.error('Error fetching game templates:', error);
+        // Fallback to static data if Supabase fails
+        return [];
+      }
+    },
+    enabled: !!selectedAppType,
+  });
+
+  // When app type changes, load ideas from Supabase or fallback to static
   useEffect(() => {
     if (selectedAppType) {
-      setIdeas(getStaticIdeas(selectedAppType));
+      if (gameTemplates.length > 0) {
+        // Convert Supabase templates to ExampleIdea format
+        const templateIdeas: ExampleIdea[] = gameTemplates.map(template => {
+          const firstSentence = template.details.split('.')[0] || template.name;
+          const shortDesc = firstSentence.length > 100 
+            ? firstSentence.substring(0, 97) + '...'
+            : firstSentence;
+          
+          return {
+            title: template.name,
+            description: shortDesc + '\nClick to use the full detailed prompt.',
+            emoji: template.emoji || getEmojiForGame(template.name),
+            prompt: template.details,
+            previewUrl: template.previewUrl || undefined,
+          };
+        });
+        setIdeas(templateIdeas);
+      } else if (!isLoadingTemplates) {
+        // Fallback to static data if no templates from Supabase
+        setIdeas(getStaticIdeas(selectedAppType));
+      }
       setVisibleIdeasCount(6); // Reset to 6 when app type changes
     }
-  }, [selectedAppType]);
+  }, [selectedAppType, gameTemplates, isLoadingTemplates]);
 
   // Handle chat submission
   const handleChatSubmit = useCallback(async (options?: any) => {
@@ -109,7 +160,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
   const handleShuffleIdeas = () => {
     if (!selectedAppType) return;
-    setIdeas(getStaticIdeas(selectedAppType));
+    // Shuffle the current ideas array
+    const shuffled = [...ideas].sort(() => Math.random() - 0.5);
+    setIdeas(shuffled);
     setVisibleIdeasCount(6); // Reset to 6 when shuffling
   };
 
@@ -134,6 +187,59 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const handleOpenExternal = () => {
     if (selectedGameUrl) {
       window.open(selectedGameUrl, '_blank');
+    }
+  };
+
+  // Template management handlers
+  const handleTemplateAdded = () => {
+    queryClient.invalidateQueries({ queryKey: ['game-templates', selectedAppType] });
+  };
+
+  const handleEditTemplate = (templateId: string) => {
+    const template = gameTemplates.find(t => t.id === templateId);
+    if (template) {
+      setTemplateToEdit({
+        id: template.id,
+        name: template.name,
+        details: template.details,
+        previewUrl: template.previewUrl,
+        imageUrl: template.imageUrl,
+        emoji: template.emoji,
+        appType: template.appType,
+      });
+      setIsEditTemplateDialogOpen(true);
+    }
+  };
+
+  const handleTemplateUpdated = () => {
+    queryClient.invalidateQueries({ queryKey: ['game-templates', selectedAppType] });
+    setIsEditTemplateDialogOpen(false);
+    setTemplateToEdit(null);
+  };
+
+  const handleDeleteTemplate = (templateId: string, name: string) => {
+    setTemplateToDelete({ id: templateId, name });
+    setIsDeleteDialogOpen(true);
+  };
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return ipcClient.deleteGameTemplate({ id });
+    },
+    onSuccess: () => {
+      showSuccess('Template deleted successfully!');
+      queryClient.invalidateQueries({ queryKey: ['game-templates', selectedAppType] });
+      setIsDeleteDialogOpen(false);
+      setTemplateToDelete(null);
+    },
+    onError: (error) => {
+      showError(error as Error);
+    },
+  });
+
+  const handleConfirmDelete = () => {
+    if (templateToDelete) {
+      deleteTemplateMutation.mutate(templateToDelete.id);
     }
   };
 
@@ -288,51 +394,89 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                 <Lightbulb className="h-4 w-4 text-amber-500" />
                 <span className="text-sm">Choose from 1000's of Game templates</span>
               </div>
-              <button
-                onClick={handleShuffleIdeas}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-gray-300 hover:bg-gray-50 transition-colors"
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> Shuffle ideas
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsAddTemplateDialogOpen(true)}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-gray-300 hover:bg-gray-50 transition-colors"
+                  title="Add new template"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Template
+                </button>
+                <button
+                  onClick={handleShuffleIdeas}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Shuffle ideas
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ideas.slice(0, visibleIdeasCount).map((idea, index) => (
-                <div
-                  key={`${idea.title}-${index}`}
-                  className="p-4 text-left bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl text-sm transition-all flex items-start gap-3 shadow-sm relative group"
-                >
-                  <span className="text-xl leading-none pt-0.5 flex-shrink-0">{idea.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <button
-                      onClick={() => {
-                        setInputValue(idea.prompt);
-                        // For Godot, the component will pick up the value via initialDescription prop
-                      }}
-                      className="w-full text-left"
-                    >
-                      <div className="font-medium text-gray-900 mb-1">{idea.title}</div>
-                      <p className="text-gray-600 text-[13px] leading-relaxed mb-2 whitespace-pre-line">
-                        {idea.description}
-                      </p>
-                    </button>
-                  </div>
-                  {idea.previewUrl && (
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              {ideas.slice(0, visibleIdeasCount).map((idea, index) => {
+                // Find the template ID from gameTemplates
+                const template = gameTemplates.find(t => t.name === idea.title && t.details === idea.prompt);
+                const canEdit = template && !template.isDefault;
+                
+                return (
+                  <div
+                    key={`${idea.title}-${index}`}
+                    className="p-4 text-left bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl text-sm transition-all flex items-start gap-3 shadow-sm relative group"
+                  >
+                    <span className="text-xl leading-none pt-0.5 flex-shrink-0">{idea.emoji}</span>
+                    <div className="flex-1 min-w-0">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlayGame(idea.previewUrl!);
+                        onClick={() => {
+                          setInputValue(idea.prompt);
+                          // For Godot, the component will pick up the value via initialDescription prop
                         }}
-                        className="h-8 px-2 rounded-full bg-green-600 dark:bg-green-500 flex items-center justify-center gap-1.5 shadow-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
-                        title="Preview Game"
+                        className="w-full text-left"
                       >
-                        <Play className="h-3.5 w-3.5 text-white fill-white" />
-                        <span className="text-xs font-medium text-white">Play</span>
+                        <div className="font-medium text-gray-900 mb-1">{idea.title}</div>
+                        <p className="text-gray-600 text-[13px] leading-relaxed mb-2 whitespace-pre-line">
+                          {idea.description}
+                        </p>
                       </button>
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1">
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (template) handleEditTemplate(template.id);
+                            }}
+                            className="h-7 w-7 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 shadow-sm flex items-center justify-center"
+                            title="Edit template"
+                          >
+                            <Edit2 className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (template) handleDeleteTemplate(template.id, template.name);
+                            }}
+                            className="h-7 w-7 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 shadow-sm flex items-center justify-center"
+                            title="Delete template"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                          </button>
+                        </>
+                      )}
+                      {idea.previewUrl && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlayGame(idea.previewUrl!);
+                          }}
+                          className="h-7 px-2 rounded-full bg-green-600 dark:bg-green-500 flex items-center justify-center gap-1 shadow-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
+                          title="Preview Game"
+                        >
+                          <Play className="h-3 w-3 text-white fill-white" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             {ideas.length > 6 && (
               <div className="flex justify-center mt-4">
@@ -391,6 +535,48 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add Template Dialog */}
+      {selectedAppType && (
+        <AddGameTemplateDialog
+          open={isAddTemplateDialogOpen}
+          onOpenChange={setIsAddTemplateDialogOpen}
+          appType={selectedAppType}
+          onTemplateAdded={handleTemplateAdded}
+        />
+      )}
+
+      {/* Edit Template Dialog */}
+      {templateToEdit && (
+        <EditGameTemplateDialog
+          open={isEditTemplateDialogOpen}
+          onOpenChange={setIsEditTemplateDialogOpen}
+          template={templateToEdit}
+          onTemplateUpdated={handleTemplateUpdated}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the template "{templateToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteTemplateMutation.isPending}
+            >
+              {deleteTemplateMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
