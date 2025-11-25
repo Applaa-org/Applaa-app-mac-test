@@ -37,13 +37,13 @@ export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
       id: 'typing-invader',
       name: 'Typing Invader',
       imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/10/asdasd-1-205x300.png', // TODO: Replace with actual Typing Invader image URL
-      gameUrl: 'https://applaa.com/typing-invader/' // TODO: Replace with actual Typing Invader game URL
+      gameUrl: 'https://app.applaa.com/typing-invader/' // TODO: Replace with actual Typing Invader game URL
     },
     {
       id: 'fruit-catcher',
       name: 'Fruit Catcher',
       imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/11/k-1-300x244.png', // TODO: Replace with actual Fruit Catcher image URL
-      gameUrl: 'https://applaa.com/fruit-catcher/' // TODO: Replace with actual Fruit Catcher game URL
+      gameUrl: 'https://app.applaa.com/fruit-catcher/' // TODO: Replace with actual Fruit Catcher game URL
     }
   ];
 
