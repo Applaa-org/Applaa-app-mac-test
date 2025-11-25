@@ -5,19 +5,32 @@
  */
 
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { GameCard } from './GameCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Plus } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
 import { AddGameDialog } from './AddGameDialog';
+import { EditGameDialog } from './EditGameDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { showError, showSuccess } from '@/lib/toast';
 
 interface Game {
   id: string;
   name: string;
   imageUrl: string;
   gameUrl: string;
+  isDefault?: boolean;
 }
 
 interface GamesSectionProps {
@@ -28,6 +41,10 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
   const [selectedGameUrl, setSelectedGameUrl] = useState<string | null>(null);
   const [isGameModalOpen, setIsGameModalOpen] = useState(false);
   const [isAddGameDialogOpen, setIsAddGameDialogOpen] = useState(false);
+  const [isEditGameDialogOpen, setIsEditGameDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [gameToEdit, setGameToEdit] = useState<Game | null>(null);
+  const [gameToDelete, setGameToDelete] = useState<{ id: string; name: string } | null>(null);
   const queryClient = useQueryClient();
   const ipcClient = IpcClient.getInstance();
 
@@ -66,6 +83,44 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
     queryClient.invalidateQueries({ queryKey: ['games'] });
   };
 
+  const handleEditGame = (gameId: string) => {
+    const game = allGames.find(g => g.id === gameId);
+    if (game) {
+      setGameToEdit(game);
+      setIsEditGameDialogOpen(true);
+    }
+  };
+
+  const handleGameUpdated = () => {
+    queryClient.invalidateQueries({ queryKey: ['games'] });
+  };
+
+  const handleDeleteGame = (gameId: string, gameName: string) => {
+    setGameToDelete({ id: gameId, name: gameName });
+    setIsDeleteDialogOpen(true);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (gameId: string) => {
+      await ipcClient.deleteCustomGame({ id: gameId });
+    },
+    onSuccess: () => {
+      showSuccess('Game deleted successfully!');
+      queryClient.invalidateQueries({ queryKey: ['games'] });
+      setIsDeleteDialogOpen(false);
+      setGameToDelete(null);
+    },
+    onError: (error) => {
+      showError(error as Error);
+    },
+  });
+
+  const handleConfirmDelete = () => {
+    if (gameToDelete) {
+      deleteMutation.mutate(gameToDelete.id);
+    }
+  };
+
   // Show error if there's one
   if (gamesError) {
     console.error('Games query error:', gamesError);
@@ -80,12 +135,12 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
       <section className={`mb-12 ${className}`}>
         <header className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Your Games
-            </h2>
-            <p className="text-md text-gray-600 dark:text-gray-400">
-              Games created with Applaa - click to play
-            </p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Your Games
+          </h2>
+          <p className="text-md text-gray-600 dark:text-gray-400">
+            Games created with Applaa - click to play
+          </p>
           </div>
           <Button
             onClick={() => setIsAddGameDialogOpen(true)}
@@ -100,10 +155,13 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
           {allGames.map((game) => (
             <GameCard
               key={game.id}
+              id={game.id}
               name={game.name}
               imageUrl={game.imageUrl}
               gameUrl={game.gameUrl}
               onPlay={handlePlayGame}
+              onEdit={game.isDefault ? undefined : handleEditGame}
+              onDelete={game.isDefault ? undefined : handleDeleteGame}
             />
           ))}
         </div>
@@ -115,6 +173,41 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
         onOpenChange={setIsAddGameDialogOpen}
         onGameAdded={handleGameAdded}
       />
+
+      {/* Edit Game Dialog */}
+      <EditGameDialog
+        open={isEditGameDialogOpen}
+        onOpenChange={setIsEditGameDialogOpen}
+        game={gameToEdit}
+        onGameUpdated={handleGameUpdated}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Game</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{gameToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setIsDeleteDialogOpen(false);
+              setGameToDelete(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Game Modal */}
       <Dialog open={isGameModalOpen} onOpenChange={setIsGameModalOpen}>

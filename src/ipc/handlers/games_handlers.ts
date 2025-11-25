@@ -2,6 +2,8 @@ import { createLoggedHandler } from "./safe_handle";
 import log from "electron-log";
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from "../../lib/supabase";
+import https from 'https';
+import http from 'http';
 
 const logger = log.scope("games_handlers");
 const handle = createLoggedHandler(logger);
@@ -224,6 +226,169 @@ export function registerGamesHandlers() {
       } catch (error) {
         logger.error("Failed to delete game:", error);
         throw new Error(`Failed to delete game: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  );
+
+  // Test image URL accessibility
+  handle(
+    "games:test-image-url",
+    async (_, params: { url: string }): Promise<{ accessible: boolean; statusCode?: number; error?: string }> => {
+      try {
+        if (!params.url) {
+          throw new Error("URL is required");
+        }
+
+        const url = new URL(params.url);
+        const isHttps = url.protocol === 'https:';
+        const client = isHttps ? https : http;
+
+        return new Promise((resolve) => {
+          const request = client.request(
+            url.toString(),
+            {
+              method: 'HEAD',
+              timeout: 5000,
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              },
+            },
+            (response) => {
+              const statusCode = response.statusCode || 0;
+              const accessible = statusCode >= 200 && statusCode < 400;
+              
+              logger.info(`Image URL test: ${params.url} - Status: ${statusCode}, Accessible: ${accessible}`);
+              
+              resolve({
+                accessible,
+                statusCode,
+              });
+              
+              // Consume response to free up resources
+              response.on('data', () => {});
+              response.on('end', () => {});
+            }
+          );
+
+          request.on('error', (error) => {
+            logger.warn(`Image URL test failed: ${params.url} - ${error.message}`);
+            resolve({
+              accessible: false,
+              error: error.message,
+            });
+          });
+
+          request.on('timeout', () => {
+            request.destroy();
+            logger.warn(`Image URL test timeout: ${params.url}`);
+            resolve({
+              accessible: false,
+              error: 'Request timeout',
+            });
+          });
+
+          request.end();
+        });
+      } catch (error) {
+        logger.error("Failed to test image URL:", error);
+        return {
+          accessible: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+  );
+
+  // Test all game image URLs
+  handle(
+    "games:test-all-images",
+    async (): Promise<Array<{ gameName: string; imageUrl: string; accessible: boolean; statusCode?: number; error?: string }>> => {
+      try {
+        const adminClient = getSupabaseAdminClient();
+        if (!adminClient) {
+          throw new Error("Supabase not configured");
+        }
+
+        const { data: games, error } = await adminClient
+          .from('games')
+          .select('name, image_url');
+
+        if (error) {
+          logger.error("Failed to fetch games for testing:", error);
+          throw error;
+        }
+
+        logger.info(`Testing ${games?.length || 0} game image URLs...`);
+
+        const results = await Promise.all(
+          (games || []).map(async (game) => {
+            const url = new URL(game.image_url);
+            const isHttps = url.protocol === 'https:';
+            const client = isHttps ? https : http;
+
+            return new Promise<{ gameName: string; imageUrl: string; accessible: boolean; statusCode?: number; error?: string }>((resolve) => {
+              const request = client.request(
+                game.image_url,
+                {
+                  method: 'HEAD',
+                  timeout: 5000,
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  },
+                },
+                (response) => {
+                  const statusCode = response.statusCode || 0;
+                  const accessible = statusCode >= 200 && statusCode < 400;
+                  
+                  logger.info(`✓ ${game.name}: ${game.image_url} - Status: ${statusCode}`);
+                  
+                  resolve({
+                    gameName: game.name,
+                    imageUrl: game.image_url,
+                    accessible,
+                    statusCode,
+                  });
+                  
+                  response.on('data', () => {});
+                  response.on('end', () => {});
+                }
+              );
+
+              request.on('error', (error) => {
+                logger.warn(`✗ ${game.name}: ${game.image_url} - ${error.message}`);
+                resolve({
+                  gameName: game.name,
+                  imageUrl: game.image_url,
+                  accessible: false,
+                  error: error.message,
+                });
+              });
+
+              request.on('timeout', () => {
+                request.destroy();
+                logger.warn(`✗ ${game.name}: ${game.image_url} - Timeout`);
+                resolve({
+                  gameName: game.name,
+                  imageUrl: game.image_url,
+                  accessible: false,
+                  error: 'Request timeout',
+                });
+              });
+
+              request.end();
+            });
+          })
+        );
+
+        const accessibleCount = results.filter(r => r.accessible).length;
+        const failedCount = results.filter(r => !r.accessible).length;
+        
+        logger.info(`Image URL test complete: ${accessibleCount} accessible, ${failedCount} failed`);
+
+        return results;
+      } catch (error) {
+        logger.error("Failed to test all image URLs:", error);
+        throw new Error(`Failed to test image URLs: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   );

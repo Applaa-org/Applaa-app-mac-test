@@ -3310,6 +3310,15 @@ export class IpcClient {
   public async deleteCustomGame(params: { id: string }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("games:delete", params);
   }
+
+  // Image URL Testing Methods
+  public async testImageUrl(params: { url: string }): Promise<{ accessible: boolean; statusCode?: number; error?: string }> {
+    return this.ipcRenderer.invoke("games:test-image-url", params);
+  }
+
+  public async testAllImageUrls(): Promise<Array<{ gameName: string; imageUrl: string; accessible: boolean; statusCode?: number; error?: string }>> {
+    return this.ipcRenderer.invoke("games:test-all-images");
+  }
 }
 
 // Export singleton instance
