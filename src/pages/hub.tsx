@@ -42,15 +42,7 @@ const HubPage: React.FC = () => {
           <ArrowLeft className="h-4 w-4" />
           Go Back
         </Button>
-        <header className="mb-8 text-left">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Pick your default template
-          </h1>
-          <p className="text-md text-gray-600 dark:text-gray-400">
-            Choose a starting point for your new project.
-            {isLoading && " Loading additional templates..."}
-          </p>
-        </header>
+    
 
         {/* Deployed Apps Section */}
         <DeployedAppsSection />
