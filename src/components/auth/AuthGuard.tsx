@@ -42,19 +42,21 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   if (!isAuthenticated) {
     return (
       <>
-        {/* Show the app layout in background (blurred/disabled) */}
-        <div className="blur-[1px] pointer-events-none opacity-70">
+        {/* Show the app layout - only blur/disable when dialog is open */}
+        <div className={showAuthDialog ? "blur-[1px] pointer-events-none opacity-70" : ""}>
           {children}
         </div>
         
         {/* Auth dialog popup - can be closed */}
-        <WordPressAuthDialog 
-          open={showAuthDialog} 
-          onOpenChange={(open) => {
-            setShowAuthDialog(open);
-            // If dialog is closed, allow user to continue (they can reopen it later)
-          }} 
-        />
+        {showAuthDialog && (
+          <WordPressAuthDialog 
+            open={showAuthDialog} 
+            onOpenChange={(open) => {
+              setShowAuthDialog(open);
+              // If dialog is closed, allow user to continue (they can reopen it later)
+            }} 
+          />
+        )}
       </>
     );
   }
