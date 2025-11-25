@@ -38,7 +38,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   // No configuration check needed for API-based authentication
   // Authentication is always available via API
 
-  // Show auth dialog if not authenticated - but keep the app layout in background
+  // Show auth dialog if not authenticated - but allow closing it
   if (!isAuthenticated) {
     return (
       <>
@@ -47,10 +47,13 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
           {children}
         </div>
         
-        {/* Auth dialog popup */}
+        {/* Auth dialog popup - can be closed */}
         <WordPressAuthDialog 
           open={showAuthDialog} 
-          onOpenChange={setShowAuthDialog} 
+          onOpenChange={(open) => {
+            setShowAuthDialog(open);
+            // If dialog is closed, allow user to continue (they can reopen it later)
+          }} 
         />
       </>
     );

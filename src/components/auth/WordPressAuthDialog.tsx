@@ -93,8 +93,8 @@ export const WordPressAuthDialog: React.FC<WordPressAuthDialogProps> = ({
 
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[500px]" onPointerDownOutside={(e) => e.preventDefault()}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
             {isSignUp ? 'Create Applaa Account' : 'Applaa Authentication'}
