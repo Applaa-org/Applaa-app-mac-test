@@ -327,6 +327,11 @@ const validInvokeChannels = [
   "godot:get-web-export-url",
   "godot:stop-server",
   "godot:check-engine",
+  // Games Management channels
+  "games:list",
+  "games:create",
+  "games:update",
+  "games:delete",
 ];
 
 // Add valid receive channels

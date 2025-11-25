@@ -3260,6 +3260,56 @@ export class IpcClient {
   public async checkGodotEngine(): Promise<{ installed: boolean; path?: string; version?: string }> {
     return this.ipcRenderer.invoke("godot:check-engine");
   }
+
+  // Custom Games Management Methods
+  public async listCustomGames(): Promise<Array<{
+    id: string;
+    name: string;
+    imageUrl: string;
+    gameUrl: string;
+    isDefault?: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }>> {
+    return this.ipcRenderer.invoke("games:list");
+  }
+
+  public async createCustomGame(params: {
+    name: string;
+    imageUrl: string;
+    gameUrl: string;
+  }): Promise<{
+    id: string;
+    name: string;
+    imageUrl: string;
+    gameUrl: string;
+    isDefault?: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }> {
+    return this.ipcRenderer.invoke("games:create", params);
+  }
+
+  public async updateCustomGame(params: {
+    id: string;
+    name?: string;
+    imageUrl?: string;
+    gameUrl?: string;
+  }): Promise<{
+    id: string;
+    name: string;
+    imageUrl: string;
+    gameUrl: string;
+    isDefault?: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }> {
+    return this.ipcRenderer.invoke("games:update", params);
+  }
+
+  public async deleteCustomGame(params: { id: string }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("games:delete", params);
+  }
 }
 
 // Export singleton instance

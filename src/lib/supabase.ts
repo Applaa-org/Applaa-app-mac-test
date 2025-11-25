@@ -160,6 +160,35 @@ export interface Database {
           updated_at?: string;
         };
       };
+      games: {
+        Row: {
+          id: string;
+          name: string;
+          image_url: string;
+          game_url: string;
+          is_default: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          image_url: string;
+          game_url: string;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          image_url?: string;
+          game_url?: string;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       sqlite_backups: {
         Row: {
           id: string;
