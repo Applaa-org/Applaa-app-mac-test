@@ -3319,6 +3319,71 @@ export class IpcClient {
   public async testAllImageUrls(): Promise<Array<{ gameName: string; imageUrl: string; accessible: boolean; statusCode?: number; error?: string }>> {
     return this.ipcRenderer.invoke("games:test-all-images");
   }
+
+  // Game Templates Management Methods
+  public async listGameTemplates(params?: { appType?: 'web' | 'expo' | 'flutter' | 'godot' }): Promise<Array<{
+    id: string;
+    name: string;
+    details: string;
+    previewUrl?: string | null;
+    imageUrl?: string | null;
+    emoji?: string | null;
+    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    isDefault?: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }>> {
+    return this.ipcRenderer.invoke("game-templates:list", params || {});
+  }
+
+  public async createGameTemplate(params: {
+    name: string;
+    details: string;
+    previewUrl?: string;
+    imageUrl?: string;
+    emoji?: string;
+    appType: 'web' | 'expo' | 'flutter' | 'godot';
+  }): Promise<{
+    id: string;
+    name: string;
+    details: string;
+    previewUrl?: string | null;
+    imageUrl?: string | null;
+    emoji?: string | null;
+    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    isDefault?: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }> {
+    return this.ipcRenderer.invoke("game-templates:create", params);
+  }
+
+  public async updateGameTemplate(params: {
+    id: string;
+    name?: string;
+    details?: string;
+    previewUrl?: string;
+    imageUrl?: string;
+    emoji?: string;
+    appType?: 'web' | 'expo' | 'flutter' | 'godot';
+  }): Promise<{
+    id: string;
+    name: string;
+    details: string;
+    previewUrl?: string | null;
+    imageUrl?: string | null;
+    emoji?: string | null;
+    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    isDefault?: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }> {
+    return this.ipcRenderer.invoke("game-templates:update", params);
+  }
+
+  public async deleteGameTemplate(params: { id: string }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("game-templates:delete", params);
+  }
 }
 
 // Export singleton instance

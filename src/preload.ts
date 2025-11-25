@@ -334,6 +334,11 @@ const validInvokeChannels = [
   "games:delete",
   "games:test-image-url",
   "games:test-all-images",
+  // Game Templates Management channels
+  "game-templates:list",
+  "game-templates:create",
+  "game-templates:update",
+  "game-templates:delete",
 ];
 
 // Add valid receive channels
