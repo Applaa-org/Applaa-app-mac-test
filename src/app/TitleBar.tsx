@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import { PreviewHeader } from "@/components/preview_panel/PreviewHeader";
 import applaaLogo from "@/assets/applaa-logo-new.jpeg";
+import { Globe } from "lucide-react";
 
 export const TitleBar = () => {
   const [selectedAppId] = useAtom(selectedAppIdAtom);
@@ -121,9 +122,22 @@ export const TitleBar = () => {
         </Button>
         {hasApplaaProKey && <ApplaaProButton isApplaaProEnabled={isApplaaProEnabled} />}
 
+        {/* Applaa Setup Button - positioned on the right */}
+        <div className="ml-auto mr-2">
+          <Button
+            onClick={() => navigate({ to: "/docs" })}
+            variant="outline"
+            size="sm"
+            className="hidden @2xl:flex items-center gap-2 no-app-region-drag h-7 text-xs px-3 bg-gradient-to-r from-green-500 to-teal-600 text-white hover:from-green-600 hover:to-teal-700 border-0"
+          >
+            <Globe className="w-4 h-4" />
+            Applaa Setup
+          </Button>
+        </div>
+
         {/* Preview Header */}
         {location.pathname === "/chat" && (
-          <div className="flex-1 flex justify-end">
+          <div className="flex justify-end">
             <PreviewHeader 
               isExpoApp={isExpoApp} 
               isLeftPanelOpen={isLeftPanelOpen}

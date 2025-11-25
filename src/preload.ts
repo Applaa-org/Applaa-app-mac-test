@@ -114,6 +114,7 @@ const validInvokeChannels = [
   "wordpress:logout",
   "wordpress:get-current-user",
   "wordpress:check-capability",
+  "wordpress:check-admin-permission",
   "wordpress:validate-session",
   "wordpress:oauth-login",
   "shell:open-external",

@@ -466,18 +466,6 @@ export const CLOUD_PROVIDERS: Record<
     gatewayPrefix: string;
   }
 > = {
-  openai: {
-    displayName: "OpenAI",
-    hasFreeTier: false,
-    websiteUrl: "https://platform.openai.com/api-keys",
-    gatewayPrefix: "",
-  },
-  anthropic: {
-    displayName: "Anthropic",
-    hasFreeTier: false,
-    websiteUrl: "https://console.anthropic.com/settings/keys",
-    gatewayPrefix: "anthropic/",
-  },
   google: {
     displayName: "Google",
     hasFreeTier: true,
@@ -489,6 +477,18 @@ export const CLOUD_PROVIDERS: Record<
     hasFreeTier: true,
     websiteUrl: "https://openrouter.ai/settings/keys",
     gatewayPrefix: "openrouter/",
+  },
+  openai: {
+    displayName: "OpenAI",
+    hasFreeTier: false,
+    websiteUrl: "https://platform.openai.com/api-keys",
+    gatewayPrefix: "",
+  },
+  anthropic: {
+    displayName: "Anthropic",
+    hasFreeTier: false,
+    websiteUrl: "https://console.anthropic.com/settings/keys",
+    gatewayPrefix: "anthropic/",
   },
   auto: {
     displayName: "Applaa",

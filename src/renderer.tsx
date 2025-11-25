@@ -12,6 +12,7 @@ import {
   MutationCache,
 } from "@tanstack/react-query";
 import { showError } from "./lib/toast";
+import { IpcClient } from "./ipc/ipc_client";
 
 // @ts-ignore
 console.log("Running in mode:", import.meta.env.MODE);
@@ -86,6 +87,86 @@ const posthogClient = posthog.init(
     persistence: "localStorage",
   },
 );
+
+// Initialize Sentry in renderer process
+async function initializeRendererSentry() {
+  try {
+    // Get Sentry DSN from main process via IPC
+    const ipcClient = IpcClient.getInstance();
+    const envVars = await ipcClient.getEnvVars();
+    const sentryDsn = envVars.SENTRY_DSN;
+    
+    // Only initialize if DSN is available
+    if (sentryDsn) {
+      // Check analytics config status and user consent
+      const configStatus = await ipcClient.analyticsGetConfigStatus();
+      const consentResult = await ipcClient.analyticsGetConsent();
+      
+      const hasConsent = consentResult.success && consentResult.consent?.crash_reporting;
+      const isConfigured = configStatus.success && configStatus.status?.hasSentry;
+      
+      // Only initialize if user has consented to crash reporting
+      if (hasConsent && isConfigured) {
+        // Import Sentry renderer SDK
+        const Sentry = await import("@sentry/electron/renderer");
+        
+        Sentry.init({
+          dsn: sentryDsn,
+          environment: import.meta.env.MODE === "production" ? "production" : "development",
+          // Enable automatic instrumentation
+          integrations: [Sentry.browserTracingIntegration()],
+          // Adjust sample rate based on environment
+          tracesSampleRate: import.meta.env.MODE === "production" ? 0.1 : 1.0,
+          // Set trace propagation targets (adjust to your API endpoints)
+          tracePropagationTargets: ["localhost", /^https:\/\/.*\.sentry\.io/],
+          // Privacy filter - remove sensitive data
+          beforeSend: (event) => {
+            // Remove sensitive data from breadcrumbs
+            if (event.breadcrumbs) {
+              event.breadcrumbs = event.breadcrumbs.map((breadcrumb: any) => {
+                if (breadcrumb.data) {
+                  const sensitiveKeys = ['password', 'token', 'key', 'secret', 'auth', 'apiKey'];
+                  for (const key of sensitiveKeys) {
+                    if (breadcrumb.data[key]) {
+                      breadcrumb.data[key] = '[REDACTED]';
+                    }
+                  }
+                }
+                return breadcrumb;
+              });
+            }
+            
+            // Remove sensitive data from extra context
+            if (event.extra) {
+              const sensitiveKeys = ['password', 'token', 'key', 'secret', 'auth', 'apiKey'];
+              for (const key of sensitiveKeys) {
+                if (event.extra[key]) {
+                  event.extra[key] = '[REDACTED]';
+                }
+              }
+            }
+            
+            return event;
+          },
+        });
+        
+        // Set user ID if available
+        const telemetryUserId = getTelemetryUserId();
+        if (telemetryUserId) {
+          Sentry.setUser({ id: telemetryUserId });
+        }
+        
+        console.log("✅ Sentry initialized in renderer process");
+      }
+    }
+  } catch (error) {
+    console.error("Failed to initialize Sentry in renderer:", error);
+    // Don't throw - Sentry is optional
+  }
+}
+
+// Initialize Sentry before rendering
+initializeRendererSentry();
 
 function App() {
   useEffect(() => {

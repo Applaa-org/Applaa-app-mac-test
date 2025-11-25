@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from "../../lib/supabase";
 import https from 'https';
 import http from 'http';
+import { hasAdminPermission } from "../../utils/permissions";
 
 const logger = log.scope("games_handlers");
 const handle = createLoggedHandler(logger);
@@ -14,6 +15,7 @@ export interface CustomGame {
   imageUrl: string;
   gameUrl: string;
   isDefault?: boolean;
+  displayOrder?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +24,7 @@ export interface CreateGameParams {
   name: string;
   imageUrl: string;
   gameUrl: string;
+  displayOrder?: number; // Optional: if not provided, will be set to last position
 }
 
 export interface UpdateGameParams {
@@ -29,6 +32,7 @@ export interface UpdateGameParams {
   name?: string;
   imageUrl?: string;
   gameUrl?: string;
+  displayOrder?: number;
 }
 
 function getSupabaseAdminClient() {
@@ -69,6 +73,7 @@ export function registerGamesHandlers() {
         const { data: games, error } = await adminClient
           .from('games')
           .select('*')
+          .order('display_order', { ascending: true })
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -87,6 +92,7 @@ export function registerGamesHandlers() {
           imageUrl: game.image_url,
           gameUrl: game.game_url,
           isDefault: game.is_default,
+          displayOrder: game.display_order ?? 0,
           createdAt: new Date(game.created_at),
           updatedAt: new Date(game.updated_at),
         }));
@@ -102,6 +108,11 @@ export function registerGamesHandlers() {
     "games:create",
     async (_, params: CreateGameParams): Promise<CustomGame> => {
       try {
+        // Check admin permission
+        if (!hasAdminPermission()) {
+          throw new Error("You do not have permission to add games. Only authorized users can perform this operation.");
+        }
+
         if (!params.name || !params.imageUrl || !params.gameUrl) {
           throw new Error("Name, image URL, and game URL are required");
         }
@@ -111,6 +122,19 @@ export function registerGamesHandlers() {
           throw new Error("Supabase not configured");
         }
 
+        // If displayOrder is not provided, set it to the last position (max + 1)
+        let displayOrder = params.displayOrder;
+        if (displayOrder === undefined) {
+          const { data: maxGames } = await adminClient
+            .from('games')
+            .select('display_order')
+            .order('display_order', { ascending: false })
+            .limit(1);
+          
+          const maxOrder = maxGames && maxGames.length > 0 ? maxGames[0].display_order : 0;
+          displayOrder = maxOrder + 1;
+        }
+
         const { data: game, error } = await adminClient
           .from('games')
           .insert({
@@ -118,6 +142,7 @@ export function registerGamesHandlers() {
             image_url: params.imageUrl,
             game_url: params.gameUrl,
             is_default: false, // Custom games are not default
+            display_order: displayOrder,
           })
           .select()
           .single();
@@ -148,6 +173,11 @@ export function registerGamesHandlers() {
     "games:update",
     async (_, params: UpdateGameParams): Promise<CustomGame> => {
       try {
+        // Check admin permission
+        if (!hasAdminPermission()) {
+          throw new Error("You do not have permission to edit games. Only authorized users can perform this operation.");
+        }
+
         if (!params.id) {
           throw new Error("Game ID is required");
         }
@@ -161,6 +191,7 @@ export function registerGamesHandlers() {
         if (params.name !== undefined) updateData.name = params.name;
         if (params.imageUrl !== undefined) updateData.image_url = params.imageUrl;
         if (params.gameUrl !== undefined) updateData.game_url = params.gameUrl;
+        if (params.displayOrder !== undefined) updateData.display_order = params.displayOrder;
 
         if (Object.keys(updateData).length === 0) {
           throw new Error("At least one field must be provided for update");
@@ -188,6 +219,7 @@ export function registerGamesHandlers() {
           imageUrl: game.image_url,
           gameUrl: game.game_url,
           isDefault: game.is_default,
+          displayOrder: game.display_order ?? 0,
           createdAt: new Date(game.created_at),
           updatedAt: new Date(game.updated_at),
         };
@@ -203,6 +235,11 @@ export function registerGamesHandlers() {
     "games:delete",
     async (_, params: { id: string }): Promise<{ success: boolean }> => {
       try {
+        // Check admin permission
+        if (!hasAdminPermission()) {
+          throw new Error("You do not have permission to delete games. Only authorized users can perform this operation.");
+        }
+
         if (!params.id) {
           throw new Error("Game ID is required");
         }

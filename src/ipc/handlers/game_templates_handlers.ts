@@ -2,6 +2,7 @@ import { createLoggedHandler } from "./safe_handle";
 import log from "electron-log";
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from "../../lib/supabase";
+import { hasAdminPermission } from "../../utils/permissions";
 
 const logger = log.scope("game_templates_handlers");
 const handle = createLoggedHandler(logger);
@@ -15,6 +16,7 @@ export interface GameTemplate {
   emoji?: string | null;
   appType: 'web' | 'expo' | 'flutter' | 'godot';
   isDefault?: boolean;
+  displayOrder?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +28,7 @@ export interface CreateGameTemplateParams {
   imageUrl?: string;
   emoji?: string;
   appType: 'web' | 'expo' | 'flutter' | 'godot';
+  displayOrder?: number;
 }
 
 export interface UpdateGameTemplateParams {
@@ -36,6 +39,7 @@ export interface UpdateGameTemplateParams {
   imageUrl?: string;
   emoji?: string;
   appType?: 'web' | 'expo' | 'flutter' | 'godot';
+  displayOrder?: number;
 }
 
 function getSupabaseAdminClient() {
@@ -75,6 +79,7 @@ export function registerGameTemplatesHandlers() {
         let query = adminClient
           .from('game_templates')
           .select('*')
+          .order('display_order', { ascending: true })
           .order('created_at', { ascending: false });
 
         if (params.appType) {
@@ -97,6 +102,7 @@ export function registerGameTemplatesHandlers() {
           emoji: template.emoji,
           appType: template.app_type,
           isDefault: template.is_default,
+          displayOrder: template.display_order || 0,
           createdAt: new Date(template.created_at),
           updatedAt: new Date(template.updated_at),
         }));
@@ -112,6 +118,11 @@ export function registerGameTemplatesHandlers() {
     "game-templates:create",
     async (_, params: CreateGameTemplateParams): Promise<GameTemplate> => {
       try {
+        // Check admin permission
+        if (!hasAdminPermission()) {
+          throw new Error("You do not have permission to add game templates. Only authorized users can perform this operation.");
+        }
+
         if (!params.name || !params.details || !params.appType) {
           throw new Error("Name, details, and app type are required");
         }
@@ -131,6 +142,7 @@ export function registerGameTemplatesHandlers() {
             emoji: params.emoji || null,
             app_type: params.appType,
             is_default: false, // Custom templates are not default
+            display_order: params.displayOrder ?? 0,
           })
           .select()
           .single();
@@ -149,6 +161,7 @@ export function registerGameTemplatesHandlers() {
           emoji: template.emoji,
           appType: template.app_type,
           isDefault: template.is_default,
+          displayOrder: template.display_order || 0,
           createdAt: new Date(template.created_at),
           updatedAt: new Date(template.updated_at),
         };
@@ -164,6 +177,11 @@ export function registerGameTemplatesHandlers() {
     "game-templates:update",
     async (_, params: UpdateGameTemplateParams): Promise<GameTemplate> => {
       try {
+        // Check admin permission
+        if (!hasAdminPermission()) {
+          throw new Error("You do not have permission to edit game templates. Only authorized users can perform this operation.");
+        }
+
         if (!params.id) {
           throw new Error("Template ID is required");
         }
@@ -180,6 +198,7 @@ export function registerGameTemplatesHandlers() {
         if (params.imageUrl !== undefined) updateData.image_url = params.imageUrl || null;
         if (params.emoji !== undefined) updateData.emoji = params.emoji || null;
         if (params.appType !== undefined) updateData.app_type = params.appType;
+        if (params.displayOrder !== undefined) updateData.display_order = params.displayOrder;
 
         if (Object.keys(updateData).length === 0) {
           throw new Error("At least one field must be provided for update");
@@ -210,6 +229,7 @@ export function registerGameTemplatesHandlers() {
           emoji: template.emoji,
           appType: template.app_type,
           isDefault: template.is_default,
+          displayOrder: template.display_order || 0,
           createdAt: new Date(template.created_at),
           updatedAt: new Date(template.updated_at),
         };
@@ -225,6 +245,11 @@ export function registerGameTemplatesHandlers() {
     "game-templates:delete",
     async (_, params: { id: string }): Promise<{ success: boolean }> => {
       try {
+        // Check admin permission
+        if (!hasAdminPermission()) {
+          throw new Error("You do not have permission to delete game templates. Only authorized users can perform this operation.");
+        }
+
         if (!params.id) {
           throw new Error("Template ID is required");
         }
