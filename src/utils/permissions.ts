@@ -8,7 +8,7 @@ import { readSettings } from '../main/settings';
 import log from 'electron-log';
 
 // List of usernames allowed to perform admin operations
-const ALLOWED_ADMIN_USERNAMES = ['patidarmk', 'raj'];
+const ALLOWED_ADMIN_USERNAMES = ['patidarmk', 'raj','Mithun Majumdar'];
 
 /**
  * Check if the current WordPress user has admin permissions

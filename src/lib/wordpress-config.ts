@@ -33,7 +33,7 @@ export function loadWordPressConfig(): WordPressConfig | null {
     }
 
     // Hardcoded default configuration - always use Applaa.com
-    const wordpressUrl = 'https://applaa.com';
+    const wordpressUrl = 'https://app.applaa.com';
     console.log('[WordPress Config] Using hardcoded Applaa.com URL:', wordpressUrl);
     return {
       url: wordpressUrl,

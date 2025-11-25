@@ -30,19 +30,19 @@ export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
     {
       id: 'snake-game',
       name: 'Snake Game',
-      imageUrl: 'https://applaa.com/wp-content/uploads/2025/09/ChatGPT-Image-Sep-29-2025-12_00_58-PM-200x300.png', // TODO: Replace with actual Snake Game image URL
+      imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/11/as-1-298x300.png', // TODO: Replace with actual Snake Game image URL
       gameUrl: 'https://applaa-snake-2.vercel.app/'
     },
     {
       id: 'typing-invader',
       name: 'Typing Invader',
-      imageUrl: 'https://applaa.com/wp-content/uploads/2025/09/Generated-Image-September-27-2025-3_48PM-300x300.png', // TODO: Replace with actual Typing Invader image URL
+      imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/10/asdasd-1-205x300.png', // TODO: Replace with actual Typing Invader image URL
       gameUrl: 'https://applaa.com/typing-invader/' // TODO: Replace with actual Typing Invader game URL
     },
     {
       id: 'fruit-catcher',
       name: 'Fruit Catcher',
-      imageUrl: 'https://applaa.com/wp-content/uploads/2025/09/ChatGPT-Image-Sep-29-2025-12_05_02-PM-200x300.png', // TODO: Replace with actual Fruit Catcher image URL
+      imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/11/k-1-300x244.png', // TODO: Replace with actual Fruit Catcher image URL
       gameUrl: 'https://applaa.com/fruit-catcher/' // TODO: Replace with actual Fruit Catcher game URL
     }
   ];
