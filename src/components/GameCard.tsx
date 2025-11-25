@@ -5,26 +5,57 @@
  */
 
 import React, { useState } from 'react';
-import { Gamepad2, ExternalLink, Edit2, Trash2, ImageOff } from 'lucide-react';
+import { Gamepad2, ExternalLink, Edit2, Trash2, ImageOff, Heart, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { IpcClient } from '@/ipc/ipc_client';
+import { useWordPressAuth } from '@/hooks/useWordPressAuth';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface GameCardProps {
   id: string;
   name: string;
   imageUrl: string;
   gameUrl: string;
+  viewCount?: number;
+  likeCount?: number;
+  userLiked?: boolean;
   onPlay: (url: string) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string, name: string) => void;
   className?: string;
 }
 
-export function GameCard({ id, name, imageUrl, gameUrl, onPlay, onEdit, onDelete, className = '' }: GameCardProps) {
+export function GameCard({ id, name, imageUrl, gameUrl, viewCount = 0, likeCount = 0, userLiked = false, onPlay, onEdit, onDelete, className = '' }: GameCardProps) {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  const { user } = useWordPressAuth();
+  const queryClient = useQueryClient();
+  const ipcClient = IpcClient.getInstance();
+
+  const likeMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.display_name) return null;
+      return await ipcClient.toggleGameLike({
+        gameId: id,
+        userDisplayName: user.display_name,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['games'] });
+    },
+  });
 
   const handleClick = () => {
+    // Increment view count when game is opened
+    ipcClient.incrementGameView({ gameId: id }).catch(console.error);
     onPlay(gameUrl);
+  };
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (user?.display_name) {
+      likeMutation.mutate();
+    }
   };
 
   const handleEditClick = (e: React.MouseEvent) => {
@@ -112,12 +143,33 @@ export function GameCard({ id, name, imageUrl, gameUrl, onPlay, onEdit, onDelete
 
       {/* Game Info */}
       <div className="p-4">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
           {name}
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Created with Applaa
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-1.5">
+              <Eye className="h-4 w-4" />
+              <span>{viewCount}</span>
+            </div>
+            <button
+              onClick={handleLike}
+              className={`flex items-center gap-1.5 transition-colors ${
+                userLiked 
+                  ? 'text-red-500 hover:text-red-600' 
+                  : 'text-gray-500 hover:text-red-500'
+              }`}
+              disabled={!user?.display_name || likeMutation.isPending}
+              title={user?.display_name ? (userLiked ? 'Unlike' : 'Like') : 'Sign in to like'}
+            >
+              <Heart className={`h-4 w-4 ${userLiked ? 'fill-current' : ''}`} />
+              <span>{likeCount}</span>
+            </button>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Created with Applaa
+          </p>
+        </div>
       </div>
 
       {/* Hover Effect Border */}

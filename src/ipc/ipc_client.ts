@@ -3275,6 +3275,9 @@ export class IpcClient {
     gameUrl: string;
     isDefault?: boolean;
     displayOrder?: number;
+    viewCount?: number;
+    likeCount?: number;
+    userLiked?: boolean;
     createdAt: Date;
     updatedAt: Date;
   }>> {
@@ -3316,6 +3319,17 @@ export class IpcClient {
     updatedAt: Date;
   }> {
     return this.ipcRenderer.invoke("games:update", params);
+  }
+
+  public async incrementGameView(params: { gameId: string }): Promise<void> {
+    return this.ipcRenderer.invoke("games:increment-view", params);
+  }
+
+  public async toggleGameLike(params: { gameId: string; userDisplayName: string }): Promise<{
+    liked: boolean;
+    likeCount: number;
+  }> {
+    return this.ipcRenderer.invoke("games:toggle-like", params);
   }
 
   public async deleteCustomGame(params: { id: string }): Promise<{ success: boolean }> {

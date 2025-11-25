@@ -333,6 +333,8 @@ const validInvokeChannels = [
   "games:create",
   "games:update",
   "games:delete",
+  "games:increment-view",
+  "games:toggle-like",
   "games:test-image-url",
   "games:test-all-images",
   // Game Templates Management channels

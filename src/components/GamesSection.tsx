@@ -33,6 +33,9 @@ interface Game {
   gameUrl: string;
   isDefault?: boolean;
   displayOrder?: number;
+  viewCount?: number;
+  likeCount?: number;
+  userLiked?: boolean;
 }
 
 interface GamesSectionProps {
@@ -164,6 +167,9 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
               name={game.name}
               imageUrl={game.imageUrl}
               gameUrl={game.gameUrl}
+              viewCount={game.viewCount}
+              likeCount={game.likeCount}
+              userLiked={game.userLiked}
               onPlay={handlePlayGame}
               onEdit={hasAdminPermission && !game.isDefault ? handleEditGame : undefined}
               onDelete={hasAdminPermission && !game.isDefault ? handleDeleteGame : undefined}
