@@ -67,16 +67,19 @@ export function hasAdminPermission(): boolean {
     
     // Trim whitespace and convert to lowercase for comparison
     const identifierLower = String(userIdentifier).trim().toLowerCase();
-    const isAllowed = ALLOWED_ADMIN_USERNAMES.includes(identifierLower);
+    const allowedUsernamesLower = ALLOWED_ADMIN_USERNAMES.map(name => String(name).trim().toLowerCase());
+    const isAllowed = allowedUsernamesLower.includes(identifierLower);
     
     console.log('🔐 [Permissions] User identifier used (display_name preferred):', userIdentifier);
     console.log('🔐 [Permissions] Identifier (trimmed, lowercase):', identifierLower);
-    console.log('🔐 [Permissions] Allowed usernames:', ALLOWED_ADMIN_USERNAMES);
+    console.log('🔐 [Permissions] Allowed usernames (original):', ALLOWED_ADMIN_USERNAMES);
+    console.log('🔐 [Permissions] Allowed usernames (lowercase):', allowedUsernamesLower);
     console.log('🔐 [Permissions] ✅ Has permission:', isAllowed);
     
     log.info('[Permissions] User identifier used (display_name preferred):', userIdentifier);
     log.info('[Permissions] Identifier (trimmed, lowercase):', identifierLower);
-    log.info('[Permissions] Allowed usernames:', ALLOWED_ADMIN_USERNAMES);
+    log.info('[Permissions] Allowed usernames (original):', ALLOWED_ADMIN_USERNAMES);
+    log.info('[Permissions] Allowed usernames (lowercase):', allowedUsernamesLower);
     log.info('[Permissions] Has permission:', isAllowed);
     
     // Also log the full user object for debugging
