@@ -797,7 +797,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             ) : (
               // Show regular app preview during streaming (only if not building)
               <div className="flex-1 relative">
-                {!appUrl && !expoUrl && !currentGodotExportUrl ? (
+                {!appUrl && !expoUrl && !currentGodotExportUrl && !godotExportUrl ? (
                   <div className="godot-loading">
                     <div className="godot-spinner"></div>
                     <p className="mt-4">Loading your app...</p>
@@ -828,7 +828,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               </div>
             )}
           </div>
-        ) : !appUrl && !expoUrl && !godotExportUrl ? (
+        ) : !appUrl && !expoUrl && !godotExportUrl && !currentGodotExportUrl ? (
           <div className="godot-loading">
             <div className="godot-spinner"></div>
             <p className="mt-4">Loading your app...</p>
@@ -838,7 +838,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             <iframe
               data-testid="preview-iframe-element"
               onLoad={(e) => {
-                const url = godotExportUrl || appUrl || expoUrl;
+                const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
                 console.log(`✅ Preview iframe loaded successfully: ${url}`);
                 setErrorMessage(undefined);
                 
@@ -853,7 +853,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 }
               }}
               onError={(e) => {
-                const url = godotExportUrl || appUrl || expoUrl;
+                const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
                 console.error(`❌ Preview iframe failed to load: ${url}`, e);
                 setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
               }}
@@ -861,7 +861,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               key={reloadKey}
               title={`Preview for App ${selectedAppId}`}
               className="w-full h-full border-none"
-              src={godotExportUrl || appUrl || expoUrl || undefined}
+              src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
               allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
             />
           </div>

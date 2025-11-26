@@ -290,7 +290,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                 {isExpoApp ? (
                   <SnackPoweredPreview />
                 ) : (
-                  <PreviewIframe key={key} loading={loading} />
+                  <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
                 )}
               </div>
             </Panel>
