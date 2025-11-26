@@ -67,10 +67,10 @@ export function saveWordPressConfig(config: WordPressConfig): boolean {
 
 export function getWordPressAuthEndpoint(): string {
   const config = loadWordPressConfig();
-  return config?.authEndpoint || 'https://applaa.com/wp-json/wp/v2/users/me';
+  return config?.authEndpoint || 'https://app.applaa.com/wp-json/wp/v2/users/me';
 }
 
 export function getWordPressApiEndpoint(): string {
   const config = loadWordPressConfig();
-  return config?.apiEndpoint || 'https://applaa.com/wp-json/wp/v2';
+  return config?.apiEndpoint || 'https://app.applaa.com/wp-json/wp/v2';
 }
