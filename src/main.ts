@@ -22,6 +22,7 @@ import { UserSettings } from "./lib/schemas";
 import { handleNeonOAuthReturn } from "./neon_admin/neon_return_handler";
 import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
+import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -167,6 +168,21 @@ export async function onReady() {
   const settings = readSettings();
   await onFirstRunMaybe(settings);
   createWindow();
+
+  // Initialize Sentry in main process if configured
+  if (process.env.SENTRY_DSN) {
+    try {
+      initializeAnalytics({
+        sentryDsn: process.env.SENTRY_DSN,
+        environment: (process.env.NODE_ENV as 'development' | 'production') || 'development',
+        userId: settings.userId,
+        consent: settings.analyticsConsent || DEFAULT_CONSENT,
+      });
+      logger.info("✅ Sentry initialized in main process");
+    } catch (error) {
+      logger.error("❌ Failed to initialize Sentry in main process:", error);
+    }
+  }
 
   logger.info("Auto-update enabled=", settings.enableAutoUpdate);
   if (settings.enableAutoUpdate) {

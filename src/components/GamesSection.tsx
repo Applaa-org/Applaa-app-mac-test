@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { showError, showSuccess } from '@/lib/toast';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 
 interface Game {
   id: string;
@@ -31,6 +32,10 @@ interface Game {
   imageUrl: string;
   gameUrl: string;
   isDefault?: boolean;
+  displayOrder?: number;
+  viewCount?: number;
+  likeCount?: number;
+  userLiked?: boolean;
 }
 
 interface GamesSectionProps {
@@ -47,6 +52,7 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
   const [gameToDelete, setGameToDelete] = useState<{ id: string; name: string } | null>(null);
   const queryClient = useQueryClient();
   const ipcClient = IpcClient.getInstance();
+  const { hasPermission: hasAdminPermission } = useAdminPermission();
 
   // Fetch all games from Supabase (includes default + custom games)
   const { data: allGames = [], isLoading, error: gamesError } = useQuery({
@@ -136,19 +142,21 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
         <header className="mb-6 flex items-center justify-between">
           <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Your Games
+             Games Hub
           </h2>
           <p className="text-md text-gray-600 dark:text-gray-400">
             Games created with Applaa - click to play
           </p>
           </div>
-          <Button
-            onClick={() => setIsAddGameDialogOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add Game
-          </Button>
+          {hasAdminPermission && (
+            <Button
+              onClick={() => setIsAddGameDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Game
+            </Button>
+          )}
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -159,9 +167,12 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
               name={game.name}
               imageUrl={game.imageUrl}
               gameUrl={game.gameUrl}
+              viewCount={game.viewCount}
+              likeCount={game.likeCount}
+              userLiked={game.userLiked}
               onPlay={handlePlayGame}
-              onEdit={game.isDefault ? undefined : handleEditGame}
-              onDelete={game.isDefault ? undefined : handleDeleteGame}
+              onEdit={hasAdminPermission && !game.isDefault ? handleEditGame : undefined}
+              onDelete={hasAdminPermission && !game.isDefault ? handleDeleteGame : undefined}
             />
           ))}
         </div>

@@ -30,6 +30,7 @@ import { EditGameTemplateDialog } from './EditGameTemplateDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Edit2, Trash2, Plus } from 'lucide-react';
 import { showError, showSuccess } from '@/lib/toast';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 
 interface SimpleHomeInterfaceProps {
   onChatSubmit?: (options?: any) => Promise<void>;
@@ -92,6 +93,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
   const ipcClient = IpcClient.getInstance();
   const queryClient = useQueryClient();
+  const { hasPermission: hasAdminPermission } = useAdminPermission();
 
   // Fetch game templates from Supabase
   const { data: gameTemplates = [], isLoading: isLoadingTemplates } = useQuery({
@@ -387,7 +389,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
             )}
           </div>
 
-          {/* Inspiration Ideas - Always visible with Shuffle */}
+          {/* Inspiration Ideas - Game Templates */}
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-3 px-0.5">
               <div className="flex items-center gap-2 text-gray-600">
@@ -395,13 +397,15 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                 <span className="text-sm">Choose from 1000's of Game templates</span>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsAddTemplateDialogOpen(true)}
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-gray-300 hover:bg-gray-50 transition-colors"
-                  title="Add new template"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add Template
-                </button>
+                {hasAdminPermission && (
+                  <button
+                    onClick={() => setIsAddTemplateDialogOpen(true)}
+                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-gray-300 hover:bg-gray-50 transition-colors"
+                    title="Add new template"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Template
+                  </button>
+                )}
                 <button
                   onClick={handleShuffleIdeas}
                   className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-gray-300 hover:bg-gray-50 transition-colors"
@@ -414,7 +418,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               {ideas.slice(0, visibleIdeasCount).map((idea, index) => {
                 // Find the template ID from gameTemplates
                 const template = gameTemplates.find(t => t.name === idea.title && t.details === idea.prompt);
-                const canEdit = template && !template.isDefault;
+                const canEdit = hasAdminPermission && template && !template.isDefault;
                 
                 return (
                   <div

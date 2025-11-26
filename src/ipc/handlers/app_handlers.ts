@@ -1473,6 +1473,11 @@ renderer/rendering_method="forward_plus"
       }
     }
     
+    // Always expose SENTRY_DSN if available (needed for renderer initialization)
+    if (process.env.SENTRY_DSN) {
+      envVars.SENTRY_DSN = process.env.SENTRY_DSN;
+    }
+    
     return envVars;
   });
 

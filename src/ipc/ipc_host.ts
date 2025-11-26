@@ -16,7 +16,7 @@ import { registerSupabaseAuthHandlers } from "./handlers/supabase_auth_handlers"
 // WordPress authentication - ENABLED
 import { registerWordPressAuthHandlers } from "./handlers/wordpress_auth_handlers";
 // import { registerR2StorageHandlers } from "./handlers/r2_storage_handlers";
-// import { registerAnalyticsHandlers } from "./handlers/analytics_handlers";
+import { registerAnalyticsHandlers } from "./handlers/analytics_handlers";
 
 import { registerNeonHandlers } from "./handlers/neon_handlers";
 import { registerLocalModelHandlers } from "./handlers/local_model_handlers";
@@ -99,7 +99,7 @@ export function registerIpcHandlers() {
   registerWordPressAuthHandlers();
   console.log('✅ WordPress authentication handlers enabled');
   // registerR2StorageHandlers();
-  // registerAnalyticsHandlers();
+  registerAnalyticsHandlers();
 
   registerNeonHandlers();
   registerLocalModelHandlers();

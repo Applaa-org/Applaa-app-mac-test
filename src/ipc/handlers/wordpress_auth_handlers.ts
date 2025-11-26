@@ -3,6 +3,7 @@ import log from 'electron-log';
 import { readSettings, writeSettings } from '../../main/settings';
 import { loadWordPressConfig, getWordPressAuthEndpoint } from '../../lib/wordpress-config';
 import { syncWordPressUserToSupabase } from '../../lib/supabase';
+import { hasAdminPermission } from '../../utils/permissions';
 
 // WordPress Auth state management
 let isAuthenticated = false;
@@ -105,6 +106,8 @@ export function registerWordPressAuthHandlers() {
 
       const userData = await userResponse.json();
       
+      console.log('🔑 [WordPress Auth] Raw userData from WordPress API:', JSON.stringify(userData, null, 2));
+      
       // Store user data with proper validation and fallbacks
       currentUser = {
         id: userData.id || 0,
@@ -116,23 +119,29 @@ export function registerWordPressAuthHandlers() {
         capabilities: userData.capabilities || [],
       };
       
+      console.log('🔑 [WordPress Auth] Processed currentUser object:', JSON.stringify(currentUser, null, 2));
+      console.log('🔑 [WordPress Auth] Username:', currentUser.username);
+      console.log('🔑 [WordPress Auth] Display name:', currentUser.display_name);
+      
       authToken = authData.token;
       isAuthenticated = true;
       
-      // Save to settings with proper validation
-      try {
-        const settings = readSettings();
-        settings.wordpressAuth = {
-          isAuthenticated: true,
-          user: currentUser,
-          token: authData.token,
-          lastLogin: new Date().toISOString(),
-        };
-        writeSettings(settings);
-      } catch (error) {
-        log.warn('Failed to save WordPress auth to settings:', error);
-        // Continue without saving to settings - authentication still works
-      }
+        // Save to settings with proper validation
+        try {
+          const settings = readSettings();
+          settings.wordpressAuth = {
+            isAuthenticated: true,
+            user: currentUser,
+            token: authData.token,
+            lastLogin: new Date().toISOString(),
+          };
+          writeSettings(settings);
+          console.log('🔑 [WordPress Auth] ✅ Saved to settings:', JSON.stringify(settings.wordpressAuth, null, 2));
+        } catch (error) {
+          console.error('🔑 [WordPress Auth] ❌ Failed to save to settings:', error);
+          log.warn('Failed to save WordPress auth to settings:', error);
+          // Continue without saving to settings - authentication still works
+        }
       
       // Sync WordPress user to Supabase (non-blocking)
       try {
@@ -328,6 +337,17 @@ export function registerWordPressAuthHandlers() {
     } catch (error) {
       log.error('Failed to check WordPress capability:', error);
       return { hasCapability: false };
+    }
+  });
+
+  // Check if user has admin permission (for games and game templates management)
+  ipcMain.handle('wordpress:check-admin-permission', async () => {
+    try {
+      const hasPermission = hasAdminPermission();
+      return { hasPermission };
+    } catch (error) {
+      log.error('Failed to check admin permission:', error);
+      return { hasPermission: false };
     }
   });
 

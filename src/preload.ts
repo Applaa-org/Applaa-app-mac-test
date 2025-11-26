@@ -114,6 +114,7 @@ const validInvokeChannels = [
   "wordpress:logout",
   "wordpress:get-current-user",
   "wordpress:check-capability",
+  "wordpress:check-admin-permission",
   "wordpress:validate-session",
   "wordpress:oauth-login",
   "shell:open-external",
@@ -332,6 +333,8 @@ const validInvokeChannels = [
   "games:create",
   "games:update",
   "games:delete",
+  "games:increment-view",
+  "games:toggle-like",
   "games:test-image-url",
   "games:test-all-images",
   // Game Templates Management channels

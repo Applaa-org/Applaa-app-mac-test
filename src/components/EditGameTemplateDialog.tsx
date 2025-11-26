@@ -23,6 +23,7 @@ interface GameTemplate {
   imageUrl?: string | null;
   emoji?: string | null;
   appType: 'web' | 'expo' | 'flutter' | 'godot';
+  displayOrder?: number;
 }
 
 interface EditGameTemplateDialogProps {
@@ -39,6 +40,7 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
   const [imageUrl, setImageUrl] = useState('');
   const [emoji, setEmoji] = useState('');
   const [appType, setAppType] = useState<'web' | 'expo' | 'flutter' | 'godot'>('godot');
+  const [displayOrder, setDisplayOrder] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const ipcClient = IpcClient.getInstance();
@@ -51,6 +53,7 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
       setImageUrl(template.imageUrl || '');
       setEmoji(template.emoji || '');
       setAppType(template.appType);
+      setDisplayOrder(template.displayOrder || 0);
     }
   }, [template]);
 
@@ -93,6 +96,7 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
         imageUrl: imageUrl.trim() || undefined,
         emoji: emoji.trim() || undefined,
         appType: appType,
+        displayOrder: displayOrder,
       });
 
       showSuccess('Game template updated successfully!');
@@ -200,6 +204,22 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
                 disabled={isSubmitting}
                 maxLength={2}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="editDisplayOrder">Display Order</Label>
+              <Input
+                id="editDisplayOrder"
+                type="number"
+                value={displayOrder}
+                onChange={(e) => setDisplayOrder(parseInt(e.target.value) || 0)}
+                placeholder="0"
+                disabled={isSubmitting}
+                min="0"
+              />
+              <p className="text-xs text-muted-foreground">
+                Lower numbers appear first. Default is 0.
+              </p>
             </div>
           </div>
 

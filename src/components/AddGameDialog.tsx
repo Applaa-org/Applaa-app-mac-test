@@ -23,6 +23,7 @@ export function AddGameDialog({ open, onOpenChange, onGameAdded }: AddGameDialog
   const [name, setName] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [gameUrl, setGameUrl] = useState('');
+  const [displayOrder, setDisplayOrder] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const ipcClient = IpcClient.getInstance();
@@ -52,11 +53,30 @@ export function AddGameDialog({ open, onOpenChange, onGameAdded }: AddGameDialog
 
     setIsSubmitting(true);
     try {
-      await ipcClient.createCustomGame({
+      const params: {
+        name: string;
+        imageUrl: string;
+        gameUrl: string;
+        displayOrder?: number;
+      } = {
         name: name.trim(),
         imageUrl: imageUrl.trim(),
         gameUrl: gameUrl.trim(),
-      });
+      };
+
+      // Only include displayOrder if a value is provided
+      if (displayOrder.trim()) {
+        const order = parseInt(displayOrder.trim(), 10);
+        if (!isNaN(order) && order >= 0) {
+          params.displayOrder = order;
+        } else {
+          showError(new Error('Position must be a non-negative number'));
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      await ipcClient.createCustomGame(params);
 
       showSuccess('Game added successfully!');
       
@@ -64,6 +84,7 @@ export function AddGameDialog({ open, onOpenChange, onGameAdded }: AddGameDialog
       setName('');
       setImageUrl('');
       setGameUrl('');
+      setDisplayOrder('');
       
       onGameAdded?.();
       onOpenChange(false);
@@ -79,6 +100,7 @@ export function AddGameDialog({ open, onOpenChange, onGameAdded }: AddGameDialog
       setName('');
       setImageUrl('');
       setGameUrl('');
+      setDisplayOrder('');
       onOpenChange(false);
     }
   };
@@ -136,6 +158,22 @@ export function AddGameDialog({ open, onOpenChange, onGameAdded }: AddGameDialog
               />
               <p className="text-xs text-muted-foreground">
                 URL where the game can be played
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="displayOrder">Position (Optional)</Label>
+              <Input
+                id="displayOrder"
+                type="number"
+                value={displayOrder}
+                onChange={(e) => setDisplayOrder(e.target.value)}
+                placeholder="Leave empty to add at the end"
+                disabled={isSubmitting}
+                min="0"
+              />
+              <p className="text-xs text-muted-foreground">
+                Lower numbers appear first. Leave empty to add at the last position.
               </p>
             </div>
           </div>

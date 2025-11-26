@@ -3190,6 +3190,12 @@ export class IpcClient {
     return this.ipcRenderer.invoke("wordpress:check-capability", params);
   }
 
+  public async wordpressCheckAdminPermission(): Promise<{
+    hasPermission: boolean;
+  }> {
+    return this.ipcRenderer.invoke("wordpress:check-admin-permission");
+  }
+
   public async wordpressValidateSession(): Promise<{
     isValid: boolean;
   }> {
@@ -3268,6 +3274,10 @@ export class IpcClient {
     imageUrl: string;
     gameUrl: string;
     isDefault?: boolean;
+    displayOrder?: number;
+    viewCount?: number;
+    likeCount?: number;
+    userLiked?: boolean;
     createdAt: Date;
     updatedAt: Date;
   }>> {
@@ -3278,12 +3288,14 @@ export class IpcClient {
     name: string;
     imageUrl: string;
     gameUrl: string;
+    displayOrder?: number;
   }): Promise<{
     id: string;
     name: string;
     imageUrl: string;
     gameUrl: string;
     isDefault?: boolean;
+    displayOrder?: number;
     createdAt: Date;
     updatedAt: Date;
   }> {
@@ -3295,16 +3307,29 @@ export class IpcClient {
     name?: string;
     imageUrl?: string;
     gameUrl?: string;
+    displayOrder?: number;
   }): Promise<{
     id: string;
     name: string;
     imageUrl: string;
     gameUrl: string;
     isDefault?: boolean;
+    displayOrder?: number;
     createdAt: Date;
     updatedAt: Date;
   }> {
     return this.ipcRenderer.invoke("games:update", params);
+  }
+
+  public async incrementGameView(params: { gameId: string }): Promise<void> {
+    return this.ipcRenderer.invoke("games:increment-view", params);
+  }
+
+  public async toggleGameLike(params: { gameId: string; userDisplayName: string }): Promise<{
+    liked: boolean;
+    likeCount: number;
+  }> {
+    return this.ipcRenderer.invoke("games:toggle-like", params);
   }
 
   public async deleteCustomGame(params: { id: string }): Promise<{ success: boolean }> {
@@ -3330,6 +3355,7 @@ export class IpcClient {
     emoji?: string | null;
     appType: 'web' | 'expo' | 'flutter' | 'godot';
     isDefault?: boolean;
+    displayOrder?: number;
     createdAt: Date;
     updatedAt: Date;
   }>> {
@@ -3343,6 +3369,7 @@ export class IpcClient {
     imageUrl?: string;
     emoji?: string;
     appType: 'web' | 'expo' | 'flutter' | 'godot';
+    displayOrder?: number;
   }): Promise<{
     id: string;
     name: string;
@@ -3352,6 +3379,7 @@ export class IpcClient {
     emoji?: string | null;
     appType: 'web' | 'expo' | 'flutter' | 'godot';
     isDefault?: boolean;
+    displayOrder?: number;
     createdAt: Date;
     updatedAt: Date;
   }> {
@@ -3366,6 +3394,7 @@ export class IpcClient {
     imageUrl?: string;
     emoji?: string;
     appType?: 'web' | 'expo' | 'flutter' | 'godot';
+    displayOrder?: number;
   }): Promise<{
     id: string;
     name: string;
@@ -3375,6 +3404,7 @@ export class IpcClient {
     emoji?: string | null;
     appType: 'web' | 'expo' | 'flutter' | 'godot';
     isDefault?: boolean;
+    displayOrder?: number;
     createdAt: Date;
     updatedAt: Date;
   }> {

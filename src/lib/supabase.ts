@@ -167,6 +167,8 @@ export interface Database {
           image_url: string;
           game_url: string;
           is_default: boolean;
+          display_order: number;
+          view_count: number;
           created_at: string;
           updated_at: string;
         };
@@ -176,6 +178,8 @@ export interface Database {
           image_url: string;
           game_url: string;
           is_default?: boolean;
+          display_order?: number;
+          view_count?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -185,8 +189,30 @@ export interface Database {
           image_url?: string;
           game_url?: string;
           is_default?: boolean;
+          display_order?: number;
+          view_count?: number;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      game_likes: {
+        Row: {
+          id: string;
+          game_id: string;
+          user_display_name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          game_id: string;
+          user_display_name: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          game_id?: string;
+          user_display_name?: string;
+          created_at?: string;
         };
       };
       game_templates: {
@@ -199,6 +225,7 @@ export interface Database {
           emoji: string | null;
           app_type: 'web' | 'expo' | 'flutter' | 'godot';
           is_default: boolean;
+          display_order: number;
           created_at: string;
           updated_at: string;
         };
@@ -211,6 +238,7 @@ export interface Database {
           emoji?: string | null;
           app_type: 'web' | 'expo' | 'flutter' | 'godot';
           is_default?: boolean;
+          display_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -223,6 +251,7 @@ export interface Database {
           emoji?: string | null;
           app_type?: 'web' | 'expo' | 'flutter' | 'godot';
           is_default?: boolean;
+          display_order?: number;
           created_at?: string;
           updated_at?: string;
         };

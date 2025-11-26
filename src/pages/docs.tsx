@@ -69,8 +69,20 @@ export default function DocsPage() {
               <h2 className="text-lg font-semibold mb-4">Getting Started Video</h2>
               <div className="relative w-full max-w-4xl mx-auto">
                 <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
-                  <iframe
-                    src="https://www.youtube.com/embed/eYxyghTI3l4"
+                  {/* <iframe
+                    src="https://youtu.be/W62NFsZAyo0"
+                    title="Applaa Getting Started Video"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="absolute top-0 left-0 w-full h-full rounded-lg shadow-lg"
+                  /> */}
+{/* <iframe width="560" height="315" src="https://www.youtube.com/embed/W62NFsZAyo0?si=VOYusGdLvhsDZVhl" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe> */}
+
+
+
+   <iframe
+                    src="https://www.youtube.com/embed/W62NFsZAyo0?si=VOYusGdLvhsDZVhl"
                     title="Applaa Getting Started Video"
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

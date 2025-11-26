@@ -28,22 +28,22 @@ export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
   // 3 featured games to showcase on main page
   const featuredGames: Game[] = [
     {
-      id: 'skateboard-extreme',
-      name: 'Skateboard Extreme',
-      imageUrl: 'https://applaa.com/wp-content/uploads/2025/10/asda-204x300.png',
-      gameUrl: 'https://applaa.com/skateboardextreme/'
+      id: 'snake-game',
+      name: 'Snake Game',
+      imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/11/as-1-298x300.png', // TODO: Replace with actual Snake Game image URL
+      gameUrl: 'https://applaa-snake-2.vercel.app/'
     },
     {
-      id: 'endless-runner',
-      name: 'Endless Runner',
-      imageUrl: 'https://applaa.com/wp-content/uploads/2025/09/Generated-Image-September-27-2025-3_48PM-300x300.png',
-      gameUrl: 'https://endless-runner.vercel.app/'
+      id: 'typing-invader',
+      name: 'Typing Invader',
+      imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/10/asdasd-1-205x300.png', // TODO: Replace with actual Typing Invader image URL
+      gameUrl: 'https://app.applaa.com/typing-invader/' // TODO: Replace with actual Typing Invader game URL
     },
     {
-      id: 'solitaire',
-      name: 'Solitaire Card Game',
-      imageUrl: 'https://applaa.com/wp-content/uploads/2025/09/ChatGPT-Image-Sep-29-2025-12_00_58-PM-200x300.png',
-      gameUrl: 'https://solitaire-card-game2.vercel.app/'
+      id: 'fruit-catcher',
+      name: 'Fruit Catcher',
+      imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/11/k-1-300x244.png', // TODO: Replace with actual Fruit Catcher image URL
+      gameUrl: 'https://app.applaa.com/fruit-catcher/' // TODO: Replace with actual Fruit Catcher game URL
     }
   ];
 
