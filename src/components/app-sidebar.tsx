@@ -57,14 +57,14 @@ const items = [
   // }, // Disabled for MVP
 
   {
-    title: "Settings",
-    to: "/settings",
-    icon: Sliders, // More modern settings icon
-  },
-  {
     title: "Hub",
     to: "/hub",
     icon: Zap, // Energy/power for marketplace
+  },
+  {
+    title: "Settings",
+    to: "/settings",
+    icon: Sliders, // More modern settings icon
   },
   {
     title: "Docs",

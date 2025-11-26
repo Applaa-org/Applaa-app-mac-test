@@ -1255,7 +1255,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               )}
               {savedUrls.vercelDeploymentUrl && (
                 <div>
-                  <span className="text-gray-600 dark:text-gray-400">Vercel: </span>
+                  <span className="text-gray-600 dark:text-gray-400">Deployment URL: </span>
                   <a 
                     href={savedUrls.vercelDeploymentUrl} 
                     target="_blank" 
