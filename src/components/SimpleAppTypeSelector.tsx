@@ -117,9 +117,7 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
           </div>
         </div>
       </div>
-      <div className="text-center">
-        <p className="text-xs text-gray-500">We auto-select frameworks (Web: React, Mobile: Expo, Games: Godot). You can change later in settings.</p>
-      </div>
+    
     </div>
   );
 }

@@ -150,25 +150,46 @@ const config: ForgeConfig = {
       },
     },
     // macOS DMG maker (only include on macOS)
-    ...(process.platform === 'darwin' ? [
-      {
-        name: "@electron-forge/maker-dmg",
-        config: {
-          name: "Applaa",
-          format: "UDZO",
-          icon: "./assets/icon/logo.icns",
-          iconSize: 100,
-          contents: (opts) => {
-            return [
-              { x: 380, y: 280, type: "link", path: "/Applications" },
-              { x: 110, y: 280, type: "file", path: opts.appPath },
-            ];
-          },
-        },
-      },
-    ] : []),
+    // Temporarily disabled due to macOS permission issues with DMG creation
+    // The ZIP file is sufficient for distribution. To re-enable DMG creation:
+    // 1. Ensure Terminal/Node has Full Disk Access in System Settings
+    // 2. Uncomment the DMG maker configuration below
+    // ...(process.platform === 'darwin' ? [
+    //   {
+    //     name: "@electron-forge/maker-dmg",
+    //     config: {
+    //       name: "Applaa",
+    //       format: "UDZO",
+    //       icon: "./assets/icon/logo.icns",
+    //       iconSize: 100,
+    //       contents: (opts) => {
+    //         return [
+    //           { x: 380, y: 280, type: "link", path: "/Applications" },
+    //           { x: 110, y: 280, type: "file", path: opts.appPath },
+    //         ];
+    //       },
+    //     },
+    //   },
+    // ] : []),
   ],
   hooks: {
+    preMake: async () => {
+      // Unmount any existing Applaa DMG volumes to prevent permission errors
+      if (process.platform === 'darwin') {
+        try {
+          const { execSync } = require('child_process');
+          // Check if Applaa volume is mounted and unmount it
+          try {
+            execSync('diskutil unmount "/Volumes/Applaa" 2>/dev/null || true', { stdio: 'pipe' });
+            console.log('🧹 Unmounted any existing Applaa DMG volumes');
+          } catch (e) {
+            // Volume might not exist, which is fine
+          }
+        } catch (e) {
+          console.warn(`⚠️ Could not unmount existing DMG volumes: ${e}`);
+        }
+      }
+    },
     postPackage: async (forgeConfig, packageResults) => {
       // Verify and re-staple the .app after packaging (if not already stapled)
       // This ensures the .app is stapled before ZIP/DMG creation
