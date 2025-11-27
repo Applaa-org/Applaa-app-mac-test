@@ -490,7 +490,7 @@ async function handleDeployToVercel(
     githubToken: string;
     appId?: number;
   },
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<{ success: boolean; url?: string; deploymentId?: string; error?: string }> {
   try {
     logger.info(`Deploying to Vercel: ${githubUsername}/${repoName}`);
 
@@ -592,11 +592,266 @@ async function handleDeployToVercel(
       throw new Error(`Vercel error: ${deploymentData.message || "Unknown error"}`);
     }
 
-    logger.info(`Vercel deployment successful: ${deploymentData.url || "No URL returned"}`);
-    return { success: true, url: deploymentData.url || null };
+    // Log the full response to see what we're getting
+    logger.info(`Vercel deployment response:`, JSON.stringify(deploymentData, null, 2));
+    
+    // Try multiple possible fields for deployment ID
+    let deploymentId = deploymentData.uid || deploymentData.id || deploymentData.deploymentId || null;
+    
+    // If we don't have a deployment ID, try to get it from the project's latest deployment
+    if (!deploymentId && deploymentData.projectId) {
+      try {
+        logger.info(`No deployment ID in response, fetching latest deployment for project: ${deploymentData.projectId}`);
+        const deploymentsResponse = await fetch(`https://api.vercel.com/v6/deployments?projectId=${deploymentData.projectId}&limit=1`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${vercelToken}`,
+            "Accept": "application/json",
+          },
+        });
+        
+        if (deploymentsResponse.ok) {
+          const deploymentsData = await deploymentsResponse.json();
+          if (deploymentsData.deployments && deploymentsData.deployments.length > 0) {
+            deploymentId = deploymentsData.deployments[0].uid || deploymentsData.deployments[0].id || null;
+            logger.info(`Found deployment ID from project deployments: ${deploymentId}`);
+          }
+        }
+      } catch (error: any) {
+        logger.warn(`Failed to fetch deployment ID from project: ${error.message}`);
+      }
+    }
+    
+    // Alternative: Try to get deployment ID from the URL if it contains a deployment hash
+    if (!deploymentId && deploymentData.url) {
+      // Vercel URLs sometimes contain deployment info, but this is less reliable
+      const urlMatch = deploymentData.url.match(/https:\/\/([^.]+)\.vercel\.app/);
+      if (urlMatch) {
+        logger.info(`Extracted project name from URL: ${urlMatch[1]}`);
+        // We can't get deployment ID from URL alone, but we can use project name
+      }
+    }
+    
+    // Get production URL - prefer alias (production domain) over preview URL
+    let productionUrl = null;
+    if (deploymentData.alias && Array.isArray(deploymentData.alias) && deploymentData.alias.length > 0) {
+      logger.info(`Processing ${deploymentData.alias.length} aliases:`, deploymentData.alias);
+      
+      // Find the production alias
+      // Preview URLs have format: project-name-hash-team.vercel.app or project-name-git-main-team.vercel.app
+      // Production URLs have format: project-name.vercel.app
+      const productionAlias = deploymentData.alias.find((alias: string) => {
+        const subdomain = alias.split('.')[0];
+        logger.info(`Checking alias: ${alias}, subdomain: ${subdomain}`);
+        
+        // Check for common patterns that indicate preview URLs:
+        // 1. Long hash-like segments (8+ alphanumeric chars after a dash)
+        const hasHash = subdomain.match(/-[a-z0-9]{8,}/);
+        if (hasHash) {
+          logger.info(`  ❌ Rejected (has hash): ${alias}`);
+          return false;
+        }
+        
+        // 2. Team suffixes (like -applaa-dev, -vercel, etc.)
+        const hasTeamSuffix = subdomain.match(/-[a-z]+-[a-z]+$/);
+        if (hasTeamSuffix) {
+          logger.info(`  ❌ Rejected (has team suffix): ${alias}`);
+          return false;
+        }
+        
+        // 3. Git branch patterns (like -git-main, -git-master, etc.)
+        const hasGitBranch = subdomain.match(/-git-[a-z0-9-]+/);
+        if (hasGitBranch) {
+          logger.info(`  ❌ Rejected (has git branch): ${alias}`);
+          return false;
+        }
+        
+        // 4. Production URLs are usually shorter (fewer dashes)
+        const dashCount = (subdomain.match(/-/g) || []).length;
+        if (dashCount > 5) {
+          logger.info(`  ❌ Rejected (too many dashes: ${dashCount}): ${alias}`);
+          return false;
+        }
+        
+        logger.info(`  ✅ Accepted as production URL: ${alias}`);
+        return true;
+      });
+      
+      // If no production alias found, use shortest one
+      if (productionAlias) {
+        productionUrl = `https://${productionAlias}`;
+        logger.info(`Found production URL from alias: ${productionUrl}`);
+      } else {
+        const shortestAlias = deploymentData.alias.reduce((shortest: string, current: string) => {
+          return current.length < shortest.length ? current : shortest;
+        }, deploymentData.alias[0]);
+        productionUrl = `https://${shortestAlias}`;
+        logger.info(`Using shortest alias as production URL: ${productionUrl}`);
+      }
+    } else if (deploymentData.projectId) {
+      // Construct production URL from project ID/name
+      productionUrl = `https://${deploymentData.projectId}.vercel.app`;
+      logger.info(`Constructed production URL from projectId: ${productionUrl}`);
+    } else {
+      // No alias and no projectId - cannot determine production URL
+      logger.warn(`No alias or projectId found, cannot determine production URL`);
+      productionUrl = null;
+    }
+    
+    logger.info(`Vercel deployment initiated: Production URL: ${productionUrl}, Preview URL: ${deploymentData.url || "No URL returned"}, ID: ${deploymentId || "NOT FOUND"}`);
+    logger.info(`Deployment data summary:`, {
+      uid: deploymentData.uid,
+      id: deploymentData.id,
+      deploymentId: deploymentData.deploymentId,
+      extractedId: deploymentId,
+      previewUrl: deploymentData.url,
+      productionUrl: productionUrl,
+      alias: deploymentData.alias,
+      state: deploymentData.state,
+      readyState: deploymentData.readyState,
+      projectId: deploymentData.projectId,
+    });
+    
+    return { 
+      success: true, 
+      url: productionUrl || deploymentData.url || null, // Prefer production URL
+      deploymentId: deploymentId
+    };
   } catch (err: any) {
     logger.error("Vercel deployment failed:", err);
     return { success: false, error: err.message };
+  }
+}
+
+// --- Get Vercel Deployment Status Handler ---
+async function handleGetVercelDeploymentStatus(
+  event: IpcMainInvokeEvent,
+  { deploymentId, vercelToken }: {
+    deploymentId: string;
+    vercelToken: string;
+  },
+): Promise<{
+  state: string;
+  readyState: string;
+  url?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`https://api.vercel.com/v13/deployments/${deploymentId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${vercelToken}`,
+        "Accept": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Failed to get deployment status: ${errorData.message || response.statusText}`);
+    }
+
+    const deployment = await response.json();
+    
+    // Log the full deployment response to see what Vercel is returning
+    logger.info(`=== FULL VERCEL DEPLOYMENT RESPONSE ===`);
+    logger.info(`Deployment ID: ${deploymentId}`);
+    logger.info(`Full deployment object:`, JSON.stringify(deployment, null, 2));
+    logger.info(`deployment.url:`, deployment.url);
+    logger.info(`deployment.alias:`, deployment.alias);
+    logger.info(`deployment.projectId:`, deployment.projectId);
+    logger.info(`deployment.readyState:`, deployment.readyState);
+    logger.info(`deployment.state:`, deployment.state);
+    logger.info(`=== END VERCEL DEPLOYMENT RESPONSE ===`);
+    
+    // Get production URL from alias array
+    // Vercel returns aliases array where production URL is typically the one without deployment hash
+    let productionUrl = undefined;
+    if (deployment.alias && Array.isArray(deployment.alias) && deployment.alias.length > 0) {
+      logger.info(`Processing ${deployment.alias.length} aliases:`, deployment.alias);
+      // Find the production alias
+      // Preview URLs have format: project-name-hash-team.vercel.app
+      // Production URLs have format: project-name.vercel.app
+      const productionAlias = deployment.alias.find((alias: string) => {
+        const subdomain = alias.split('.')[0];
+        logger.info(`Checking alias: ${alias}, subdomain: ${subdomain}`);
+        
+        // Check for common patterns that indicate preview URLs:
+        // 1. Long hash-like segments (8+ alphanumeric chars after a dash)
+        const hasHash = subdomain.match(/-[a-z0-9]{8,}/);
+        if (hasHash) {
+          logger.info(`  ❌ Rejected (has hash): ${alias}`);
+          return false;
+        }
+        
+        // 2. Team suffixes (like -applaa-dev, -vercel, etc.)
+        // Pattern: ends with -word-word (team suffix)
+        const hasTeamSuffix = subdomain.match(/-[a-z]+-[a-z]+$/);
+        if (hasTeamSuffix) {
+          logger.info(`  ❌ Rejected (has team suffix): ${alias}`);
+          return false;
+        }
+        
+        // 3. Check for git branch patterns (like -git-main, -git-master)
+        const hasGitBranch = subdomain.match(/-git-[a-z0-9-]+$/);
+        if (hasGitBranch) {
+          logger.info(`  ❌ Rejected (has git branch): ${alias}`);
+          return false;
+        }
+        
+        // 4. Production URLs are usually shorter (fewer dashes)
+        // Count dashes - production URLs typically have fewer dashes
+        const dashCount = (subdomain.match(/-/g) || []).length;
+        // If it has more than 5 dashes, it's likely a preview URL
+        if (dashCount > 5) {
+          logger.info(`  ❌ Rejected (too many dashes: ${dashCount}): ${alias}`);
+          return false;
+        }
+        
+        logger.info(`  ✅ Accepted as production URL: ${alias}`);
+        return true;
+      });
+      
+      // If no production alias found, try to find the shortest one (production is usually shorter)
+      if (productionAlias) {
+        productionUrl = `https://${productionAlias}`;
+        logger.info(`Found production URL from alias: ${productionUrl}`);
+      } else {
+        // Fallback: use shortest alias (production URLs are typically shorter)
+        const shortestAlias = deployment.alias.reduce((shortest: string, current: string) => {
+          return current.length < shortest.length ? current : shortest;
+        }, deployment.alias[0]);
+        productionUrl = `https://${shortestAlias}`;
+        logger.info(`Using shortest alias as production URL: ${productionUrl}`);
+      }
+    } else if (deployment.projectId) {
+      productionUrl = `https://${deployment.projectId}.vercel.app`;
+      logger.info(`Constructed production URL from projectId: ${productionUrl}`);
+    } else {
+      // No alias and no projectId - cannot determine production URL
+      logger.warn(`No alias or projectId found, cannot determine production URL`);
+      productionUrl = undefined;
+    }
+    
+    logger.info(`Deployment status for ${deploymentId}:`, {
+      state: deployment.state,
+      readyState: deployment.readyState,
+      previewUrl: deployment.url,
+      productionUrl: productionUrl,
+      aliases: deployment.alias,
+    });
+    
+    return {
+      state: deployment.state || "unknown",
+      readyState: deployment.readyState || "unknown",
+      url: productionUrl || undefined, // Return production URL
+    };
+  } catch (err: any) {
+    logger.error("Failed to get Vercel deployment status:", err);
+    return {
+      state: "error",
+      readyState: "error",
+      error: err.message || "Failed to get deployment status",
+    };
   }
 }
 
@@ -613,6 +868,7 @@ export function registerVercelHandlers() {
   handle("vercel:get-deployments", handleGetVercelDeployments);
   handle("vercel:disconnect", handleDisconnectVercelProject);
   handle("vercel:deploy", handleDeployToVercel);
+  handle("vercel:get-deployment-status", handleGetVercelDeploymentStatus);
 }
 
 export async function updateAppVercelProject({

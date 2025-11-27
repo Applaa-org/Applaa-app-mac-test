@@ -348,6 +348,18 @@ export interface SaveVercelAccessTokenParams {
   token: string;
 }
 
+export interface GetVercelDeploymentStatusParams {
+  deploymentId: string;
+  vercelToken: string;
+}
+
+export interface VercelDeploymentStatus {
+  state: string;
+  readyState: string;
+  url?: string;
+  error?: string;
+}
+
 export interface VercelProject {
   id: string;
   name: string;

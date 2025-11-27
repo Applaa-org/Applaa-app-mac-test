@@ -31,7 +31,6 @@ export default function ChatPage() {
   const { streamMessage } = useStreamChat({ hasChatId: false });
   const hasAutoSubmitted = useRef(false);
   
-  console.log("🏠 ChatPage rendered with chatId:", chatId, "initialPrompt:", initialPrompt ? `"${initialPrompt.substring(0, 50)}..."` : "none");
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
   const [isResizing, setIsResizing] = useState(false);
   const [leftPanelView, setLeftPanelView] = useState<"chat" | "code">("chat");
@@ -120,12 +119,11 @@ export default function ChatPage() {
   }, [initialPrompt, chatId, streamMessage, navigate, initialAttachments]);
 
   useEffect(() => {
-    console.log("🔄 Chat redirect effect:", { chatId, chatsLength: chats.length, loading, selectedAppId });
     
     if (!chatId && chats.length && !loading) {
       // Not a real navigation, just a redirect, when the user navigates to /chat
       // without a chatId, we redirect to the first chat
-      console.log("📍 Redirecting to first chat:", chats[0]);
+      
       setSelectedAppId(chats[0].appId);
       navigate({ to: "/chat", search: { id: chats[0].id }, replace: true });
     }

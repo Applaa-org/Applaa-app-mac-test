@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,12 +21,18 @@ function generateVercelProjectName(repoName: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-') // Replace invalid characters with hyphens
     .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
-    .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
-    .substring(0, 52); // Limit to 52 characters
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
   
   // Ensure it doesn't start with a number (Vercel requirement)
   if (/^[0-9]/.test(projectName)) {
     projectName = 'app-' + projectName;
+  }
+  
+  // Limit to 30 characters maximum (after all transformations)
+  if (projectName.length > 30) {
+    projectName = projectName.substring(0, 30);
+    // Remove trailing hyphen if truncation created one
+    projectName = projectName.replace(/-$/, '');
   }
   
   // Ensure it's not empty
@@ -45,8 +51,8 @@ async function validateVercelProjectName(name: string, token: string): Promise<{
 }> {
   // 1. Validate format
   const regex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-  if (!regex.test(name) || name.length > 52) {
-    return { valid: false, available: false, reason: "Invalid format" };
+  if (!regex.test(name) || name.length > 30) {
+    return { valid: false, available: false, reason: "Invalid format or exceeds 30 characters" };
   }
 
   // 2. Check availability via API
@@ -478,7 +484,6 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
   const isUploading = currentPublishState.isUploading;
   
   // Debug: Log current state values
-  console.log("🔍 Current state values:", { isPushing, progressMessage, uploadProgress, isUploading, publishState });
   
   const setIsPushing = (value: boolean) => currentSetPublishState({ 
     isPushing: value, 
@@ -560,8 +565,25 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
     vercelDeploymentUrl?: string;
   }>({});
   const [vercelDeploying, setVercelDeploying] = useState(false);
-  const [vercelDeployTimer, setVercelDeployTimer] = useState(0);
-  const [vercelUrlShown, setVercelUrlShown] = useState(false);
+  const [vercelDeploymentStatus, setVercelDeploymentStatus] = useState<{
+    deploymentId: string | null;
+    state: string;
+    readyState: string;
+    url: string | null;
+    polling: boolean;
+  }>({
+    deploymentId: null,
+    state: "unknown",
+    readyState: "unknown",
+    url: null,
+    polling: false,
+  });
+  
+  // Use ref to always access latest state in polling function
+  const vercelDeploymentStatusRef = useRef(vercelDeploymentStatus);
+  useEffect(() => {
+    vercelDeploymentStatusRef.current = vercelDeploymentStatus;
+  }, [vercelDeploymentStatus]);
 
   // Load saved URLs when component mounts
   useEffect(() => {
@@ -618,54 +640,158 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
     }
   }, [vercelProjectName, vercelToken, deployToVercel]);
 
-  // Handle Vercel deployment timer
+  // Poll Vercel deployment status
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (vercelDeploying && vercelDeployTimer < AUTOPUSH_CONFIG.DEPLOYMENT_TIMER_SECONDS && !vercelUrlShown) {
-      console.log("🔍 Starting Vercel timer:", { vercelDeploying, vercelDeployTimer, vercelUrlShown });
-      interval = setInterval(() => {
-        setVercelDeployTimer(prev => {
-          console.log("🔍 Timer tick:", prev);
-          if (prev >= AUTOPUSH_CONFIG.DEPLOYMENT_TIMER_SECONDS - 1) {
-            console.log("🔍 Timer completed, stopping deployment");
-            setVercelDeploying(false);
-            // Show the Vercel URL after timer completes (only once)
-            if (deployToVercel && vercelProjectName && !vercelUrlShown) {
-              const vercelUrl = `https://${vercelProjectName}.vercel.app`;
-              console.log("🔍 Adding Vercel URL to success message:", vercelUrl);
-              setSuccessMessage(prev => {
-                console.log("🔍 Previous message:", prev);
-                const newMessage = prev + `\n🚀 Vercel deployment ready: ${vercelUrl}`;
-                console.log("🔍 New message:", newMessage);
-                return newMessage;
-              });
-              setVercelUrlShown(true);
-              
-              // Save the Vercel URL
-              if (appId) {
-                IpcClient.getInstance().updateAppDeploymentUrls({
-                  appId: appId,
-                  vercelDeploymentUrl: vercelUrl
-                }).catch(console.error);
-              }
-            } else {
-              console.log("🔍 Not adding Vercel URL:", { deployToVercel, repoName, vercelUrlShown });
-            }
-            return AUTOPUSH_CONFIG.DEPLOYMENT_TIMER_SECONDS;
-          }
-          return prev + 1;
+    let pollInterval: NodeJS.Timeout | null = null;
+    let pollTimeout: NodeJS.Timeout | null = null;
+    const MAX_POLL_TIME = 300000; // 5 minutes max
+    const POLL_INTERVAL = 3000; // Poll every 3 seconds
+    const startTime = Date.now();
+
+    const pollDeploymentStatus = async () => {
+      // Use ref to get latest state
+      const current = vercelDeploymentStatusRef.current;
+      
+      if (!current.deploymentId || !vercelToken) {
+        console.log("⏸️ Skipping poll - missing deploymentId or token", {
+          hasDeploymentId: !!current.deploymentId,
+          hasToken: !!vercelToken
         });
-      }, 1000);
+        return;
+      }
+
+      try {
+        console.log("🔄 Polling Vercel deployment status:", current.deploymentId);
+        const status = await IpcClient.getInstance().getVercelDeploymentStatus({
+          deploymentId: current.deploymentId,
+          vercelToken: vercelToken,
+        });
+        
+        console.log("📊 Vercel deployment status received:", {
+          state: status.state,
+          readyState: status.readyState,
+          url: status.url, // Production URL from backend
+          error: status.error
+        });
+
+        // Use status.url directly (backend returns production URL)
+        setVercelDeploymentStatus(prev => ({
+          ...prev,
+          state: status.state,
+          readyState: status.readyState,
+          url: status.url || prev.url, // Use status.url from backend
+        }));
+
+        // Check if deployment is ready or failed (handle case variations)
+        const readyStateUpper = status.readyState?.toUpperCase();
+        const stateUpper = status.state?.toUpperCase();
+        
+        if (readyStateUpper === "READY" || readyStateUpper === "COMPLETE") {
+          console.log("✅ Vercel deployment ready:", status.url);
+          setVercelDeploymentStatus(prev => ({ ...prev, polling: false }));
+          
+          // Use status.url directly (backend returns production URL)
+          const finalUrl = status.url;
+          
+          // Update success message with production URL
+          if (finalUrl) {
+            setSuccessMessage(prev => {
+              const newMessage = prev.replace(
+                /🚀 Vercel deployment in progress\.\.\./g,
+                `🚀 Vercel deployment ready: ${finalUrl}`
+              );
+              return newMessage.includes(finalUrl) ? prev : newMessage + `\n🚀 Vercel deployment ready: ${finalUrl}`;
+            });
+            
+            // Save the production URL
+            if (appId) {
+              IpcClient.getInstance().updateAppDeploymentUrls({
+                appId: appId,
+                vercelDeploymentUrl: finalUrl
+              }).catch(console.error);
+            }
+          }
+          
+          setVercelDeploying(false);
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          if (pollTimeout) {
+            clearTimeout(pollTimeout);
+            pollTimeout = null;
+          }
+        } else if (readyStateUpper === "ERROR" || readyStateUpper === "FAILED" || stateUpper === "ERROR" || stateUpper === "FAILED") {
+          console.error("❌ Vercel deployment failed:", status.error);
+          setVercelDeploymentStatus(prev => ({ ...prev, polling: false }));
+          setVercelDeploying(false);
+          setErrorMessage(prev => prev + (prev ? "\n" : "") + `Vercel deployment failed: ${status.error || "Unknown error"}`);
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          if (pollTimeout) {
+            clearTimeout(pollTimeout);
+            pollTimeout = null;
+          }
+        } else if (Date.now() - startTime > MAX_POLL_TIME) {
+          console.warn("⏱️ Vercel deployment polling timeout");
+          setVercelDeploymentStatus(prev => ({ ...prev, polling: false }));
+          setVercelDeploying(false);
+          setErrorMessage(prev => prev + (prev ? "\n" : "") + "Vercel deployment is taking longer than expected. Please check the Vercel dashboard.");
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          if (pollTimeout) {
+            clearTimeout(pollTimeout);
+            pollTimeout = null;
+          }
+        }
+      } catch (error: any) {
+        console.error("❌ Error polling Vercel deployment status:", error);
+        // Don't stop polling on transient errors, but log them
+      }
+    };
+
+    if (vercelDeploymentStatus.polling && vercelDeploymentStatus.deploymentId) {
+      console.log("🚀 Starting Vercel deployment polling:", {
+        deploymentId: vercelDeploymentStatus.deploymentId,
+        polling: vercelDeploymentStatus.polling
+      });
+      // Start polling immediately, then every POLL_INTERVAL
+      pollDeploymentStatus();
+      pollInterval = setInterval(pollDeploymentStatus, POLL_INTERVAL);
+      
+      // Set max timeout
+      pollTimeout = setTimeout(() => {
+        console.warn("⏱️ Polling timeout reached");
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+        setVercelDeploymentStatus(prev => ({ ...prev, polling: false }));
+        setVercelDeploying(false);
+      }, MAX_POLL_TIME);
+    } else {
+      console.log("⏸️ Not starting polling:", {
+        polling: vercelDeploymentStatus.polling,
+        hasDeploymentId: !!vercelDeploymentStatus.deploymentId
+      });
     }
     
     return () => {
-      if (interval) {
-        console.log("🔍 Clearing Vercel timer");
-        clearInterval(interval);
+      console.log("🧹 Cleaning up polling intervals");
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      if (pollTimeout) {
+        clearTimeout(pollTimeout);
+        pollTimeout = null;
       }
     };
-  }, [vercelDeploying, vercelDeployTimer, deployToVercel, repoName, appId, vercelUrlShown]);
+  }, [vercelDeploymentStatus.polling, vercelDeploymentStatus.deploymentId, vercelToken, appId]);
 
   const handleAutoPush = async () => {
     if (!appId) {
@@ -777,12 +903,6 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
             });
             console.log("✅ Vercel token saved");
 
-            // Start the deployment timer
-            console.log("🚀 Starting Vercel deployment timer...");
-            setVercelDeploying(true);
-            setVercelDeployTimer(0);
-            setVercelUrlShown(false);
-
             // Deploy directly to Vercel using the deployment API
             console.log("🚀 Deploying to Vercel...");
             
@@ -799,16 +919,79 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   appId: appId || undefined
                 });
 
+                console.log("📦 Full deployment result:", deploymentResult);
+
                 if (deploymentResult.success) {
-                  // Get the production domain instead of deployment URL
-                  if (deploymentResult.url) {
-                    // Extract the project name from the deployment URL
-                    const projectName = repoName;
-                    vercelUrl = `https://${projectName}.vercel.app`;
-                  } else {
+                  // Start polling for deployment status
+                  if (deploymentResult.deploymentId) {
+                    console.log("🚀 Setting up polling with deployment ID:", deploymentResult.deploymentId);
+                    const newStatus = {
+                      deploymentId: deploymentResult.deploymentId,
+                      state: "QUEUED",
+                      readyState: "QUEUED",
+                      url: deploymentResult.url || null,
+                      polling: true,
+                    };
+                    console.log("🚀 Setting vercelDeploymentStatus:", newStatus);
+                    setVercelDeploymentStatus(newStatus);
+                    setVercelDeploying(true);
+                    setProgressMessage("Vercel deployment in progress...");
                     vercelUrl = "Deployment in progress...";
+                    console.log("✅ Vercel deployment initiated, polling for status:", deploymentResult.deploymentId);
+                  } else {
+                    console.warn("⚠️ No deployment ID in result:", deploymentResult);
+                    // Try to get deployment ID by querying project deployments
+                    if (deploymentResult.url) {
+                      try {
+                        console.log("🔄 Attempting to get deployment ID from project...");
+                        // Extract project name from URL or use repoName
+                        const projectName = repoName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+                        
+                        // Query Vercel API for latest deployment
+                        const deploymentsResponse = await fetch(`https://api.vercel.com/v6/deployments?projectId=${projectName}&limit=1`, {
+                          headers: {
+                            "Authorization": `Bearer ${vercelToken}`,
+                            "Accept": "application/json",
+                          },
+                        });
+                        
+                        if (deploymentsResponse.ok) {
+                          const deploymentsData = await deploymentsResponse.json();
+                          if (deploymentsData.deployments && deploymentsData.deployments.length > 0) {
+                            const latestDeployment = deploymentsData.deployments[0];
+                            const foundDeploymentId = latestDeployment.uid || latestDeployment.id;
+                            
+                            if (foundDeploymentId) {
+                              console.log("✅ Found deployment ID from project query:", foundDeploymentId);
+                              const newStatus = {
+                                deploymentId: foundDeploymentId,
+                                state: latestDeployment.state || "QUEUED",
+                                readyState: latestDeployment.readyState || "QUEUED",
+                                url: latestDeployment.url || deploymentResult.url || null,
+                                polling: true,
+                              };
+                              setVercelDeploymentStatus(newStatus);
+                              setVercelDeploying(true);
+                              setProgressMessage("Vercel deployment in progress...");
+                              vercelUrl = "Deployment in progress...";
+                              return; // Exit early, polling will start
+                            }
+                          }
+                        }
+                      } catch (error: any) {
+                        console.warn("⚠️ Failed to get deployment ID from project query:", error);
+                      }
+                    }
+                    
+                    // Final fallback to old behavior if no deployment ID
+                    if (deploymentResult.url) {
+                      const projectName = repoName;
+                      vercelUrl = `https://${projectName}.vercel.app`;
+                    } else {
+                      vercelUrl = "Deployment in progress...";
+                    }
+                    console.log("✅ Deployed to Vercel via IPC (no deployment ID, using fallback):", vercelUrl);
                   }
-                  console.log("✅ Deployed to Vercel via IPC:", vercelUrl);
                 } else {
                   throw new Error(deploymentResult.error || "Vercel deployment failed");
                 }
@@ -893,14 +1076,29 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   }
 
                   const deploymentData = await deploymentResponse.json();
-                  // Get the production domain instead of deployment URL
+                  
+                  // Start polling for deployment status if we have a deployment ID
+                  if (deploymentData.uid) {
+                    setVercelDeploymentStatus({
+                      deploymentId: deploymentData.uid,
+                      state: deploymentData.state || "QUEUED",
+                      readyState: deploymentData.readyState || "QUEUED",
+                      url: deploymentData.url || null,
+                      polling: true,
+                    });
+                    setVercelDeploying(true);
+                    setProgressMessage("Vercel deployment in progress...");
+                    vercelUrl = "Deployment in progress...";
+                    console.log("✅ Vercel deployment initiated via direct fetch, polling for status:", deploymentData.uid);
+                  } else {
+                    // Fallback if no deployment ID
                   if (deploymentData.url) {
-                    // Use the validated Vercel project name
                     vercelUrl = `https://${vercelProjectName}.vercel.app`;
                   } else {
                     vercelUrl = "Deployment in progress...";
                   }
-                  console.log("✅ Deployed to Vercel via direct fetch:", vercelUrl);
+                    console.log("✅ Deployed to Vercel via direct fetch (no deployment ID):", vercelUrl);
+                  }
                 } else {
                   throw ipcError;
                 }
@@ -921,7 +1119,10 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       
       // Save deployment URLs to app data
       const githubRepoUrl = `https://github.com/${githubUsername}/${repoName}`;
-      const finalVercelUrl = vercelUrl?.startsWith("https://") ? vercelUrl : vercelUrl ? `https://${vercelUrl}` : null;
+      // Only save Vercel URL if it's a real URL (not "Deployment in progress...")
+      const finalVercelUrl = vercelUrl && !vercelUrl.includes("Deployment in progress") 
+        ? (vercelUrl?.startsWith("https://") ? vercelUrl : `https://${vercelUrl}`)
+        : null;
       
       try {
         await IpcClient.getInstance().updateAppDeploymentUrls({
@@ -939,7 +1140,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       let successMsg = `✅ Successfully pushed to GitHub! Repository: ${githubRepoUrl}`;
       if (vercelUrl) {
         if (vercelUrl.includes("Deployment in progress")) {
-          successMsg += `\n🚀 Vercel deployment triggered!`;
+          successMsg += ``;
          
         } else if (vercelUrl.startsWith("https://")) {
           // Don't show the URL here - it will be shown after the timer completes
@@ -1062,7 +1263,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               )}
               {!vercelProjectValidation.checking && !vercelProjectValidation.valid && (
                 <p className="text-xs text-red-600 mt-1">
-                  Invalid format: {vercelProjectValidation.reason || "Must be lowercase letters, numbers, and hyphens only, max 52 characters"}
+                  Invalid format: {vercelProjectValidation.reason || "Must be lowercase letters, numbers, and hyphens only, max 30 characters"}
                 </p>
               )}
               {!vercelProjectValidation.checking && vercelProjectValidation.valid && !vercelProjectValidation.available && (
@@ -1193,41 +1394,88 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           </div>
         )}
 
-        {/* Vercel deployment loader */}
+        {/* Vercel deployment status */}
         {vercelDeploying && (
           <div className="space-y-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
             <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
-              <svg
-                className="animate-spin h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              <span className="text-sm font-medium">Deploying to Vercel...</span>
+              {/* Show loader for BUILDING, QUEUED, or any non-final state */}
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING" ||
+                vercelDeploymentStatus.readyState?.toUpperCase() === "QUEUED" ||
+                (vercelDeploymentStatus.readyState?.toUpperCase() !== "READY" && 
+                 vercelDeploymentStatus.readyState?.toUpperCase() !== "COMPLETE" &&
+                 vercelDeploymentStatus.readyState?.toUpperCase() !== "ERROR" && 
+                 vercelDeploymentStatus.readyState?.toUpperCase() !== "FAILED")) && (
+                <svg
+                  className="animate-spin h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              )}
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "READY" || 
+                vercelDeploymentStatus.readyState?.toUpperCase() === "COMPLETE") && (
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              )}
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "ERROR" || 
+                vercelDeploymentStatus.readyState?.toUpperCase() === "FAILED") && (
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              )}
+              <span className="text-sm font-medium">
+                {vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING" 
+                  ? "Building deployment..." 
+                  : vercelDeploymentStatus.readyState?.toUpperCase() === "QUEUED"
+                  ? "Queued for deployment..."
+                  : `Deploying to Vercel... (${vercelDeploymentStatus.readyState || "unknown"})`}
+              </span>
             </div>
             <div className="text-sm text-orange-700 dark:text-orange-300">
-              <p>Your app is being deployed to Vercel. This usually takes 30-60 seconds.</p>
-              <p className="mt-1">Time elapsed: {vercelDeployTimer}s / {AUTOPUSH_CONFIG.DEPLOYMENT_TIMER_SECONDS}s</p>
-            </div>
-            <div className="w-full bg-orange-200 dark:bg-orange-800 rounded-full h-2">
-              <div 
-                className="bg-orange-600 h-2 rounded-full transition-all duration-1000"
-                style={{ width: `${(vercelDeployTimer / AUTOPUSH_CONFIG.DEPLOYMENT_TIMER_SECONDS) * 100}%` }}
-              ></div>
+              <p>Status: {vercelDeploymentStatus.readyState || "unknown"} / State: {vercelDeploymentStatus.state || "unknown"}</p>
+              
+              {/* Show building progress message */}
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING" ||
+                vercelDeploymentStatus.readyState?.toUpperCase() === "QUEUED") && (
+                <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
+                  ⏳ {vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING" 
+                    ? "Your app is being built and deployed..." 
+                    : "Waiting in queue..."}
+                </p>
+              )}
+              
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "READY" || 
+                vercelDeploymentStatus.readyState?.toUpperCase() === "COMPLETE") && 
+                vercelDeploymentStatus.url && (
+                <p className="mt-1">
+                  ✅ Deployment ready:{" "}
+                  <a
+                    href={vercelDeploymentStatus.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    {vercelDeploymentStatus.url}
+                  </a>
+                </p>
+              )}
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "ERROR" || 
+                vercelDeploymentStatus.readyState?.toUpperCase() === "FAILED") && (
+                <p className="mt-1 text-red-600 dark:text-red-400">
+                  ❌ Deployment failed. Please check the Vercel dashboard for details.
+                </p>
+              )}
             </div>
           </div>
         )}
