@@ -401,9 +401,12 @@ const createWindow = () => {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(
-      path.join(__dirname, "../renderer/main_window/index.html"),
-    );
+    // In production, the renderer is at .vite/renderer/main_window/index.html
+    // Use app.getAppPath() to get the correct base path (works with asar)
+    const appPath = app.getAppPath();
+    const indexPath = path.join(appPath, ".vite", "renderer", "main_window", "index.html");
+    console.log(`Loading renderer from: ${indexPath}`);
+    mainWindow.loadFile(indexPath);
   }
   // Developer tools can be opened manually with Ctrl+Shift+I or F12
   // if (process.env.NODE_ENV === "development") {

@@ -23,7 +23,6 @@ export default defineConfig({
         "googleapis",
         "google-auth-library",
         "@google/generative-ai",
-        "@supabase/supabase-js",
         "electron",
         "child_process",
         "fs",

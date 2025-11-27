@@ -45,6 +45,8 @@ import {
   deploySupabaseFunctions,
   getSupabaseProjectName,
 } from "../../supabase_admin/supabase_management_client";
+import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_CONFIG } from "../../config/supabase.config";
 import { createLoggedHandler } from "./safe_handle";
 import { getLanguageModelProviders } from "../shared/language_model_helpers";
 import { startProxy } from "../utils/start_proxy_server";
@@ -2559,15 +2561,9 @@ renderer/rendering_method="forward_plus"
       const wpUser = settings.wordpressAuth?.user;
       const userDisplayName = wpUser?.display_name || null;
       
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      const supabaseUrl = process.env.SUPABASE_URL;
+      const serviceRoleKey = SUPABASE_CONFIG.SERVICE_ROLE_KEY;
+      const supabaseUrl = SUPABASE_CONFIG.URL;
 
-      if (!serviceRoleKey || !supabaseUrl) {
-        return { success: false, error: 'Supabase not configured' };
-      }
-
-      const { createClient } = require('@supabase/supabase-js');
-      
       const adminClient = createClient(
         supabaseUrl,
         serviceRoleKey,
@@ -2759,18 +2755,12 @@ renderer/rendering_method="forward_plus"
 
     try {
       // 1. Check configuration
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      const supabaseUrl = process.env.SUPABASE_URL;
+      const serviceRoleKey = SUPABASE_CONFIG.SERVICE_ROLE_KEY;
+      const supabaseUrl = SUPABASE_CONFIG.URL;
       
       results.config.hasUrl = !!supabaseUrl;
       results.config.hasServiceKey = !!serviceRoleKey;
       results.config.url = supabaseUrl || null;
-
-      if (!serviceRoleKey || !supabaseUrl) {
-        results.connection.success = false;
-        results.connection.error = 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment';
-        return { success: false, results };
-      }
 
       // 2. Check WordPress display_name
       // Get full WordPress user info for debugging
@@ -2809,8 +2799,6 @@ renderer/rendering_method="forward_plus"
       const userDisplayName = displayName;
 
       // 3. Test connection
-      const { createClient } = require('@supabase/supabase-js');
-      
       const adminClient = createClient(
         supabaseUrl,
         serviceRoleKey,

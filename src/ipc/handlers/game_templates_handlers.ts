@@ -1,6 +1,7 @@
 import { createLoggedHandler } from "./safe_handle";
 import log from "electron-log";
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_CONFIG } from '../../config/supabase.config';
 import type { Database } from "../../lib/supabase";
 import { hasAdminPermission } from "../../utils/permissions";
 
@@ -43,12 +44,8 @@ export interface UpdateGameTemplateParams {
 }
 
 function getSupabaseAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-
-  if (!serviceRoleKey || !supabaseUrl) {
-    return null;
-  }
+  const serviceRoleKey = SUPABASE_CONFIG.SERVICE_ROLE_KEY;
+  const supabaseUrl = SUPABASE_CONFIG.URL;
 
   return createClient<Database>(
     supabaseUrl,
