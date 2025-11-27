@@ -21,12 +21,18 @@ function generateVercelProjectName(repoName: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-') // Replace invalid characters with hyphens
     .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
-    .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
-    .substring(0, 52); // Limit to 52 characters
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
   
   // Ensure it doesn't start with a number (Vercel requirement)
   if (/^[0-9]/.test(projectName)) {
     projectName = 'app-' + projectName;
+  }
+  
+  // Limit to 30 characters maximum (after all transformations)
+  if (projectName.length > 30) {
+    projectName = projectName.substring(0, 30);
+    // Remove trailing hyphen if truncation created one
+    projectName = projectName.replace(/-$/, '');
   }
   
   // Ensure it's not empty
@@ -45,8 +51,8 @@ async function validateVercelProjectName(name: string, token: string): Promise<{
 }> {
   // 1. Validate format
   const regex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-  if (!regex.test(name) || name.length > 52) {
-    return { valid: false, available: false, reason: "Invalid format" };
+  if (!regex.test(name) || name.length > 30) {
+    return { valid: false, available: false, reason: "Invalid format or exceeds 30 characters" };
   }
 
   // 2. Check availability via API
@@ -1257,7 +1263,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               )}
               {!vercelProjectValidation.checking && !vercelProjectValidation.valid && (
                 <p className="text-xs text-red-600 mt-1">
-                  Invalid format: {vercelProjectValidation.reason || "Must be lowercase letters, numbers, and hyphens only, max 52 characters"}
+                  Invalid format: {vercelProjectValidation.reason || "Must be lowercase letters, numbers, and hyphens only, max 30 characters"}
                 </p>
               )}
               {!vercelProjectValidation.checking && vercelProjectValidation.valid && !vercelProjectValidation.available && (

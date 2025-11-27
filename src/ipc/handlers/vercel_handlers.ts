@@ -635,28 +635,67 @@ async function handleDeployToVercel(
     // Get production URL - prefer alias (production domain) over preview URL
     let productionUrl = null;
     if (deploymentData.alias && Array.isArray(deploymentData.alias) && deploymentData.alias.length > 0) {
-      // Use the first alias which is typically the production URL
-      // Filter out preview URLs (those with deployment hashes)
+      logger.info(`Processing ${deploymentData.alias.length} aliases:`, deploymentData.alias);
+      
+      // Find the production alias
+      // Preview URLs have format: project-name-hash-team.vercel.app or project-name-git-main-team.vercel.app
+      // Production URLs have format: project-name.vercel.app
       const productionAlias = deploymentData.alias.find((alias: string) => {
-        // Production URLs are typically just project-name.vercel.app
-        // Preview URLs contain deployment hashes like project-name-hash.vercel.app
-        return !alias.includes('-') || alias.split('.').length === 2;
-      }) || deploymentData.alias[0];
-      productionUrl = `https://${productionAlias}`;
-      logger.info(`Found production URL from alias: ${productionUrl}`);
+        const subdomain = alias.split('.')[0];
+        logger.info(`Checking alias: ${alias}, subdomain: ${subdomain}`);
+        
+        // Check for common patterns that indicate preview URLs:
+        // 1. Long hash-like segments (8+ alphanumeric chars after a dash)
+        const hasHash = subdomain.match(/-[a-z0-9]{8,}/);
+        if (hasHash) {
+          logger.info(`  ❌ Rejected (has hash): ${alias}`);
+          return false;
+        }
+        
+        // 2. Team suffixes (like -applaa-dev, -vercel, etc.)
+        const hasTeamSuffix = subdomain.match(/-[a-z]+-[a-z]+$/);
+        if (hasTeamSuffix) {
+          logger.info(`  ❌ Rejected (has team suffix): ${alias}`);
+          return false;
+        }
+        
+        // 3. Git branch patterns (like -git-main, -git-master, etc.)
+        const hasGitBranch = subdomain.match(/-git-[a-z0-9-]+/);
+        if (hasGitBranch) {
+          logger.info(`  ❌ Rejected (has git branch): ${alias}`);
+          return false;
+        }
+        
+        // 4. Production URLs are usually shorter (fewer dashes)
+        const dashCount = (subdomain.match(/-/g) || []).length;
+        if (dashCount > 5) {
+          logger.info(`  ❌ Rejected (too many dashes: ${dashCount}): ${alias}`);
+          return false;
+        }
+        
+        logger.info(`  ✅ Accepted as production URL: ${alias}`);
+        return true;
+      });
+      
+      // If no production alias found, use shortest one
+      if (productionAlias) {
+        productionUrl = `https://${productionAlias}`;
+        logger.info(`Found production URL from alias: ${productionUrl}`);
+      } else {
+        const shortestAlias = deploymentData.alias.reduce((shortest: string, current: string) => {
+          return current.length < shortest.length ? current : shortest;
+        }, deploymentData.alias[0]);
+        productionUrl = `https://${shortestAlias}`;
+        logger.info(`Using shortest alias as production URL: ${productionUrl}`);
+      }
     } else if (deploymentData.projectId) {
       // Construct production URL from project ID/name
       productionUrl = `https://${deploymentData.projectId}.vercel.app`;
       logger.info(`Constructed production URL from projectId: ${productionUrl}`);
-    } else if (repoName) {
-      // Fallback: construct from repo name
-      const projectName = repoName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-      productionUrl = `https://${projectName}.vercel.app`;
-      logger.info(`Constructed production URL from repoName: ${productionUrl}`);
     } else {
-      // Last resort: use the preview URL but log a warning
-      productionUrl = deploymentData.url;
-      logger.warn(`Using preview URL as fallback: ${productionUrl}`);
+      // No alias and no projectId - cannot determine production URL
+      logger.warn(`No alias or projectId found, cannot determine production URL`);
+      productionUrl = null;
     }
     
     logger.info(`Vercel deployment initiated: Production URL: ${productionUrl}, Preview URL: ${deploymentData.url || "No URL returned"}, ID: ${deploymentId || "NOT FOUND"}`);
@@ -713,44 +752,84 @@ async function handleGetVercelDeploymentStatus(
 
     const deployment = await response.json();
     
+    // Log the full deployment response to see what Vercel is returning
+    logger.info(`=== FULL VERCEL DEPLOYMENT RESPONSE ===`);
+    logger.info(`Deployment ID: ${deploymentId}`);
+    logger.info(`Full deployment object:`, JSON.stringify(deployment, null, 2));
+    logger.info(`deployment.url:`, deployment.url);
+    logger.info(`deployment.alias:`, deployment.alias);
+    logger.info(`deployment.projectId:`, deployment.projectId);
+    logger.info(`deployment.readyState:`, deployment.readyState);
+    logger.info(`deployment.state:`, deployment.state);
+    logger.info(`=== END VERCEL DEPLOYMENT RESPONSE ===`);
+    
     // Get production URL from alias array
     // Vercel returns aliases array where production URL is typically the one without deployment hash
     let productionUrl = undefined;
     if (deployment.alias && Array.isArray(deployment.alias) && deployment.alias.length > 0) {
-      // Find the production alias - it's usually the shortest one or the one matching project name pattern
+      logger.info(`Processing ${deployment.alias.length} aliases:`, deployment.alias);
+      // Find the production alias
       // Preview URLs have format: project-name-hash-team.vercel.app
       // Production URLs have format: project-name.vercel.app
       const productionAlias = deployment.alias.find((alias: string) => {
-        // Production URL doesn't have multiple dashes before the team name
-        // Count segments: production has 2 parts (name.vercel.app), preview has more
-        const domainParts = alias.split('.');
-        if (domainParts.length < 2) return false;
+        const subdomain = alias.split('.')[0];
+        logger.info(`Checking alias: ${alias}, subdomain: ${subdomain}`);
         
-        const subdomain = domainParts[0];
-        // Production URL typically doesn't have long hash-like segments
-        // Check if it looks like: project-name (not project-name-hash-team)
-        const subdomainParts = subdomain.split('-');
-        // If it has more than 3 parts, it's likely a preview URL
-        // Also check for hash pattern (long alphanumeric strings)
+        // Check for common patterns that indicate preview URLs:
+        // 1. Long hash-like segments (8+ alphanumeric chars after a dash)
         const hasHash = subdomain.match(/-[a-z0-9]{8,}/);
-        return !hasHash && subdomainParts.length <= 3;
+        if (hasHash) {
+          logger.info(`  ❌ Rejected (has hash): ${alias}`);
+          return false;
+        }
+        
+        // 2. Team suffixes (like -applaa-dev, -vercel, etc.)
+        // Pattern: ends with -word-word (team suffix)
+        const hasTeamSuffix = subdomain.match(/-[a-z]+-[a-z]+$/);
+        if (hasTeamSuffix) {
+          logger.info(`  ❌ Rejected (has team suffix): ${alias}`);
+          return false;
+        }
+        
+        // 3. Check for git branch patterns (like -git-main, -git-master)
+        const hasGitBranch = subdomain.match(/-git-[a-z0-9-]+$/);
+        if (hasGitBranch) {
+          logger.info(`  ❌ Rejected (has git branch): ${alias}`);
+          return false;
+        }
+        
+        // 4. Production URLs are usually shorter (fewer dashes)
+        // Count dashes - production URLs typically have fewer dashes
+        const dashCount = (subdomain.match(/-/g) || []).length;
+        // If it has more than 5 dashes, it's likely a preview URL
+        if (dashCount > 5) {
+          logger.info(`  ❌ Rejected (too many dashes: ${dashCount}): ${alias}`);
+          return false;
+        }
+        
+        logger.info(`  ✅ Accepted as production URL: ${alias}`);
+        return true;
       });
       
+      // If no production alias found, try to find the shortest one (production is usually shorter)
       if (productionAlias) {
         productionUrl = `https://${productionAlias}`;
         logger.info(`Found production URL from alias: ${productionUrl}`);
       } else {
-        // Fallback: use first alias
-        productionUrl = `https://${deployment.alias[0]}`;
-        logger.info(`Using first alias as production URL: ${productionUrl}`);
+        // Fallback: use shortest alias (production URLs are typically shorter)
+        const shortestAlias = deployment.alias.reduce((shortest: string, current: string) => {
+          return current.length < shortest.length ? current : shortest;
+        }, deployment.alias[0]);
+        productionUrl = `https://${shortestAlias}`;
+        logger.info(`Using shortest alias as production URL: ${productionUrl}`);
       }
     } else if (deployment.projectId) {
       productionUrl = `https://${deployment.projectId}.vercel.app`;
       logger.info(`Constructed production URL from projectId: ${productionUrl}`);
     } else {
-      // Last resort: use the URL from response (might be preview)
-      productionUrl = deployment.url;
-      logger.warn(`No alias found, using deployment.url (might be preview): ${productionUrl}`);
+      // No alias and no projectId - cannot determine production URL
+      logger.warn(`No alias or projectId found, cannot determine production URL`);
+      productionUrl = undefined;
     }
     
     logger.info(`Deployment status for ${deploymentId}:`, {
