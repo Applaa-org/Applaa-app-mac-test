@@ -54,6 +54,8 @@ import type {
   DisconnectVercelProjectParams,
   IsVercelProjectAvailableParams,
   SaveVercelAccessTokenParams,
+  GetVercelDeploymentStatusParams,
+  VercelDeploymentStatus,
   VercelProject,
   UpdateChatParams,
   FileAttachment,
@@ -1085,8 +1087,15 @@ export class IpcClient {
     repoName: string;
     githubToken: string;
     appId?: number;
-  }): Promise<{ success: boolean; url?: string; error?: string }> {
+  }): Promise<{ success: boolean; url?: string; deploymentId?: string; error?: string }> {
     return this.ipcRenderer.invoke("vercel:deploy", params);
+  }
+
+  // --- Get Vercel Deployment Status ---
+  public async getVercelDeploymentStatus(
+    params: GetVercelDeploymentStatusParams,
+  ): Promise<VercelDeploymentStatus> {
+    return this.ipcRenderer.invoke("vercel:get-deployment-status", params);
   }
   // --- End Vercel Project Management ---
 
