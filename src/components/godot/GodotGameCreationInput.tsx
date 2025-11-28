@@ -203,11 +203,11 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
             <button
               onClick={handleCreate}
               disabled={isCreating}
-              className="px-2 py-2 mt-1 mr-2 hover:bg-(--background-darkest) text-(--sidebar-accent-fg) rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-2 py-2 mt-1 mr-2 hover:bg-(--background-darkest) text-green-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               title="Build game"
             >
               {isCreating ? (
-                <Loader2 size={20} className="animate-spin" />
+                <Loader2 size={20} className="animate-spin text-green-500" />
               ) : (
                 <SendHorizontalIcon size={20} />
               )}

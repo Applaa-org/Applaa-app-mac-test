@@ -667,7 +667,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           vercelToken: vercelToken,
         });
         
-        console.log("📊 Vercel deployment status received:", {
+        console.log("📊  Deployment status received:", {
           state: status.state,
           readyState: status.readyState,
           url: status.url, // Production URL from backend
@@ -687,7 +687,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         const stateUpper = status.state?.toUpperCase();
         
         if (readyStateUpper === "READY" || readyStateUpper === "COMPLETE") {
-          console.log("✅ Vercel deployment ready:", status.url);
+          console.log("✅  deployment ready:", status.url);
           setVercelDeploymentStatus(prev => ({ ...prev, polling: false }));
           
           // Use status.url directly (backend returns production URL)
@@ -697,10 +697,10 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           if (finalUrl) {
             setSuccessMessage(prev => {
               const newMessage = prev.replace(
-                /🚀 Vercel deployment in progress\.\.\./g,
-                `🚀 Vercel deployment ready: ${finalUrl}`
+                /🚀  deployment in progress\.\.\./g,
+                `🚀  deployment ready: ${finalUrl}`
               );
-              return newMessage.includes(finalUrl) ? prev : newMessage + `\n🚀 Vercel deployment ready: ${finalUrl}`;
+              return newMessage.includes(finalUrl) ? prev : newMessage + `\n🚀 Deployment ready: ${finalUrl}`;
             });
             
             // Save the production URL
@@ -749,13 +749,13 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           }
         }
       } catch (error: any) {
-        console.error("❌ Error polling Vercel deployment status:", error);
+        console.error("❌ Error polling  deployment status:", error);
         // Don't stop polling on transient errors, but log them
       }
     };
 
     if (vercelDeploymentStatus.polling && vercelDeploymentStatus.deploymentId) {
-      console.log("🚀 Starting Vercel deployment polling:", {
+      console.log("🚀 Starting  deployment polling:", {
         deploymentId: vercelDeploymentStatus.deploymentId,
         polling: vercelDeploymentStatus.polling
       });
@@ -891,8 +891,8 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         if (!vercelToken.trim()) {
           vercelError = "Vercel token is required for deployment";
         } else {
-          console.log("📝 Setting progress message: Setting up Vercel deployment...");
-          setProgressMessage("Setting up Vercel deployment...");
+          console.log("📝 Setting progress message: Setting up  deployment...");
+          setProgressMessage("Setting up  deployment...");
           
           try {
             console.log("🚀 Starting Vercel setup...");
@@ -935,9 +935,9 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                     console.log("🚀 Setting vercelDeploymentStatus:", newStatus);
                     setVercelDeploymentStatus(newStatus);
                     setVercelDeploying(true);
-                    setProgressMessage("Vercel deployment in progress...");
+                    setProgressMessage(" deployment in progress...");
                     vercelUrl = "Deployment in progress...";
-                    console.log("✅ Vercel deployment initiated, polling for status:", deploymentResult.deploymentId);
+                    console.log("✅  deployment initiated, polling for status:", deploymentResult.deploymentId);
                   } else {
                     console.warn("⚠️ No deployment ID in result:", deploymentResult);
                     // Try to get deployment ID by querying project deployments
@@ -972,7 +972,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                               };
                               setVercelDeploymentStatus(newStatus);
                               setVercelDeploying(true);
-                              setProgressMessage("Vercel deployment in progress...");
+                              setProgressMessage(" deployment in progress...");
                               vercelUrl = "Deployment in progress...";
                               return; // Exit early, polling will start
                             }
@@ -1087,9 +1087,9 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                       polling: true,
                     });
                     setVercelDeploying(true);
-                    setProgressMessage("Vercel deployment in progress...");
+                    setProgressMessage("deployment in progress...");
                     vercelUrl = "Deployment in progress...";
-                    console.log("✅ Vercel deployment initiated via direct fetch, polling for status:", deploymentData.uid);
+                    console.log("✅  deployment initiated via direct fetch, polling for status:", deploymentData.uid);
                   } else {
                     // Fallback if no deployment ID
                   if (deploymentData.url) {
@@ -1105,12 +1105,12 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               }
               
             } catch (error: any) {
-              console.error("❌ Vercel deployment failed:", error);
-              throw new Error(`Vercel deployment failed: ${error.message}`);
+              console.error("❌  deployment failed:", error);
+              throw new Error(` deployment failed: ${error.message}`);
             }
             
           } catch (error: any) {
-            console.error("❌ Vercel setup failed:", error);
+            console.error("❌  setup failed:", error);
             vercelError = error.message || "Vercel setup failed";
             setVercelDeploying(false);
           }
@@ -1144,14 +1144,14 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
          
         } else if (vercelUrl.startsWith("https://")) {
           // Don't show the URL here - it will be shown after the timer completes
-          successMsg += `\n🚀 Vercel deployment in progress...`;
+          successMsg += `\n🚀  deployment in progress...`;
         } else {
-          successMsg += `\n🚀 Vercel deployment in progress...`;
+          successMsg += `\n🚀  deployment in progress...`;
         }
       } else if (vercelError) {
-        successMsg += `\n⚠️ Vercel deployment failed: ${vercelError}`;
+        successMsg += `\n⚠️  deployment failed: ${vercelError}`;
       } else if (deployToVercel) {
-        successMsg += `\n⚠️ Vercel deployment was requested but no result was returned`;
+        successMsg += `\n⚠️  deployment was requested but no result was returned`;
       }
       setSuccessMessage(successMsg);
       setPushStatus("success");
@@ -1268,7 +1268,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               )}
               {!vercelProjectValidation.checking && vercelProjectValidation.valid && !vercelProjectValidation.available && (
                 <p className="text-xs text-orange-600 mt-1">
-                  Project name already exists on Vercel. Please choose a different name.
+                  Project name already exists . Please choose a different name.
                 </p>
               )}
               {!vercelProjectValidation.checking && vercelProjectValidation.valid && vercelProjectValidation.available && (
@@ -1439,7 +1439,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   ? "Building deployment..." 
                   : vercelDeploymentStatus.readyState?.toUpperCase() === "QUEUED"
                   ? "Queued for deployment..."
-                  : `Deploying to Vercel... (${vercelDeploymentStatus.readyState || "unknown"})`}
+                  : `Deploying ... (${vercelDeploymentStatus.readyState || "unknown"})`}
               </span>
             </div>
             <div className="text-sm text-orange-700 dark:text-orange-300">

@@ -701,7 +701,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               <button
                 onClick={() => handleUrlClick(savedUrls.vercelDeploymentUrl!)}
                 className="godot-button godot-button-icon"
-                title="Open Vercel Deployment"
+                title="Open  Deployment"
               >
                 <Globe size={16} />
               </button>

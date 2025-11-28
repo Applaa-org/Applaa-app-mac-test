@@ -138,7 +138,7 @@ export function HomeChatInput({
                 <button
                   onClick={handleCustomSubmit}
                   disabled={!inputValue.trim() && attachments.length === 0}
-                  className="px-2 py-2 mt-1 mr-2 hover:bg-(--background-darkest) text-(--sidebar-accent-fg) rounded-lg disabled:opacity-50"
+                  className="px-2 py-2 mt-1 mr-2 hover:bg-(--background-darkest) text-green-500 rounded-lg disabled:opacity-50"
                   title="Send message"
                 >
                   <SendIcon size={20} />
