@@ -1030,6 +1030,43 @@ This conversation includes one or more image attachments. When the user uploads 
               let errorMessage = errorObj?.error?.message;
               const responseBody = errorObj?.error?.responseBody;
               
+              // Special handling for Azure OpenAI "Resource not found" errors
+              if (modelClient.builtinProviderId === 'azure-openai' && 
+                  (errorMessage?.includes('Resource not found') || 
+                   errorMessage?.includes('404') ||
+                   errorObj?.error?.status === 404)) {
+                logger.error("🔴 Azure OpenAI Resource not found - checking configuration");
+                
+                // Log the model configuration for debugging
+                logger.error(`🔴 Azure OpenAI Error Details:`);
+                logger.error(`  - Selected Model: ${settings.selectedModel?.name || 'unknown'}`);
+                logger.error(`  - Provider: ${settings.selectedModel?.provider || 'unknown'}`);
+                logger.error(`  - Error Status: ${errorObj?.error?.status || 'unknown'}`);
+                logger.error(`  - Error Message: ${errorMessage || 'unknown'}`);
+                logger.error(`  - Response Body: ${responseBody || 'none'}`);
+                
+                // Try to get Azure config from settings for debugging
+                const azureSettings = settings.providerSettings?.['azure-openai'];
+                if (azureSettings) {
+                  logger.error(`  - Azure Resource Name: ${azureSettings.resourceName?.value ? 'SET' : 'NOT SET'}`);
+                  logger.error(`  - Azure Deployment Name: ${azureSettings.deploymentName?.value || 'NOT SET'}`);
+                  logger.error(`  - Azure Endpoint: ${azureSettings.endpoint?.value ? 'SET' : 'NOT SET'}`);
+                  logger.error(`  - Azure API Version: ${azureSettings.apiVersion?.value || 'default'}`);
+                } else {
+                  logger.error(`  - Azure settings not found in providerSettings`);
+                }
+                
+                errorMessage = "Azure OpenAI Resource not found (404). This usually means:\n" +
+                  "1. The deployment name doesn't exist in your Azure OpenAI resource\n" +
+                  "2. The deployment name doesn't match exactly (case-sensitive)\n" +
+                  "3. The resource name or endpoint URL is incorrect\n\n" +
+                  "Please verify in Azure Portal that:\n" +
+                  "- The deployment exists and is active\n" +
+                  "- The deployment name matches exactly (including case)\n" +
+                  "- The resource name and endpoint are correct\n\n" +
+                  "Check the terminal logs for detailed configuration information.";
+              }
+              
               // Special handling for OpenRouter rate limits
               if (modelClient.builtinProviderId === 'openrouter' && 
                   (errorMessage?.includes('Too Many Requests') || 

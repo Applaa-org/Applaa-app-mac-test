@@ -306,40 +306,72 @@ function getRegularModelClient(
       const azureApiVersion = settings.providerSettings?.[providerId]?.apiVersion?.value || getEnvVar("AZURE_API_VERSION") || "2024-02-01";
       const azureEndpoint = settings.providerSettings?.[providerId]?.endpoint?.value || getEnvVar("AZURE_ENDPOINT");
       
+      // 🚨 DEBUG: Log all configuration values for troubleshooting
+      logger.info(`🔵 Azure OpenAI Configuration Debug:`);
+      logger.info(`  - Model name from selection: ${model.name}`);
+      logger.info(`  - API Key present: ${!!azureApiKey} (length: ${azureApiKey?.length || 0})`);
+      logger.info(`  - Resource Name: ${azureResourceName || 'NOT SET'}`);
+      logger.info(`  - Deployment Name (from settings): ${azureDeploymentName || 'NOT SET'}`);
+      logger.info(`  - Endpoint: ${azureEndpoint || 'NOT SET'}`);
+      logger.info(`  - API Version: ${azureApiVersion}`);
+      
       if (!azureApiKey) {
         throw new Error(
           `Azure OpenAI provider is missing the API key. Please set AZURE_API_KEY environment variable or configure it in provider settings.`,
         );
       }
       
-      if (!azureResourceName) {
-        throw new Error(
-          `Azure OpenAI provider is missing the resource name. Please set AZURE_RESOURCE_NAME environment variable or configure it in provider settings.`,
-        );
-      }
-      
-      // Use official Azure SDK with comprehensive configuration
+      // 🚨 FIX: Use either endpoint OR resourceName, not both (they conflict in Azure SDK)
+      // If endpoint is provided, use it as baseURL and don't set resourceName
+      // If endpoint is not provided, use resourceName to construct standard URL
       const azureConfig: any = {
         apiKey: azureApiKey,
-        resourceName: azureResourceName,
         apiVersion: azureApiVersion,
       };
       
-      // Add endpoint if provided (for custom Azure endpoints)
       if (azureEndpoint) {
-        azureConfig.baseURL = azureEndpoint;
+        // Normalize endpoint: remove trailing slash and /openai path if present
+        // Should be: https://resource-name.openai.azure.com (no trailing slash, no /openai)
+        let normalizedEndpoint = azureEndpoint.trim();
+        if (normalizedEndpoint.endsWith('/')) {
+          normalizedEndpoint = normalizedEndpoint.slice(0, -1);
+        }
+        // Remove /openai path if present (SDK will add it)
+        normalizedEndpoint = normalizedEndpoint.replace(/\/openai\/?$/, '');
+        
+        azureConfig.baseURL = normalizedEndpoint;
+        logger.info(`🔵 Azure OpenAI using custom endpoint: ${normalizedEndpoint}`);
+      } else if (azureResourceName) {
+        // Use resourceName to construct standard Azure OpenAI endpoint
+        azureConfig.resourceName = azureResourceName;
+        logger.info(`🔵 Azure OpenAI using resource name: ${azureResourceName}`);
+      } else {
+        throw new Error(
+          `Azure OpenAI provider requires either AZURE_RESOURCE_NAME or AZURE_ENDPOINT. Please configure one of these in provider settings.`,
+        );
       }
       
       const provider = createAzure(azureConfig);
       
-      // Use deployment name if provided, otherwise use model name
-      const modelName = azureDeploymentName || model.name;
+      // 🚨 CRITICAL: Use deployment name if provided, otherwise use model name
+      // The deployment name MUST match exactly what's configured in Azure Portal
+      const finalDeploymentName = azureDeploymentName || model.name;
       
-      logger.info(`🔵 Azure OpenAI configured with resource: ${azureResourceName}, deployment: ${modelName}, API version: ${azureApiVersion}`);
+      logger.info(`🔵 Azure OpenAI Final Configuration:`);
+      logger.info(`  - Final Deployment Name: "${finalDeploymentName}"`);
+      logger.info(`  - API Version: ${azureApiVersion}`);
+      if (azureEndpoint) {
+        const fullUrl = `${azureConfig.baseURL}/openai/deployments/${finalDeploymentName}/chat/completions?api-version=${azureApiVersion}`;
+        logger.info(`  - Full Endpoint URL: ${fullUrl}`);
+      } else {
+        const fullUrl = `https://${azureResourceName}.openai.azure.com/openai/deployments/${finalDeploymentName}/chat/completions?api-version=${azureApiVersion}`;
+        logger.info(`  - Full Endpoint URL: ${fullUrl}`);
+      }
+      logger.info(`  - ⚠️  IMPORTANT: The deployment name "${finalDeploymentName}" must exist in Azure Portal and match exactly (case-sensitive)`);
       
       return {
         modelClient: {
-          model: provider(modelName),
+          model: provider(finalDeploymentName),
           builtinProviderId: providerId,
         },
         backupModelClients: [],

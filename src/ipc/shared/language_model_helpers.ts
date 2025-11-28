@@ -439,6 +439,39 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 128_000,
       temperature: 0,
     },
+    // Claude models via Azure OpenAI
+    {
+      name: "claude-sonnet-4-20250514",
+      displayName: "Claude 4 Sonnet (Azure)",
+      description: "Azure OpenAI Claude 4 Sonnet deployment - excellent coder",
+      maxOutputTokens: 16_000,
+      contextWindow: 200_000,
+      temperature: 0,
+    },
+    {
+      name: "claude-3-7-sonnet-latest",
+      displayName: "Claude 3.7 Sonnet (Azure)",
+      description: "Azure OpenAI Claude 3.7 Sonnet deployment - excellent coder",
+      maxOutputTokens: 16_000,
+      contextWindow: 200_000,
+      temperature: 0,
+    },
+    {
+      name: "claude-3-5-sonnet-20241022",
+      displayName: "Claude 3.5 Sonnet (Azure)",
+      description: "Azure OpenAI Claude 3.5 Sonnet deployment - good coder, excellent at following instructions",
+      maxOutputTokens: 8_000,
+      contextWindow: 200_000,
+      temperature: 0,
+    },
+    {
+      name: "claude-3-5-haiku-20241022",
+      displayName: "Claude 3.5 Haiku (Azure)",
+      description: "Azure OpenAI Claude 3.5 Haiku deployment - lightweight coder",
+      maxOutputTokens: 8_000,
+      contextWindow: 200_000,
+      temperature: 0,
+    },
   ],
 };
 

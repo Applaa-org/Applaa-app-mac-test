@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import * as fs from "node:fs";
 import { Worker } from "node:worker_threads";
 
 import { ProblemReport } from "../ipc_types";
@@ -21,6 +22,23 @@ export async function generateProblemReport({
   fullResponse: string;
   appPath: string;
 }): Promise<ProblemReport> {
+  // 🚨 FIX: Skip TypeScript checking for Godot apps (they don't use TypeScript)
+  const isGodotApp = fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
+  
+  // Check if TypeScript config exists
+  const possibleConfigs = ['tsconfig.app.json', 'tsconfig.json'];
+  const hasTypeScriptConfig = possibleConfigs.some(config => 
+    fs.existsSync(path.join(appPath, config))
+  );
+  
+  // If it's a Godot app or has no TypeScript config, return empty problem report
+  if (isGodotApp || !hasTypeScriptConfig) {
+    logger.info(`Skipping TypeScript check for ${isGodotApp ? 'Godot' : 'non-TypeScript'} app: ${appPath}`);
+    return {
+      problems: [],
+    };
+  }
+  
   return new Promise((resolve, reject) => {
     // Determine the worker script path
     const workerPath = path.join(__dirname, "tsc_worker.js");
