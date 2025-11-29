@@ -351,7 +351,10 @@ function getRegularModelClient(
         "grok-4-fast-reasoning": {
           baseURL: "https://applaa-qa.services.ai.azure.com",
           apiVersion: "2024-05-01-preview",
-          useModelsEndpoint: true, // Uses /models/chat/completions instead of /openai/deployments/{deployment}/chat/completions
+          // Use /openai/v1/chat/completions endpoint (matching user's example)
+          // User's example: baseURL: "https://applaa-qa.services.ai.azure.com/openai/v1/"
+          // SDK appends /chat/completions, so full URL: /openai/v1/chat/completions
+          useOpenAIv1Endpoint: true, // Flag to use /openai/v1/chat/completions instead of /openai/deployments/...
         },
         "gpt-5.1-chat": {
           baseURL: "https://applaa-qa.cognitiveservices.azure.com",
@@ -376,6 +379,9 @@ function getRegularModelClient(
       logger.info(`  - Deployment Name: ${model.name}`);
       if (model.name === 'gpt-5.1-chat') {
         logger.info(`  - 🎯 GPT-5.1 Chat: Using standard endpoint with max_completion_tokens`);
+      }
+      if (model.name === 'grok-4-fast-reasoning') {
+        logger.info(`  - 🎯 Grok-4-Fast-Reasoning: Using OpenAI v1 endpoint (/openai/v1/chat/completions)`);
       }
       
       // For Anthropic format (Claude), use OpenAI compatible with custom endpoint
@@ -519,6 +525,12 @@ function getRegularModelClient(
             azureUrl = `${baseUrl}/models/chat/completions?api-version=${apiVersion}`;
             logger.info(`  - ✅ Using Models Router endpoint: ${azureUrl}`);
             logger.info(`  - 📋 Note: Model name "${deploymentName}" will be sent in request body, not URL path`);
+          } else if (modelConfig.useOpenAIv1Endpoint) {
+            // Use /openai/v1/chat/completions endpoint (for grok-4-fast-reasoning)
+            // Match user's example: baseURL includes /openai/v1/, SDK appends /chat/completions
+            azureUrl = `${baseUrl}/openai/v1/chat/completions?api-version=${apiVersion}`;
+            logger.info(`  - ✅ Using OpenAI v1 endpoint: ${azureUrl}`);
+            logger.info(`  - 📋 Note: Model name "${deploymentName}" will be sent in request body`);
           } else {
             // Standard deployment endpoint
             azureUrl = `${baseUrl}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
@@ -529,10 +541,13 @@ function getRegularModelClient(
           let modifiedOptions = { ...options };
           // Always modify body for Responses API and Models Router endpoints, or for models with special requirements
           // Special case: Always modify body for GPT-5.1 Chat to ensure max_completion_tokens conversion
-          const shouldModifyBody = (needsMaxCompletionTokens || shouldRemoveTemperature || needsTemperatureOne || modelConfig.useModelsEndpoint || modelConfig.useResponsesEndpoint || model.name === 'gpt-5.1-chat');
+          const shouldModifyBody = (needsMaxCompletionTokens || shouldRemoveTemperature || needsTemperatureOne || modelConfig.useModelsEndpoint || modelConfig.useResponsesEndpoint || modelConfig.useOpenAIv1Endpoint || model.name === 'gpt-5.1-chat');
           if (shouldModifyBody && options?.body) {
             if (model.name === 'gpt-5.1-chat') {
               logger.info(`  - 🎯 GPT-5.1 Chat - Body modification condition: shouldModifyBody=${shouldModifyBody}, needsMaxCompletionTokens=${needsMaxCompletionTokens}`);
+            }
+            if (model.name === 'grok-4-fast-reasoning') {
+              logger.info(`  - 🎯 Grok-4-Fast-Reasoning - Body modification condition: shouldModifyBody=${shouldModifyBody}, useOpenAIv1Endpoint=${modelConfig.useOpenAIv1Endpoint}`);
             }
             try {
               let bodyText: string;
@@ -550,9 +565,12 @@ function getRegularModelClient(
               
               const bodyJson = JSON.parse(bodyText);
               
-              // Log original body for GPT-5.1 Chat debugging
+              // Log original body for debugging
               if (model.name === 'gpt-5.1-chat') {
                 logger.info(`  - 🎯 GPT-5.1 Chat - Original request body: ${JSON.stringify(bodyJson, null, 2)}`);
+              }
+              if (model.name === 'grok-4-fast-reasoning') {
+                logger.info(`  - 🎯 Grok-4-Fast-Reasoning - Original request body: ${JSON.stringify(bodyJson, null, 2)}`);
               }
               
               let bodyModified = false;
@@ -611,6 +629,15 @@ function getRegularModelClient(
                 }
               }
               
+              // For OpenAI v1 endpoint (grok-4-fast-reasoning), ensure model name is in request body
+              if (modelConfig.useOpenAIv1Endpoint) {
+                if (bodyJson.model !== deploymentName) {
+                  logger.info(`  - 🔄 Setting model name in request body to "${deploymentName}" for OpenAI v1 endpoint (grok-4-fast-reasoning)`);
+                  bodyJson.model = deploymentName;
+                  bodyModified = true;
+                }
+              }
+              
               // For GPT-5.1 Chat, ensure model name is in request body (matching user's example code)
               if (model.name === 'gpt-5.1-chat' && !modelConfig.useModelsEndpoint && !modelConfig.useResponsesEndpoint) {
                 if (bodyJson.model !== deploymentName) {
@@ -654,13 +681,22 @@ function getRegularModelClient(
                 }
                 logger.info(`  - ✅ Request body modified for ${model.name}`);
                 
-                // Log modified body for GPT-5.1 Chat debugging
+                // Log modified body for debugging
                 if (model.name === 'gpt-5.1-chat') {
                   logger.info(`  - 🎯 GPT-5.1 Chat - Modified request body: ${JSON.stringify(bodyJson, null, 2)}`);
                 }
-              } else if (model.name === 'gpt-5.1-chat') {
-                logger.warn(`  - ⚠️  GPT-5.1 Chat - Request body was NOT modified (bodyModified=false)`);
-                logger.warn(`  - ⚠️  This might indicate the condition check failed`);
+                if (model.name === 'grok-4-fast-reasoning') {
+                  logger.info(`  - 🎯 Grok-4-Fast-Reasoning - Modified request body: ${JSON.stringify(bodyJson, null, 2)}`);
+                }
+              } else {
+                if (model.name === 'gpt-5.1-chat') {
+                  logger.warn(`  - ⚠️  GPT-5.1 Chat - Request body was NOT modified (bodyModified=false)`);
+                  logger.warn(`  - ⚠️  This might indicate the condition check failed`);
+                }
+                if (model.name === 'grok-4-fast-reasoning') {
+                  logger.warn(`  - ⚠️  Grok-4-Fast-Reasoning - Request body was NOT modified (bodyModified=false)`);
+                  logger.warn(`  - ⚠️  This might indicate the condition check failed`);
+                }
               }
             } catch (e) {
               logger.warn(`  - ⚠️  Could not modify request body: ${e}`);
