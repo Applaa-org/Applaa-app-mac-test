@@ -374,6 +374,9 @@ function getRegularModelClient(
       logger.info(`  - Base URL: ${modelConfig.baseURL}`);
       logger.info(`  - API Version: ${modelConfig.apiVersion}`);
       logger.info(`  - Deployment Name: ${model.name}`);
+      if (model.name === 'gpt-5.1-chat') {
+        logger.info(`  - 🎯 GPT-5.1 Chat: Using standard endpoint with max_completion_tokens`);
+      }
       
       // For Anthropic format (Claude), use OpenAI compatible with custom endpoint
       if (modelConfig.useAnthropicFormat) {
@@ -525,7 +528,12 @@ function getRegularModelClient(
           // Modify request body for model-specific requirements
           let modifiedOptions = { ...options };
           // Always modify body for Responses API and Models Router endpoints, or for models with special requirements
-          if ((needsMaxCompletionTokens || shouldRemoveTemperature || needsTemperatureOne || modelConfig.useModelsEndpoint || modelConfig.useResponsesEndpoint) && options?.body) {
+          // Special case: Always modify body for GPT-5.1 Chat to ensure max_completion_tokens conversion
+          const shouldModifyBody = (needsMaxCompletionTokens || shouldRemoveTemperature || needsTemperatureOne || modelConfig.useModelsEndpoint || modelConfig.useResponsesEndpoint || model.name === 'gpt-5.1-chat');
+          if (shouldModifyBody && options?.body) {
+            if (model.name === 'gpt-5.1-chat') {
+              logger.info(`  - 🎯 GPT-5.1 Chat - Body modification condition: shouldModifyBody=${shouldModifyBody}, needsMaxCompletionTokens=${needsMaxCompletionTokens}`);
+            }
             try {
               let bodyText: string;
               if (typeof options.body === 'string') {
@@ -541,6 +549,12 @@ function getRegularModelClient(
               }
               
               const bodyJson = JSON.parse(bodyText);
+              
+              // Log original body for GPT-5.1 Chat debugging
+              if (model.name === 'gpt-5.1-chat') {
+                logger.info(`  - 🎯 GPT-5.1 Chat - Original request body: ${JSON.stringify(bodyJson, null, 2)}`);
+              }
+              
               let bodyModified = false;
               
               // Handle max_tokens conversion based on endpoint type
@@ -597,6 +611,15 @@ function getRegularModelClient(
                 }
               }
               
+              // For GPT-5.1 Chat, ensure model name is in request body (matching user's example code)
+              if (model.name === 'gpt-5.1-chat' && !modelConfig.useModelsEndpoint && !modelConfig.useResponsesEndpoint) {
+                if (bodyJson.model !== deploymentName) {
+                  logger.info(`  - 🔄 Setting model name in request body to "${deploymentName}" for GPT-5.1 Chat (standard endpoint)`);
+                  bodyJson.model = deploymentName;
+                  bodyModified = true;
+                }
+              }
+              
               // For Responses API endpoint, convert 'messages' to 'input' and ensure model name is set
               if (modelConfig.useResponsesEndpoint) {
                 if (bodyJson.messages !== undefined) {
@@ -630,6 +653,14 @@ function getRegularModelClient(
                   }
                 }
                 logger.info(`  - ✅ Request body modified for ${model.name}`);
+                
+                // Log modified body for GPT-5.1 Chat debugging
+                if (model.name === 'gpt-5.1-chat') {
+                  logger.info(`  - 🎯 GPT-5.1 Chat - Modified request body: ${JSON.stringify(bodyJson, null, 2)}`);
+                }
+              } else if (model.name === 'gpt-5.1-chat') {
+                logger.warn(`  - ⚠️  GPT-5.1 Chat - Request body was NOT modified (bodyModified=false)`);
+                logger.warn(`  - ⚠️  This might indicate the condition check failed`);
               }
             } catch (e) {
               logger.warn(`  - ⚠️  Could not modify request body: ${e}`);
