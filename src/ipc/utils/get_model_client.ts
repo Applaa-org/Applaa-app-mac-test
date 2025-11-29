@@ -480,6 +480,7 @@ function getRegularModelClient(
       const baseUrl = modelConfig.baseURL;
       
       // Models that require max_completion_tokens instead of max_tokens
+      // Note: gpt-5.1-chat uses Responses API which needs max_output_tokens, so it's handled separately
       const modelsRequiringMaxCompletionTokens = ['gpt-5-nano', 'o1', 'o4-mini'];
       const needsMaxCompletionTokens = modelsRequiringMaxCompletionTokens.includes(model.name);
       
@@ -503,13 +504,27 @@ function getRegularModelClient(
           // Log the original URL before rewriting
           logger.info(`  - 🔵 Original SDK URL: ${url}`);
           
-          // Construct the correct Azure OpenAI URL
-          const azureUrl = `${baseUrl}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
-          logger.info(`  - ✅ Rewriting to Azure URL: ${azureUrl}`);
+          // Construct the correct Azure OpenAI URL based on endpoint type
+          let azureUrl: string;
+          if (modelConfig.useResponsesEndpoint) {
+            // Use /openai/responses endpoint
+            azureUrl = `${baseUrl}/openai/responses?api-version=${apiVersion}`;
+            logger.info(`  - ✅ Using Responses API endpoint: ${azureUrl}`);
+          } else if (modelConfig.useModelsEndpoint) {
+            // Use /models/chat/completions endpoint
+            azureUrl = `${baseUrl}/models/chat/completions?api-version=${apiVersion}`;
+            logger.info(`  - ✅ Using Models Router endpoint: ${azureUrl}`);
+            logger.info(`  - 📋 Note: Model name "${deploymentName}" will be sent in request body, not URL path`);
+          } else {
+            // Standard deployment endpoint
+            azureUrl = `${baseUrl}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
+            logger.info(`  - ✅ Using standard deployment endpoint: ${azureUrl}`);
+          }
           
           // Modify request body for model-specific requirements
           let modifiedOptions = { ...options };
-          if ((needsMaxCompletionTokens || shouldRemoveTemperature || needsTemperatureOne) && options?.body) {
+          // Always modify body for Responses API and Models Router endpoints, or for models with special requirements
+          if ((needsMaxCompletionTokens || shouldRemoveTemperature || needsTemperatureOne || modelConfig.useModelsEndpoint || modelConfig.useResponsesEndpoint) && options?.body) {
             try {
               let bodyText: string;
               if (typeof options.body === 'string') {
@@ -527,11 +542,28 @@ function getRegularModelClient(
               const bodyJson = JSON.parse(bodyText);
               let bodyModified = false;
               
-              // Replace max_tokens with max_completion_tokens if needed
-              if (needsMaxCompletionTokens && bodyJson.max_tokens !== undefined) {
-                logger.info(`  - 🔄 Converting max_tokens (${bodyJson.max_tokens}) to max_completion_tokens for ${model.name}`);
-                bodyJson.max_completion_tokens = bodyJson.max_tokens;
-                delete bodyJson.max_tokens;
+              // Handle max_tokens conversion based on endpoint type
+              if (bodyJson.max_tokens !== undefined) {
+                if (modelConfig.useResponsesEndpoint) {
+                  // Responses API uses max_output_tokens
+                  logger.info(`  - 🔄 Converting max_tokens (${bodyJson.max_tokens}) to max_output_tokens for Responses API`);
+                  bodyJson.max_output_tokens = bodyJson.max_tokens;
+                  delete bodyJson.max_tokens;
+                  bodyModified = true;
+                } else if (needsMaxCompletionTokens) {
+                  // Standard endpoint models that require max_completion_tokens
+                  logger.info(`  - 🔄 Converting max_tokens (${bodyJson.max_tokens}) to max_completion_tokens for ${model.name}`);
+                  bodyJson.max_completion_tokens = bodyJson.max_tokens;
+                  delete bodyJson.max_tokens;
+                  bodyModified = true;
+                }
+              }
+              
+              // If max_completion_tokens exists but we're using Responses API, convert to max_output_tokens
+              if (modelConfig.useResponsesEndpoint && bodyJson.max_completion_tokens !== undefined) {
+                logger.info(`  - 🔄 Converting max_completion_tokens (${bodyJson.max_completion_tokens}) to max_output_tokens for Responses API`);
+                bodyJson.max_output_tokens = bodyJson.max_completion_tokens;
+                delete bodyJson.max_completion_tokens;
                 bodyModified = true;
               }
               
@@ -551,6 +583,31 @@ function getRegularModelClient(
                 } else if (bodyJson.temperature === undefined) {
                   logger.info(`  - 🔄 Setting temperature to 1 for ${model.name} (default required)`);
                   bodyJson.temperature = 1;
+                  bodyModified = true;
+                }
+              }
+              
+              // For models endpoint, ensure model name is in request body
+              if (modelConfig.useModelsEndpoint) {
+                if (bodyJson.model !== deploymentName) {
+                  logger.info(`  - 🔄 Setting model name in request body to "${deploymentName}" for Models Router endpoint`);
+                  bodyJson.model = deploymentName;
+                  bodyModified = true;
+                }
+              }
+              
+              // For Responses API endpoint, convert 'messages' to 'input' and ensure model name is set
+              if (modelConfig.useResponsesEndpoint) {
+                if (bodyJson.messages !== undefined) {
+                  logger.info(`  - 🔄 Converting 'messages' to 'input' for Responses API endpoint`);
+                  bodyJson.input = bodyJson.messages;
+                  delete bodyJson.messages;
+                  bodyModified = true;
+                }
+                // Ensure model name is in request body for Responses API
+                if (bodyJson.model !== deploymentName) {
+                  logger.info(`  - 🔄 Setting model name in request body to "${deploymentName}" for Responses API`);
+                  bodyJson.model = deploymentName;
                   bodyModified = true;
                 }
               }
