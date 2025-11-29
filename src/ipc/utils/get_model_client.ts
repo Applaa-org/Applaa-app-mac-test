@@ -610,6 +610,12 @@ function getRegularModelClient(
                   bodyJson.model = deploymentName;
                   bodyModified = true;
                 }
+                // Ensure streaming is enabled for Responses API
+                if (bodyJson.stream !== true) {
+                  logger.info(`  - 🔄 Enabling streaming for Responses API (was: ${bodyJson.stream})`);
+                  bodyJson.stream = true;
+                  bodyModified = true;
+                }
               }
               
               // Update the body if modified
@@ -649,6 +655,213 @@ function getRegularModelClient(
             if (!response.ok) {
               const responseText = await response.clone().text();
               logger.error(`  - ❌ Error response body: ${responseText.substring(0, 500)}`);
+            }
+            
+            // For Responses API, we need to transform the response format
+            // Responses API uses event-based streaming with different structure
+            // The SDK expects OpenAI format with 'choices' array, but Responses API uses 'type', 'sequence_number', 'response'
+            if (modelConfig.useResponsesEndpoint && response.ok) {
+              logger.info(`  - 🔄 Transforming Responses API stream to OpenAI-compatible format`);
+              logger.info(`  - 📋 Responses API uses different event structure - converting to OpenAI SSE format`);
+              logger.info(`  - 📋 Content-Type: ${response.headers.get('content-type')}`);
+              
+              // Ensure we're handling a streaming response
+              if (!response.body) {
+                logger.error(`  - ❌ Response body is null - cannot transform stream`);
+                return response;
+              }
+              
+              // Create a transformed response that converts Responses API format to OpenAI format
+              const transformedResponse = new Response(
+                new ReadableStream({
+                  async start(controller) {
+                    const reader = response.body?.getReader();
+                    const decoder = new TextDecoder();
+                    const encoder = new TextEncoder();
+                    
+                    if (!reader) {
+                      controller.close();
+                      return;
+                    }
+                    
+                    let buffer = '';
+                    
+                    try {
+                      while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+                        
+                        for (const line of lines) {
+                          if (line.trim() === '') continue;
+                          if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                              continue;
+                            }
+                            
+                            try {
+                              const event = JSON.parse(data);
+                              
+                              // Log the event type for debugging
+                              logger.info(`  - 📋 Responses API event: ${event.type || 'unknown'}`);
+                              
+                              // Transform Responses API events to OpenAI format
+                              // Responses API uses different event types: response.created, response.output_item.added, response.output_item.delta
+                              
+                              if (event.type === 'response.output_item.added') {
+                                // New output item was added - extract text content
+                                const outputItem = event.output_item;
+                                if (outputItem?.type === 'text' && outputItem.text) {
+                                  // Create OpenAI-compatible choice format with full text
+                                  const choice = {
+                                    index: 0,
+                                    delta: {
+                                      role: 'assistant',
+                                      content: outputItem.text
+                                    },
+                                    finish_reason: null
+                                  };
+                                  
+                                  const openAIFormat = {
+                                    id: event.response_id || 'resp_' + Date.now(),
+                                    object: 'chat.completion.chunk',
+                                    created: Math.floor(Date.now() / 1000),
+                                    model: deploymentName,
+                                    choices: [choice]
+                                  };
+                                  
+                                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                }
+                              } else if (event.type === 'response.output_item.delta') {
+                                // Delta update for existing output item
+                                const delta = event.delta;
+                                if (delta?.type === 'text_delta' && delta.text) {
+                                  // Create OpenAI-compatible choice format with delta text
+                                  const choice = {
+                                    index: 0,
+                                    delta: {
+                                      content: delta.text
+                                    },
+                                    finish_reason: null
+                                  };
+                                  
+                                  const openAIFormat = {
+                                    id: event.response_id || 'resp_' + Date.now(),
+                                    object: 'chat.completion.chunk',
+                                    created: Math.floor(Date.now() / 1000),
+                                    model: deploymentName,
+                                    choices: [choice]
+                                  };
+                                  
+                                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                }
+                              } else if (event.type === 'response.done') {
+                                // Response is complete
+                                const finalChoice = {
+                                  index: 0,
+                                  delta: {},
+                                  finish_reason: 'stop'
+                                };
+                                
+                                const openAIFormat = {
+                                  id: event.response_id || 'resp_' + Date.now(),
+                                  object: 'chat.completion.chunk',
+                                  created: Math.floor(Date.now() / 1000),
+                                  model: deploymentName,
+                                  choices: [finalChoice]
+                                };
+                                
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                              } else if (event.type === 'response.created') {
+                                // Initial response created - send empty delta to initialize the stream
+                                // The actual content will come in output_item.added/delta events
+                                logger.info(`  - 📋 Response created: ${event.response?.id || 'unknown'}, status: ${event.response?.status || 'unknown'}`);
+                                
+                                // Always send an initial chunk with empty content to satisfy SDK expectations
+                                // This ensures the SDK sees a valid format immediately
+                                const initialChoice = {
+                                  index: 0,
+                                  delta: {
+                                    role: 'assistant',
+                                    content: ''
+                                  },
+                                  finish_reason: null
+                                };
+                                
+                                const openAIFormat = {
+                                  id: event.response?.id || 'resp_' + Date.now(),
+                                  object: 'chat.completion.chunk',
+                                  created: event.response?.created_at || Math.floor(Date.now() / 1000),
+                                  model: event.response?.model || deploymentName,
+                                  choices: [initialChoice]
+                                };
+                                
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                
+                                // Also check if there's initial output in the response
+                                if (event.response?.output && event.response.output.length > 0) {
+                                  for (const outputItem of event.response.output) {
+                                    if (outputItem.type === 'text' && outputItem.text) {
+                                      const choice = {
+                                        index: 0,
+                                        delta: {
+                                          content: outputItem.text
+                                        },
+                                        finish_reason: null
+                                      };
+                                      
+                                      const openAIFormat = {
+                                        id: event.response.id || 'resp_' + Date.now(),
+                                        object: 'chat.completion.chunk',
+                                        created: event.response.created_at || Math.floor(Date.now() / 1000),
+                                        model: event.response.model || deploymentName,
+                                        choices: [choice]
+                                      };
+                                      
+                                      controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                    }
+                                  }
+                                }
+                              } else {
+                                // Log unhandled event types for debugging
+                                logger.info(`  - 📋 Unhandled Responses API event type: ${event.type}`);
+                              }
+                            } catch (parseError) {
+                              // If it's not JSON, pass through as-is (might be other SSE data)
+                              logger.warn(`  - ⚠️  Could not parse SSE event: ${data.substring(0, 100)}`);
+                            }
+                          } else {
+                            // Pass through non-data lines
+                            controller.enqueue(encoder.encode(line + '\n'));
+                          }
+                        }
+                      }
+                    } catch (error) {
+                      logger.error(`  - ❌ Error transforming Responses API stream: ${error}`);
+                      controller.error(error);
+                    } finally {
+                      controller.close();
+                    }
+                  }
+                }),
+                {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: new Headers({
+                    ...Object.fromEntries(response.headers.entries()),
+                    'content-type': 'text/event-stream', // Ensure SDK treats it as SSE stream
+                  })
+                }
+              );
+              
+              logger.info(`  - ✅ Transformed response created for Responses API`);
+              return transformedResponse;
             }
             
             return response;
