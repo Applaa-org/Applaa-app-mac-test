@@ -218,7 +218,13 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
         {/* Controls at bottom of input box - matching web input style */}
         <div className="pt-2 pb-2 border-t border-border">
           <div className="px-2">
-            <ChatInputControls showImportButton={true} showPlatformSelector={false} />
+            <ChatInputControls 
+              showImportButton={true} 
+              showPlatformSelector={false}
+              inputValue={gameDescription}
+              onInputChange={setGameDescription}
+              disabled={isCreating}
+            />
           </div>
         </div>
       </div>
