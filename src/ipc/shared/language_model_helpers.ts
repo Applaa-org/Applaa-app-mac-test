@@ -439,14 +439,6 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 200_000,
       temperature: 1, // O4 Mini only supports temperature = 1 (default)
     },
-    {
-      name: "claude-sonnet-4-20250514",
-      displayName: "Claude 4 Sonnet (Azure)",
-      description: "Azure OpenAI Claude 4 Sonnet deployment via Anthropic endpoint",
-      maxOutputTokens: 16_000,
-      contextWindow: 200_000,
-      temperature: 0,
-    },
   ],
 };
 

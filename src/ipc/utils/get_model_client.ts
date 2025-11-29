@@ -348,12 +348,6 @@ function getRegularModelClient(
           baseURL: "https://applaa-qa.cognitiveservices.azure.com",
           apiVersion: "2025-01-01-preview",
         },
-        // Claude model uses Anthropic-compatible endpoint
-        "claude-sonnet-4-20250514": {
-          baseURL: "https://applaa-qa.services.ai.azure.com/anthropic/v1",
-          apiVersion: "2024-05-01-preview",
-          useAnthropicFormat: true,
-        },
       };
       
       const modelConfig = modelConfigs[model.name];
