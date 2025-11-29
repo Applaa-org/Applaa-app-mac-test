@@ -58,11 +58,11 @@ export async function getModelClient(
   isEngineEnabled?: boolean;
 }> {
   logger.info(`🚨🚨🚨 getModelClient CALLED - Provider: ${model.provider}, Model: ${model.name}`);
-  
+
   const allProviders = await getLanguageModelProviders();
 
   const dyadApiKey = settings.providerSettings?.auto?.apiKey?.value;
-  
+
   // 🔧 DEBUG: Log API key availability for debugging
   logger.info(`🔍 API Key Debug - Provider: ${model.provider}`);
   logger.info(`🔍 Applaa Pro enabled: ${settings.enableApplaaPro}`);
@@ -101,23 +101,23 @@ export async function getModelClient(
       );
       const provider = isEngineEnabled
         ? createDyadEngine({
-            apiKey: dyadApiKey,
-            baseURL: dyadEngineUrl ?? "https://engine.applaa.dev/v1",
-            originalProviderId: model.provider,
-            dyadOptions: {
-              enableLazyEdits:
-                settings.selectedChatMode === "ask"
-                  ? false
-                  : (hasApplaaPro && settings.enableProLazyEditsMode),
-              enableSmartFilesContext: hasApplaaPro && settings.enableProSmartFilesContextMode,
-            },
-            settings,
-          })
+          apiKey: dyadApiKey,
+          baseURL: dyadEngineUrl ?? "https://engine.applaa.dev/v1",
+          originalProviderId: model.provider,
+          dyadOptions: {
+            enableLazyEdits:
+              settings.selectedChatMode === "ask"
+                ? false
+                : (hasApplaaPro && settings.enableProLazyEditsMode),
+            enableSmartFilesContext: hasApplaaPro && settings.enableProSmartFilesContextMode,
+          },
+          settings,
+        })
         : createOpenAICompatible({
-            name: "dyad-gateway",
-            apiKey: dyadApiKey,
-            baseURL: dyadGatewayUrl ?? "https://llm-gateway.applaa.dev/v1",
-          });
+          name: "dyad-gateway",
+          apiKey: dyadApiKey,
+          baseURL: dyadGatewayUrl ?? "https://llm-gateway.applaa.dev/v1",
+        });
 
       logger.info(
         `\x1b[1;97;44m Using Applaa Pro API key for model: ${model.name}. engine_enabled=${isEngineEnabled} \x1b[0m`,
@@ -138,8 +138,8 @@ export async function getModelClient(
           `${providerConfig.gatewayPrefix || ""}${modelName}`,
           isEngineEnabled
             ? {
-                files,
-              }
+              files,
+            }
             : undefined,
         ),
         builtinProviderId: model.provider,
@@ -227,7 +227,7 @@ function getRegularModelClient(
       };
     }
     case "anthropic": {
-      const provider = createAnthropic({ 
+      const provider = createAnthropic({
         apiKey,
         headers: {
           'anthropic-beta': 'prompt-caching-2024-07-31'
@@ -258,8 +258,8 @@ function getRegularModelClient(
       if (isAnthropicModel) {
         headers['anthropic-beta'] = 'prompt-caching-2024-07-31';
       }
-      
-      const provider = createOpenRouter({ 
+
+      const provider = createOpenRouter({
         apiKey,
         headers
       });
@@ -300,17 +300,17 @@ function getRegularModelClient(
     case "azure-openai": {
       // Azure OpenAI with per-model base URLs - only API key required
       const azureApiKey = apiKey || getEnvVar("AZURE_API_KEY");
-      
+
       if (!azureApiKey) {
         throw new Error(
           `Azure OpenAI provider is missing the API key. Please set AZURE_API_KEY environment variable or configure it in provider settings.`,
         );
       }
-      
+
       // Per-model base URL and API version configuration
       // Each model uses its specific base URL as provided by the user
       // Only models with provided base URLs are configured
-      const modelConfigs: Record<string, { baseURL: string; apiVersion: string; useAnthropicFormat?: boolean }> = {
+      const modelConfigs: Record<string, { baseURL: string; apiVersion: string; useAnthropicFormat?: boolean; useOpenAIv1Endpoint?: boolean; skipApiVersion?: boolean }> = {
         // Standard Azure OpenAI models - all use the same base URL
         "gpt-4": {
           baseURL: "https://applaa-qa.cognitiveservices.azure.com",
@@ -350,11 +350,12 @@ function getRegularModelClient(
         },
         "grok-4-fast-reasoning": {
           baseURL: "https://applaa-qa.services.ai.azure.com",
-          apiVersion: "2024-05-01-preview",
+          apiVersion: "", // Empty - /openai/v1/ endpoint doesn't use api-version parameter
           // Use /openai/v1/chat/completions endpoint (matching user's example)
           // User's example: baseURL: "https://applaa-qa.services.ai.azure.com/openai/v1/"
           // SDK appends /chat/completions, so full URL: /openai/v1/chat/completions
           useOpenAIv1Endpoint: true, // Flag to use /openai/v1/chat/completions instead of /openai/deployments/...
+          skipApiVersion: true, // Don't append ?api-version= query parameter
         },
         "gpt-5.1-chat": {
           baseURL: "https://applaa-qa.cognitiveservices.azure.com",
@@ -363,15 +364,15 @@ function getRegularModelClient(
           // Based on user's example: client.chat.completions.create uses standard endpoint
         },
       };
-      
+
       const modelConfig = modelConfigs[model.name];
-      
+
       if (!modelConfig) {
         throw new Error(
           `Azure OpenAI model "${model.name}" is not configured. Available models: ${Object.keys(modelConfigs).join(", ")}`,
         );
       }
-      
+
       logger.info(`🔵 Azure OpenAI Configuration:`);
       logger.info(`  - Model: ${model.name}`);
       logger.info(`  - Base URL: ${modelConfig.baseURL}`);
@@ -383,7 +384,7 @@ function getRegularModelClient(
       if (model.name === 'grok-4-fast-reasoning') {
         logger.info(`  - 🎯 Grok-4-Fast-Reasoning: Using OpenAI v1 endpoint (/openai/v1/chat/completions)`);
       }
-      
+
       // For Anthropic format (Claude), use OpenAI compatible with custom endpoint
       if (modelConfig.useAnthropicFormat) {
         const fullUrl = `${modelConfig.baseURL}/messages`;
@@ -391,13 +392,13 @@ function getRegularModelClient(
         logger.info(`  - Using Anthropic-compatible format`);
         logger.info(`  - API Key present: ${!!azureApiKey} (length: ${azureApiKey?.length || 0})`);
         logger.info(`  - Model name: ${model.name}`);
-        
+
         // Azure Anthropic endpoint - the model name in the request might need to be different
         // For Azure Anthropic endpoints, we might need to use just the model identifier without the full name
         // Try using "claude-sonnet-4-20250514" or potentially just the base model name
         // The deployment name in Azure might be different from the model name
         const anthropicModelName = model.name; // Use the model name as-is first
-        
+
         const anthropicProvider = createOpenAICompatible({
           baseURL: modelConfig.baseURL,
           apiKey: azureApiKey,
@@ -407,11 +408,11 @@ function getRegularModelClient(
           },
           fetch: async (url, options) => {
             logger.info(`  - 🔵 Claude Original SDK URL: ${url}`);
-            
+
             // Ensure we're using the correct endpoint
             const anthropicUrl = url.includes('/messages') ? url : `${modelConfig.baseURL}/messages`;
             logger.info(`  - ✅ Claude URL: ${anthropicUrl}`);
-            
+
             // Modify request body to use correct model name if needed
             let modifiedOptions = { ...options };
             if (options?.body) {
@@ -426,14 +427,14 @@ function getRegularModelClient(
                 } else {
                   bodyText = String(options.body);
                 }
-                
+
                 const bodyJson = JSON.parse(bodyText);
                 logger.info(`  - 📋 Claude Request body model: ${bodyJson.model || 'not set'}`);
-                
+
                 // For Azure Anthropic endpoints, the model name in the body should match the deployment
                 // If the deployment name is different, we might need to adjust it here
                 // For now, keep the model name as-is and let Azure handle it
-                
+
                 modifiedOptions.body = JSON.stringify(bodyJson);
                 if (modifiedOptions.headers) {
                   const headers = modifiedOptions.headers as Record<string, string>;
@@ -445,7 +446,7 @@ function getRegularModelClient(
                 logger.warn(`  - ⚠️  Could not modify Claude request body: ${e}`);
               }
             }
-            
+
             // Ensure headers are set correctly
             if (modifiedOptions.headers) {
               const headers = modifiedOptions.headers as Record<string, string>;
@@ -455,7 +456,7 @@ function getRegularModelClient(
               delete headers['authorization'];
               logger.info(`  - 📤 Claude Headers: api-key=${headers['api-key'] ? 'SET' : 'NOT SET'}, x-api-key=${headers['x-api-key'] ? 'SET' : 'NOT SET'}`);
             }
-            
+
             const response = await fetch(anthropicUrl, modifiedOptions);
             logger.info(`  - 📥 Claude Response status: ${response.status} ${response.statusText}`);
             if (!response.ok) {
@@ -465,7 +466,7 @@ function getRegularModelClient(
             return response;
           },
         });
-        
+
         // For Anthropic, we use the model name directly
         // Note: The actual deployment name in Azure might be different
         // If this fails, check Azure Portal for the correct deployment name
@@ -477,31 +478,31 @@ function getRegularModelClient(
           backupModelClients: [],
         };
       }
-      
+
       // For standard Azure OpenAI models, use OpenAI compatible with custom baseURL and Azure auth headers
       // Azure OpenAI requires 'api-key' header and uses /openai/deployments/{deployment}/chat/completions path
       const expectedUrl = `${modelConfig.baseURL}/openai/deployments/${model.name}/chat/completions?api-version=${modelConfig.apiVersion}`;
       logger.info(`  - Expected Endpoint URL: ${expectedUrl}`);
       logger.info(`  - Using OpenAI-compatible format with Azure authentication`);
-      
+
       // Store deployment name and API version for use in fetch function
       const deploymentName = model.name;
       const apiVersion = modelConfig.apiVersion;
       const baseUrl = modelConfig.baseURL;
-      
+
       // Models that require max_completion_tokens instead of max_tokens
       // Note: gpt-5.1-chat uses standard endpoint with max_completion_tokens (not Responses API)
       const modelsRequiringMaxCompletionTokens = ['gpt-5-nano', 'o1', 'o4-mini', 'gpt-5.1-chat'];
       const needsMaxCompletionTokens = modelsRequiringMaxCompletionTokens.includes(model.name);
-      
+
       // Models that don't support temperature parameter (O1)
       const modelsNotSupportingTemperature = ['o1'];
       const shouldRemoveTemperature = modelsNotSupportingTemperature.includes(model.name);
-      
+
       // Models that only support temperature = 1 (O4 Mini)
       const modelsRequiringTemperatureOne = ['o4-mini'];
       const needsTemperatureOne = modelsRequiringTemperatureOne.includes(model.name);
-      
+
       // Use OpenAI compatible provider with Azure-specific headers and URL rewriting
       // The SDK will construct a URL, but we need to completely rewrite it to Azure format
       const azureProvider = createOpenAICompatible({
@@ -513,7 +514,7 @@ function getRegularModelClient(
         fetch: async (url, options) => {
           // Log the original URL before rewriting
           logger.info(`  - 🔵 Original SDK URL: ${url}`);
-          
+
           // Construct the correct Azure OpenAI URL based on endpoint type
           let azureUrl: string;
           if (modelConfig.useResponsesEndpoint) {
@@ -528,15 +529,21 @@ function getRegularModelClient(
           } else if (modelConfig.useOpenAIv1Endpoint) {
             // Use /openai/v1/chat/completions endpoint (for grok-4-fast-reasoning)
             // Match user's example: baseURL includes /openai/v1/, SDK appends /chat/completions
-            azureUrl = `${baseUrl}/openai/v1/chat/completions?api-version=${apiVersion}`;
-            logger.info(`  - ✅ Using OpenAI v1 endpoint: ${azureUrl}`);
+            // Skip API version parameter if skipApiVersion flag is set
+            if (modelConfig.skipApiVersion) {
+              azureUrl = `${baseUrl}/openai/v1/chat/completions`;
+              logger.info(`  - ✅ Using OpenAI v1 endpoint (no API version): ${azureUrl}`);
+            } else {
+              azureUrl = `${baseUrl}/openai/v1/chat/completions?api-version=${apiVersion}`;
+              logger.info(`  - ✅ Using OpenAI v1 endpoint: ${azureUrl}`);
+            }
             logger.info(`  - 📋 Note: Model name "${deploymentName}" will be sent in request body`);
           } else {
             // Standard deployment endpoint
             azureUrl = `${baseUrl}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
             logger.info(`  - ✅ Using standard deployment endpoint: ${azureUrl}`);
           }
-          
+
           // Modify request body for model-specific requirements
           let modifiedOptions = { ...options };
           // Always modify body for Responses API and Models Router endpoints, or for models with special requirements
@@ -562,9 +569,9 @@ function getRegularModelClient(
                 // Try to convert to string
                 bodyText = String(options.body);
               }
-              
+
               const bodyJson = JSON.parse(bodyText);
-              
+
               // Log original body for debugging
               if (model.name === 'gpt-5.1-chat') {
                 logger.info(`  - 🎯 GPT-5.1 Chat - Original request body: ${JSON.stringify(bodyJson, null, 2)}`);
@@ -572,9 +579,9 @@ function getRegularModelClient(
               if (model.name === 'grok-4-fast-reasoning') {
                 logger.info(`  - 🎯 Grok-4-Fast-Reasoning - Original request body: ${JSON.stringify(bodyJson, null, 2)}`);
               }
-              
+
               let bodyModified = false;
-              
+
               // Handle max_tokens conversion based on endpoint type
               if (bodyJson.max_tokens !== undefined) {
                 if (modelConfig.useResponsesEndpoint) {
@@ -591,7 +598,7 @@ function getRegularModelClient(
                   bodyModified = true;
                 }
               }
-              
+
               // If max_completion_tokens exists but we're using Responses API, convert to max_output_tokens
               if (modelConfig.useResponsesEndpoint && bodyJson.max_completion_tokens !== undefined) {
                 logger.info(`  - 🔄 Converting max_completion_tokens (${bodyJson.max_completion_tokens}) to max_output_tokens for Responses API`);
@@ -599,14 +606,14 @@ function getRegularModelClient(
                 delete bodyJson.max_completion_tokens;
                 bodyModified = true;
               }
-              
+
               // Remove temperature parameter for O1 (not supported)
               if (shouldRemoveTemperature && bodyJson.temperature !== undefined) {
                 logger.info(`  - 🔄 Removing temperature parameter for ${model.name} (not supported)`);
                 delete bodyJson.temperature;
                 bodyModified = true;
               }
-              
+
               // Set temperature to 1 for O4 Mini (only default value supported)
               if (needsTemperatureOne) {
                 if (bodyJson.temperature !== undefined && bodyJson.temperature !== 1) {
@@ -619,7 +626,7 @@ function getRegularModelClient(
                   bodyModified = true;
                 }
               }
-              
+
               // For models endpoint, ensure model name is in request body
               if (modelConfig.useModelsEndpoint) {
                 if (bodyJson.model !== deploymentName) {
@@ -628,7 +635,7 @@ function getRegularModelClient(
                   bodyModified = true;
                 }
               }
-              
+
               // For OpenAI v1 endpoint (grok-4-fast-reasoning), ensure model name is in request body
               if (modelConfig.useOpenAIv1Endpoint) {
                 if (bodyJson.model !== deploymentName) {
@@ -637,7 +644,7 @@ function getRegularModelClient(
                   bodyModified = true;
                 }
               }
-              
+
               // For GPT-5.1 Chat, ensure model name is in request body (matching user's example code)
               if (model.name === 'gpt-5.1-chat' && !modelConfig.useModelsEndpoint && !modelConfig.useResponsesEndpoint) {
                 if (bodyJson.model !== deploymentName) {
@@ -646,7 +653,7 @@ function getRegularModelClient(
                   bodyModified = true;
                 }
               }
-              
+
               // For Responses API endpoint, convert 'messages' to 'input' and ensure model name is set
               if (modelConfig.useResponsesEndpoint) {
                 if (bodyJson.messages !== undefined) {
@@ -668,7 +675,7 @@ function getRegularModelClient(
                   bodyModified = true;
                 }
               }
-              
+
               // Update the body if modified
               if (bodyModified) {
                 modifiedOptions.body = JSON.stringify(bodyJson);
@@ -680,7 +687,7 @@ function getRegularModelClient(
                   }
                 }
                 logger.info(`  - ✅ Request body modified for ${model.name}`);
-                
+
                 // Log modified body for debugging
                 if (model.name === 'gpt-5.1-chat') {
                   logger.info(`  - 🎯 GPT-5.1 Chat - Modified request body: ${JSON.stringify(bodyJson, null, 2)}`);
@@ -704,7 +711,7 @@ function getRegularModelClient(
               modifiedOptions = options;
             }
           }
-          
+
           // Log headers being sent
           if (modifiedOptions?.headers) {
             const headers = modifiedOptions.headers as Record<string, string>;
@@ -712,19 +719,19 @@ function getRegularModelClient(
             logger.info(`  - 📤 Request headers: ${headerKeys.join(', ')}`);
             logger.info(`  - 📤 api-key header: ${headers['api-key'] ? 'SET (' + headers['api-key'].length + ' chars)' : 'NOT SET'}`);
           }
-          
+
           // Make the request with the correct Azure URL
           // Add timeout and better error handling
           try {
             const response = await fetch(azureUrl, modifiedOptions);
-            
+
             // Log response status
             logger.info(`  - 📥 Response status: ${response.status} ${response.statusText}`);
             if (!response.ok) {
               const responseText = await response.clone().text();
               logger.error(`  - ❌ Error response body: ${responseText.substring(0, 500)}`);
             }
-            
+
             // For Responses API, we need to transform the response format
             // Responses API uses event-based streaming with different structure
             // The SDK expects OpenAI format with 'choices' array, but Responses API uses 'type', 'sequence_number', 'response'
@@ -732,13 +739,13 @@ function getRegularModelClient(
               logger.info(`  - 🔄 Transforming Responses API stream to OpenAI-compatible format`);
               logger.info(`  - 📋 Responses API uses different event structure - converting to OpenAI SSE format`);
               logger.info(`  - 📋 Content-Type: ${response.headers.get('content-type')}`);
-              
+
               // Ensure we're handling a streaming response
               if (!response.body) {
                 logger.error(`  - ❌ Response body is null - cannot transform stream`);
                 return response;
               }
-              
+
               // Create a transformed response that converts Responses API format to OpenAI format
               const transformedResponse = new Response(
                 new ReadableStream({
@@ -746,23 +753,23 @@ function getRegularModelClient(
                     const reader = response.body?.getReader();
                     const decoder = new TextDecoder();
                     const encoder = new TextEncoder();
-                    
+
                     if (!reader) {
                       controller.close();
                       return;
                     }
-                    
+
                     let buffer = '';
-                    
+
                     try {
                       while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
-                        
+
                         buffer += decoder.decode(value, { stream: true });
                         const lines = buffer.split('\n');
                         buffer = lines.pop() || ''; // Keep incomplete line in buffer
-                        
+
                         for (const line of lines) {
                           if (line.trim() === '') continue;
                           if (line.startsWith('data: ')) {
@@ -771,16 +778,16 @@ function getRegularModelClient(
                               controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                               continue;
                             }
-                            
+
                             try {
                               const event = JSON.parse(data);
-                              
+
                               // Log the event type for debugging
                               logger.info(`  - 📋 Responses API event: ${event.type || 'unknown'}`);
-                              
+
                               // Transform Responses API events to OpenAI format
                               // Responses API uses different event types: response.created, response.output_item.added, response.output_item.delta
-                              
+
                               if (event.type === 'response.output_item.added') {
                                 // New output item was added - extract text content
                                 const outputItem = event.output_item;
@@ -794,7 +801,7 @@ function getRegularModelClient(
                                     },
                                     finish_reason: null
                                   };
-                                  
+
                                   const openAIFormat = {
                                     id: event.response_id || 'resp_' + Date.now(),
                                     object: 'chat.completion.chunk',
@@ -802,7 +809,7 @@ function getRegularModelClient(
                                     model: deploymentName,
                                     choices: [choice]
                                   };
-                                  
+
                                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                 }
                               } else if (event.type === 'response.output_item.delta') {
@@ -817,7 +824,7 @@ function getRegularModelClient(
                                     },
                                     finish_reason: null
                                   };
-                                  
+
                                   const openAIFormat = {
                                     id: event.response_id || 'resp_' + Date.now(),
                                     object: 'chat.completion.chunk',
@@ -825,7 +832,7 @@ function getRegularModelClient(
                                     model: deploymentName,
                                     choices: [choice]
                                   };
-                                  
+
                                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                 }
                               } else if (event.type === 'response.done') {
@@ -835,7 +842,7 @@ function getRegularModelClient(
                                   delta: {},
                                   finish_reason: 'stop'
                                 };
-                                
+
                                 const openAIFormat = {
                                   id: event.response_id || 'resp_' + Date.now(),
                                   object: 'chat.completion.chunk',
@@ -843,14 +850,14 @@ function getRegularModelClient(
                                   model: deploymentName,
                                   choices: [finalChoice]
                                 };
-                                
+
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                               } else if (event.type === 'response.created') {
                                 // Initial response created - send empty delta to initialize the stream
                                 // The actual content will come in output_item.added/delta events
                                 logger.info(`  - 📋 Response created: ${event.response?.id || 'unknown'}, status: ${event.response?.status || 'unknown'}`);
-                                
+
                                 // Always send an initial chunk with empty content to satisfy SDK expectations
                                 // This ensures the SDK sees a valid format immediately
                                 const initialChoice = {
@@ -861,7 +868,7 @@ function getRegularModelClient(
                                   },
                                   finish_reason: null
                                 };
-                                
+
                                 const openAIFormat = {
                                   id: event.response?.id || 'resp_' + Date.now(),
                                   object: 'chat.completion.chunk',
@@ -869,9 +876,9 @@ function getRegularModelClient(
                                   model: event.response?.model || deploymentName,
                                   choices: [initialChoice]
                                 };
-                                
+
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
-                                
+
                                 // Also check if there's initial output in the response
                                 if (event.response?.output && event.response.output.length > 0) {
                                   for (const outputItem of event.response.output) {
@@ -883,7 +890,7 @@ function getRegularModelClient(
                                         },
                                         finish_reason: null
                                       };
-                                      
+
                                       const openAIFormat = {
                                         id: event.response.id || 'resp_' + Date.now(),
                                         object: 'chat.completion.chunk',
@@ -891,7 +898,7 @@ function getRegularModelClient(
                                         model: event.response.model || deploymentName,
                                         choices: [choice]
                                       };
-                                      
+
                                       controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                     }
                                   }
@@ -927,11 +934,11 @@ function getRegularModelClient(
                   })
                 }
               );
-              
+
               logger.info(`  - ✅ Transformed response created for Responses API`);
               return transformedResponse;
             }
-            
+
             return response;
           } catch (error: any) {
             // Handle specific error types
@@ -952,12 +959,12 @@ function getRegularModelClient(
           }
         },
       });
-      
+
       logger.info(`✅ Azure OpenAI model client created successfully`);
       logger.info(`  - Deployment name: ${deploymentName}`);
       logger.info(`  - API version: ${apiVersion}`);
       logger.info(`  - Base URL: ${baseUrl}`);
-      
+
       return {
         modelClient: {
           model: azureProvider(model.name), // Model name is used for logging, actual deployment is in fetch URL
