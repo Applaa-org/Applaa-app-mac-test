@@ -148,7 +148,14 @@ export function HomeChatInput({
           </div>
           <div className="pt-2 pb-2 border-t border-border">
             <div className="px-2">
-              <ChatInputControls showImportButton={true} showPlatformSelector={showPlatformSelector} />
+              <ChatInputControls 
+                showImportButton={true} 
+                showPlatformSelector={showPlatformSelector}
+                inputValue={inputValue}
+                onInputChange={setInputValue}
+                appType={appType}
+                disabled={isStreaming}
+              />
             </div>
           </div>
         </div>

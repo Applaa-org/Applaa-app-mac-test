@@ -388,7 +388,14 @@ export function ChatInput({ chatId }: { chatId?: number }) {
           <div className="pt-2 pb-2 border-t border-border">
             <div className="px-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ChatInputControls showContextFilesPicker={true} showImportButton={false} showPlatformSelector={false} />
+                <ChatInputControls 
+                  showContextFilesPicker={true} 
+                  showImportButton={false} 
+                  showPlatformSelector={false}
+                  inputValue={inputValue}
+                  onInputChange={setInputValue}
+                  disabled={isStreaming}
+                />
                 {/* File attachment dropdown */}
                 <FileAttachmentDropdown
                   onFileSelect={handleFileSelect}

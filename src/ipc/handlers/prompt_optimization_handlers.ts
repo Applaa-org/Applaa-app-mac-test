@@ -4,6 +4,9 @@ import { readSettings } from "../../main/settings";
 import { getModelClient } from "../utils/get_model_client";
 import { generateText } from "ai";
 import type { LargeLanguageModel } from "../../lib/schemas";
+import { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+import { getExtraProviderOptions } from "../utils/thinking_utils";
 
 const logger = log.scope("prompt_optimization_handlers");
 
@@ -119,10 +122,14 @@ export function registerPromptOptimizationHandlers() {
     "prompt:optimize",
     async (event, params: OptimizePromptParams): Promise<OptimizePromptResponse> => {
       try {
-        logger.log("Optimizing prompt using LLM for:", params.originalPrompt);
+        logger.log("🚀 [PromptOptimization] Starting optimization for:", params.originalPrompt);
+        logger.log("🚀 [PromptOptimization] Selected model:", params.selectedModel.provider, params.selectedModel.name);
+        logger.log("🚀 [PromptOptimization] App type:", params.appType);
         
         const settings = readSettings();
+        logger.log("🚀 [PromptOptimization] Getting model client...");
         const { modelClient } = await getModelClient(params.selectedModel, settings);
+        logger.log("🚀 [PromptOptimization] Model client obtained, generating text...");
 
         // Select enhancement template based on app type
         let enhancementTemplate: string;
@@ -130,65 +137,172 @@ export function registerPromptOptimizationHandlers() {
         
         if (params.appType === "mobile" || params.appType === "expo") {
           enhancementTemplate = MOBILE_ENHANCEMENT_TEMPLATE;
-          systemPrompt = `You are a prompt optimization expert specializing in creating stunning mobile applications with ultra-modern, premium mobile design.
+          systemPrompt = `You are a technical specification writer. Write a clear, functional description of what a mobile application should do.
 
-CRITICAL MISSION: Transform EVERY user request into a beautiful, modern mobile application with world-class UI/UX design.
+CRITICAL RULES - YOU MUST FOLLOW:
+1. Write in plain, natural language - like you're describing the app to a developer
+2. Focus ONLY on functionality, features, and what the app does
+3. Do NOT use phrases like "ultra-modern", "premium design", "dynamic design", "glassmorphism", "neumorphism"
+4. Do NOT mention color schemes, gradients, or visual styling
+5. Do NOT include design guidelines, UI patterns, or styling instructions
+6. Do NOT list image sources (Unsplash, Pexels, etc.)
+7. Do NOT use template-like formatting with headers and sections
+8. Just describe the features and functionality in a natural paragraph format
 
-AUTOMATIC ENHANCEMENT RULES:
-1. ALWAYS apply the mobile enhancement template - no exceptions
-2. Even simple 1-2 word prompts get full enhancement treatment
-3. Replace [USER_CONCEPT] with the user's concept (expand if needed)
-4. Add rich context and features based on the concept
-5. Apply appropriate color schemes and modern design patterns
-6. Include comprehensive mock data and interactive features
+Example of GOOD output:
+"A todo application where users can create tasks, mark them as complete, organize them into categories, set due dates and priorities, search and filter tasks, and receive reminders for upcoming tasks."
 
-MOBILE ENHANCEMENT TEMPLATE:
-${MOBILE_ENHANCEMENT_TEMPLATE}
+Example of BAD output (DO NOT DO THIS):
+"Create a todo app with ultra-modern design and premium UI patterns. Use dynamic color schemes..."
 
-EXAMPLES:
-- "todo app" → Full template with task management features, modern mobile UI
-- "garden center" → Full template with plants, accessories, knowledge base
-- "fitness tracker" → Full template with workouts, progress tracking, social features
+Write a functional description for: "${params.originalPrompt}"
 
-Return ONLY the enhanced prompt without any explanations, meta-commentary, or formatting markers. The enhanced prompt should be ready to use directly.`;
+Return ONLY the functional description without any explanations.`;
         } else {
           enhancementTemplate = WEBAPP_ENHANCEMENT_TEMPLATE;
-          systemPrompt = `You are a prompt optimization expert specializing in creating stunning web applications with ultra-modern, premium design.
+          systemPrompt = `You are a technical specification writer. Write a clear, functional description of what a web application should do.
 
-CRITICAL MISSION: Transform EVERY user request into a beautiful, modern web application with world-class UI/UX design.
+CRITICAL RULES - YOU MUST FOLLOW:
+1. Write in plain, natural language - like you're describing the app to a developer
+2. Focus ONLY on functionality, features, and what the app does
+3. Do NOT use phrases like "ultra-modern", "premium design", "dynamic design", "glassmorphism", "neumorphism"
+4. Do NOT mention color schemes, gradients, or visual styling
+5. Do NOT include design guidelines, UI patterns, or styling instructions
+6. Do NOT list image sources (Unsplash, Pexels, etc.)
+7. Do NOT use template-like formatting with headers and sections
+8. Just describe the features and functionality in a natural paragraph format
 
-AUTOMATIC ENHANCEMENT RULES:
-1. ALWAYS apply the webapp enhancement template - no exceptions
-2. Even simple 1-2 word prompts get full enhancement treatment
-3. Replace [USER_CONCEPT] with the user's concept (expand if needed)
-4. Add rich context and features based on the concept
-5. Apply appropriate color schemes and modern design patterns
-6. Include comprehensive mock data and interactive features
+Example of GOOD output:
+"A weather dashboard that displays current weather conditions including temperature, humidity, wind speed, and conditions. Shows a 5-day forecast with daily highs, lows, and precipitation chances. Includes location search to find weather for any city. Displays weather maps, hourly forecasts, and weather alerts."
 
-WEBAPP ENHANCEMENT TEMPLATE:
-${WEBAPP_ENHANCEMENT_TEMPLATE}
+Example of BAD output (DO NOT DO THIS):
+"Create a weather dashboard with ultra-modern design and premium UI patterns. Use dynamic color schemes..."
 
-EXAMPLES:
-- "todo app" → Full template with task management, modern web UI, responsive design
-- "garden center" → Full template with plants, e-commerce, knowledge base, modern design
-- "fitness tracker" → Full template with dashboards, analytics, social features
+Write a functional description for: "${params.originalPrompt}"
 
-Return ONLY the enhanced prompt without any explanations, meta-commentary, or formatting markers. The enhanced prompt should be ready to use directly.`;
+Return ONLY the functional description without any explanations.`;
+        }
+
+        // Use provider options like chat stream handler does for compatibility
+        const providerOptions: any = {
+          google: {
+            thinkingConfig: {
+              includeThoughts: true,
+            },
+          } satisfies GoogleGenerativeAIProviderOptions,
+          openai: {
+            reasoningSummary: "auto",
+          } satisfies OpenAIResponsesProviderOptions,
+          "azure-openai": {
+            reasoningSummary: "auto",
+            reasoning_effort: "medium",
+          },
+        };
+
+        // Add extra provider options if available
+        if (modelClient.builtinProviderId) {
+          const extraOptions = getExtraProviderOptions(
+            modelClient.builtinProviderId,
+            settings,
+          );
+          if (extraOptions && Object.keys(extraOptions).length > 0) {
+            providerOptions["dyad-gateway"] = extraOptions;
+          }
         }
 
         const result = await generateText({
-          model: modelClient,
+          model: modelClient.model, // Use .model property, not the whole client
           system: systemPrompt,
-          prompt: `Original prompt to optimize: "${params.originalPrompt}"
+          prompt: `User's original request: "${params.originalPrompt}"
 
-Enhanced prompt:`,
+Your task: Write a detailed, unique prompt that expands on this request. Describe ONLY the functionality and features.
+
+IMPORTANT RULES:
+1. Write in plain, natural language - NOT as a template
+2. Focus on WHAT the app does, not HOW it looks
+3. Be specific to "${params.originalPrompt}" - make it unique
+4. Do NOT use phrases like "ultra-modern design", "dynamic design", "premium UI patterns"
+5. Do NOT include color schemes, design guidelines, or styling instructions
+6. Do NOT list image sources or mock data guidelines
+7. Just describe the features, functionality, and what the app should do
+
+Example for "todo app":
+"A todo application where users can create, edit, and delete tasks. Tasks can be organized into categories or projects. Users can mark tasks as complete, set due dates, add priorities, and add notes. The app should support filtering tasks by status (all, active, completed), searching tasks, and sorting by date or priority. Include features like task reminders, recurring tasks, and the ability to archive completed tasks."
+
+Now write a similar detailed prompt for: "${params.originalPrompt}"
+
+Expanded prompt:`,
           maxTokens: 1500,
-          temperature: 0.7,
+          temperature: 0.9, // Higher temperature for more variation
+          providerOptions: providerOptions,
         });
 
-        const optimizedPrompt = result.text.trim();
+        let optimizedPrompt = result.text.trim();
         
-        logger.log("Prompt optimization completed successfully with LLM");
+        logger.log("✅ [PromptOptimization] AI response received");
+        logger.log("✅ [PromptOptimization] Enhanced prompt length:", optimizedPrompt.length);
+        logger.log("✅ [PromptOptimization] Enhanced prompt preview:", optimizedPrompt.substring(0, 200) + "...");
+        
+        // Validate that we got a real AI-generated response, not a template copy
+        const templateIndicators = [
+          'DYNAMIC COLOR SCHEMES BY CONCEPT',
+          'MODERN DESIGN INSPIRATION',
+          'MANDATORY TEXT VISIBILITY',
+          'APPROVED FREE IMAGE SOURCES',
+          'ultra-modern, dynamic design',
+          'premium UI patterns',
+          'glassmorphism',
+          'neumorphism',
+          'Unsplash.*photo-',
+          'Pixabay.*photo',
+          'Pexels.*photos'
+        ];
+        
+        const isTemplateCopy = templateIndicators.some(indicator => {
+          const regex = new RegExp(indicator, 'i');
+          return regex.test(optimizedPrompt);
+        });
+        
+        if (isTemplateCopy) {
+          logger.warn("⚠️ [PromptOptimization] Detected template-like response, regenerating with stricter instructions");
+          
+          // Retry with even more explicit instructions
+          const retryResult = await generateText({
+            model: modelClient,
+            system: `You are a technical writer. Write a clear, functional specification for an application. Do NOT include any design, styling, or visual guidelines. Only describe features and functionality.`,
+            prompt: `Write a detailed functional specification for: "${params.originalPrompt}"
+
+Describe:
+- What the application does
+- Key features
+- User interactions
+- Data it handles
+- Workflows
+
+Write in plain language. No design terms. No templates. Just functionality.
+
+Specification:`,
+            maxTokens: 1500,
+            temperature: 1.0, // Maximum creativity
+          });
+          
+          const retryOptimized = retryResult.text.trim();
+          if (retryOptimized && !templateIndicators.some(ind => new RegExp(ind, 'i').test(retryOptimized))) {
+            logger.log("✅ [PromptOptimization] Retry successful - got unique prompt");
+            optimizedPrompt = retryOptimized;
+          } else {
+            logger.warn("⚠️ [PromptOptimization] Retry also returned template-like content");
+          }
+        }
+        
+        // Final validation
+        if (optimizedPrompt.includes('[USER_CONCEPT]')) {
+          logger.warn("⚠️ [PromptOptimization] AI response contains placeholder [USER_CONCEPT]");
+        }
+        
+        if (!optimizedPrompt || optimizedPrompt.length < 50) {
+          logger.warn("⚠️ [PromptOptimization] Enhanced prompt seems too short");
+        }
 
         return {
           optimizedPrompt,
