@@ -437,7 +437,7 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       description: "Azure OpenAI O4 Mini deployment",
       maxOutputTokens: undefined,
       contextWindow: 200_000,
-      temperature: 0,
+      temperature: 1, // O4 Mini only supports temperature = 1 (default)
     },
     {
       name: "claude-sonnet-4-20250514",

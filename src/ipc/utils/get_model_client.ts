@@ -375,19 +375,89 @@ function getRegularModelClient(
         const fullUrl = `${modelConfig.baseURL}/messages`;
         logger.info(`  - Full Endpoint URL: ${fullUrl}`);
         logger.info(`  - Using Anthropic-compatible format`);
+        logger.info(`  - API Key present: ${!!azureApiKey} (length: ${azureApiKey?.length || 0})`);
+        logger.info(`  - Model name: ${model.name}`);
+        
+        // Azure Anthropic endpoint - the model name in the request might need to be different
+        // For Azure Anthropic endpoints, we might need to use just the model identifier without the full name
+        // Try using "claude-sonnet-4-20250514" or potentially just the base model name
+        // The deployment name in Azure might be different from the model name
+        const anthropicModelName = model.name; // Use the model name as-is first
         
         const anthropicProvider = createOpenAICompatible({
           baseURL: modelConfig.baseURL,
           apiKey: azureApiKey,
           headers: {
-            "api-key": azureApiKey,
+            "api-key": azureApiKey, // Azure requires api-key header
+            "x-api-key": azureApiKey, // Also try x-api-key for Anthropic endpoints
+          },
+          fetch: async (url, options) => {
+            logger.info(`  - 🔵 Claude Original SDK URL: ${url}`);
+            
+            // Ensure we're using the correct endpoint
+            const anthropicUrl = url.includes('/messages') ? url : `${modelConfig.baseURL}/messages`;
+            logger.info(`  - ✅ Claude URL: ${anthropicUrl}`);
+            
+            // Modify request body to use correct model name if needed
+            let modifiedOptions = { ...options };
+            if (options?.body) {
+              try {
+                let bodyText: string;
+                if (typeof options.body === 'string') {
+                  bodyText = options.body;
+                } else if (options.body instanceof ReadableStream) {
+                  bodyText = await new Response(options.body).text();
+                } else if (options.body instanceof Blob) {
+                  bodyText = await options.body.text();
+                } else {
+                  bodyText = String(options.body);
+                }
+                
+                const bodyJson = JSON.parse(bodyText);
+                logger.info(`  - 📋 Claude Request body model: ${bodyJson.model || 'not set'}`);
+                
+                // For Azure Anthropic endpoints, the model name in the body should match the deployment
+                // If the deployment name is different, we might need to adjust it here
+                // For now, keep the model name as-is and let Azure handle it
+                
+                modifiedOptions.body = JSON.stringify(bodyJson);
+                if (modifiedOptions.headers) {
+                  const headers = modifiedOptions.headers as Record<string, string>;
+                  if (headers['content-length']) {
+                    headers['content-length'] = String(modifiedOptions.body.length);
+                  }
+                }
+              } catch (e) {
+                logger.warn(`  - ⚠️  Could not modify Claude request body: ${e}`);
+              }
+            }
+            
+            // Ensure headers are set correctly
+            if (modifiedOptions.headers) {
+              const headers = modifiedOptions.headers as Record<string, string>;
+              headers['api-key'] = azureApiKey;
+              headers['x-api-key'] = azureApiKey;
+              // Remove Authorization header if present (Azure uses api-key instead)
+              delete headers['authorization'];
+              logger.info(`  - 📤 Claude Headers: api-key=${headers['api-key'] ? 'SET' : 'NOT SET'}, x-api-key=${headers['x-api-key'] ? 'SET' : 'NOT SET'}`);
+            }
+            
+            const response = await fetch(anthropicUrl, modifiedOptions);
+            logger.info(`  - 📥 Claude Response status: ${response.status} ${response.statusText}`);
+            if (!response.ok) {
+              const responseText = await response.clone().text();
+              logger.error(`  - ❌ Claude Error response body: ${responseText.substring(0, 1000)}`);
+            }
+            return response;
           },
         });
         
         // For Anthropic, we use the model name directly
+        // Note: The actual deployment name in Azure might be different
+        // If this fails, check Azure Portal for the correct deployment name
         return {
           modelClient: {
-            model: anthropicProvider(model.name),
+            model: anthropicProvider(anthropicModelName),
             builtinProviderId: providerId,
           },
           backupModelClients: [],
@@ -405,6 +475,18 @@ function getRegularModelClient(
       const apiVersion = modelConfig.apiVersion;
       const baseUrl = modelConfig.baseURL;
       
+      // Models that require max_completion_tokens instead of max_tokens
+      const modelsRequiringMaxCompletionTokens = ['gpt-5-nano', 'o1', 'o4-mini'];
+      const needsMaxCompletionTokens = modelsRequiringMaxCompletionTokens.includes(model.name);
+      
+      // Models that don't support temperature parameter (O1)
+      const modelsNotSupportingTemperature = ['o1'];
+      const shouldRemoveTemperature = modelsNotSupportingTemperature.includes(model.name);
+      
+      // Models that only support temperature = 1 (O4 Mini)
+      const modelsRequiringTemperatureOne = ['o4-mini'];
+      const needsTemperatureOne = modelsRequiringTemperatureOne.includes(model.name);
+      
       // Use OpenAI compatible provider with Azure-specific headers and URL rewriting
       // The SDK will construct a URL, but we need to completely rewrite it to Azure format
       const azureProvider = createOpenAICompatible({
@@ -421,16 +503,83 @@ function getRegularModelClient(
           const azureUrl = `${baseUrl}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
           logger.info(`  - ✅ Rewriting to Azure URL: ${azureUrl}`);
           
+          // Modify request body for model-specific requirements
+          let modifiedOptions = { ...options };
+          if ((needsMaxCompletionTokens || shouldRemoveTemperature || needsTemperatureOne) && options?.body) {
+            try {
+              let bodyText: string;
+              if (typeof options.body === 'string') {
+                bodyText = options.body;
+              } else if (options.body instanceof ReadableStream) {
+                // For streams, we need to read and reconstruct
+                bodyText = await new Response(options.body).text();
+              } else if (options.body instanceof Blob) {
+                bodyText = await options.body.text();
+              } else {
+                // Try to convert to string
+                bodyText = String(options.body);
+              }
+              
+              const bodyJson = JSON.parse(bodyText);
+              let bodyModified = false;
+              
+              // Replace max_tokens with max_completion_tokens if needed
+              if (needsMaxCompletionTokens && bodyJson.max_tokens !== undefined) {
+                logger.info(`  - 🔄 Converting max_tokens (${bodyJson.max_tokens}) to max_completion_tokens for ${model.name}`);
+                bodyJson.max_completion_tokens = bodyJson.max_tokens;
+                delete bodyJson.max_tokens;
+                bodyModified = true;
+              }
+              
+              // Remove temperature parameter for O1 (not supported)
+              if (shouldRemoveTemperature && bodyJson.temperature !== undefined) {
+                logger.info(`  - 🔄 Removing temperature parameter for ${model.name} (not supported)`);
+                delete bodyJson.temperature;
+                bodyModified = true;
+              }
+              
+              // Set temperature to 1 for O4 Mini (only default value supported)
+              if (needsTemperatureOne) {
+                if (bodyJson.temperature !== undefined && bodyJson.temperature !== 1) {
+                  logger.info(`  - 🔄 Setting temperature to 1 for ${model.name} (only default value supported, was ${bodyJson.temperature})`);
+                  bodyJson.temperature = 1;
+                  bodyModified = true;
+                } else if (bodyJson.temperature === undefined) {
+                  logger.info(`  - 🔄 Setting temperature to 1 for ${model.name} (default required)`);
+                  bodyJson.temperature = 1;
+                  bodyModified = true;
+                }
+              }
+              
+              // Update the body if modified
+              if (bodyModified) {
+                modifiedOptions.body = JSON.stringify(bodyJson);
+                // Update content-length if present
+                if (modifiedOptions.headers) {
+                  const headers = modifiedOptions.headers as Record<string, string>;
+                  if (headers['content-length']) {
+                    headers['content-length'] = String(modifiedOptions.body.length);
+                  }
+                }
+                logger.info(`  - ✅ Request body modified for ${model.name}`);
+              }
+            } catch (e) {
+              logger.warn(`  - ⚠️  Could not modify request body: ${e}`);
+              // If modification fails, use original options
+              modifiedOptions = options;
+            }
+          }
+          
           // Log headers being sent
-          if (options?.headers) {
-            const headers = options.headers as Record<string, string>;
+          if (modifiedOptions?.headers) {
+            const headers = modifiedOptions.headers as Record<string, string>;
             const headerKeys = Object.keys(headers);
             logger.info(`  - 📤 Request headers: ${headerKeys.join(', ')}`);
             logger.info(`  - 📤 api-key header: ${headers['api-key'] ? 'SET (' + headers['api-key'].length + ' chars)' : 'NOT SET'}`);
           }
           
           // Make the request with the correct Azure URL
-          const response = await fetch(azureUrl, options);
+          const response = await fetch(azureUrl, modifiedOptions);
           
           // Log response status
           logger.info(`  - 📥 Response status: ${response.status} ${response.statusText}`);
