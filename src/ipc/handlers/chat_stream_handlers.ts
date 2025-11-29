@@ -1030,6 +1030,36 @@ This conversation includes one or more image attachments. When the user uploads 
               let errorMessage = errorObj?.error?.message;
               const responseBody = errorObj?.error?.responseBody;
               
+              // Special handling for Azure OpenAI authentication errors (401)
+              if (modelClient.builtinProviderId === 'azure-openai' && 
+                  (errorMessage?.includes('Access denied') || 
+                   errorMessage?.includes('invalid subscription key') ||
+                   errorMessage?.includes('wrong API endpoint') ||
+                   errorObj?.error?.status === 401)) {
+                logger.error("🔴 Azure OpenAI Authentication Error - checking configuration");
+                logger.error(`🔴 Azure OpenAI Error Details:`);
+                logger.error(`  - Selected Model: ${settings.selectedModel?.name || 'unknown'}`);
+                logger.error(`  - Provider: ${settings.selectedModel?.provider || 'unknown'}`);
+                logger.error(`  - Error Status: ${errorObj?.error?.status || 'unknown'}`);
+                logger.error(`  - Error Message: ${errorMessage || 'unknown'}`);
+                logger.error(`  - Response Body: ${responseBody || 'none'}`);
+                
+                // Log Azure configuration
+                const azureSettings = settings.providerSettings?.['azure-openai'];
+                logger.error(`  - Azure API Key: ${azureSettings?.apiKey?.value ? 'SET (length: ' + azureSettings.apiKey.value.length + ')' : 'NOT SET'}`);
+                logger.error(`  - Note: Base URLs are configured per model in get_model_client.ts`);
+                
+                errorMessage = "Azure OpenAI Authentication Error (401). This usually means:\n" +
+                  "1. The API key is incorrect or expired\n" +
+                  "2. The API key doesn't have access to the Azure OpenAI resource\n" +
+                  "3. The endpoint URL is incorrect\n\n" +
+                  "Please verify:\n" +
+                  "- The API key is correct and active in Azure Portal\n" +
+                  "- The API key has the correct permissions\n" +
+                  "- The endpoint URL matches your Azure OpenAI resource\n\n" +
+                  "Check the terminal logs for detailed configuration information.";
+              }
+              
               // Special handling for Azure OpenAI "Resource not found" errors
               if (modelClient.builtinProviderId === 'azure-openai' && 
                   (errorMessage?.includes('Resource not found') || 
@@ -1046,15 +1076,14 @@ This conversation includes one or more image attachments. When the user uploads 
                 logger.error(`  - Response Body: ${responseBody || 'none'}`);
                 
                 // Try to get Azure config from settings for debugging
+                // Log Azure configuration - note that we use hardcoded base URLs per model
                 const azureSettings = settings.providerSettings?.['azure-openai'];
-                if (azureSettings) {
-                  logger.error(`  - Azure Resource Name: ${azureSettings.resourceName?.value ? 'SET' : 'NOT SET'}`);
-                  logger.error(`  - Azure Deployment Name: ${azureSettings.deploymentName?.value || 'NOT SET'}`);
-                  logger.error(`  - Azure Endpoint: ${azureSettings.endpoint?.value ? 'SET' : 'NOT SET'}`);
-                  logger.error(`  - Azure API Version: ${azureSettings.apiVersion?.value || 'default'}`);
-                } else {
-                  logger.error(`  - Azure settings not found in providerSettings`);
-                }
+                logger.error(`  - Azure API Key: ${azureSettings?.apiKey?.value ? 'SET' : 'NOT SET'}`);
+                logger.error(`  - Azure Resource Name: ${azureSettings?.resourceName?.value ? 'SET' : 'NOT SET'}`);
+                logger.error(`  - Azure Deployment Name: ${azureSettings?.deploymentName?.value || 'NOT SET (using model name as deployment)'}`);
+                logger.error(`  - Azure Endpoint: ${azureSettings?.endpoint?.value ? 'SET' : 'NOT SET (using hardcoded base URL per model)'}`);
+                logger.error(`  - Azure API Version: ${azureSettings?.apiVersion?.value || 'using model-specific API version'}`);
+                logger.error(`  - Note: Base URLs are configured per model in get_model_client.ts`);
                 
                 errorMessage = "Azure OpenAI Resource not found (404). This usually means:\n" +
                   "1. The deployment name doesn't exist in your Azure OpenAI resource\n" +

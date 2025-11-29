@@ -394,21 +394,63 @@ function getRegularModelClient(
         };
       }
       
-      // For standard Azure OpenAI models, use Azure SDK with custom baseURL
-      const fullUrl = `${modelConfig.baseURL}/openai/deployments/${model.name}/chat/completions?api-version=${modelConfig.apiVersion}`;
-      logger.info(`  - Full Endpoint URL: ${fullUrl}`);
+      // For standard Azure OpenAI models, use OpenAI compatible with custom baseURL and Azure auth headers
+      // Azure OpenAI requires 'api-key' header and uses /openai/deployments/{deployment}/chat/completions path
+      const expectedUrl = `${modelConfig.baseURL}/openai/deployments/${model.name}/chat/completions?api-version=${modelConfig.apiVersion}`;
+      logger.info(`  - Expected Endpoint URL: ${expectedUrl}`);
+      logger.info(`  - Using OpenAI-compatible format with Azure authentication`);
       
-      const azureProvider = createAzure({
+      // Store deployment name and API version for use in fetch function
+      const deploymentName = model.name;
+      const apiVersion = modelConfig.apiVersion;
+      const baseUrl = modelConfig.baseURL;
+      
+      // Use OpenAI compatible provider with Azure-specific headers and URL rewriting
+      // The SDK will construct a URL, but we need to completely rewrite it to Azure format
+      const azureProvider = createOpenAICompatible({
+        baseURL: baseUrl, // Use just the base URL, we'll rewrite the entire path
         apiKey: azureApiKey,
-        baseURL: modelConfig.baseURL,
-        apiVersion: modelConfig.apiVersion,
+        headers: {
+          "api-key": azureApiKey, // Azure OpenAI requires api-key header instead of Authorization
+        },
+        fetch: async (url, options) => {
+          // Log the original URL before rewriting
+          logger.info(`  - 🔵 Original SDK URL: ${url}`);
+          
+          // Construct the correct Azure OpenAI URL
+          const azureUrl = `${baseUrl}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
+          logger.info(`  - ✅ Rewriting to Azure URL: ${azureUrl}`);
+          
+          // Log headers being sent
+          if (options?.headers) {
+            const headers = options.headers as Record<string, string>;
+            const headerKeys = Object.keys(headers);
+            logger.info(`  - 📤 Request headers: ${headerKeys.join(', ')}`);
+            logger.info(`  - 📤 api-key header: ${headers['api-key'] ? 'SET (' + headers['api-key'].length + ' chars)' : 'NOT SET'}`);
+          }
+          
+          // Make the request with the correct Azure URL
+          const response = await fetch(azureUrl, options);
+          
+          // Log response status
+          logger.info(`  - 📥 Response status: ${response.status} ${response.statusText}`);
+          if (!response.ok) {
+            const responseText = await response.clone().text();
+            logger.error(`  - ❌ Error response body: ${responseText.substring(0, 500)}`);
+          }
+          
+          return response;
+        },
       });
       
       logger.info(`✅ Azure OpenAI model client created successfully`);
+      logger.info(`  - Deployment name: ${deploymentName}`);
+      logger.info(`  - API version: ${apiVersion}`);
+      logger.info(`  - Base URL: ${baseUrl}`);
       
       return {
         modelClient: {
-          model: azureProvider(model.name),
+          model: azureProvider(model.name), // Model name is used for logging, actual deployment is in fetch URL
           builtinProviderId: providerId,
         },
         backupModelClients: [],
