@@ -298,22 +298,8 @@ function getRegularModelClient(
       };
     }
     case "azure-openai": {
-      // Enhanced Azure OpenAI support with comprehensive environment variable support
-      // Support both environment variables and user settings
+      // Azure OpenAI with per-model base URLs - only API key required
       const azureApiKey = apiKey || getEnvVar("AZURE_API_KEY");
-      const azureResourceName = settings.providerSettings?.[providerId]?.resourceName?.value || getEnvVar("AZURE_RESOURCE_NAME");
-      const azureDeploymentName = settings.providerSettings?.[providerId]?.deploymentName?.value || getEnvVar("AZURE_DEPLOYMENT_NAME");
-      const azureApiVersion = settings.providerSettings?.[providerId]?.apiVersion?.value || getEnvVar("AZURE_API_VERSION") || "2024-02-01";
-      const azureEndpoint = settings.providerSettings?.[providerId]?.endpoint?.value || getEnvVar("AZURE_ENDPOINT");
-      
-      // 🚨 DEBUG: Log all configuration values for troubleshooting
-      logger.info(`🔵 Azure OpenAI Configuration Debug:`);
-      logger.info(`  - Model name from selection: ${model.name}`);
-      logger.info(`  - API Key present: ${!!azureApiKey} (length: ${azureApiKey?.length || 0})`);
-      logger.info(`  - Resource Name: ${azureResourceName || 'NOT SET'}`);
-      logger.info(`  - Deployment Name (from settings): ${azureDeploymentName || 'NOT SET'}`);
-      logger.info(`  - Endpoint: ${azureEndpoint || 'NOT SET'}`);
-      logger.info(`  - API Version: ${azureApiVersion}`);
       
       if (!azureApiKey) {
         throw new Error(
@@ -321,57 +307,108 @@ function getRegularModelClient(
         );
       }
       
-      // 🚨 FIX: Use either endpoint OR resourceName, not both (they conflict in Azure SDK)
-      // If endpoint is provided, use it as baseURL and don't set resourceName
-      // If endpoint is not provided, use resourceName to construct standard URL
-      const azureConfig: any = {
-        apiKey: azureApiKey,
-        apiVersion: azureApiVersion,
+      // Per-model base URL and API version configuration
+      // Each model uses its specific base URL as provided by the user
+      // Only models with provided base URLs are configured
+      const modelConfigs: Record<string, { baseURL: string; apiVersion: string; useAnthropicFormat?: boolean }> = {
+        // Standard Azure OpenAI models - all use the same base URL
+        "gpt-4": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        "gpt-4.1-mini": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        "gpt-4o": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        "gpt-4o-mini": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        "gpt-5-chat": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        "gpt-5-nano": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        "model-router": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        "o1": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        "o4-mini": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-01-01-preview",
+        },
+        // Claude model uses Anthropic-compatible endpoint
+        "claude-sonnet-4-20250514": {
+          baseURL: "https://applaa-qa.services.ai.azure.com/anthropic/v1",
+          apiVersion: "2024-05-01-preview",
+          useAnthropicFormat: true,
+        },
       };
       
-      if (azureEndpoint) {
-        // Normalize endpoint: remove trailing slash and /openai path if present
-        // Should be: https://resource-name.openai.azure.com (no trailing slash, no /openai)
-        let normalizedEndpoint = azureEndpoint.trim();
-        if (normalizedEndpoint.endsWith('/')) {
-          normalizedEndpoint = normalizedEndpoint.slice(0, -1);
-        }
-        // Remove /openai path if present (SDK will add it)
-        normalizedEndpoint = normalizedEndpoint.replace(/\/openai\/?$/, '');
-        
-        azureConfig.baseURL = normalizedEndpoint;
-        logger.info(`🔵 Azure OpenAI using custom endpoint: ${normalizedEndpoint}`);
-      } else if (azureResourceName) {
-        // Use resourceName to construct standard Azure OpenAI endpoint
-        azureConfig.resourceName = azureResourceName;
-        logger.info(`🔵 Azure OpenAI using resource name: ${azureResourceName}`);
-      } else {
+      const modelConfig = modelConfigs[model.name];
+      
+      if (!modelConfig) {
         throw new Error(
-          `Azure OpenAI provider requires either AZURE_RESOURCE_NAME or AZURE_ENDPOINT. Please configure one of these in provider settings.`,
+          `Azure OpenAI model "${model.name}" is not configured. Available models: ${Object.keys(modelConfigs).join(", ")}`,
         );
       }
       
-      const provider = createAzure(azureConfig);
+      logger.info(`🔵 Azure OpenAI Configuration:`);
+      logger.info(`  - Model: ${model.name}`);
+      logger.info(`  - Base URL: ${modelConfig.baseURL}`);
+      logger.info(`  - API Version: ${modelConfig.apiVersion}`);
+      logger.info(`  - Deployment Name: ${model.name}`);
       
-      // 🚨 CRITICAL: Use deployment name if provided, otherwise use model name
-      // The deployment name MUST match exactly what's configured in Azure Portal
-      const finalDeploymentName = azureDeploymentName || model.name;
-      
-      logger.info(`🔵 Azure OpenAI Final Configuration:`);
-      logger.info(`  - Final Deployment Name: "${finalDeploymentName}"`);
-      logger.info(`  - API Version: ${azureApiVersion}`);
-      if (azureEndpoint) {
-        const fullUrl = `${azureConfig.baseURL}/openai/deployments/${finalDeploymentName}/chat/completions?api-version=${azureApiVersion}`;
+      // For Anthropic format (Claude), use OpenAI compatible with custom endpoint
+      if (modelConfig.useAnthropicFormat) {
+        const fullUrl = `${modelConfig.baseURL}/messages`;
         logger.info(`  - Full Endpoint URL: ${fullUrl}`);
-      } else {
-        const fullUrl = `https://${azureResourceName}.openai.azure.com/openai/deployments/${finalDeploymentName}/chat/completions?api-version=${azureApiVersion}`;
-        logger.info(`  - Full Endpoint URL: ${fullUrl}`);
+        logger.info(`  - Using Anthropic-compatible format`);
+        
+        const anthropicProvider = createOpenAICompatible({
+          baseURL: modelConfig.baseURL,
+          apiKey: azureApiKey,
+          headers: {
+            "api-key": azureApiKey,
+          },
+        });
+        
+        // For Anthropic, we use the model name directly
+        return {
+          modelClient: {
+            model: anthropicProvider(model.name),
+            builtinProviderId: providerId,
+          },
+          backupModelClients: [],
+        };
       }
-      logger.info(`  - ⚠️  IMPORTANT: The deployment name "${finalDeploymentName}" must exist in Azure Portal and match exactly (case-sensitive)`);
+      
+      // For standard Azure OpenAI models, use Azure SDK with custom baseURL
+      const fullUrl = `${modelConfig.baseURL}/openai/deployments/${model.name}/chat/completions?api-version=${modelConfig.apiVersion}`;
+      logger.info(`  - Full Endpoint URL: ${fullUrl}`);
+      
+      const azureProvider = createAzure({
+        apiKey: azureApiKey,
+        baseURL: modelConfig.baseURL,
+        apiVersion: modelConfig.apiVersion,
+      });
+      
+      logger.info(`✅ Azure OpenAI model client created successfully`);
       
       return {
         modelClient: {
-          model: provider(finalDeploymentName),
+          model: azureProvider(model.name),
           builtinProviderId: providerId,
         },
         backupModelClients: [],
