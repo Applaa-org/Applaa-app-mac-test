@@ -348,6 +348,16 @@ function getRegularModelClient(
           baseURL: "https://applaa-qa.cognitiveservices.azure.com",
           apiVersion: "2025-01-01-preview",
         },
+        "grok-4-fast-reasoning": {
+          baseURL: "https://applaa-qa.services.ai.azure.com",
+          apiVersion: "2024-05-01-preview",
+          useModelsEndpoint: true, // Uses /models/chat/completions instead of /openai/deployments/{deployment}/chat/completions
+        },
+        "gpt-5.1-chat": {
+          baseURL: "https://applaa-qa.cognitiveservices.azure.com",
+          apiVersion: "2025-04-01-preview",
+          useResponsesEndpoint: true, // Uses /openai/responses instead of /openai/deployments/{deployment}/chat/completions
+        },
       };
       
       const modelConfig = modelConfigs[model.name];
@@ -573,16 +583,35 @@ function getRegularModelClient(
           }
           
           // Make the request with the correct Azure URL
-          const response = await fetch(azureUrl, modifiedOptions);
-          
-          // Log response status
-          logger.info(`  - 📥 Response status: ${response.status} ${response.statusText}`);
-          if (!response.ok) {
-            const responseText = await response.clone().text();
-            logger.error(`  - ❌ Error response body: ${responseText.substring(0, 500)}`);
+          // Add timeout and better error handling
+          try {
+            const response = await fetch(azureUrl, modifiedOptions);
+            
+            // Log response status
+            logger.info(`  - 📥 Response status: ${response.status} ${response.statusText}`);
+            if (!response.ok) {
+              const responseText = await response.clone().text();
+              logger.error(`  - ❌ Error response body: ${responseText.substring(0, 500)}`);
+            }
+            
+            return response;
+          } catch (error: any) {
+            // Handle specific error types
+            if (error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('terminated')) {
+              logger.warn(`  - ⚠️  Request was aborted/terminated: ${error.message}`);
+              // Re-throw as a more descriptive error
+              throw new Error(`Request was cancelled or terminated: ${error.message || 'Connection aborted'}`);
+            } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+              logger.error(`  - ❌ Network timeout or connection reset: ${error.message}`);
+              throw new Error(`Network error: Request timed out or connection was reset. Please try again.`);
+            } else if (error.message?.includes('fetch failed') || error.message?.includes('network')) {
+              logger.error(`  - ❌ Network error: ${error.message}`);
+              throw new Error(`Network error: Unable to connect to Azure OpenAI. Please check your internet connection and try again.`);
+            } else {
+              logger.error(`  - ❌ Unexpected fetch error: ${error.message || error}`);
+              throw error;
+            }
           }
-          
-          return response;
         },
       });
       

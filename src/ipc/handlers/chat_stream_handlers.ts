@@ -1608,10 +1608,25 @@ ${problemReport.problems
       return req.chatId;
     } catch (error) {
       logger.error("Error calling LLM:", error);
+      
+      // Provide more user-friendly error messages for common errors
+      let errorMessage = `Sorry, there was an error processing your request: ${error}`;
+      if (error instanceof Error) {
+        if (error.message.includes('terminated') || error.message.includes('aborted') || error.message.includes('cancelled')) {
+          errorMessage = "Request was cancelled or terminated. Please try again.";
+        } else if (error.message.includes('timeout') || error.message.includes('timed out')) {
+          errorMessage = "Request timed out. The server may be slow or overloaded. Please try again.";
+        } else if (error.message.includes('Network error') || error.message.includes('fetch failed')) {
+          errorMessage = "Network error: Unable to connect to the AI service. Please check your internet connection and try again.";
+        } else {
+          errorMessage = `Sorry, there was an error: ${error.message}`;
+        }
+      }
+      
       safeSend(
         event.sender,
         "chat:response:error",
-        `Sorry, there was an error processing your request: ${error}`,
+        errorMessage,
       );
       // Clean up the abort controller
       activeStreams.delete(req.chatId);

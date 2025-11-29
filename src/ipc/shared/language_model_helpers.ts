@@ -439,6 +439,22 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 200_000,
       temperature: 1, // O4 Mini only supports temperature = 1 (default)
     },
+    {
+      name: "grok-4-fast-reasoning",
+      displayName: "Grok 4 Fast Reasoning (Azure)",
+      description: "Azure OpenAI Grok 4 Fast Reasoning model",
+      maxOutputTokens: undefined,
+      contextWindow: 400_000,
+      temperature: 1,
+    },
+    {
+      name: "gpt-5.1-chat",
+      displayName: "GPT-5.1 Chat (Azure)",
+      description: "Azure OpenAI GPT-5.1 Chat deployment",
+      maxOutputTokens: undefined,
+      contextWindow: 400_000,
+      temperature: 1,
+    },
   ],
 };
 
