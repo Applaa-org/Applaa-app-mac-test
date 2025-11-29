@@ -355,8 +355,9 @@ function getRegularModelClient(
         },
         "gpt-5.1-chat": {
           baseURL: "https://applaa-qa.cognitiveservices.azure.com",
-          apiVersion: "2025-04-01-preview",
-          useResponsesEndpoint: true, // Uses /openai/responses instead of /openai/deployments/{deployment}/chat/completions
+          apiVersion: "2024-04-01-preview", // Updated to match user's example code
+          // Use standard chat completions endpoint (not Responses API)
+          // Based on user's example: client.chat.completions.create uses standard endpoint
         },
       };
       
@@ -480,8 +481,8 @@ function getRegularModelClient(
       const baseUrl = modelConfig.baseURL;
       
       // Models that require max_completion_tokens instead of max_tokens
-      // Note: gpt-5.1-chat uses Responses API which needs max_output_tokens, so it's handled separately
-      const modelsRequiringMaxCompletionTokens = ['gpt-5-nano', 'o1', 'o4-mini'];
+      // Note: gpt-5.1-chat uses standard endpoint with max_completion_tokens (not Responses API)
+      const modelsRequiringMaxCompletionTokens = ['gpt-5-nano', 'o1', 'o4-mini', 'gpt-5.1-chat'];
       const needsMaxCompletionTokens = modelsRequiringMaxCompletionTokens.includes(model.name);
       
       // Models that don't support temperature parameter (O1)
@@ -551,7 +552,7 @@ function getRegularModelClient(
                   delete bodyJson.max_tokens;
                   bodyModified = true;
                 } else if (needsMaxCompletionTokens) {
-                  // Standard endpoint models that require max_completion_tokens
+                  // Standard endpoint models that require max_completion_tokens (including gpt-5.1-chat)
                   logger.info(`  - 🔄 Converting max_tokens (${bodyJson.max_tokens}) to max_completion_tokens for ${model.name}`);
                   bodyJson.max_completion_tokens = bodyJson.max_tokens;
                   delete bodyJson.max_tokens;
