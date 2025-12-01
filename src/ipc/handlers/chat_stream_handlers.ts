@@ -1030,6 +1030,72 @@ This conversation includes one or more image attachments. When the user uploads 
               let errorMessage = errorObj?.error?.message;
               const responseBody = errorObj?.error?.responseBody;
               
+              // Special handling for Azure OpenAI authentication errors (401)
+              if (modelClient.builtinProviderId === 'azure-openai' && 
+                  (errorMessage?.includes('Access denied') || 
+                   errorMessage?.includes('invalid subscription key') ||
+                   errorMessage?.includes('wrong API endpoint') ||
+                   errorObj?.error?.status === 401)) {
+                logger.error("🔴 Azure OpenAI Authentication Error - checking configuration");
+                logger.error(`🔴 Azure OpenAI Error Details:`);
+                logger.error(`  - Selected Model: ${settings.selectedModel?.name || 'unknown'}`);
+                logger.error(`  - Provider: ${settings.selectedModel?.provider || 'unknown'}`);
+                logger.error(`  - Error Status: ${errorObj?.error?.status || 'unknown'}`);
+                logger.error(`  - Error Message: ${errorMessage || 'unknown'}`);
+                logger.error(`  - Response Body: ${responseBody || 'none'}`);
+                
+                // Log Azure configuration
+                const azureSettings = settings.providerSettings?.['azure-openai'];
+                logger.error(`  - Azure API Key: ${azureSettings?.apiKey?.value ? 'SET (length: ' + azureSettings.apiKey.value.length + ')' : 'NOT SET'}`);
+                logger.error(`  - Note: Base URLs are configured per model in get_model_client.ts`);
+                
+                errorMessage = "Azure OpenAI Authentication Error (401). This usually means:\n" +
+                  "1. The API key is incorrect or expired\n" +
+                  "2. The API key doesn't have access to the Azure OpenAI resource\n" +
+                  "3. The endpoint URL is incorrect\n\n" +
+                  "Please verify:\n" +
+                  "- The API key is correct and active in Azure Portal\n" +
+                  "- The API key has the correct permissions\n" +
+                  "- The endpoint URL matches your Azure OpenAI resource\n\n" +
+                  "Check the terminal logs for detailed configuration information.";
+              }
+              
+              // Special handling for Azure OpenAI "Resource not found" errors
+              if (modelClient.builtinProviderId === 'azure-openai' && 
+                  (errorMessage?.includes('Resource not found') || 
+                   errorMessage?.includes('404') ||
+                   errorObj?.error?.status === 404)) {
+                logger.error("🔴 Azure OpenAI Resource not found - checking configuration");
+                
+                // Log the model configuration for debugging
+                logger.error(`🔴 Azure OpenAI Error Details:`);
+                logger.error(`  - Selected Model: ${settings.selectedModel?.name || 'unknown'}`);
+                logger.error(`  - Provider: ${settings.selectedModel?.provider || 'unknown'}`);
+                logger.error(`  - Error Status: ${errorObj?.error?.status || 'unknown'}`);
+                logger.error(`  - Error Message: ${errorMessage || 'unknown'}`);
+                logger.error(`  - Response Body: ${responseBody || 'none'}`);
+                
+                // Try to get Azure config from settings for debugging
+                // Log Azure configuration - note that we use hardcoded base URLs per model
+                const azureSettings = settings.providerSettings?.['azure-openai'];
+                logger.error(`  - Azure API Key: ${azureSettings?.apiKey?.value ? 'SET' : 'NOT SET'}`);
+                logger.error(`  - Azure Resource Name: ${azureSettings?.resourceName?.value ? 'SET' : 'NOT SET'}`);
+                logger.error(`  - Azure Deployment Name: ${azureSettings?.deploymentName?.value || 'NOT SET (using model name as deployment)'}`);
+                logger.error(`  - Azure Endpoint: ${azureSettings?.endpoint?.value ? 'SET' : 'NOT SET (using hardcoded base URL per model)'}`);
+                logger.error(`  - Azure API Version: ${azureSettings?.apiVersion?.value || 'using model-specific API version'}`);
+                logger.error(`  - Note: Base URLs are configured per model in get_model_client.ts`);
+                
+                errorMessage = "Azure OpenAI Resource not found (404). This usually means:\n" +
+                  "1. The deployment name doesn't exist in your Azure OpenAI resource\n" +
+                  "2. The deployment name doesn't match exactly (case-sensitive)\n" +
+                  "3. The resource name or endpoint URL is incorrect\n\n" +
+                  "Please verify in Azure Portal that:\n" +
+                  "- The deployment exists and is active\n" +
+                  "- The deployment name matches exactly (including case)\n" +
+                  "- The resource name and endpoint are correct\n\n" +
+                  "Check the terminal logs for detailed configuration information.";
+              }
+              
               // Special handling for OpenRouter rate limits
               if (modelClient.builtinProviderId === 'openrouter' && 
                   (errorMessage?.includes('Too Many Requests') || 
@@ -1542,10 +1608,25 @@ ${problemReport.problems
       return req.chatId;
     } catch (error) {
       logger.error("Error calling LLM:", error);
+      
+      // Provide more user-friendly error messages for common errors
+      let errorMessage = `Sorry, there was an error processing your request: ${error}`;
+      if (error instanceof Error) {
+        if (error.message.includes('terminated') || error.message.includes('aborted') || error.message.includes('cancelled')) {
+          errorMessage = "Request was cancelled or terminated. Please try again.";
+        } else if (error.message.includes('timeout') || error.message.includes('timed out')) {
+          errorMessage = "Request timed out. The server may be slow or overloaded. Please try again.";
+        } else if (error.message.includes('Network error') || error.message.includes('fetch failed')) {
+          errorMessage = "Network error: Unable to connect to the AI service. Please check your internet connection and try again.";
+        } else {
+          errorMessage = `Sorry, there was an error: ${error.message}`;
+        }
+      }
+      
       safeSend(
         event.sender,
         "chat:response:error",
-        `Sorry, there was an error processing your request: ${error}`,
+        errorMessage,
       );
       // Clean up the abort controller
       activeStreams.delete(req.chatId);
