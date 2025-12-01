@@ -18,7 +18,7 @@ import { Loader2 } from 'lucide-react';
 interface AddGameTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  appType: 'web' | 'expo' | 'flutter' | 'godot';
+  appType: 'web' | 'expo' | 'flutter' | 'applaa';
   onTemplateAdded?: () => void;
 }
 
@@ -28,7 +28,7 @@ export function AddGameTemplateDialog({ open, onOpenChange, appType, onTemplateA
   const [previewUrl, setPreviewUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [emoji, setEmoji] = useState('');
-  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'godot'>(appType);
+  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'applaa'>(appType);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const ipcClient = IpcClient.getInstance();
@@ -136,7 +136,7 @@ export function AddGameTemplateDialog({ open, onOpenChange, appType, onTemplateA
                   <SelectItem value="web">Web</SelectItem>
                   <SelectItem value="expo">Expo</SelectItem>
                   <SelectItem value="flutter">Flutter</SelectItem>
-                  <SelectItem value="godot">Godot</SelectItem>
+                  <SelectItem value="applaa">Applaa</SelectItem>
                 </SelectContent>
               </Select>
             </div>

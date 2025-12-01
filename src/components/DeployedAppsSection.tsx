@@ -14,7 +14,7 @@ import { IpcClient } from '@/ipc/ipc_client';
 interface DeployedApp {
   id: string;
   app_name: string;
-  app_type: 'web' | 'mobile' | 'godot';
+  app_type: 'web' | 'mobile' | 'applaa';
   vercel_deployment_url: string | null;
   eas_deployment_url?: string | null;
   deployment_status: string | null;
@@ -30,6 +30,7 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
   const [isAppModalOpen, setIsAppModalOpen] = useState(false);
   const [yourApps, setYourApps] = useState<DeployedApp[]>([]);
   const [othersApps, setOthersApps] = useState<DeployedApp[]>([]);
+  const [showAllOthers, setShowAllOthers] = useState(false);
   const [currentUserDisplayName, setCurrentUserDisplayName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +104,8 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
         return <Globe className="h-5 w-5" />;
       case 'mobile':
         return <Smartphone className="h-5 w-5" />;
-      case 'godot':
+      case 'applaa':
+      case 'godot': // Support both for backward compatibility
         return <Gamepad2 className="h-5 w-5" />;
       default:
         return <Globe className="h-5 w-5" />;
@@ -116,8 +118,10 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
         return 'Web App';
       case 'mobile':
         return 'Mobile App';
-      case 'godot':
-        return 'Godot Game';
+      case 'applaa':
+        return 'Applaa Game';
+      case 'godot': // Support both for backward compatibility
+        return 'Applaa Game';
       default:
         return 'App';
     }
@@ -215,6 +219,10 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
 
   const hasAnyApps = yourApps.length > 0 || othersApps.length > 0;
 
+  const displayedOthersApps = showAllOthers
+    ? othersApps
+    : othersApps.slice(0, 6);
+
   if (!hasAnyApps) {
     return null;
   }
@@ -253,8 +261,20 @@ export function DeployedAppsSection({ className = '' }: DeployedAppsSectionProps
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {othersApps.map((app) => renderAppCard(app))}
+              {displayedOthersApps.map((app) => renderAppCard(app))}
             </div>
+
+            {othersApps.length > 6 && (
+              <div className="mt-6 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllOthers((prev) => !prev)}
+                >
+                  {showAllOthers ? 'Show less' : 'Show more'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </section>
