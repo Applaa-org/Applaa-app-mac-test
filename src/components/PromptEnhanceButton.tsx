@@ -66,17 +66,20 @@ export function PromptEnhanceButton({
           size="sm"
           onClick={handleEnhance}
           disabled={isDisabled}
-          className={`flex items-center gap-1 h-6 px-2 text-xs !bg-white hover:!bg-gray-50 !text-gray-700 hover:!text-gray-700 border-gray-300 shadow-sm ${
+          className={`flex items-center gap-1 h-6 px-2 text-xs !bg-white hover:!bg-green-50 !text-green-700 hover:!text-green-700 border-green-300 shadow-sm ${
             isOptimizing ? "opacity-75 cursor-wait" : ""
           }`}
         >
           {isOptimizing ? (
             <>
-              <Loader2 className="h-2.5 w-2.5 animate-spin text-blue-500" />
+              <Loader2 className="h-2.5 w-2.5 animate-spin text-green-500" />
               <span className="text-xs">Enhancing...</span>
             </>
           ) : (
-            <Sparkles className="h-2.5 w-2.5" />
+            <>
+              <Sparkles className="h-2.5 w-2.5 text-green-600" />
+              <span className="text-xs text-green-700">Enhance</span>
+            </>
           )}
         </Button>
       </TooltipTrigger>

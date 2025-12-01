@@ -13,7 +13,7 @@ import { IpcClient } from '@/ipc/ipc_client';
 interface DeployedApp {
   id: string;
   app_name: string;
-  app_type: 'web' | 'mobile' | 'godot';
+  app_type: 'web' | 'mobile' | 'applaa';
   vercel_deployment_url: string | null;
   eas_deployment_url?: string | null;
   deployment_status: string | null;
@@ -80,7 +80,8 @@ export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAp
         return <Globe className="h-5 w-5" />;
       case 'mobile':
         return <Smartphone className="h-5 w-5" />;
-      case 'godot':
+      case 'applaa':
+      case 'godot': // Support both for backward compatibility
         return <Gamepad2 className="h-5 w-5" />;
       default:
         return <Globe className="h-5 w-5" />;
@@ -93,8 +94,10 @@ export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAp
         return 'Web App';
       case 'mobile':
         return 'Mobile App';
-      case 'godot':
-        return 'Godot Game';
+      case 'applaa':
+        return 'Applaa Game';
+      case 'godot': // Support both for backward compatibility
+        return 'Applaa Game';
       default:
         return 'App';
     }
@@ -206,4 +209,5 @@ export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAp
     </>
   );
 }
+
 

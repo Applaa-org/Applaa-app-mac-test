@@ -22,7 +22,7 @@ interface GameTemplate {
   previewUrl?: string | null;
   imageUrl?: string | null;
   emoji?: string | null;
-  appType: 'web' | 'expo' | 'flutter' | 'godot';
+  appType: 'web' | 'expo' | 'flutter' | 'applaa';
   displayOrder?: number;
 }
 
@@ -39,7 +39,7 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
   const [previewUrl, setPreviewUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [emoji, setEmoji] = useState('');
-  const [appType, setAppType] = useState<'web' | 'expo' | 'flutter' | 'godot'>('godot');
+  const [appType, setAppType] = useState<'web' | 'expo' | 'flutter' | 'applaa'>('applaa');
   const [displayOrder, setDisplayOrder] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -152,7 +152,7 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
                   <SelectItem value="web">Web</SelectItem>
                   <SelectItem value="expo">Expo</SelectItem>
                   <SelectItem value="flutter">Flutter</SelectItem>
-                  <SelectItem value="godot">Godot</SelectItem>
+                  <SelectItem value="applaa">Applaa</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -195,7 +195,7 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
             placeholder='Describe your game idea... (e.g., "A 2D platformer where the player jumps between platforms, collects coins, and defeats enemies")'
             rows={2}
             disabled={isCreating}
-            className="flex-1 text-base resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] p-4"
+            className="flex-1 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] p-4"
           />
 
           {/* Build button on the right, inside input area - matching web input style */}
