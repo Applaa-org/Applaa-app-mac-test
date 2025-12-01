@@ -455,6 +455,14 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 400_000,
       temperature: 1,
     },
+    {
+      name: "claude-sonnet-4-5",
+      displayName: "Claude Sonnet 4.5 (Azure)",
+      description: "Azure OpenAI Claude Sonnet 4.5 deployment via Anthropic endpoint",
+      maxOutputTokens: 8192,
+      contextWindow: 200_000,
+      temperature: 1,
+    },
   ],
 };
 

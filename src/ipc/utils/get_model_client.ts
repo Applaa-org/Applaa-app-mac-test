@@ -363,6 +363,12 @@ function getRegularModelClient(
           // Use standard chat completions endpoint (not Responses API)
           // Based on user's example: client.chat.completions.create uses standard endpoint
         },
+        "claude-sonnet-4-5": {
+          baseURL: "https://applaa-qa.openai.azure.com/anthropic", // Azure Anthropic endpoint
+          apiVersion: "2024-05-01-preview", // Not used in URL for Anthropic format
+          useAnthropicFormat: true, // Uses Anthropic /messages endpoint
+          // Model name is sent in request body
+        },
       };
 
       const modelConfig = modelConfigs[model.name];
@@ -387,7 +393,10 @@ function getRegularModelClient(
 
       // For Anthropic format (Claude), use OpenAI compatible with custom endpoint
       if (modelConfig.useAnthropicFormat) {
-        const fullUrl = `${modelConfig.baseURL}/messages`;
+        // Anthropic SDK uses /v1/messages endpoint
+        // Base URL should be the endpoint without /v1, SDK will add it
+        // But for Azure, we need to construct the full path: /anthropic/v1/messages
+        const fullUrl = `${modelConfig.baseURL}/v1/messages`;
         logger.info(`  - Full Endpoint URL: ${fullUrl}`);
         logger.info(`  - Using Anthropic-compatible format`);
         logger.info(`  - API Key present: ${!!azureApiKey} (length: ${azureApiKey?.length || 0})`);
@@ -400,17 +409,28 @@ function getRegularModelClient(
         const anthropicModelName = model.name; // Use the model name as-is first
 
         const anthropicProvider = createOpenAICompatible({
-          baseURL: modelConfig.baseURL,
+          baseURL: modelConfig.baseURL, // Base URL: https://applaa-qa.openai.azure.com/anthropic
           apiKey: azureApiKey,
           headers: {
             "api-key": azureApiKey, // Azure requires api-key header
             "x-api-key": azureApiKey, // Also try x-api-key for Anthropic endpoints
+            "anthropic-version": "2023-06-01", // Anthropic API version header
           },
           fetch: async (url, options) => {
             logger.info(`  - 🔵 Claude Original SDK URL: ${url}`);
 
-            // Ensure we're using the correct endpoint
-            const anthropicUrl = url.includes('/messages') ? url : `${modelConfig.baseURL}/messages`;
+            // Ensure we're using the correct endpoint with /v1/messages
+            // The SDK might construct different paths, so we override it
+            let anthropicUrl: string;
+            if (url.includes('/v1/messages')) {
+              anthropicUrl = url;
+            } else if (url.includes('/messages')) {
+              // If SDK constructed /messages, replace with /v1/messages
+              anthropicUrl = url.replace('/messages', '/v1/messages');
+            } else {
+              // Construct the full path: baseURL/v1/messages
+              anthropicUrl = `${modelConfig.baseURL}/v1/messages`;
+            }
             logger.info(`  - ✅ Claude URL: ${anthropicUrl}`);
 
             // Modify request body to use correct model name if needed
@@ -430,10 +450,67 @@ function getRegularModelClient(
 
                 const bodyJson = JSON.parse(bodyText);
                 logger.info(`  - 📋 Claude Request body model: ${bodyJson.model || 'not set'}`);
+                logger.info(`  - 📋 Claude Request body preview (before modification): ${JSON.stringify({
+                  model: bodyJson.model,
+                  max_tokens: bodyJson.max_tokens,
+                  temperature: bodyJson.temperature,
+                  messages_count: bodyJson.messages?.length || 0,
+                  has_system: !!bodyJson.system
+                })}`);
 
                 // For Azure Anthropic endpoints, the model name in the body should match the deployment
-                // If the deployment name is different, we might need to adjust it here
-                // For now, keep the model name as-is and let Azure handle it
+                // Ensure the model name is set correctly
+                if (bodyJson.model !== anthropicModelName) {
+                  logger.info(`  - 🔄 Setting model name in request body to "${anthropicModelName}" for Azure Anthropic endpoint (was: ${bodyJson.model || 'not set'})`);
+                  bodyJson.model = anthropicModelName;
+                }
+
+                // CRITICAL: Anthropic Messages API doesn't accept "system" as a message role
+                // It requires a top-level `system` parameter instead
+                // Extract system messages from the messages array and convert to top-level system parameter
+                if (bodyJson.messages && Array.isArray(bodyJson.messages)) {
+                  const systemMessages: string[] = [];
+                  const nonSystemMessages: any[] = [];
+                  
+                  for (const msg of bodyJson.messages) {
+                    if (msg.role === 'system') {
+                      systemMessages.push(msg.content || '');
+                    } else {
+                      nonSystemMessages.push(msg);
+                    }
+                  }
+                  
+                  if (systemMessages.length > 0) {
+                    // Combine all system messages into a single system string
+                    const systemContent = systemMessages.join('\n\n');
+                    logger.info(`  - 🔄 Converting ${systemMessages.length} system message(s) to top-level system parameter`);
+                    bodyJson.system = systemContent;
+                    // Remove system messages from the messages array
+                    bodyJson.messages = nonSystemMessages;
+                    logger.info(`  - ✅ System messages converted. Remaining messages: ${nonSystemMessages.length}`);
+                  }
+                  
+                  // Keep existing system parameter if no system messages were found in messages array
+                  if (bodyJson.system && systemMessages.length === 0) {
+                    logger.info(`  - ℹ️  Using existing system parameter: ${bodyJson.system.substring(0, 100)}...`);
+                  }
+                }
+
+                // Ensure max_tokens is present (Anthropic requires it)
+                // Note: Anthropic uses max_tokens (not max_completion_tokens or max_output_tokens)
+                if (!bodyJson.max_tokens) {
+                  logger.warn(`  - ⚠️  max_tokens not set in request body - Anthropic requires this parameter`);
+                }
+
+                // Log final request body structure
+                logger.info(`  - 📋 Claude Request body preview (after modification): ${JSON.stringify({
+                  model: bodyJson.model,
+                  max_tokens: bodyJson.max_tokens,
+                  temperature: bodyJson.temperature,
+                  messages_count: bodyJson.messages?.length || 0,
+                  has_system: !!bodyJson.system,
+                  system_preview: bodyJson.system ? bodyJson.system.substring(0, 100) + '...' : 'none'
+                })}`);
 
                 modifiedOptions.body = JSON.stringify(bodyJson);
                 if (modifiedOptions.headers) {
@@ -452,16 +529,211 @@ function getRegularModelClient(
               const headers = modifiedOptions.headers as Record<string, string>;
               headers['api-key'] = azureApiKey;
               headers['x-api-key'] = azureApiKey;
+              // Anthropic API version header (required for Anthropic API)
+              headers['anthropic-version'] = '2023-06-01';
               // Remove Authorization header if present (Azure uses api-key instead)
               delete headers['authorization'];
-              logger.info(`  - 📤 Claude Headers: api-key=${headers['api-key'] ? 'SET' : 'NOT SET'}, x-api-key=${headers['x-api-key'] ? 'SET' : 'NOT SET'}`);
+              logger.info(`  - 📤 Claude Headers: api-key=${headers['api-key'] ? 'SET (' + headers['api-key'].length + ' chars)' : 'NOT SET'}, x-api-key=${headers['x-api-key'] ? 'SET' : 'NOT SET'}, anthropic-version=${headers['anthropic-version'] || 'NOT SET'}`);
             }
 
+            logger.info(`  - 🚀 Making Anthropic request to: ${anthropicUrl}`);
+            logger.info(`  - ⏱️  Request started at: ${new Date().toISOString()}`);
+            
             const response = await fetch(anthropicUrl, modifiedOptions);
+            
             logger.info(`  - 📥 Claude Response status: ${response.status} ${response.statusText}`);
+            logger.info(`  - ⏱️  Response received at: ${new Date().toISOString()}`);
+            
             if (!response.ok) {
               const responseText = await response.clone().text();
-              logger.error(`  - ❌ Claude Error response body: ${responseText.substring(0, 1000)}`);
+              logger.error(`  - ❌ Claude Error response body: ${responseText.substring(0, 2000)}`);
+              logger.error(`  - ❌ Request URL: ${anthropicUrl}`);
+              logger.error(`  - ❌ Request method: ${modifiedOptions.method || 'POST'}`);
+              if (modifiedOptions.body) {
+                try {
+                  const bodyPreview = typeof modifiedOptions.body === 'string' 
+                    ? modifiedOptions.body.substring(0, 500) 
+                    : 'Body is not a string';
+                  logger.error(`  - ❌ Request body preview: ${bodyPreview}`);
+                } catch (e) {
+                  logger.error(`  - ❌ Could not log request body: ${e}`);
+                }
+              }
+            } else {
+              logger.info(`  - ✅ Claude response received successfully`);
+              logger.info(`  - 📋 Content-Type: ${response.headers.get('content-type')}`);
+              
+              // CRITICAL: Transform Anthropic streaming response to OpenAI-compatible format
+              // Anthropic uses different event types (message_start, content_block_delta, etc.)
+              // The SDK expects OpenAI format with 'choices' array
+              if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
+                logger.info(`  - 🔄 Transforming Anthropic stream to OpenAI-compatible format`);
+                
+                const transformedResponse = new Response(
+                  new ReadableStream({
+                    async start(controller) {
+                      const reader = response.body?.getReader();
+                      const decoder = new TextDecoder();
+                      const encoder = new TextEncoder();
+                      
+                      if (!reader) {
+                        controller.close();
+                        return;
+                      }
+                      
+                      let buffer = '';
+                      let messageId = '';
+                      let currentContent = '';
+                      
+                      try {
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          
+                          buffer += decoder.decode(value, { stream: true });
+                          const lines = buffer.split('\n');
+                          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+                          
+                          for (const line of lines) {
+                            if (line.trim() === '') continue;
+                            
+                            if (line.startsWith('data: ')) {
+                              const data = line.slice(6);
+                              if (data === '[DONE]') {
+                                // Send final chunk with empty delta to indicate completion
+                                const finalChoice = {
+                                  index: 0,
+                                  delta: {},
+                                  finish_reason: 'stop'
+                                };
+                                
+                                const openAIFormat = {
+                                  id: messageId || 'msg_' + Date.now(),
+                                  object: 'chat.completion.chunk',
+                                  created: Math.floor(Date.now() / 1000),
+                                  model: anthropicModelName,
+                                  choices: [finalChoice]
+                                };
+                                
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                                continue;
+                              }
+                              
+                              try {
+                                const event = JSON.parse(data);
+                                
+                                // Handle different Anthropic event types
+                                if (event.type === 'message_start') {
+                                  messageId = event.message?.id || 'msg_' + Date.now();
+                                  currentContent = '';
+                                  logger.info(`  - 📋 Anthropic message_start: ${messageId}`);
+                                  
+                                  // Send initial chunk with empty content
+                                  const initialChoice = {
+                                    index: 0,
+                                    delta: {
+                                      role: 'assistant',
+                                      content: ''
+                                    },
+                                    finish_reason: null
+                                  };
+                                  
+                                  const openAIFormat = {
+                                    id: messageId,
+                                    object: 'chat.completion.chunk',
+                                    created: Math.floor(Date.now() / 1000),
+                                    model: event.message?.model || anthropicModelName,
+                                    choices: [initialChoice]
+                                  };
+                                  
+                                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                } else if (event.type === 'content_block_delta') {
+                                  // Content delta - extract text
+                                  const textDelta = event.delta?.text || '';
+                                  if (textDelta) {
+                                    currentContent += textDelta;
+                                    
+                                    const choice = {
+                                      index: 0,
+                                      delta: {
+                                        content: textDelta
+                                      },
+                                      finish_reason: null
+                                    };
+                                    
+                                    const openAIFormat = {
+                                      id: messageId || 'msg_' + Date.now(),
+                                      object: 'chat.completion.chunk',
+                                      created: Math.floor(Date.now() / 1000),
+                                      model: anthropicModelName,
+                                      choices: [choice]
+                                    };
+                                    
+                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                  }
+                                } else if (event.type === 'content_block_start') {
+                                  // Content block started - initialize if needed
+                                  if (!messageId) {
+                                    messageId = 'msg_' + Date.now();
+                                  }
+                                } else if (event.type === 'message_delta') {
+                                  // Message delta - usually contains stop_reason
+                                  if (event.delta?.stop_reason) {
+                                    const finalChoice = {
+                                      index: 0,
+                                      delta: {},
+                                      finish_reason: event.delta.stop_reason === 'end_turn' ? 'stop' : event.delta.stop_reason
+                                    };
+                                    
+                                    const openAIFormat = {
+                                      id: messageId || 'msg_' + Date.now(),
+                                      object: 'chat.completion.chunk',
+                                      created: Math.floor(Date.now() / 1000),
+                                      model: anthropicModelName,
+                                      choices: [finalChoice]
+                                    };
+                                    
+                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                  }
+                                } else if (event.type === 'message_stop') {
+                                  // Message complete - send [DONE]
+                                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                                } else {
+                                  // Log unhandled event types for debugging
+                                  logger.info(`  - 📋 Unhandled Anthropic event type: ${event.type}`);
+                                }
+                              } catch (parseError) {
+                                // If it's not JSON, pass through as-is (might be other SSE data)
+                                logger.warn(`  - ⚠️  Could not parse SSE event: ${data.substring(0, 100)}`);
+                              }
+                            } else {
+                              // Pass through non-data lines
+                              controller.enqueue(encoder.encode(line + '\n'));
+                            }
+                          }
+                        }
+                      } catch (error) {
+                        logger.error(`  - ❌ Error transforming Anthropic stream: ${error}`);
+                        controller.error(error);
+                      } finally {
+                        controller.close();
+                      }
+                    },
+                  }),
+                  {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: new Headers({
+                      ...Object.fromEntries(response.headers.entries()),
+                      'content-type': 'text/event-stream', // Ensure SDK treats it as SSE stream
+                    })
+                  }
+                );
+                
+                logger.info(`  - ✅ Transformed Anthropic response to OpenAI-compatible format`);
+                return transformedResponse;
+              }
             }
             return response;
           },
