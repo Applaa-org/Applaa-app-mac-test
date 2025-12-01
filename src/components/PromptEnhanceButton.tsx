@@ -78,7 +78,7 @@ export function PromptEnhanceButton({
           ) : (
             <>
               <Sparkles className="h-2.5 w-2.5 text-green-600" />
-              <span className="text-xs text-green-700">Enhance</span>
+              <span className="text-xs text-green-700">Enhance my app</span>
             </>
           )}
         </Button>
