@@ -369,6 +369,12 @@ function getRegularModelClient(
           useAnthropicFormat: true, // Uses Anthropic /messages endpoint
           // Model name is sent in request body
         },
+        "claude-opus-4-5": {
+          baseURL: "https://applaa-qa.openai.azure.com/anthropic", // Azure Anthropic endpoint
+          apiVersion: "2024-05-01-preview", // Not used in URL for Anthropic format
+          useAnthropicFormat: true, // Uses Anthropic /messages endpoint
+          // Model name is sent in request body
+        },
       };
 
       const modelConfig = modelConfigs[model.name];

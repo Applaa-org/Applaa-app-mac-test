@@ -463,6 +463,14 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 200_000,
       temperature: 1,
     },
+    {
+      name: "claude-opus-4-5",
+      displayName: "Claude Opus 4.5 (Azure)",
+      description: "Azure OpenAI Claude Opus 4.5 deployment via Anthropic endpoint",
+      maxOutputTokens: 8192,
+      contextWindow: 200_000,
+      temperature: 1,
+    },
   ],
 };
 
