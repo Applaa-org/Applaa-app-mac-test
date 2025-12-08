@@ -29,6 +29,10 @@ import {
   SUPABASE_AVAILABLE_SYSTEM_PROMPT,
   SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT,
 } from "../../prompts/supabase_prompt";
+import {
+  getPostgresAvailablePrompt,
+  POSTGRES_NOT_AVAILABLE_SYSTEM_PROMPT,
+} from "../../prompts/postgres_prompt";
 import { getDyadAppPath } from "../../paths/paths";
 import { readSettings } from "../../main/settings";
 import type { ChatResponseEnd, ChatStreamParams } from "../ipc_types";
@@ -65,6 +69,7 @@ import {
   getDyadWriteTags,
   getDyadDeleteTags,
   getDyadRenameTags,
+  getSchemaCreationTags,
 } from "../utils/dyad_tag_parser";
 import { fileExists } from "../utils/file_utils";
 import { FileUploadsState } from "../utils/file_uploads_state";
@@ -646,7 +651,9 @@ ${componentSnippet}
         // Normal AI processing for non-test prompts
         const settings = readSettings();
 
-        const appPath = getDyadAppPath(updatedChat.app.path);
+        const appPath = updatedChat.app?.path
+          ? getDyadAppPath(updatedChat.app.path)
+          : "";
         const chatContext = req.selectedComponent
           ? {
               contextPaths: [
@@ -812,22 +819,52 @@ ${componentSnippet}
 
           baseSystemPrompt += `\n\n# Referenced Apps\nThe user has mentioned the following apps in their prompt: ${mentionedAppsList}. Their codebases have been included in the context for your reference. When referring to these apps, you can understand their structure and code to provide better assistance, however you should NOT edit the files in these referenced apps. The referenced apps are NOT part of the current app and are READ-ONLY.`;
         }
-        if (
-          updatedChat.app?.supabaseProjectId &&
-          settings.supabase?.accessToken?.value
-        ) {
-          baseSystemPrompt +=
-            "\n\n" +
-            SUPABASE_AVAILABLE_SYSTEM_PROMPT +
-            "\n\n" +
-            (await getSupabaseContext({
-              supabaseProjectId: updatedChat.app.supabaseProjectId,
-            }));
-        } else if (
-          // Neon projects don't need Supabase.
-          !updatedChat.app?.neonProjectId
-        ) {
-          baseSystemPrompt += "\n\n" + SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT;
+        // Check for Postgres database availability (DATABASE_URL in .env or .env.local)
+        let hasPostgres = false;
+        if (appPath) {
+          try {
+            // Check both .env and .env.local files
+            const envPaths = [
+              path.join(appPath, ".env"),
+              path.join(appPath, ".env.local"),
+            ];
+            
+            logger.log(`🔍 Checking for Postgres in app: ${updatedChat.app?.name || 'unknown'}, path: ${appPath}`);
+            
+            for (const envPath of envPaths) {
+              if (fs.existsSync(envPath)) {
+                const envContent = fs.readFileSync(envPath, "utf-8");
+                logger.log(`📄 Found ${path.basename(envPath)}, checking for DATABASE_URL...`);
+                if (envContent.includes("DATABASE_URL=")) {
+                  hasPostgres = true;
+                  logger.log(`✅ Postgres detected in ${path.basename(envPath)} for app: ${updatedChat.app?.name || 'unknown'}`);
+                  break;
+                } else {
+                  logger.log(`❌ ${path.basename(envPath)} exists but no DATABASE_URL found`);
+                }
+              } else {
+                logger.log(`📭 ${path.basename(envPath)} does not exist`);
+              }
+            }
+            
+            if (!hasPostgres) {
+              logger.log(`ℹ️ No DATABASE_URL found in .env files for app: ${updatedChat.app?.name || 'unknown'}. App may need database provisioning.`);
+            }
+          } catch (error) {
+            logger.warn("Failed to check for Postgres:", error);
+          }
+        } else {
+          logger.log(`⚠️ No appPath available for app: ${updatedChat.app?.name || 'unknown'}`);
+        }
+
+        // 🚨 POSTGRES ONLY - NO SUPABASE/NEON FALLBACK
+        // ALWAYS use Postgres - it's automatically provisioned for every app
+        baseSystemPrompt += "\n\n" + getPostgresAvailablePrompt();
+        
+        if (hasPostgres) {
+          logger.log(`✅ [POSTGRES] Using Postgres database for app: ${updatedChat.app?.name || 'unknown'}`);
+        } else {
+          logger.warn(`⚠️ [POSTGRES] No DATABASE_URL found for app: ${updatedChat.app?.name || 'unknown'}, but using Postgres prompt anyway`);
         }
         const isSummarizeIntent = req.prompt.startsWith(
           "Summarize from chat-id=",
@@ -1454,6 +1491,29 @@ ${problemReport.problems
                     });
                     
                     logger.info("Successfully applied file changes to disk after auto-fix");
+                  }
+
+                  // 🤖 AI-DRIVEN SCHEMA GENERATION: Process schema creation tags
+                  const schemaTags = getSchemaCreationTags(fullResponse);
+                  if (schemaTags.length > 0 && updatedChat.app?.id) {
+                    logger.info(`🗄️ Found ${schemaTags.length} schema creation tag(s) in AI response`);
+                    for (const schemaTag of schemaTags) {
+                      try {
+                        logger.info(`🗄️ Creating tables: ${schemaTag.tables.join(", ")} for app ${updatedChat.app.id}`);
+                        
+                        // Import executeSchema from lib/schema_parser
+                        const { executeSchema } = await import("../../lib/schema_parser");
+                        const result = await executeSchema(updatedChat.app.id, schemaTag.sql);
+                        
+                        if (result.success) {
+                          logger.info(`✅ Successfully created tables: ${schemaTag.tables.join(", ")}`);
+                        } else {
+                          logger.error(`❌ Failed to create tables:`, result.error);
+                        }
+                      } catch (error) {
+                        logger.error(`❌ Error processing schema tag:`, error);
+                      }
+                    }
                   }
                 } catch (error) {
                   logger.error("Error processing dyad-write tags after auto-fix:", error);

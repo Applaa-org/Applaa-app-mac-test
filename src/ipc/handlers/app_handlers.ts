@@ -60,6 +60,7 @@ import { isServerFunction } from "@/supabase_admin/supabase_utils";
 import { getVercelTeamSlug } from "../utils/vercel_utils";
 import { storeDbTimestampAtCurrentVersion } from "../utils/neon_timestamp_utils";
 import { perfMonitor, logPerfReport } from "../utils/performance_monitor";
+import { backendAPI } from "../../lib/backend-api";
 
 const logger = log.scope("app-handlers");
 
@@ -876,6 +877,104 @@ export function registerAppHandlers() {
         .prepare("INSERT INTO apps (name, path, app_type) VALUES (?, ?, ?)")
         .run(params.name, appRelPath2, appType);
       const insertedId = Number(info.lastInsertRowid);
+
+      // 🗄️ AUTOMATIC DATABASE PROVISIONING: Call backend to create Postgres schema
+      // This is MANDATORY - every app MUST have a Postgres database
+      let databaseInfo: { schemaName: string; connectionString: string } | null = null;
+      
+      logger.log(`📦 [POSTGRES] Provisioning database for app ${insertedId}: ${params.name}`);
+      logger.log(`🔗 [POSTGRES] Backend API URL: ${process.env.BACKEND_API_URL || 'http://localhost:3000/api'}`);
+      
+      try {
+        const backendResult = await backendAPI.createApp(params.name, appType);
+        databaseInfo = backendResult.database;
+        
+        if (!databaseInfo) {
+          throw new Error('Backend did not return database info');
+        }
+        
+        logger.log(`✅ [POSTGRES] Database provisioned successfully!`);
+        logger.log(`   Schema: ${databaseInfo.schemaName}`);
+        logger.log(`   Connection: ${databaseInfo.connectionString.substring(0, 60)}...`);
+        
+        // Store database info in local app record
+        db.$client
+          .prepare("UPDATE apps SET supabase_project_id = ? WHERE id = ?")
+          .run(JSON.stringify({
+            schemaName: databaseInfo.schemaName,
+            connectionString: databaseInfo.connectionString,
+            provisionedAt: new Date().toISOString(),
+          }), insertedId);
+        
+        logger.log(`💾 [POSTGRES] Database info stored in local app record`);
+        
+        // 🚀 AUTOMATIC TABLE CREATION: Detect app type and create appropriate tables
+        try {
+          logger.log(`🔍 [POSTGRES] Auto-detecting app type for: "${params.name}"`);
+          
+          const autoSetupUrl = `${process.env.BACKEND_API_URL || 'http://localhost:3000/api'}/apps/${backendResult.id}/auto-setup`;
+          const autoSetupResponse = await fetch(autoSetupUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (autoSetupResponse.ok) {
+            const setupResult = await autoSetupResponse.json();
+            if (setupResult.created) {
+              logger.log(`✅ [POSTGRES] Auto-created tables from template: ${setupResult.template}`);
+              logger.log(`   Tables: ${setupResult.tables.join(', ')}`);
+            } else {
+              logger.log(`ℹ️  [POSTGRES] No template detected - using base tables only`);
+              logger.log(`   App can use 'users', 'app_data' tables, or create custom tables via AI`);
+            }
+          } else {
+            const errorText = await autoSetupResponse.text();
+            logger.warn(`⚠️  [POSTGRES] Auto-setup returned error: ${errorText}`);
+          }
+        } catch (autoSetupError: any) {
+          // Don't fail app creation if table auto-setup fails
+          logger.warn(`⚠️  [POSTGRES] Auto-setup failed (non-critical):`, autoSetupError.message);
+          logger.log(`   App can still function with base tables. Tables can be created later.`);
+        }
+        
+        // 🚀 AUTO-DEPLOY: ALWAYS deploy backend to VPS (regardless of auto-setup success)
+        // This ensures the latest backend code (with auto-table creation) is always on VPS
+        // Deploy asynchronously so it doesn't block app creation, but log results
+        (async () => {
+          try {
+            logger.log(`🚀 [DEPLOY] Auto-deploying backend to VPS (ensuring latest code is deployed)...`);
+            const { deployBackendToVPS } = await import('./backend_deploy_handlers');
+            const deployResult = await deployBackendToVPS();
+            
+            if (deployResult.success) {
+              logger.log(`✅ [DEPLOY] Backend deployed successfully to VPS`);
+              logger.log(`   Latest features (auto-table creation, query support) are now live`);
+            } else {
+              logger.error(`❌ [DEPLOY] Backend deployment failed: ${deployResult.error}`);
+              logger.warn(`   App will still work, but may need manual backend deployment`);
+            }
+          } catch (deployError) {
+            logger.error(`❌ [DEPLOY] Auto-deployment error: ${deployError instanceof Error ? deployError.message : 'Unknown error'}`);
+            logger.warn(`   App will still work, but may need manual backend deployment`);
+          }
+        })();
+        
+      } catch (error: any) {
+        logger.error(`❌ [POSTGRES] CRITICAL: Failed to provision database for app ${insertedId}!`);
+        logger.error(`   Error: ${error.message}`);
+        logger.error(`   Stack: ${error.stack}`);
+        
+        // Check if backend is running
+        try {
+          const healthCheck = await backendAPI.healthCheck();
+          logger.log(`🏥 Backend health check: ${JSON.stringify(healthCheck)}`);
+        } catch (healthError: any) {
+          logger.error(`❌ Backend is NOT RUNNING! Start it with: cd backend && npm run dev`);
+        }
+        
+        throw new Error(`Database provisioning failed: ${error.message}. App creation aborted.`);
+      }
+
       const row = db.$client
         .prepare(
           "SELECT id, name, path, created_at as createdAt, app_type as appType, " +
@@ -983,6 +1082,33 @@ renderer/rendering_method="forward_plus"
           initialCommitHash: commitHash,
         })
         .where(eq(chats.id, chat.id));
+
+      // 🗄️ Inject DATABASE_URL into app's .env.local file if database was provisioned
+      if (databaseInfo) {
+        try {
+          const envPath = path.join(fullAppPath, '.env.local');
+          const envContent = `# Database connection (auto-generated by Applaa)
+DATABASE_URL=${databaseInfo.connectionString}
+POSTGRES_SCHEMA=${databaseInfo.schemaName}
+`;
+
+          if (fs.existsSync(envPath)) {
+            const existing = fs.readFileSync(envPath, 'utf-8');
+            if (!existing.includes('DATABASE_URL')) {
+              fs.appendFileSync(envPath, '\n' + envContent);
+              logger.log(`✅ Added DATABASE_URL to existing .env.local file`);
+            } else {
+              logger.log(`ℹ️ DATABASE_URL already exists in .env.local`);
+            }
+          } else {
+            fs.writeFileSync(envPath, envContent);
+            logger.log(`✅ Created .env.local file with DATABASE_URL`);
+          }
+        } catch (error: any) {
+          logger.warn(`⚠️ Failed to write .env.local file:`, error.message);
+          // Don't fail app creation if .env write fails
+        }
+      }
 
       return { app, chatId: chat.id };
     },
@@ -2387,12 +2513,12 @@ renderer/rendering_method="forward_plus"
         easDeploymentUrl: app.easDeploymentUrl,
         easProjectId: app.easProjectId,
         easBuildId: app.easBuildId,
-        localApkPath: app.localApkPath,
-        localAabPath: app.localAabPath,
-        localIpaPath: app.localIpaPath,
-        localApkBuiltAt: app.localApkBuiltAt ? Number(app.localApkBuiltAt) : null,
-        localAabBuiltAt: app.localAabBuiltAt ? Number(app.localAabBuiltAt) : null,
-        localIpaBuiltAt: app.localIpaBuiltAt ? Number(app.localIpaBuiltAt) : null,
+        localApkPath: (app && typeof app === 'object' && app.localApkPath) ? app.localApkPath : null,
+        localAabPath: (app && typeof app === 'object' && app.localAabPath) ? app.localAabPath : null,
+        localIpaPath: (app && typeof app === 'object' && app.localIpaPath) ? app.localIpaPath : null,
+        localApkBuiltAt: (app && typeof app === 'object' && app.localApkBuiltAt) ? Number(app.localApkBuiltAt) : null,
+        localAabBuiltAt: (app && typeof app === 'object' && app.localAabBuiltAt) ? Number(app.localAabBuiltAt) : null,
+        localIpaBuiltAt: (app && typeof app === 'object' && app.localIpaBuiltAt) ? Number(app.localIpaBuiltAt) : null,
         deploymentStatus: app.deploymentStatus,
         lastDeploymentAt: app.lastDeploymentAt ? Number(app.lastDeploymentAt) : null,
         deploymentNotes: app.deploymentNotes,

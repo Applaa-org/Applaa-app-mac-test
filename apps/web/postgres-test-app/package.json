@@ -1,0 +1,38 @@
+{
+  "name": "postgres-test-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"npm run server\"",
+    "server": "npm run migrate:silent && nodemon --exec ts-node server/index.ts",
+    "migrate": "ts-node server/migrate.ts",
+    "migrate:silent": "ts-node server/migrate.ts 2>/dev/null || true",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@types/express": "^4.17.21",
+    "@types/pg": "^8.10.9",
+    "@types/cors": "^2.8.17",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitejs/plugin-react": "^4.0.3",
+    "typescript": "^5.0.2",
+    "vite": "^4.4.5",
+    "ts-node": "^10.9.2",
+    "nodemon": "^3.0.2",
+    "concurrently": "^8.2.2"
+  }
+}
+

@@ -29,6 +29,7 @@ import {
   getDyadExecuteSqlTags,
 } from "../utils/dyad_tag_parser";
 import { storeDbTimestampAtCurrentVersion } from "../utils/neon_timestamp_utils";
+import { processAIResponseForSchema } from "../../lib/schema_parser";
 
 import { FileUploadsState } from "../utils/file_uploads_state";
 // CLEANED: Removed aggressive healing imports that corrupted template files
@@ -241,6 +242,29 @@ export async function processFullResponseActions(
         }
       }
       logger.log(`Executed ${dyadExecuteSqlQueries.length} SQL queries`);
+    }
+
+    // ✅ NEW: Handle <applaa-create-tables> tags automatically
+    if (chatWithApp?.app?.id) {
+      try {
+        logger.log(`[schema-parser] Checking for <applaa-create-tables> tags in response...`);
+        const schemaResult = await processAIResponseForSchema(
+          fullResponse,
+          chatWithApp.app.id,
+        );
+
+        if (schemaResult.success && schemaResult.tablesCreated.length > 0) {
+          logger.log(
+            `[schema-parser] ✅ Successfully created ${schemaResult.tablesCreated.length} table(s): ${schemaResult.tablesCreated.join(", ")}`,
+          );
+        } else if (schemaResult.error) {
+          logger.warn(`[schema-parser] ⚠️ Schema creation failed: ${schemaResult.error}`);
+          // Don't fail the whole response - just log the error
+        }
+      } catch (error) {
+        logger.error(`[schema-parser] Error processing schema tags:`, error);
+        // Don't fail the whole response - just log the error
+      }
     }
 
     // TODO: Handle add dependency tags

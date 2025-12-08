@@ -15,20 +15,19 @@ import log from 'electron-log';
  * @param appId - The ID of the app to sync
  * @param userDisplayName - The WordPress user display_name (required for syncing)
  */
-export async function syncAppByIdToSupabase(appId: number, userDisplayName: string): Promise<void> {
+export async function syncAppByIdToSupabase(appId: number, userDisplayName?: string): Promise<void> {
   try {
     if (!userDisplayName) {
-      const error = new Error('No WordPress user display_name provided. Please log in with WordPress.');
-      log.error(`❌ Cannot sync app ${appId} to Supabase:`, error.message);
-      throw error;
+      log.warn(`Skipping Supabase sync for app ${appId}: No WordPress user display_name provided`);
+      return; // Don't throw, just skip silently
     }
 
     const app = await db.query.apps.findFirst({ 
       where: eq(apps.id, appId) 
     });
 
-    if (!app) {
-      log.warn(`App ${appId} not found, cannot sync to Supabase`);
+    if (!app || typeof app !== 'object') {
+      log.warn(`App ${appId} not found or invalid, cannot sync to Supabase`);
       return;
     }
 
@@ -62,12 +61,12 @@ export async function syncAppByIdToSupabase(appId: number, userDisplayName: stri
         easDeploymentUrl: app.easDeploymentUrl,
         easProjectId: app.easProjectId,
         easBuildId: app.easBuildId,
-        localApkPath: app.localApkPath,
-        localAabPath: app.localAabPath,
-        localIpaPath: app.localIpaPath,
-        localApkBuiltAt: app.localApkBuiltAt ? Number(app.localApkBuiltAt) : null,
-        localAabBuiltAt: app.localAabBuiltAt ? Number(app.localAabBuiltAt) : null,
-        localIpaBuiltAt: app.localIpaBuiltAt ? Number(app.localIpaBuiltAt) : null,
+        localApkPath: (app && typeof app === 'object' && app.localApkPath) ? app.localApkPath : null,
+        localAabPath: (app && typeof app === 'object' && app.localAabPath) ? app.localAabPath : null,
+        localIpaPath: (app && typeof app === 'object' && app.localIpaPath) ? app.localIpaPath : null,
+        localApkBuiltAt: (app && typeof app === 'object' && app.localApkBuiltAt) ? Number(app.localApkBuiltAt) : null,
+        localAabBuiltAt: (app && typeof app === 'object' && app.localAabBuiltAt) ? Number(app.localAabBuiltAt) : null,
+        localIpaBuiltAt: (app && typeof app === 'object' && app.localIpaBuiltAt) ? Number(app.localIpaBuiltAt) : null,
         deploymentStatus: app.deploymentStatus,
         lastDeploymentAt: app.lastDeploymentAt ? Number(app.lastDeploymentAt) : null,
         deploymentNotes: app.deploymentNotes,

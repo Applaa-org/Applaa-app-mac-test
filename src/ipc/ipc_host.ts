@@ -76,6 +76,7 @@ import { registerPrerequisiteInstallerHandlers } from "./handlers/prerequisite_i
 import { registerGodotHandlers } from "./handlers/godot_handlers";
 import { registerGamesHandlers } from "./handlers/games_handlers";
 import { registerGameTemplatesHandlers } from "./handlers/game_templates_handlers";
+import { registerBackendDeployHandlers } from "./handlers/backend_deploy_handlers";
 
 
 export function registerIpcHandlers() {
@@ -188,6 +189,10 @@ export function registerIpcHandlers() {
   // 🎮 Game Templates Management
   console.log('🎮 Registering game templates handlers...');
   registerGameTemplatesHandlers();
+  
+  // 🚀 Backend Auto-Deployment
+  console.log('🚀 Registering backend deployment handlers...');
+  registerBackendDeployHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

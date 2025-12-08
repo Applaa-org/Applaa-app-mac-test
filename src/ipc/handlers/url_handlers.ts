@@ -67,7 +67,7 @@ export function registerURLHandlers() {
       // Sync app to Supabase (non-blocking)
       try {
         const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
-        await syncAppByIdToSupabase(appId);
+        await syncAppByIdToSupabase(appId); // userDisplayName is now optional
       } catch (error) {
         logger.warn('Failed to sync app to Supabase (non-critical):', error);
       }
@@ -84,21 +84,24 @@ export function registerURLHandlers() {
     try {
       logger.log(`📋 Getting deployment URLs for app ${appId}`);
       
-      const [app] = await db.select().from(apps).where(eq(apps.id, appId)).limit(1);
+      const appResult = await db.select().from(apps).where(eq(apps.id, appId)).limit(1);
+      const app = appResult?.[0];
       
-      if (!app) {
-        throw new Error("App not found");
+      if (!app || typeof app !== 'object') {
+        logger.warn(`App ${appId} not found or invalid`);
+        return { success: true, deployments: [] };
       }
       
       const deployments = [];
       
+      // Safely access all properties with optional chaining
       if (app.vercelDeploymentUrl) {
         deployments.push({
           type: 'vercel',
           name: 'Vercel Deployment',
           url: app.vercelDeploymentUrl,
-          projectId: app.vercelProjectId,
-          lastDeploymentAt: app.lastDeploymentAt
+          projectId: app.vercelProjectId || null,
+          lastDeploymentAt: app.lastDeploymentAt || null
         });
       }
       
@@ -107,8 +110,8 @@ export function registerURLHandlers() {
           type: 'github',
           name: 'GitHub Repository',
           url: app.githubRepoUrl,
-          projectId: app.githubRepo,
-          lastDeploymentAt: app.lastDeploymentAt
+          projectId: app.githubRepo || null,
+          lastDeploymentAt: app.lastDeploymentAt || null
         });
       }
       
@@ -117,9 +120,9 @@ export function registerURLHandlers() {
           type: 'eas-build',
           name: 'EAS Build',
           url: app.easBuildUrl,
-          projectId: app.easProjectId,
-          buildId: app.easBuildId,
-          lastDeploymentAt: app.lastDeploymentAt
+          projectId: app.easProjectId || null,
+          buildId: app.easBuildId || null,
+          lastDeploymentAt: app.lastDeploymentAt || null
         });
       }
       
@@ -128,36 +131,36 @@ export function registerURLHandlers() {
           type: 'eas-deployment',
           name: 'EAS Deployment',
           url: app.easDeploymentUrl,
-          projectId: app.easProjectId,
-          lastDeploymentAt: app.lastDeploymentAt
+          projectId: app.easProjectId || null,
+          lastDeploymentAt: app.lastDeploymentAt || null
         });
       }
       
-      // Local build files
-      if (app.localApkPath) {
+      // Local build files - safely check if properties exist
+      if (app && typeof app === 'object' && app.localApkPath && typeof app.localApkPath === 'string') {
         deployments.push({
           type: 'local-apk',
           name: 'Local APK Build',
           url: app.localApkPath,
-          lastDeploymentAt: app.localApkBuiltAt
+          lastDeploymentAt: (app.localApkBuiltAt ? new Date(app.localApkBuiltAt) : null) || null
         });
       }
       
-      if (app.localAabPath) {
+      if (app && typeof app === 'object' && app.localAabPath && typeof app.localAabPath === 'string') {
         deployments.push({
           type: 'local-aab',
           name: 'Local AAB Build',
           url: app.localAabPath,
-          lastDeploymentAt: app.localAabBuiltAt
+          lastDeploymentAt: (app.localAabBuiltAt ? new Date(app.localAabBuiltAt) : null) || null
         });
       }
       
-      if (app.localIpaPath) {
+      if (app && typeof app === 'object' && app.localIpaPath && typeof app.localIpaPath === 'string') {
         deployments.push({
           type: 'local-ipa',
           name: 'Local IPA Build',
           url: app.localIpaPath,
-          lastDeploymentAt: app.localIpaBuiltAt
+          lastDeploymentAt: (app.localIpaBuiltAt ? new Date(app.localIpaBuiltAt) : null) || null
         });
       }
       
