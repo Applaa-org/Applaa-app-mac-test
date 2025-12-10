@@ -82,6 +82,8 @@ if (!envLoaded) {
 console.log('🚀 App startup - Environment variables status:');
 console.log('SUPABASE_URL loaded:', !!process.env.SUPABASE_URL);
 console.log('SUPABASE_ANON_KEY loaded:', !!process.env.SUPABASE_ANON_KEY);
+console.log('BACKEND_API_URL loaded:', !!process.env.BACKEND_API_URL);
+console.log('BACKEND_API_URL value:', process.env.BACKEND_API_URL || 'NOT SET (will use default: http://localhost:3000/api)');
 console.log('SUPABASE_SERVICE_ROLE_KEY loaded:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 if (process.env.SUPABASE_URL) {
   console.log('SUPABASE_URL value:', process.env.SUPABASE_URL);

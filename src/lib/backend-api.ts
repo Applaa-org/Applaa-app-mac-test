@@ -12,9 +12,18 @@ interface BackendConfig {
 
 class BackendAPI {
   private config: BackendConfig = {
-    baseUrl: process.env.BACKEND_API_URL || 'http://localhost:3000/api',
+    // Default to production backend if env var not set
+    baseUrl: process.env.BACKEND_API_URL || 'https://haix.ai/api',
     authToken: null,
   };
+  
+  constructor() {
+    // Log the configured URL on initialization
+    console.log(`[BackendAPI] Initialized with baseUrl: ${this.config.baseUrl}`);
+    if (!process.env.BACKEND_API_URL) {
+      console.warn(`[BackendAPI] WARNING: BACKEND_API_URL not set, using default: ${this.config.baseUrl}`);
+    }
+  }
 
   setAuthToken(token: string) {
     this.config.authToken = token;
@@ -60,10 +69,14 @@ class BackendAPI {
    * Create a new app with automatic database provisioning
    */
   async createApp(name: string, appType: 'web' | 'mobile' | 'godot' = 'web') {
-    return this.request('/apps', {
+    console.log(`[BackendAPI] Creating app: ${name}, type: ${appType}`);
+    console.log(`[BackendAPI] Using baseUrl: ${this.config.baseUrl}`);
+    const result = await this.request('/apps', {
       method: 'POST',
       body: JSON.stringify({ name, appType }),
     });
+    console.log(`[BackendAPI] App creation result:`, JSON.stringify(result, null, 2));
+    return result;
   }
 
   /**
@@ -94,6 +107,42 @@ class BackendAPI {
       method: 'POST',
       body: JSON.stringify({ sql }),
     });
+  }
+
+  /**
+   * Get database credentials for an app (for external access)
+   */
+  async getAppCredentials(appId: number) {
+    return this.request(`/apps/${appId}/credentials`);
+  }
+
+  /**
+   * Export database as SQL dump
+   * Returns a Blob that can be downloaded
+   */
+  async exportAppDatabase(appId: number): Promise<Blob> {
+    const url = `${this.config.baseUrl}/apps/${appId}/export`;
+    const headers: HeadersInit = {};
+
+    if (this.config.authToken) {
+      headers['Authorization'] = `Bearer ${this.config.authToken}`;
+    }
+
+    console.log(`[BackendAPI] Exporting database for app ${appId}`);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    console.log(`[BackendAPI] Export successful, size: ${blob.size} bytes`);
+    return blob;
   }
 
   /**

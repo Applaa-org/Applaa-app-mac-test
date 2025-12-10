@@ -95,10 +95,6 @@ export async function provisionDedicatedDatabase(
   const shouldReleaseClient = !providedClient;
 
   try {
-    if (!providedClient) {
-      await client.query("BEGIN");
-    }
-
     // Generate unique database and user names
     const sanitizedName = sanitizeDatabaseName(appName);
     const databaseName = `applaa_u${userId}_app${appId}_${sanitizedName}`.substring(0, 63);
@@ -124,8 +120,30 @@ export async function provisionDedicatedDatabase(
     );
     console.log(`[DB] ✅ Privileges granted`);
 
-    // Connect to the new database to set up base schema
+    // Load pg Pool once for downstream connections
     const { Pool: PgPool } = await import("pg");
+
+    // Connect to the new database as admin to fix public schema ownership/privileges
+    const adminPool = new PgPool({
+      host: process.env.POSTGRES_HOST || "localhost",
+      port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
+      database: databaseName,
+      user: process.env.POSTGRES_USER || "applaa_user",
+      password: process.env.POSTGRES_PASSWORD || "applaa_dev_password",
+      max: 2,
+    });
+    const adminClient = await adminPool.connect();
+    try {
+      await adminClient.query(`GRANT ALL ON SCHEMA public TO ${dbUser}`);
+      await adminClient.query(`GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ${dbUser}`);
+      await adminClient.query(`GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ${dbUser}`);
+      console.log(`[DB] ✅ Granted public schema privileges to ${dbUser} in ${databaseName}`);
+    } finally {
+      adminClient.release();
+      await adminPool.end();
+    }
+
+    // Connect to the new database to set up base schema
     const newDbPool = new PgPool({
       host: process.env.POSTGRES_HOST || "localhost",
       port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
@@ -159,26 +177,24 @@ export async function provisionDedicatedDatabase(
     await client.query(
       `INSERT INTO core.app_databases (
         app_id, 
+        schema_name,
         database_name, 
         db_user, 
         db_password, 
         connection_string, 
         can_connect_externally, 
         created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       ON CONFLICT (app_id) DO UPDATE
-      SET database_name = EXCLUDED.database_name,
+      SET schema_name = EXCLUDED.schema_name,
+          database_name = EXCLUDED.database_name,
           db_user = EXCLUDED.db_user,
           db_password = EXCLUDED.db_password,
           connection_string = EXCLUDED.connection_string,
           can_connect_externally = EXCLUDED.can_connect_externally,
           updated_at = NOW()`,
-      [appId, databaseName, dbUser, dbPassword, connectionString, true],
+      [appId, databaseName, databaseName, dbUser, dbPassword, connectionString, true],
     );
-
-    if (!providedClient) {
-      await client.query("COMMIT");
-    }
 
     console.log(`[DB] ✅ Dedicated database provisioned successfully`);
 
@@ -193,9 +209,6 @@ export async function provisionDedicatedDatabase(
       appId,
     };
   } catch (err) {
-    if (!providedClient) {
-      await client.query("ROLLBACK");
-    }
     console.error(`[DB] ❌ Failed to provision dedicated database:`, err);
     throw err;
   } finally {

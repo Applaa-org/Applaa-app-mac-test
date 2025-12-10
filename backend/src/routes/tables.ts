@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
 import { pool } from "../db/pool";
+import { getAppDatabaseInfo } from "../services/database-provisioning";
 
 export const tablesRouter = Router();
 
@@ -165,32 +166,60 @@ async function tableExists(schemaName: string, tableName: string): Promise<boole
 }
 
 /**
- * Generic helper to get app's schema from appId
+ * Generic helper to get app's database info (supports both dedicated DBs and schemas)
  */
-async function getAppSchema(appId: number): Promise<string | null> {
+async function getAppDatabaseContext(appId: number | null): Promise<{
+  schemaName: string;
+  databaseName?: string;
+  connectionPool?: any;
+} | null> {
   try {
+    if (appId) {
+      const dbInfo = await getAppDatabaseInfo(appId);
+      if (!dbInfo) return null;
+      
+      // Dedicated database: connect directly to the database, use 'public' schema
+      if (dbInfo.databaseName) {
+        const { Pool } = await import("pg");
+        const dedicatedPool = new Pool({
+          host: dbInfo.host || process.env.POSTGRES_HOST || "localhost",
+          port: dbInfo.port || parseInt(process.env.POSTGRES_PORT || "5432", 10),
+          database: dbInfo.databaseName,
+          user: dbInfo.dbUser,
+          password: dbInfo.dbPassword,
+          max: 5,
+        });
+        return {
+          schemaName: "public", // Dedicated DBs use public schema
+          databaseName: dbInfo.databaseName,
+          connectionPool: dedicatedPool,
+        };
+      }
+      
+      // Schema-based: use the schema name with main pool
+      if (dbInfo.schemaName) {
+        return {
+          schemaName: dbInfo.schemaName,
+        };
+      }
+    }
+    
+    // Fallback: get most recent schema (backward compatibility)
     const result = await pool.query(
-      "SELECT schema_name FROM core.app_databases WHERE app_id = $1",
-      [appId],
+      "SELECT schema_name, database_name FROM core.app_databases ORDER BY created_at DESC LIMIT 1",
     );
-    return result.rows.length > 0 ? result.rows[0].schema_name : null;
-  } catch (err) {
-    console.error("[tables] Error getting app schema:", err);
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      if (row.database_name) {
+        // This is a dedicated DB - would need to fetch full info, but for now return schema
+        return { schemaName: "public" };
+      }
+      return { schemaName: row.schema_name };
+    }
+    
     return null;
-  }
-}
-
-/**
- * Generic helper to get the most recent app's schema (for backward compatibility)
- */
-async function getDefaultSchema(): Promise<string | null> {
-  try {
-    const result = await pool.query(
-      "SELECT schema_name FROM core.app_databases ORDER BY created_at DESC LIMIT 1",
-    );
-    return result.rows.length > 0 ? result.rows[0].schema_name : null;
   } catch (err) {
-    console.error("[tables] Error getting default schema:", err);
+    console.error("[tables] Error getting app database context:", err);
     return null;
   }
 }
@@ -209,17 +238,15 @@ tablesRouter.get("/:tableName", async (req: Request, res: Response) => {
     const { tableName } = req.params;
     const appId = req.query.appId ? parseInt(req.query.appId as string, 10) : null;
 
-    let schemaName: string | null;
-    if (appId) {
-      schemaName = await getAppSchema(appId);
-    } else {
-      schemaName = await getDefaultSchema();
-    }
-
-    if (!schemaName) {
+    const dbContext = await getAppDatabaseContext(appId);
+    
+    if (!dbContext) {
       res.status(404).json({ error: "No app database found" });
       return;
     }
+    
+    const { schemaName, connectionPool } = dbContext;
+    const queryPool = connectionPool || pool;
 
     // Sanitize table name to prevent SQL injection
     if (!/^[a-z][a-z0-9_]*$/.test(tableName)) {
@@ -239,10 +266,11 @@ tablesRouter.get("/:tableName", async (req: Request, res: Response) => {
     const { whereClause, params } = parseQueryFilters(req.query);
     const orderClause = parseOrder(req.query);
 
-    // Build query
-    const query = `SELECT * FROM ${schemaName}.${tableName} ${whereClause} ${orderClause}`;
+    // Build query (for dedicated DBs with public schema, don't prefix schema)
+    const schemaPrefix = schemaName === "public" && dbContext.databaseName ? "" : `${schemaName}.`;
+    const query = `SELECT * FROM ${schemaPrefix}${tableName} ${whereClause} ${orderClause}`;
     
-    const result = await pool.query(query, params);
+    const result = await queryPool.query(query, params);
     res.json(result.rows);
   } catch (err: any) {
     console.error(`[tables] Error fetching ${req.params.tableName}:`, err);
@@ -257,7 +285,7 @@ tablesRouter.get("/:tableName", async (req: Request, res: Response) => {
  * Auto-create table if it doesn't exist (simple structure)
  * Creates a basic table with id, created_at, updated_at and columns from first insert
  */
-async function ensureTableExists(schemaName: string, tableName: string, sampleData: any): Promise<void> {
+async function ensureTableExists(schemaName: string, tableName: string, sampleData: any, queryPool: any = pool): Promise<void> {
   const exists = await tableExists(schemaName, tableName);
   if (exists) {
     return;
@@ -295,9 +323,10 @@ async function ensureTableExists(schemaName: string, tableName: string, sampleDa
     columns.push('updated_at TIMESTAMP DEFAULT NOW()');
   }
 
-  const createTableSQL = `CREATE TABLE IF NOT EXISTS ${schemaName}.${tableName} (${columns.join(', ')})`;
+  const schemaPrefix = schemaName === "public" ? "" : `${schemaName}.`;
+  const createTableSQL = `CREATE TABLE IF NOT EXISTS ${schemaPrefix}${tableName} (${columns.join(', ')})`;
   
-  await pool.query(createTableSQL);
+  await queryPool.query(createTableSQL);
   console.log(`[tables] ✅ Auto-created table ${schemaName}.${tableName}`);
 }
 
@@ -311,17 +340,15 @@ tablesRouter.post("/:tableName", async (req: Request, res: Response) => {
     const appId = req.query.appId ? parseInt(req.query.appId as string, 10) : null;
     const data = req.body;
 
-    let schemaName: string | null;
-    if (appId) {
-      schemaName = await getAppSchema(appId);
-    } else {
-      schemaName = await getDefaultSchema();
-    }
-
-    if (!schemaName) {
+    const dbContext = await getAppDatabaseContext(appId);
+    
+    if (!dbContext) {
       res.status(404).json({ error: "No app database found" });
       return;
     }
+    
+    const { schemaName, connectionPool } = dbContext;
+    const queryPool = connectionPool || pool;
 
     // Sanitize table name
     if (!/^[a-z][a-z0-9_]*$/.test(tableName)) {
@@ -330,16 +357,17 @@ tablesRouter.post("/:tableName", async (req: Request, res: Response) => {
     }
 
     // Auto-create table if it doesn't exist
-    await ensureTableExists(schemaName, tableName, data);
+    await ensureTableExists(schemaName, tableName, data, queryPool);
 
     // Build dynamic INSERT query
     const columns = Object.keys(data);
     const values = Object.values(data);
     const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
 
-    const query = `INSERT INTO ${schemaName}.${tableName} (${columns.join(", ")}) VALUES (${placeholders}) RETURNING *`;
+    const schemaPrefix = schemaName === "public" && dbContext.databaseName ? "" : `${schemaName}.`;
+    const query = `INSERT INTO ${schemaPrefix}${tableName} (${columns.join(", ")}) VALUES (${placeholders}) RETURNING *`;
 
-    const result = await pool.query(query, values);
+    const result = await queryPool.query(query, values);
     res.status(201).json(result.rows[0]);
   } catch (err: any) {
     console.error(`[tables] Error creating ${req.params.tableName}:`, err);
@@ -359,17 +387,15 @@ tablesRouter.put("/:tableName/:id", async (req: Request, res: Response) => {
     const appId = req.query.appId ? parseInt(req.query.appId as string, 10) : null;
     const updates = req.body;
 
-    let schemaName: string | null;
-    if (appId) {
-      schemaName = await getAppSchema(appId);
-    } else {
-      schemaName = await getDefaultSchema();
-    }
-
-    if (!schemaName) {
+    const dbContext = await getAppDatabaseContext(appId);
+    
+    if (!dbContext) {
       res.status(404).json({ error: "No app database found" });
       return;
     }
+    
+    const { schemaName, connectionPool } = dbContext;
+    const queryPool = connectionPool || pool;
 
     // Sanitize table name
     if (!/^[a-z][a-z0-9_]*$/.test(tableName)) {
@@ -382,7 +408,8 @@ tablesRouter.put("/:tableName/:id", async (req: Request, res: Response) => {
     const values = Object.values(updates);
     const setClause = columns.map((col, i) => `${col} = $${i + 1}`).join(", ");
 
-    const query = `UPDATE ${schemaName}.${tableName} SET ${setClause} WHERE id = $${columns.length + 1} RETURNING *`;
+    const schemaPrefix = schemaName === "public" && dbContext.databaseName ? "" : `${schemaName}.`;
+    const query = `UPDATE ${schemaPrefix}${tableName} SET ${setClause} WHERE id = $${columns.length + 1} RETURNING *`;
 
     const result = await pool.query(query, [...values, id]);
 
@@ -409,17 +436,15 @@ tablesRouter.delete("/:tableName/:id", async (req: Request, res: Response) => {
     const { tableName, id } = req.params;
     const appId = req.query.appId ? parseInt(req.query.appId as string, 10) : null;
 
-    let schemaName: string | null;
-    if (appId) {
-      schemaName = await getAppSchema(appId);
-    } else {
-      schemaName = await getDefaultSchema();
-    }
-
-    if (!schemaName) {
+    const dbContext = await getAppDatabaseContext(appId);
+    
+    if (!dbContext) {
       res.status(404).json({ error: "No app database found" });
       return;
     }
+    
+    const { schemaName, connectionPool } = dbContext;
+    const queryPool = connectionPool || pool;
 
     // Sanitize table name
     if (!/^[a-z][a-z0-9_]*$/.test(tableName)) {
@@ -427,7 +452,8 @@ tablesRouter.delete("/:tableName/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    const query = `DELETE FROM ${schemaName}.${tableName} WHERE id = $1 RETURNING *`;
+    const schemaPrefix = schemaName === "public" && dbContext.databaseName ? "" : `${schemaName}.`;
+    const query = `DELETE FROM ${schemaPrefix}${tableName} WHERE id = $1 RETURNING *`;
     const result = await pool.query(query, [id]);
 
     if (result.rows.length === 0) {

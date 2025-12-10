@@ -884,25 +884,33 @@ export function registerAppHandlers() {
       
       logger.log(`📦 [POSTGRES] Provisioning database for app ${insertedId}: ${params.name}`);
       logger.log(`🔗 [POSTGRES] Backend API URL: ${process.env.BACKEND_API_URL || 'http://localhost:3000/api'}`);
+      logger.log(`🔗 [POSTGRES] process.env.BACKEND_API_URL value: ${process.env.BACKEND_API_URL}`);
       
       try {
         const backendResult = await backendAPI.createApp(params.name, appType);
+        logger.log(`📦 [POSTGRES] Backend response received:`, JSON.stringify(backendResult, null, 2));
+        
         databaseInfo = backendResult.database;
         
         if (!databaseInfo) {
+          logger.error(`❌ [POSTGRES] Backend response missing database field:`, backendResult);
           throw new Error('Backend did not return database info');
         }
         
         logger.log(`✅ [POSTGRES] Database provisioned successfully!`);
-        logger.log(`   Schema: ${databaseInfo.schemaName}`);
+        // Handle both dedicated databases (databaseName) and schema-based (schemaName)
+        const dbIdentifier = databaseInfo.databaseName || databaseInfo.schemaName;
+        logger.log(`   Database/Schema: ${dbIdentifier}`);
         logger.log(`   Connection: ${databaseInfo.connectionString.substring(0, 60)}...`);
         
         // Store database info in local app record
         db.$client
           .prepare("UPDATE apps SET supabase_project_id = ? WHERE id = ?")
           .run(JSON.stringify({
-            schemaName: databaseInfo.schemaName,
+            schemaName: databaseInfo.schemaName || databaseInfo.databaseName, // Support both modes
+            databaseName: databaseInfo.databaseName, // For dedicated databases
             connectionString: databaseInfo.connectionString,
+            mode: databaseInfo.mode || (databaseInfo.databaseName ? 'dedicated' : 'schema'),
             provisionedAt: new Date().toISOString(),
           }), insertedId);
         

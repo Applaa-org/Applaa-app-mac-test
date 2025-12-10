@@ -32,6 +32,8 @@ appsRouter.post(
   "/apps",
   async (req: Request<unknown, unknown, CreateAppBody>, res: Response) => {
     const { name, appType, dedicatedDatabase, userId } = req.body;
+    // Default to dedicated databases for all new apps unless explicitly disabled
+    const useDedicated = dedicatedDatabase !== false;
 
     if (!name || typeof name !== "string") {
       res.status(400).json({ error: "name is required" });
@@ -41,7 +43,12 @@ appsRouter.post(
     const client = await pool.connect();
 
     try {
-      await client.query("BEGIN");
+      // For dedicated DB provisioning, avoid wrapping CREATE DATABASE in a transaction
+      const wrapInTx = !useDedicated;
+
+      if (wrapInTx) {
+        await client.query("BEGIN");
+      }
 
       const appResult = await client.query(
         `INSERT INTO core.apps (name, app_type, created_at)
@@ -55,14 +62,14 @@ appsRouter.post(
       // Choose provisioning method based on request
       let databaseResponse: any;
 
-      if (dedicatedDatabase) {
+      if (useDedicated) {
         // Provision dedicated database
         console.log(`[apps] Provisioning DEDICATED database for app ${appId}`);
         const dedicatedDb = await provisionDedicatedDatabase(
           appId,
           name,
           userId || 1, // Default to user 1 if not provided
-          client,
+          undefined, // use a fresh client without a transaction
         );
 
         databaseResponse = {
@@ -93,7 +100,9 @@ appsRouter.post(
         };
       }
 
-      await client.query("COMMIT");
+      if (wrapInTx) {
+        await client.query("COMMIT");
+      }
 
       // Auto-create tables based on app name/type
       let tablesInfo = null;

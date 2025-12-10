@@ -108,6 +108,8 @@ const validInvokeChannels = [
   "supabase:is-authenticated",
   "supabase:save-credentials",
   "supabase:check-configuration",
+  "database:get-credentials",
+  "database:export",
   "supabase:sign-in-with-google",
   "supabase:set-session",
   "wordpress:check-configuration",
