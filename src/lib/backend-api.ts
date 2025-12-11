@@ -67,13 +67,19 @@ class BackendAPI {
 
   /**
    * Create a new app with automatic database provisioning
+   * By default, creates a dedicated database (dedicatedDatabase: true)
    */
-  async createApp(name: string, appType: 'web' | 'mobile' | 'godot' = 'web') {
-    console.log(`[BackendAPI] Creating app: ${name}, type: ${appType}`);
+  async createApp(name: string, appType: 'web' | 'mobile' | 'godot' = 'web', dedicatedDatabase: boolean = true) {
+    console.log(`[BackendAPI] Creating app: ${name}, type: ${appType}, dedicatedDatabase: ${dedicatedDatabase}`);
     console.log(`[BackendAPI] Using baseUrl: ${this.config.baseUrl}`);
     const result = await this.request('/apps', {
       method: 'POST',
-      body: JSON.stringify({ name, appType }),
+      body: JSON.stringify({ 
+        name, 
+        appType,
+        dedicatedDatabase, // Explicitly set to true for dedicated databases
+        userId: 1, // Default user ID
+      }),
     });
     console.log(`[BackendAPI] App creation result:`, JSON.stringify(result, null, 2));
     return result;

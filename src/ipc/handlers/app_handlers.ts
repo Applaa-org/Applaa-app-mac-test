@@ -882,19 +882,37 @@ export function registerAppHandlers() {
       // This is MANDATORY - every app MUST have a Postgres database
       let databaseInfo: { schemaName: string; connectionString: string } | null = null;
       
-      logger.log(`📦 [POSTGRES] Provisioning database for app ${insertedId}: ${params.name}`);
-      logger.log(`🔗 [POSTGRES] Backend API URL: ${process.env.BACKEND_API_URL || 'http://localhost:3000/api'}`);
-      logger.log(`🔗 [POSTGRES] process.env.BACKEND_API_URL value: ${process.env.BACKEND_API_URL}`);
+      const backendUrl = process.env.BACKEND_API_URL || 'https://haix.ai/api';
+      logger.log(`📦 [POSTGRES] Starting database provisioning for app ${insertedId}: ${params.name}`);
+      logger.log(`🔗 [POSTGRES] Backend API URL: ${backendUrl}`);
+      logger.log(`🔗 [POSTGRES] process.env.BACKEND_API_URL: ${process.env.BACKEND_API_URL || 'NOT SET (using default)'}`);
       
       try {
-        const backendResult = await backendAPI.createApp(params.name, appType);
+        // CRITICAL: Explicitly request dedicated database (dedicatedDatabase: true)
+        const backendResult = await backendAPI.createApp(params.name, appType, true);
         logger.log(`📦 [POSTGRES] Backend response received:`, JSON.stringify(backendResult, null, 2));
+        
+        // Validate response structure
+        if (!backendResult) {
+          throw new Error('Backend returned empty response');
+        }
+        
+        if (!backendResult.database) {
+          logger.error(`❌ [POSTGRES] Backend response missing database field`);
+          logger.error(`   Full response: ${JSON.stringify(backendResult, null, 2)}`);
+          throw new Error('Backend did not return database info');
+        }
         
         databaseInfo = backendResult.database;
         
-        if (!databaseInfo) {
-          logger.error(`❌ [POSTGRES] Backend response missing database field:`, backendResult);
-          throw new Error('Backend did not return database info');
+        // Validate required fields
+        if (!databaseInfo.connectionString) {
+          throw new Error('Backend returned database info but missing connectionString');
+        }
+        
+        // Validate that we got either databaseName (dedicated) or schemaName (legacy)
+        if (!databaseInfo.databaseName && !databaseInfo.schemaName) {
+          throw new Error('Backend returned database info but missing both databaseName and schemaName');
         }
         
         logger.log(`✅ [POSTGRES] Database provisioned successfully!`);
@@ -920,7 +938,8 @@ export function registerAppHandlers() {
         try {
           logger.log(`🔍 [POSTGRES] Auto-detecting app type for: "${params.name}"`);
           
-          const autoSetupUrl = `${process.env.BACKEND_API_URL || 'http://localhost:3000/api'}/apps/${backendResult.id}/auto-setup`;
+          const autoSetupUrl = `${backendUrl}/apps/${backendResult.id}/auto-setup`;
+          logger.log(`🔗 [POSTGRES] Calling auto-setup: ${autoSetupUrl}`);
           const autoSetupResponse = await fetch(autoSetupUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -971,16 +990,41 @@ export function registerAppHandlers() {
         logger.error(`❌ [POSTGRES] CRITICAL: Failed to provision database for app ${insertedId}!`);
         logger.error(`   Error: ${error.message}`);
         logger.error(`   Stack: ${error.stack}`);
+        logger.error(`   Backend URL used: ${backendUrl}`);
         
-        // Check if backend is running
+        // Check backend health
         try {
           const healthCheck = await backendAPI.healthCheck();
           logger.log(`🏥 Backend health check: ${JSON.stringify(healthCheck)}`);
         } catch (healthError: any) {
-          logger.error(`❌ Backend is NOT RUNNING! Start it with: cd backend && npm run dev`);
+          logger.error(`❌ Backend is NOT ACCESSIBLE!`);
+          logger.error(`   URL: ${backendUrl}`);
+          logger.error(`   Error: ${healthError.message}`);
         }
         
-        throw new Error(`Database provisioning failed: ${error.message}. App creation aborted.`);
+        // CRITICAL: Rollback app creation - delete from local DB since provisioning failed
+        try {
+          logger.log(`🗑️  [POSTGRES] Rolling back app ${insertedId} from local database...`);
+          db.$client.prepare("DELETE FROM apps WHERE id = ?").run(insertedId);
+          
+          // Also try to delete the app directory if it was created
+          try {
+            if (fullAppPath && fs.existsSync(fullAppPath)) {
+              logger.log(`🗑️  [POSTGRES] Removing app directory: ${fullAppPath}`);
+              fs.rmSync(fullAppPath, { recursive: true, force: true });
+            }
+          } catch (dirError: any) {
+            logger.warn(`⚠️  [POSTGRES] Could not remove app directory: ${dirError.message}`);
+          }
+          
+          logger.log(`✅ [POSTGRES] Rollback complete - app ${insertedId} removed`);
+        } catch (rollbackError: any) {
+          logger.error(`❌ [POSTGRES] Failed to rollback app ${insertedId}:`, rollbackError);
+          logger.error(`   Manual cleanup may be required for app ID: ${insertedId}`);
+        }
+        
+        // ABORT app creation - this error will propagate to frontend
+        throw new Error(`Database provisioning failed: ${error.message}. App creation aborted and rolled back.`);
       }
 
       const row = db.$client
