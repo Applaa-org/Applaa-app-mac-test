@@ -2,7 +2,9 @@
  * Get the backend base URL from environment variable
  */
 function getBackendBaseUrl(): string {
-  const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:3000/api';
+  // Prefer env; fall back to production API instead of localhost to avoid
+  // generating prompts that point to a non-running local backend.
+  const apiUrl = process.env.BACKEND_API_URL || 'https://haix.ai/api';
   // Remove /api suffix if present, we'll add it back in the prompt
   return apiUrl.replace('/api', '');
 }
@@ -41,7 +43,7 @@ export function getPostgresAvailablePrompt(): string {
 - **Frontend calls API routes, API routes access Postgres**
 - **DO NOT install pg in frontend - install it only for API routes**
 
-## 🗄️ **Postgres Database Available**
+## 🗄️ **Postgres Database Available (Provisioned by Main Backend)**
 
 This app has a Postgres database automatically provisioned. The connection string is available in the \`.env.local\` file as \`DATABASE_URL\`.
 
@@ -72,7 +74,9 @@ This app has a Postgres database automatically provisioned. The connection strin
 - **Just create frontend code** that calls the main backend API
 - **The backend automatically handles** database operations for all apps
 
-**IMPORTANT**: When the user asks for any database feature (todos, posts, etc.), IMMEDIATELY create the frontend integration WITHOUT asking. Do these steps AUTOMATICALLY:
+**IMPORTANT**:
+- The backend provisions the database automatically when the app is created. Do NOT try to create databases or schemas from the frontend.
+- When the user asks for any database feature (todos, posts, etc.), IMMEDIATELY create the frontend integration WITHOUT asking. Do these steps AUTOMATICALLY:
 
 #### **Step 1: Install Dependencies (ONLY if needed)**
 
@@ -88,7 +92,7 @@ If you need type definitions:
 **🚀 AUTOMATIC ENDPOINT GENERATION:**
 The backend **automatically creates CRUD endpoints** for ANY table you create!
 
-**Endpoint Pattern:**
+**Endpoint Pattern (handled by backend automatically):**
 - \`GET ${apiUrl}/{tableName}\` - Get all rows
 - \`POST ${apiUrl}/{tableName}\` - Create a row
 - \`PUT ${apiUrl}/{tableName}/:id\` - Update a row
