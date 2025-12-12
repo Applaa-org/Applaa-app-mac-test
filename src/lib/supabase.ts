@@ -518,6 +518,19 @@ export class SupabaseAuth {
     }
   }
 
+  // Exchange OAuth code for session
+  async exchangeCodeForSession(code: string) {
+    try {
+      const { data, error } = await this.client.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+      log.info('OAuth code exchanged successfully');
+      return data;
+    } catch (error) {
+      log.error('Exchange code for session error:', error);
+      throw error;
+    }
+  }
+
   // Set session from OAuth callback
   async setSession(params: { accessToken: string; refreshToken: string; expiresIn: number }) {
     try {

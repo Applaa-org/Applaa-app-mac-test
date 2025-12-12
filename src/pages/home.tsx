@@ -31,11 +31,11 @@ import { ExternalLink } from "lucide-react";
 import { useAppCreationStatus } from "@/hooks/useAppCreationStatus";
 
 import { showError } from "@/lib/toast";
-import { useApplaaPro } from "@/hooks/useApplaaPro";
-import { ProFeatureGate } from "@/components/ProFeatureGate";
 import { invalidateAppQuery } from "@/hooks/useLoadApp";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppNamingDialog } from "@/components/AppNamingDialog";
+import { CombinedAuthDialog } from "@/components/auth/CombinedAuthDialog";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 
 import type { FileAttachment } from "@/ipc/ipc_types";
 import { NEON_TEMPLATE_IDS } from "@/shared/templates";
@@ -53,7 +53,6 @@ export default function HomePage() {
   const setSelectedAppId = useSetAtom(selectedAppIdAtom);
   const { refreshApps } = useLoadApps();
   const { settings, updateSettings } = useSettings();
-  const { isPro, canCreateMoreApps, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const setIsPreviewOpen = useSetAtom(isPreviewOpenAtom);
   const setPreviewMode = useSetAtom(previewModeAtom);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,6 +68,9 @@ export default function HomePage() {
   const [releaseUrl, setReleaseUrl] = useState("");
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+  const { isAuthenticated: isSupabaseAuthenticated } = useSupabaseAuth();
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [forceAuthDialog, setForceAuthDialog] = useState(false);
   useEffect(() => {
     const updateLastVersionLaunched = async () => {
       if (
@@ -138,16 +140,34 @@ export default function HomePage() {
     }
   }, [appId, navigate]);
 
+  // Close auth dialog automatically after successful sign-in
+  useEffect(() => {
+    if (isSupabaseAuthenticated && showAuthDialog) {
+      setForceAuthDialog(false);
+      setShowAuthDialog(false);
+    }
+  }, [isSupabaseAuthenticated, showAuthDialog]);
+
+  const handleAuthDialogOpenChange = (open: boolean) => {
+    if (forceAuthDialog && !open) {
+      // Prevent closing when authentication is required
+      setShowAuthDialog(true);
+      return;
+    }
+    setShowAuthDialog(open);
+    if (!open) {
+      setForceAuthDialog(false);
+    }
+  };
+
   const handleSubmit = async (options?: HomeSubmitOptions) => {
     const attachments = options?.attachments || [];
 
     if (!inputValue.trim() && attachments.length === 0) return;
 
-    // Check if user can create more apps
-    if (!canCreateMoreApps) {
-      showError(`You've reached the free limit of 5 apps. Upgrade to Applaa Pro for unlimited apps.`);
-      return;
-    }
+    // Clear any previous blocking auth state
+    setForceAuthDialog(false);
+    setShowAuthDialog(false);
 
     // Show naming dialog first
     setPendingPrompt(inputValue);
@@ -261,10 +281,32 @@ export default function HomePage() {
     } catch (error) {
       console.error("Failed to create chat:", error);
       
-      // 🚨 FIX: Handle duplicate app name with user-friendly suggestion
-      const errorMessage = (error as any).message || error?.toString();
-      if (errorMessage?.startsWith('DUPLICATE_APP_NAME:')) {
-        const [, originalName, suggestedName] = errorMessage.split(':');
+      // Extract error message from various possible formats
+      let errorMessage = '';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object') {
+        errorMessage = (error as any).message || (error as any).toString() || '';
+      }
+      
+      const errorString = String(errorMessage);
+      console.log('[Home] Error string:', errorString);
+      
+      // Check for auth limit error (may be nested in IPC error messages)
+      if (errorString.includes("AUTH_REQUIRED_APP_LIMIT")) {
+        console.log('[Home] Auth limit detected, showing sign-in dialog');
+        // Require sign-in; open non-dismissable auth dialog and stop further error surfacing
+        setIsLoading(false);
+        setForceAuthDialog(true);
+        setShowAuthDialog(true);
+        // Don't show error toast for auth limit
+        return;
+      }
+      
+      if (errorString.startsWith('DUPLICATE_APP_NAME:')) {
+        const [, originalName, suggestedName] = errorString.split(':');
         showError(
           `An app named "${originalName}" already exists. ` +
           `Try "${suggestedName}" instead, or choose a different name.`,
@@ -279,7 +321,10 @@ export default function HomePage() {
           }
         );
       } else {
-        showError("Failed to create app. " + errorMessage);
+        // Only show error if it's not an auth limit error
+        if (!errorString.includes("AUTH_REQUIRED_APP_LIMIT")) {
+          showError("Failed to create app. " + errorString);
+        }
       }
       
       setIsLoading(false); // Ensure loading state is reset on error
@@ -290,6 +335,12 @@ export default function HomePage() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center max-w-3xl m-auto p-8">
+        <CombinedAuthDialog
+          open={showAuthDialog}
+          onOpenChange={handleAuthDialogOpenChange}
+          defaultTab="supabase"
+          forceOpen={forceAuthDialog}
+        />
         <div className="w-full flex flex-col items-center">
           {/* Loading Spinner */}
           <div className="relative w-24 h-24 mb-8">
@@ -334,6 +385,11 @@ export default function HomePage() {
   // Main Home Page Content
   return (
     <div className="flex flex-col items-center justify-center max-w-7xl m-auto p-8">
+      <CombinedAuthDialog
+        open={showAuthDialog}
+        onOpenChange={handleAuthDialogOpenChange}
+        defaultTab="supabase"
+      />
       <SetupBanner />
 
       {/* SIMPLE INTERFACE - MVP VERSION */}

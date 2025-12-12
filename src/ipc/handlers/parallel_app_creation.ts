@@ -2,7 +2,6 @@ import { ipcMain } from "electron";
 import { db } from "../../db";
 import { apps, chats } from "../../db/schema";
 import { eq } from "drizzle-orm";
-import { readSettings } from "../../main/settings";
 import { getDyadAppPath } from "../../paths/paths";
 import { ensureWorkspaceInitialized, getAppRelativePath } from "../../paths/workspace";
 import fs from "node:fs";
@@ -17,6 +16,7 @@ import { healAppCode } from "../utils/code_healer";
 import { execAsync } from "../utils/runShellCommand";
 import * as path from 'path';
 import { unifiedInstallDependencies } from "./unified_dependency_manager";
+import { getSupabaseAuth } from "../../lib/supabase";
 
 const logger = log.scope("parallel_app_creation");
 
@@ -43,6 +43,28 @@ interface ParallelAppCreationResult {
 // Task status tracking
 // Use the proper background task manager
 const taskManager = getBackgroundTaskManager();
+
+async function ensureAuthLimitForAppCreation(): Promise<void> {
+  const FREE_UNAUTH_LIMIT = 3;
+  const { count } = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
+
+  try {
+    const auth = getSupabaseAuth();
+    const session = await auth.getCurrentSession();
+    const isAuthenticated = !!session;
+
+    if (!isAuthenticated && count >= FREE_UNAUTH_LIMIT) {
+      throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
+    }
+  } catch (error) {
+    // If auth client not initialized or any failure, treat as unauthenticated
+    const message = (error as any)?.message || "";
+    logger.debug("Auth check failed during app creation; treating as unauthenticated:", message);
+    if (count >= FREE_UNAUTH_LIMIT) {
+      throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
+    }
+  }
+}
 
 /**
  * 🔧 Generate a unique app name by appending numbers
@@ -115,19 +137,9 @@ export function registerParallelAppCreationHandlers() {
     logger.info(`🚀 [INSTANT] Starting instant app creation: ${params.name}`);
     
     try {
-      // 1. Quick permission check (5ms)
+      // 1. Quick permission check (auth-gated app creation)
       const permissionStart = performance.now();
-      const settings = readSettings();
-      const isProUser = settings.enableApplaaPro === true;
-      
-      if (!isProUser) {
-        const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
-        const FREE_APP_LIMIT = 5;
-        
-        if (existingApps.count >= FREE_APP_LIMIT) {
-          throw new Error(`Free users are limited to ${FREE_APP_LIMIT} apps. Upgrade to Applaa Pro for unlimited apps.`);
-        }
-      }
+      await ensureAuthLimitForAppCreation();
       const permissionTime = performance.now() - permissionStart;
       
       // 2. Quick path validation (10ms)

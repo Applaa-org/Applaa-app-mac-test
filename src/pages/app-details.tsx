@@ -381,7 +381,7 @@ export default function AppDetailsPage() {
             <GitHubConnector appId={appId} folderName={selectedApp.path} />
           </div>
           {appId && <SupabaseConnector appId={appId} />}
-          {appId && <DatabaseSettings appId={appId} />}
+          {/* {appId && <DatabaseSettings appId={appId} />} */}
           {/* Always render Capacitor controls placeholder so the section is visible quickly */}
           {appId && <CapacitorControls appId={appId} />}
           {appId && <FlutterControls appId={appId} />}

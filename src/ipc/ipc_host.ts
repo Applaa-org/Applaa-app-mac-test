@@ -78,6 +78,7 @@ import { registerGamesHandlers } from "./handlers/games_handlers";
 import { registerGameTemplatesHandlers } from "./handlers/game_templates_handlers";
 import { registerBackendDeployHandlers } from "./handlers/backend_deploy_handlers";
 import { registerDatabaseHandlers } from "./handlers/database_handlers";
+import { registerVaultHandlers } from "./handlers/vault_handlers";
 
 
 export function registerIpcHandlers() {
@@ -198,6 +199,10 @@ export function registerIpcHandlers() {
   // 🗄️ Database Operations (Export, Credentials)
   console.log('🗄️ Registering database handlers...');
   registerDatabaseHandlers();
+  
+  // 🔐 Supabase Vault for Environment Variables
+  console.log('🔐 Registering Vault handlers...');
+  registerVaultHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

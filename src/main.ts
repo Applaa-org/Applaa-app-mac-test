@@ -89,6 +89,18 @@ if (process.env.SUPABASE_URL) {
   console.log('SUPABASE_URL value:', process.env.SUPABASE_URL);
 }
 
+// Load secrets from Supabase Vault (after .env is loaded)
+// This allows Vault to supplement .env variables, but .env takes precedence
+(async () => {
+  try {
+    const { loadVaultSecretsIntoEnv } = await import('./lib/vault');
+    await loadVaultSecretsIntoEnv();
+  } catch (error) {
+    console.log('⚠️ Failed to load secrets from Supabase Vault:', error);
+    // Don't block app startup if Vault fails
+  }
+})();
+
 // Register IPC handlers before app is ready
 registerIpcHandlers();
 
@@ -533,27 +545,11 @@ function handleDeepLinkReturn(url: string) {
     return;
   }
   
-  // Handle Google OAuth callback: applaa://auth-callback#access_token=...&refresh_token=...
+  // Handle Google OAuth callback: applaa://auth-callback?code=... or applaa://auth-callback#access_token=...
   if (parsed.hostname === "auth-callback") {
     logger.info("Handling Google OAuth callback");
     logger.info("Main window exists:", !!mainWindow);
     logger.info("App is in development mode:", process.env.NODE_ENV === "development");
-    
-    // Extract tokens from URL fragment (after #)
-    const fragment = parsed.hash.substring(1); // Remove the #
-    const params = new URLSearchParams(fragment);
-    
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
-    const expiresIn = params.get('expires_in');
-    
-    if (!accessToken || !refreshToken) {
-      dialog.showErrorBox(
-        "OAuth Error",
-        "Missing access token or refresh token in callback URL"
-      );
-      return;
-    }
     
     // Focus the existing window instead of opening a new one
     if (mainWindow) {
@@ -564,14 +560,44 @@ function handleDeepLinkReturn(url: string) {
       mainWindow.show();
     }
     
-    // Send the tokens to the renderer process to complete the OAuth flow
-    mainWindow?.webContents.send("oauth-callback", {
-      accessToken,
-      refreshToken,
-      expiresIn: expiresIn ? parseInt(expiresIn) : 3600,
-    });
+    // Check for OAuth code (standard Supabase flow)
+    const code = parsed.searchParams.get('code');
+    if (code) {
+      logger.info("OAuth code received, exchanging for session");
+      // Send the code to the renderer process to exchange for session
+      mainWindow?.webContents.send("oauth-callback", {
+        code,
+      });
+      logger.info("OAuth callback processed successfully (code flow)");
+      return;
+    }
     
-    logger.info("OAuth callback processed successfully");
+    // Fallback: Extract tokens from URL fragment (after #) - legacy flow
+    const fragment = parsed.hash.substring(1); // Remove the #
+    if (fragment) {
+      const params = new URLSearchParams(fragment);
+      
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      const expiresIn = params.get('expires_in');
+      
+      if (accessToken && refreshToken) {
+        // Send the tokens to the renderer process to complete the OAuth flow
+        mainWindow?.webContents.send("oauth-callback", {
+          accessToken,
+          refreshToken,
+          expiresIn: expiresIn ? parseInt(expiresIn) : 3600,
+        });
+        logger.info("OAuth callback processed successfully (token flow)");
+        return;
+      }
+    }
+    
+    // If neither code nor tokens found, show error
+    dialog.showErrorBox(
+      "OAuth Error",
+      "Missing OAuth code or tokens in callback URL"
+    );
     return;
   }
   

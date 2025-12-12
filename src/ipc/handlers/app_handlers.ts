@@ -61,8 +61,20 @@ import { getVercelTeamSlug } from "../utils/vercel_utils";
 import { storeDbTimestampAtCurrentVersion } from "../utils/neon_timestamp_utils";
 import { perfMonitor, logPerfReport } from "../utils/performance_monitor";
 import { backendAPI } from "../../lib/backend-api";
+import { getSupabaseAuth } from "../../lib/supabase";
 
 const logger = log.scope("app-handlers");
+
+async function isUserAuthenticated(): Promise<boolean> {
+  try {
+    const auth = getSupabaseAuth();
+    const session = await auth.getCurrentSession();
+    return !!session;
+  } catch (error) {
+    logger.debug("Auth check failed or Supabase not initialized:", error);
+    return false;
+  }
+}
 
 /**
  * 🚀 ENHANCED: Delete app files with retry logic to handle Windows file locks
@@ -836,19 +848,13 @@ export function registerAppHandlers() {
       _,
       params: CreateAppParams,
     ): Promise<{ app: any; chatId: number }> => {
-      // 🚀 PERFORMANCE: Cache settings once at start to avoid repeated disk reads
-      const settings = readSettings();
-      // For development: just check the Pro toggle, don't require API key
-      const isProUser = settings.enableApplaaPro === true;
-      
-      if (!isProUser) {
-        // Count existing apps for free users
-        const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
-        const FREE_APP_LIMIT = 5;
-        
-        if (existingApps.count >= FREE_APP_LIMIT) {
-          throw new Error(`Free users are limited to ${FREE_APP_LIMIT} apps. Upgrade to Applaa Pro for unlimited apps.`);
-        }
+      const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
+      const FREE_UNAUTH_LIMIT = 3;
+      const isAuthenticated = await isUserAuthenticated();
+
+      // Require authentication after 3 apps
+      if (!isAuthenticated && existingApps.count >= FREE_UNAUTH_LIMIT) {
+        throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
       }
       
       await ensureWorkspaceInitialized();

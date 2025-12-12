@@ -98,29 +98,41 @@ export function useSupabaseAuth() {
 
   // Listen for OAuth callback from main process
   useEffect(() => {
-    const handleOAuthCallback = (data: { accessToken: string; refreshToken: string; expiresIn: number }) => {
+    const handleOAuthCallback = (data: { 
+      accessToken?: string; 
+      refreshToken?: string; 
+      expiresIn?: number;
+      code?: string;
+    }) => {
       console.log('OAuth callback received:', data);
       
-      // Set the session in Supabase client
-      const setSession = async () => {
+      // Complete the OAuth flow
+      const completeOAuth = async () => {
         try {
-          // We need to call the main process to set the session
-          await IpcClient.getInstance().supabaseSetSession({
-            accessToken: data.accessToken,
-            refreshToken: data.refreshToken,
-            expiresIn: data.expiresIn,
-          });
+          // Prefer code exchange (standard Supabase flow)
+          if (data.code) {
+            await IpcClient.getInstance().supabaseExchangeCodeForSession({ code: data.code });
+          } else if (data.accessToken && data.refreshToken) {
+            // Fallback to direct token setting (legacy flow)
+            await IpcClient.getInstance().supabaseSetSession({
+              accessToken: data.accessToken,
+              refreshToken: data.refreshToken,
+              expiresIn: data.expiresIn ?? 3600,
+            });
+          } else {
+            throw new Error('Invalid OAuth callback data: missing code or tokens');
+          }
           
           toast.success('Successfully signed in with Google!');
           queryClient.invalidateQueries({ queryKey: ['auth'] });
           refetchAuth();
         } catch (error) {
-          console.error('Failed to set OAuth session:', error);
+          console.error('Failed to complete OAuth flow:', error);
           toast.error('Failed to complete Google sign in');
         }
       };
       
-      setSession();
+      completeOAuth();
     };
 
     // Listen for OAuth callback events using the preload API
