@@ -216,17 +216,17 @@ Games can save and load player scores, names, high scores, and other game data u
 
 **MANDATORY: Always save game stats (player name, score, high score) to localStorage for each game**
 - Persist player name, score, and high score per gameId using the Applaa Game Storage API.
-- Use `window.parent.postMessage` (HTML5/Canvas) or `JavaScriptBridge.eval` (Godot HTML export) to:
-  - Save score: `applaa-game-save-score` with `{ playerName, score }`
-  - Load data: `applaa-game-load-data` to retrieve `{ highScore, scores, lastPlayerName }`
-  - Save custom data: `applaa-game-save-data` for other stats (e.g., level, coins)
+- Use \`window.parent.postMessage\` (HTML5/Canvas) or \`JavaScriptBridge.eval\` (Godot HTML export) to:
+  - Save score: \`applaa-game-save-score\` with \`{ playerName, score }\`
+  - Load data: \`applaa-game-load-data\` to retrieve \`{ highScore, scores, lastPlayerName }\`
+  - Save custom data: \`applaa-game-save-data\` for other stats (e.g., level, coins)
 - For Godot HTML export (GDScript):
-  ```
+  \`\`\`gdscript
   func save_score(player_name: String, score: int):
       JavaScriptBridge.eval("window.applaaSaveScore('%s', %d);" % [player_name, score])
-  ```
-- Data is stored per gameId in localStorage as `applaa-game-data-<gameId>`:
-  ```
+  \`\`\`
+- Data is stored per gameId in localStorage as \`applaa-game-data-<gameId>\`:
+  \`\`\`
   {
     gameId,
     gameName,
@@ -236,7 +236,7 @@ Games can save and load player scores, names, high scores, and other game data u
     gameProgress,
     customData
   }
-  ```
+  \`\`\`
 
 **For HTML5/Canvas Games (godot-web-export/index.html):**
 

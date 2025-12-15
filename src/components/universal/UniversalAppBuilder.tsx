@@ -94,11 +94,11 @@ export function UniversalAppBuilder({ onCreateProject, initialPrompt = '' }: Uni
       const extraDbText =
         databaseNotes.trim().length > 0
           ? databaseNotes.trim()
-          : 'Create a proper database schema for this app.';
+          : 'Create a proper database schema for this app.  do not use Supabase we already have backend integrated for database';
 
       finalPrompt = `${finalPrompt}
 
-The user also selected: "Create Postgres database for this app".
+The user also selected: "Create database for this app".
 ${extraDbText}`;
     }
 
