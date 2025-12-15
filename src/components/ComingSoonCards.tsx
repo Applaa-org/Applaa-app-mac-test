@@ -180,7 +180,7 @@ const comingSoonItems: ComingSoonCardProps[] = [
 ];
 
 export function ComingSoonCards({ className = '' }: { className?: string }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   return (
     <div className={cn("space-y-6", className)}>
