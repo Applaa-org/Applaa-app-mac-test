@@ -338,7 +338,6 @@ export default function HomePage() {
         <CombinedAuthDialog
           open={showAuthDialog}
           onOpenChange={handleAuthDialogOpenChange}
-          defaultTab="supabase"
           forceOpen={forceAuthDialog}
         />
         <div className="w-full flex flex-col items-center">
@@ -388,7 +387,6 @@ export default function HomePage() {
       <CombinedAuthDialog
         open={showAuthDialog}
         onOpenChange={handleAuthDialogOpenChange}
-        defaultTab="supabase"
       />
       <SetupBanner />
 

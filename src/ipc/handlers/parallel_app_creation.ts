@@ -17,6 +17,7 @@ import { execAsync } from "../utils/runShellCommand";
 import * as path from 'path';
 import { unifiedInstallDependencies } from "./unified_dependency_manager";
 import { getSupabaseAuth } from "../../lib/supabase";
+import { readSettings } from "../../main/settings";
 
 const logger = log.scope("parallel_app_creation");
 
@@ -48,21 +49,36 @@ async function ensureAuthLimitForAppCreation(): Promise<void> {
   const FREE_UNAUTH_LIMIT = 3;
   const { count } = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
 
+  // Check both Supabase and WordPress authentication
+  let isAuthenticated = false;
+
+  // Check Supabase authentication
   try {
     const auth = getSupabaseAuth();
     const session = await auth.getCurrentSession();
-    const isAuthenticated = !!session;
-
-    if (!isAuthenticated && count >= FREE_UNAUTH_LIMIT) {
-      throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
-    }
+    isAuthenticated = !!session;
   } catch (error) {
-    // If auth client not initialized or any failure, treat as unauthenticated
-    const message = (error as any)?.message || "";
-    logger.debug("Auth check failed during app creation; treating as unauthenticated:", message);
-    if (count >= FREE_UNAUTH_LIMIT) {
-      throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
+    // Supabase auth not available, continue to check WordPress
+    logger.debug("Supabase auth check failed, checking WordPress auth...");
+  }
+
+  // Check WordPress authentication if Supabase auth failed
+  if (!isAuthenticated) {
+    try {
+      const settings = readSettings();
+      const wordpressAuth = settings.wordpressAuth;
+      isAuthenticated = !!(wordpressAuth?.isAuthenticated && wordpressAuth?.user?.username);
+      if (isAuthenticated) {
+        logger.debug("WordPress authentication found for app creation");
+      }
+    } catch (error) {
+      logger.debug("WordPress auth check failed:", error);
     }
+  }
+
+  // If still not authenticated and at limit, throw error
+  if (!isAuthenticated && count >= FREE_UNAUTH_LIMIT) {
+    throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
   }
 }
 
