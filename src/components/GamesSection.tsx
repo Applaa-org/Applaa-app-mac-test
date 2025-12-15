@@ -57,6 +57,7 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
   const queryClient = useQueryClient();
   const ipcClient = IpcClient.getInstance();
   const { hasPermission: hasAdminPermission } = useAdminPermission();
+  const [isDebuggingStorage, setIsDebuggingStorage] = useState(false);
 
   // Expose test function globally for debugging
   useEffect(() => {
@@ -123,6 +124,51 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
     setSelectedGameUrl(null);
     setSelectedGameId(null);
     setSelectedGameName(null);
+  };
+
+  // Debug helper: test storage by sending a save-score message into the iframe
+  const handleTestStorage = async () => {
+    if (!selectedGameId || !iframeRef.current?.contentWindow) {
+      showError(new Error('Open a game first to test storage.'));
+      return;
+    }
+
+    setIsDebuggingStorage(true);
+    const score = Math.floor(Math.random() * 1000) + 1;
+    const playerName = 'Debug Player';
+
+    try {
+      // Send a save-score message to the game iframe
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'applaa-game-save-score',
+          gameId: selectedGameId, // optional; bridge will fallback
+          gameName: selectedGameName || 'Unknown Game',
+          playerName,
+          score,
+        },
+        '*',
+      );
+
+      // Give the bridge a short moment to process
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Read back from storage
+      const { loadGameData } = await import('@/services/gameStorage');
+      const data = loadGameData(selectedGameId);
+
+      console.log('🧪 Storage test - gameId:', selectedGameId, 'data:', data);
+
+      showSuccess(
+        `Test saved: ${playerName} scored ${score}. ` +
+          (data?.scores?.length ? `Scores stored: ${data.scores.length}` : 'No scores found'),
+      );
+    } catch (error) {
+      console.error('🧪 Storage test failed:', error);
+      showError(error);
+    } finally {
+      setIsDebuggingStorage(false);
+    }
   };
 
   const handleOpenExternal = () => {
@@ -303,6 +349,21 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
                   allowFullScreen
                   style={{ height: 'calc(95vh - 120px)' }}
                 />
+                {process.env.NODE_ENV !== 'production' && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestStorage}
+                      disabled={isDebuggingStorage}
+                    >
+                      {isDebuggingStorage ? 'Testing storage...' : 'Test storage save'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Saves a test score to localStorage for this game.
+                    </p>
+                  </div>
+                )}
               </div>
             </>
           )}

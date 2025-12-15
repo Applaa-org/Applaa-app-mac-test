@@ -98,9 +98,9 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
         await wpLogin({
           username: emailOrUsername,
           password: password,
-        });
+      });
         toast.success('Signed in successfully');
-        onOpenChange(false);
+      onOpenChange(false);
       } catch (wpError: any) {
         // Both failed
         const errorMessage = wpError?.message || 'Invalid credentials. Please check your email/username and password.';
@@ -282,55 +282,55 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
 
         {/* Error Display */}
         {authError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
             <AlertDescription>{authError}</AlertDescription>
-          </Alert>
-        )}
+            </Alert>
+          )}
 
         {/* Sign In Form */}
         {!isSignUp && (
           <form onSubmit={handleUnifiedSignIn} className="space-y-4">
-            <div className="space-y-2">
+                <div className="space-y-2">
               <Label htmlFor="signin-email-username">Email or Username</Label>
-              <div className="relative">
+                  <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
+                    <Input
                   id="signin-email-username"
-                  type="text"
+                      type="text"
                   placeholder="Enter your email or username"
                   value={signInForm.emailOrUsername}
                   onChange={(e) => setSignInForm((prev) => ({ ...prev, emailOrUsername: e.target.value }))}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
+                <div className="space-y-2">
               <Label htmlFor="signin-password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
                   id="signin-password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your password"
                   value={signInForm.password}
                   onChange={(e) => setSignInForm((prev) => ({ ...prev, password: e.target.value }))}
-                  className="pl-10 pr-10"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+                      className="pl-10 pr-10"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
@@ -358,19 +358,19 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
                     Sign in with Google
                   </span>
                 )}
-              </Button>
+                </Button>
             )}
-          </form>
+              </form>
         )}
 
         {/* Sign Up Form */}
         {isSignUp && (
           <form onSubmit={handleUnifiedSignUp} className="space-y-4">
-            <div className="space-y-2">
+                  <div className="space-y-2">
               <Label htmlFor="signup-email">Email <span className="text-red-500">*</span></Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
+                    <Input
                   id="signup-email"
                   type="email"
                   placeholder="Enter your email"
@@ -378,30 +378,30 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
                   onChange={(e) => setSignUpForm((prev) => ({ ...prev, email: e.target.value }))}
                   className="pl-10"
                   required
-                />
-              </div>
-            </div>
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
+                <div className="space-y-2">
               <Label htmlFor="signup-username">Username (optional)</Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
+                  <Input
                   id="signup-username"
-                  type="text"
+                    type="text"
                   placeholder="Choose a username (defaults to email)"
                   value={signUpForm.username}
                   onChange={(e) => setSignUpForm((prev) => ({ ...prev, username: e.target.value }))}
                   className="pl-10"
-                />
-              </div>
+                  />
+                </div>
               <p className="text-xs text-muted-foreground">If not provided, username will be derived from your email</p>
-            </div>
+                </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+                <div className="space-y-2">
                 <Label htmlFor="signup-firstname">First Name (optional)</Label>
-                <Input
+                  <Input
                   id="signup-firstname"
                   type="text"
                   placeholder="First name"
@@ -409,77 +409,77 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
                   onChange={(e) => setSignUpForm((prev) => ({ ...prev, firstName: e.target.value }))}
                 />
               </div>
-              <div className="space-y-2">
+                  <div className="space-y-2">
                 <Label htmlFor="signup-lastname">Last Name (optional)</Label>
-                <Input
+                      <Input
                   id="signup-lastname"
                   type="text"
                   placeholder="Last name"
                   value={signUpForm.lastName}
                   onChange={(e) => setSignUpForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                />
-              </div>
-            </div>
+                      />
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
+                  <div className="space-y-2">
               <Label htmlFor="signup-password">Password <span className="text-red-500">*</span></Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
                   id="signup-password"
-                  type={showPassword ? 'text' : 'password'}
+                        type={showPassword ? 'text' : 'password'}
                   placeholder="Create a password"
                   value={signUpForm.password}
                   onChange={(e) => setSignUpForm((prev) => ({ ...prev, password: e.target.value }))}
-                  className="pl-10 pr-10"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+                        className="pl-10 pr-10"
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
+                  <div className="space-y-2">
               <Label htmlFor="signup-confirm-password">Confirm Password <span className="text-red-500">*</span></Label>
-              <div className="relative">
+                    <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
+                      <Input
                   id="signup-confirm-password"
-                  type={showConfirmPassword ? 'text' : 'password'}
+                        type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm your password"
-                  value={signUpForm.confirmPassword}
-                  onChange={(e) => setSignUpForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                        value={signUpForm.confirmPassword}
+                        onChange={(e) => setSignUpForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
                   className="pl-10 pr-10"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Creating account...' : 'Create Account'}
-            </Button>
+                  </Button>
 
             <p className="text-xs text-center text-muted-foreground">
               By creating an account, you'll be registered in both Supabase and WordPress systems
             </p>
-          </form>
-        )}
+                </form>
+              )}
       </DialogContent>
     </Dialog>
   );

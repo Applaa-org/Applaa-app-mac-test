@@ -70,15 +70,15 @@ async function ensureAuthLimitForAppCreation(): Promise<void> {
       isAuthenticated = !!(wordpressAuth?.isAuthenticated && wordpressAuth?.user?.username);
       if (isAuthenticated) {
         logger.debug("WordPress authentication found for app creation");
-      }
-    } catch (error) {
+    }
+  } catch (error) {
       logger.debug("WordPress auth check failed:", error);
     }
   }
 
   // If still not authenticated and at limit, throw error
   if (!isAuthenticated && count >= FREE_UNAUTH_LIMIT) {
-    throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
+      throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
   }
 }
 

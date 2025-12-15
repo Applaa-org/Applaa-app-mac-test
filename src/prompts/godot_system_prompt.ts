@@ -206,6 +206,30 @@ func _on_collectible_collected():
 
 Games can save and load player scores, names, high scores, and other game data using the Applaa Game Storage API. This data persists in the browser's localStorage and is automatically isolated per game.
 
+**MANDATORY: Always save game stats (player name, score, high score) to localStorage for each game**
+- Persist player name, score, and high score per gameId using the Applaa Game Storage API.
+- Use `window.parent.postMessage` (HTML5/Canvas) or `JavaScriptBridge.eval` (Godot HTML export) to:
+  - Save score: `applaa-game-save-score` with `{ playerName, score }`
+  - Load data: `applaa-game-load-data` to retrieve `{ highScore, scores, lastPlayerName }`
+  - Save custom data: `applaa-game-save-data` for other stats (e.g., level, coins)
+- For Godot HTML export (GDScript):
+  ```
+  func save_score(player_name: String, score: int):
+      JavaScriptBridge.eval("window.applaaSaveScore('%s', %d);" % [player_name, score])
+  ```
+- Data is stored per gameId in localStorage as `applaa-game-data-<gameId>`:
+  ```
+  {
+    gameId,
+    gameName,
+    scores: [{ playerName, score, timestamp }],
+    highScore,
+    lastPlayerName,
+    gameProgress,
+    customData
+  }
+  ```
+
 **For HTML5/Canvas Games (godot-web-export/index.html):**
 
 Use \`window.parent.postMessage()\` to communicate with the Applaa parent window:
