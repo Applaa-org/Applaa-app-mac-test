@@ -43,8 +43,6 @@ interface GamesSectionProps {
 }
 
 export function GamesSection({ className = '' }: GamesSectionProps) {
-  const [selectedGameUrl, setSelectedGameUrl] = useState<string | null>(null);
-  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
   const [isAddGameDialogOpen, setIsAddGameDialogOpen] = useState(false);
   const [isEditGameDialogOpen, setIsEditGameDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -70,13 +68,9 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
   });
 
   const handlePlayGame = (url: string) => {
-    setSelectedGameUrl(url);
-    setIsGameModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsGameModalOpen(false);
-    setSelectedGameUrl(null);
+    // Open the game directly in the user's default browser
+    if (!url) return;
+    window.open(url, "_blank");
   };
 
   const handleOpenExternal = () => {
@@ -220,40 +214,6 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Game Modal */}
-      <Dialog open={isGameModalOpen} onOpenChange={setIsGameModalOpen}>
-        <DialogContent className="!max-w-none !w-[98vw] !h-[95vh] p-0" style={{ width: '98vw', height: '95vh', maxWidth: 'none', maxHeight: 'none' }}>
-          <DialogHeader className="p-6 pb-0 mt-2">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">
-                Playing Game
-              </DialogTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenExternal}
-                className="flex items-center gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open in New Tab
-              </Button>
-            </div>
-          </DialogHeader>
-          
-          {selectedGameUrl && (
-            <div className="flex-1 p-6 pt-0" style={{ height: 'calc(95vh - 120px)' }}>
-              <iframe
-                src={selectedGameUrl}
-                className="w-full h-full border-0 rounded-lg"
-                title="Game"
-                allow="fullscreen; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{ height: 'calc(95vh - 120px)' }}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
