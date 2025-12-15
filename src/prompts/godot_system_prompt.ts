@@ -206,6 +206,14 @@ func _on_collectible_collected():
 
 Games can save and load player scores, names, high scores, and other game data using the Applaa Game Storage API. This data persists in the browser's localStorage and is automatically isolated per game.
 
+**Display saved stats (high score, last player, etc.) in the game UI**
+
+- On game start, always load previously saved stats and show them to the player.
+- Typical flow:
+  - Request data (via Applaa Game Storage API).
+  - If data exists, read \`highScore\`, \`lastPlayerName\`, and recent \`scores\`.
+  - Update labels in the UI (e.g. \`High Score: 1234\`, \`Last Player: Alice\`).
+
 **MANDATORY: Always save game stats (player name, score, high score) to localStorage for each game**
 - Persist player name, score, and high score per gameId using the Applaa Game Storage API.
 - Use `window.parent.postMessage` (HTML5/Canvas) or `JavaScriptBridge.eval` (Godot HTML export) to:

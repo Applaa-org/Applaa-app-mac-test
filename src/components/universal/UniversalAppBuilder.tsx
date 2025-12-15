@@ -31,6 +31,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { 
   UniversalPromptProcessor, 
   FrameworkSuggestionEngine,
@@ -52,6 +54,8 @@ export function UniversalAppBuilder({ onCreateProject, initialPrompt = '' }: Uni
   const [processedPrompt, setProcessedPrompt] = useState<ProcessedPrompt | null>(null);
   const [selectedFramework, setSelectedFramework] = useState<UniversalFramework | null>(null);
   const [showAllFrameworks, setShowAllFrameworks] = useState(false);
+  const [createDatabase, setCreateDatabase] = useState(false);
+  const [databaseNotes, setDatabaseNotes] = useState('');
 
   // Process the user's prompt
   const analyzePrompt = useCallback(async () => {
@@ -83,9 +87,23 @@ export function UniversalAppBuilder({ onCreateProject, initialPrompt = '' }: Uni
       .split(' ')
       .slice(0, 3)
       .join('-') || 'my-project';
-    
-    onCreateProject(selectedFramework, projectName, userPrompt);
-  }, [selectedFramework, userPrompt, onCreateProject]);
+
+    let finalPrompt = userPrompt.trim();
+
+    if (createDatabase) {
+      const extraDbText =
+        databaseNotes.trim().length > 0
+          ? databaseNotes.trim()
+          : 'Create a proper database schema for this app.';
+
+      finalPrompt = `${finalPrompt}
+
+The user also selected: "Create Postgres database for this app".
+${extraDbText}`;
+    }
+
+    onCreateProject(selectedFramework, projectName, finalPrompt);
+  }, [selectedFramework, userPrompt, createDatabase, databaseNotes, onCreateProject]);
 
   // Get framework icon
   const getFrameworkIcon = (framework: UniversalFramework) => {
@@ -240,6 +258,35 @@ export function UniversalAppBuilder({ onCreateProject, initialPrompt = '' }: Uni
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <Clock className="h-4 w-4" />
                 <span>Estimated time: {processedPrompt.estimatedTime}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Database options */}
+          <div className="mt-4 space-y-2 rounded-md border border-dashed border-gray-300 p-3 bg-gray-50">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="create-db"
+                checked={createDatabase}
+                onCheckedChange={(val) => setCreateDatabase(Boolean(val))}
+              />
+              <Label htmlFor="create-db" className="flex items-center gap-2 text-sm text-gray-800">
+                <Database className="h-4 w-4 text-blue-600" />
+                <span>Create database for this app</span>
+              </Label>
+            </div>
+            {createDatabase && (
+              <div className="space-y-1 pl-6">
+                <Label htmlFor="db-notes" className="text-xs text-gray-600">
+                  Optional: describe your tables/relations (otherwise a reasonable Postgres schema will be created)
+                </Label>
+                <Input
+                  id="db-notes"
+                  placeholder="e.g., Users, Projects, Tasks with relations; use Postgres"
+                  value={databaseNotes}
+                  onChange={(e) => setDatabaseNotes(e.target.value)}
+                  className="text-sm"
+                />
               </div>
             )}
           </div>
