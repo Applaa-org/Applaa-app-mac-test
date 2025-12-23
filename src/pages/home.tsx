@@ -44,6 +44,8 @@ import { neonTemplateHook } from "@/client_logic/template_hook";
 // Adding an export for attachments
 export interface HomeSubmitOptions {
   attachments?: FileAttachment[];
+  createDatabase?: boolean;
+  databaseNotes?: string;
 }
 
 export default function HomePage() {
@@ -60,6 +62,10 @@ export default function HomePage() {
   const [showNamingDialog, setShowNamingDialog] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<FileAttachment[]>([]);
+  const [pendingDbOptions, setPendingDbOptions] = useState<{
+    createDatabase?: boolean;
+    databaseNotes?: string;
+  } | null>(null);
   const { streamMessage } = useStreamChat({ hasChatId: false });
   const { status: creationStatus, isMonitoring } = useAppCreationStatus(currentTaskId);
   const posthog = usePostHog();
@@ -169,9 +175,13 @@ export default function HomePage() {
     setForceAuthDialog(false);
     setShowAuthDialog(false);
 
-    // Show naming dialog first
+    // Show naming dialog first, capture DB options and attachments
     setPendingPrompt(inputValue);
     setPendingAttachments(attachments);
+    setPendingDbOptions({
+      createDatabase: options?.createDatabase,
+      databaseNotes: options?.databaseNotes,
+    });
     setShowNamingDialog(true);
   };
 
@@ -188,9 +198,21 @@ export default function HomePage() {
       const packageId = `com.applaa.${finalName.replace(/-/g, "")}`;
       const slug = finalName;
 
-      // Use the original prompt directly - no auto-enhancement for MVP
-      // Users can manually enhance prompts using the enhance button if needed
+      // Base prompt from user input
       let finalPrompt = pendingPrompt;
+
+      // Append database instructions if user requested a Postgres database
+      if (pendingDbOptions?.createDatabase) {
+        const extraDbText =
+          pendingDbOptions.databaseNotes && pendingDbOptions.databaseNotes.trim().length > 0
+            ? pendingDbOptions.databaseNotes.trim()
+            : "Create a proper database schema for this app .";
+
+        finalPrompt = `${finalPrompt}
+
+The user also selected: "Create Postgres database for this app".
+${extraDbText}`;
+      }
 
       // 🚀 PARALLEL CREATION: Use instant app creation for immediate chat access
       // Template creation and git operations run in background while user chats
@@ -338,7 +360,6 @@ export default function HomePage() {
         <CombinedAuthDialog
           open={showAuthDialog}
           onOpenChange={handleAuthDialogOpenChange}
-          defaultTab="supabase"
           forceOpen={forceAuthDialog}
         />
         <div className="w-full flex flex-col items-center">
@@ -388,7 +409,6 @@ export default function HomePage() {
       <CombinedAuthDialog
         open={showAuthDialog}
         onOpenChange={handleAuthDialogOpenChange}
-        defaultTab="supabase"
       />
       <SetupBanner />
 

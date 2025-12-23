@@ -8,6 +8,7 @@ import { docsRoute } from "./routes/docs";
 import { providerSettingsRoute } from "./routes/settings/providers/$provider";
 import { appDetailsRoute } from "./routes/app-details";
 import { hubRoute } from "./routes/hub";
+import { automationRoute } from "./routes/automation";
 
 
 const routeTree = rootRoute.addChildren([
@@ -18,6 +19,7 @@ const routeTree = rootRoute.addChildren([
   appDetailsRoute,
   settingsRoute.addChildren([providerSettingsRoute]),
   docsRoute,
+  automationRoute,
 ]);
 
 // src/components/NotFoundRedirect.tsx

@@ -3,7 +3,7 @@ import path from "node:path";
 import type { PoolClient, Pool } from "pg";
 import { pool } from "../db/pool";
 import { detectAppType, getSchemaTemplate, type AppSchemaTemplate } from "../schemas/app-templates";
-import { generateDatabasePassword, sanitizeDatabaseName } from "../utils/password-generator";
+import { generateDatabasePassword, sanitizeDatabaseName, generateRandomId } from "../utils/password-generator";
 
 export interface ProvisionedDatabase {
   schemaName: string;
@@ -37,7 +37,8 @@ export async function provisionAppDatabase(
     }
 
     const sanitizedName = appName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const schemaName = `app_${appId}_${sanitizedName}`;
+    const randomId = generateRandomId(); // Add 6-digit random ID for uniqueness
+    const schemaName = `app_${appId}_${sanitizedName}_${randomId}`;
 
     await client.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
     await runBaseMigrations(client, schemaName);
@@ -97,8 +98,9 @@ export async function provisionDedicatedDatabase(
   try {
     // Generate unique database and user names
     const sanitizedName = sanitizeDatabaseName(appName);
-    const databaseName = `applaa_u${userId}_app${appId}_${sanitizedName}`.substring(0, 63);
-    const dbUser = `user_${userId}_app_${appId}`.substring(0, 63);
+    const randomId = generateRandomId(); // Add 6-digit random ID for uniqueness
+    const databaseName = `applaa_u${userId}_app${appId}_${sanitizedName}_${randomId}`.substring(0, 63);
+    const dbUser = `user_${userId}_app_${appId}_${randomId}`.substring(0, 63);
     const dbPassword = generateDatabasePassword(32);
 
     console.log(`[DB] Provisioning dedicated database: ${databaseName}`);

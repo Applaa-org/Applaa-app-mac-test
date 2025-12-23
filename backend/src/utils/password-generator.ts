@@ -56,3 +56,22 @@ export function sanitizeDatabaseName(input: string): string {
     .substring(0, 63); // Postgres name length limit
 }
 
+/**
+ * Generate a random 6-character alphanumeric string for unique identifiers
+ * @returns Random 6-character string (uppercase letters and numbers)
+ */
+export function generateRandomId(): string {
+  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const charsetLength = charset.length;
+  let id = "";
+
+  const randomBytes = crypto.randomBytes(6);
+
+  for (let i = 0; i < 6; i++) {
+    const randomIndex = randomBytes[i] % charsetLength;
+    id += charset[randomIndex];
+  }
+
+  return id;
+}
+

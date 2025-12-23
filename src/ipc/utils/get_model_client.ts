@@ -569,10 +569,12 @@ function getRegularModelClient(
               logger.info(`  - ✅ Claude response received successfully`);
               logger.info(`  - 📋 Content-Type: ${response.headers.get('content-type')}`);
               
-              // CRITICAL: Transform Anthropic streaming response to OpenAI-compatible format
-              // Anthropic uses different event types (message_start, content_block_delta, etc.)
-              // The SDK expects OpenAI format with 'choices' array
-              if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
+              const contentType = response.headers.get('content-type') || '';
+              
+              // CRITICAL: Transform Anthropic responses (both streaming and non-streaming) to OpenAI-compatible format
+              // Anthropic uses different format - we need to convert to OpenAI format with 'choices' array
+              if (response.body && contentType.includes('text/event-stream')) {
+                // Handle streaming responses
                 logger.info(`  - 🔄 Transforming Anthropic stream to OpenAI-compatible format`);
                 
                 const transformedResponse = new Response(
@@ -737,8 +739,100 @@ function getRegularModelClient(
                   }
                 );
                 
-                logger.info(`  - ✅ Transformed Anthropic response to OpenAI-compatible format`);
+                logger.info(`  - ✅ Transformed Anthropic stream to OpenAI-compatible format`);
                 return transformedResponse;
+              } else if (response.body && contentType.includes('application/json')) {
+                // Handle non-streaming JSON responses
+                logger.info(`  - 🔄 Transforming Anthropic JSON response to OpenAI-compatible format`);
+                
+                try {
+                  // Clone the response to read it without consuming the original
+                  const responseClone = response.clone();
+                  const anthropicData = await responseClone.json();
+                  
+                  logger.info(`  - 📋 Anthropic response structure: ${JSON.stringify({
+                    id: anthropicData.id,
+                    type: anthropicData.type,
+                    role: anthropicData.role,
+                    model: anthropicData.model,
+                    stop_reason: anthropicData.stop_reason,
+                    content_type: Array.isArray(anthropicData.content) ? 'array' : typeof anthropicData.content
+                  })}`);
+                  
+                  // Extract content from Anthropic format
+                  // Anthropic content can be an array of content blocks or a string
+                  let content = '';
+                  if (Array.isArray(anthropicData.content)) {
+                    // Content is an array of content blocks
+                    for (const block of anthropicData.content) {
+                      if (block.type === 'text' && block.text) {
+                        content += block.text;
+                      }
+                    }
+                  } else if (typeof anthropicData.content === 'string') {
+                    content = anthropicData.content;
+                  }
+                  
+                  // Map Anthropic stop_reason to OpenAI finish_reason
+                  let finishReason: string | null = null;
+                  if (anthropicData.stop_reason) {
+                    if (anthropicData.stop_reason === 'end_turn') {
+                      finishReason = 'stop';
+                    } else if (anthropicData.stop_reason === 'max_tokens') {
+                      finishReason = 'length';
+                    } else {
+                      finishReason = anthropicData.stop_reason;
+                    }
+                  }
+                  
+                  // Transform to OpenAI format
+                  const openAIFormat = {
+                    id: anthropicData.id || 'msg_' + Date.now(),
+                    object: 'chat.completion',
+                    created: Math.floor(Date.now() / 1000),
+                    model: anthropicData.model || anthropicModelName,
+                    choices: [
+                      {
+                        index: 0,
+                        message: {
+                          role: 'assistant',
+                          content: content
+                        },
+                        finish_reason: finishReason
+                      }
+                    ],
+                    usage: anthropicData.usage ? {
+                      prompt_tokens: anthropicData.usage.input_tokens || 0,
+                      completion_tokens: anthropicData.usage.output_tokens || 0,
+                      total_tokens: (anthropicData.usage.input_tokens || 0) + (anthropicData.usage.output_tokens || 0)
+                    } : undefined
+                  };
+                  
+                  logger.info(`  - ✅ Transformed Anthropic JSON to OpenAI format`);
+                  logger.info(`  - 📋 OpenAI format preview: ${JSON.stringify({
+                    id: openAIFormat.id,
+                    object: openAIFormat.object,
+                    model: openAIFormat.model,
+                    choices_count: openAIFormat.choices.length,
+                    content_length: openAIFormat.choices[0]?.message?.content?.length || 0,
+                    finish_reason: openAIFormat.choices[0]?.finish_reason
+                  })}`);
+                  
+                  // Return transformed response
+                  return new Response(JSON.stringify(openAIFormat), {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: new Headers({
+                      ...Object.fromEntries(response.headers.entries()),
+                      'content-type': 'application/json',
+                    })
+                  });
+                } catch (transformError) {
+                  logger.error(`  - ❌ Error transforming Anthropic JSON response: ${transformError}`);
+                  logger.error(`  - ❌ Error details: ${transformError instanceof Error ? transformError.message : String(transformError)}`);
+                  // Return original response if transformation fails
+                  return response;
+                }
               }
             }
             return response;

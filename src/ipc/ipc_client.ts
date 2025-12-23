@@ -3531,6 +3531,25 @@ export class IpcClient {
   public async deleteGameTemplate(params: { id: string }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("game-templates:delete", params);
   }
+
+  // Applaa Automation Methods
+  public async executeApplaaAutomationTask(params: {
+    task: string;
+  }): Promise<{
+    success: boolean;
+    task: string;
+    actions?: any[];
+    result?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("applaa-automation:execute-task", params);
+  }
+
+  public async getApplaaAutomationStatus(): Promise<{
+    available: boolean;
+  }> {
+    return this.ipcRenderer.invoke("applaa-automation:status");
+  }
 }
 
 // Export singleton instance

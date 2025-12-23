@@ -7,7 +7,8 @@ import {
   BookOpenText,
   User,
   LogIn,
-  Target
+  Target,
+  Bot
 } from "lucide-react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
@@ -61,6 +62,11 @@ const items = [
     title: "Hub",
     to: "/hub",
     icon: Zap, // Energy/power for marketplace
+  },
+  {
+    title: "Automation",
+    to: "/automation",
+    icon: Bot, // Bot icon for automation
   },
   {
     title: "Settings",
@@ -126,6 +132,7 @@ export function AppSidebar() {
   const isChatRoute = routerState.location.pathname === "/chat";
   const isSettingsRoute = routerState.location.pathname.startsWith("/settings");
   const isHubRoute = routerState.location.pathname.startsWith("/hub");
+  const isAutomationRoute = routerState.location.pathname.startsWith("/automation");
   const isDocsRoute = routerState.location.pathname.startsWith("/docs");
 
   let selectedItem: string | null = null;
@@ -144,6 +151,8 @@ export function AppSidebar() {
       selectedItem = "Settings";
     } else if (isHubRoute) {
       selectedItem = "Hub";
+    } else if (isAutomationRoute) {
+      selectedItem = "Automation";
     } else if (isDocsRoute) {
       selectedItem = "Docs";
     }

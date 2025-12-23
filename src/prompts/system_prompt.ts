@@ -894,6 +894,130 @@ border-t border-gray-200/50 shadow-2xl rounded-t-3xl
 - **Scroll Animations**: Elements appear on scroll
 - **Hover Effects**: All interactive elements respond
 
+## 💾 **GAME DATA PERSISTENCE (For Games Created in Applaa)**
+
+**If you are creating a game (HTML5 Canvas game, game app, etc.), Applaa provides automatic localStorage for game data!**
+
+Games can save and load player scores, names, high scores, and other game data using the Applaa Game Storage API. This data persists in the browser's localStorage and is automatically isolated per game.
+
+### **Using Applaa Game Storage API:**
+
+\`\`\`javascript
+// Load game data when game starts
+window.addEventListener('load', () => {
+  // Get gameId from URL or embed it in your game
+  const gameId = window.location.pathname.split('/').pop() || 'default-game-id';
+  
+  // Request game data
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({
+      type: 'applaa-game-load-data',
+      gameId: gameId
+    }, '*');
+    
+    // Listen for data response
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'applaa-game-data-loaded') {
+        const gameData = event.data.data;
+        if (gameData) {
+          // Use the loaded data
+          const highScore = gameData.highScore || 0;
+          const lastPlayerName = gameData.lastPlayerName || 'Player';
+          const scores = gameData.scores || [];
+          
+          // Display high score, load player name, etc.
+          updateHighScoreDisplay(highScore);
+          loadPlayerName(lastPlayerName);
+        }
+      }
+    });
+  }
+});
+
+// Save a score when game ends
+function saveGameScore(playerName, score) {
+  const gameId = window.location.pathname.split('/').pop() || 'default-game-id';
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({
+      type: 'applaa-game-save-score',
+      gameId: gameId,
+      playerName: playerName,
+      score: score
+    }, '*');
+  }
+}
+
+// Save custom game data
+function saveGameData(customData) {
+  const gameId = window.location.pathname.split('/').pop() || 'default-game-id';
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({
+      type: 'applaa-game-save-data',
+      gameId: gameId,
+      data: customData
+    }, '*');
+  }
+}
+
+// Update game progress
+function updateGameProgress(progress) {
+  const gameId = window.location.pathname.split('/').pop() || 'default-game-id';
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({
+      type: 'applaa-game-update-progress',
+      gameId: gameId,
+      progress: progress
+    }, '*');
+  }
+}
+\`\`\`
+
+### **Available Message Types:**
+
+- \`applaa-game-load-data\` - Request game data (scores, high score, player name, etc.)
+- \`applaa-game-save-score\` - Save a new score with player name
+- \`applaa-game-save-data\` - Save custom game data
+- \`applaa-game-update-progress\` - Update game progress (levels completed, achievements, etc.)
+- \`applaa-game-update-custom\` - Update custom data fields
+- \`applaa-game-clear-data\` - Clear all game data (use with caution)
+
+### **Response Messages (listen for these):**
+
+- \`applaa-game-data-loaded\` - Contains \`data\` object with all game data
+- \`applaa-game-score-saved\` - Confirms score was saved, includes updated data
+- \`applaa-game-data-saved\` - Confirms data was saved
+- \`applaa-game-progress-updated\` - Confirms progress was updated
+- \`applaa-game-custom-updated\` - Confirms custom data was updated
+- \`applaa-game-data-cleared\` - Confirms data was cleared
+
+### **Game Data Structure:**
+\`\`\`typescript
+{
+  gameId: string,
+  scores: Array<{
+    playerName: string,
+    score: number,
+    timestamp: string
+  }>,
+  highScore: number,
+  lastPlayerName: string | null,
+  gameProgress: Record<string, any>,
+  customData: Record<string, any>
+}
+\`\`\`
+
+### **Best Practices for Games:**
+- ✅ Load game data when the game starts
+- ✅ Save scores automatically when game ends
+- ✅ Display high scores and top scores on start/game over screens
+- ✅ Use player name input field that pre-fills with \`lastPlayerName\`
+- ✅ Save game progress periodically (level completed, achievements, etc.)
+- ✅ Always check if \`window.parent\` exists before sending messages (handles both iframe and standalone scenarios)
+
+**Note:** The gameId should be unique per game. For games created in Applaa, you can extract it from the game URL or use a consistent identifier.
+
+---
+
 ## ♿ **ACCESSIBILITY & PERFORMANCE (MANDATORY)**
 
 ### **Web Accessibility (WCAG 2.1 AA)**

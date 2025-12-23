@@ -11,6 +11,13 @@ import { IpcClient } from '@/ipc/ipc_client';
 import { useWordPressAuth } from '@/hooks/useWordPressAuth';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+interface Game {
+  id: string;
+  name: string;
+  imageUrl: string;
+  gameUrl: string;
+}
+
 interface GameCardProps {
   id: string;
   name: string;
@@ -19,7 +26,7 @@ interface GameCardProps {
   viewCount?: number;
   likeCount?: number;
   userLiked?: boolean;
-  onPlay: (url: string) => void;
+  onPlay: (game: Game) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string, name: string) => void;
   className?: string;
@@ -48,7 +55,7 @@ export function GameCard({ id, name, imageUrl, gameUrl, viewCount = 0, likeCount
   const handleClick = () => {
     // Increment view count when game is opened
     ipcClient.incrementGameView({ gameId: id }).catch(console.error);
-    onPlay(gameUrl);
+    onPlay({ id, name, imageUrl, gameUrl });
   };
 
   const handleLike = (e: React.MouseEvent) => {

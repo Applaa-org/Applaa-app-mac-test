@@ -1,5 +1,5 @@
-import { SendIcon, StopCircleIcon } from "lucide-react";
-import { useCallback } from "react";
+import { Database, SendIcon, StopCircleIcon } from "lucide-react";
+import { useCallback, useState } from "react";
 
 import { useSettings } from "@/hooks/useSettings";
 import { homeChatInputValueAtom } from "@/atoms/chatAtoms"; // Use a different atom for home input
@@ -21,6 +21,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { Checkbox } from "../ui/checkbox";
+import { Label } from "../ui/label";
+import { Input } from "../ui/input";
 export function HomeChatInput({
   onSubmit,
   placeholder,
@@ -59,6 +62,10 @@ export function HomeChatInput({
     handlePaste,
   } = useAttachments();
 
+  // Database options for this prompt
+  const [createDatabase, setCreateDatabase] = useState(false);
+  const [databaseNotes, setDatabaseNotes] = useState("");
+
   // Handler for optimizing the prompt
   // Optimization handlers removed for MVP simplicity
 
@@ -70,8 +77,8 @@ export function HomeChatInput({
       return;
     }
 
-    // Call the parent's onSubmit handler with attachments
-    onSubmit({ attachments });
+    // Call the parent's onSubmit handler with attachments and DB options
+    onSubmit({ attachments, createDatabase, databaseNotes });
 
     // Clear attachments as part of submission process
     clearAttachments();
@@ -156,6 +163,37 @@ export function HomeChatInput({
                 appType={appType}
                 disabled={isStreaming}
               />
+            </div>
+          </div>
+
+          {/* Database options for app creation */}
+          <div className="px-3 pb-3">
+            <div className="mt-1 space-y-1 rounded-md border border-dashed border-gray-300 bg-muted/40 p-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="home-create-db"
+                  checked={createDatabase}
+                  onCheckedChange={(val) => setCreateDatabase(Boolean(val))}
+                  disabled={isStreaming}
+                />
+                <Label
+                  htmlFor="home-create-db"
+                  className="flex items-center gap-1 text-xs text-muted-foreground"
+                >
+                  <Database className="h-3 w-3 text-blue-600" />
+                  <span>Create database for this app</span>
+                </Label>
+              </div>
+              {createDatabase && (
+                <Input
+                  id="home-db-notes"
+                  placeholder="Optional: describe tables/relations (e.g. Users, Projects, Tasks...)"
+                  className="h-7 text-xs"
+                  value={databaseNotes}
+                  onChange={(e) => setDatabaseNotes(e.target.value)}
+                  disabled={isStreaming}
+                />
+              )}
             </div>
           </div>
         </div>
