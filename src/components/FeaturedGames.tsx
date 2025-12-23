@@ -1,14 +1,11 @@
 /**
  * Featured Games Component
- * 
+ *
  * Displays 3 featured games on the main page with the same design as the hub
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { GameCard } from './GameCard';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { ExternalLink } from 'lucide-react';
 
 interface Game {
   id: string;
@@ -22,9 +19,6 @@ interface FeaturedGamesProps {
 }
 
 export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
-  const [selectedGameUrl, setSelectedGameUrl] = useState<string | null>(null);
-  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
-
   // 3 featured games to showcase on main page
   const featuredGames: Game[] = [
     {
@@ -37,30 +31,20 @@ export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
       id: 'typing-invader',
       name: 'Typing Invader',
       imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/10/asdasd-1-205x300.png', // TODO: Replace with actual Typing Invader image URL
-      gameUrl: 'https://app.applaa.com/typing-invader/' // TODO: Replace with actual Typing Invader game URL
+      gameUrl: 'https://typing-invaders.applaa.com/' // TODO: Replace with actual Typing Invader game URL
     },
     {
       id: 'fruit-catcher',
       name: 'Fruit Catcher',
       imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/11/k-1-300x244.png', // TODO: Replace with actual Fruit Catcher image URL
-      gameUrl: 'https://app.applaa.com/fruit-catcher/' // TODO: Replace with actual Fruit Catcher game URL
+      gameUrl: 'https://2d-fruit-catcher.applaa.com/' // TODO: Replace with actual Fruit Catcher game URL
     }
   ];
 
   const handlePlayGame = (url: string) => {
-    setSelectedGameUrl(url);
-    setIsGameModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsGameModalOpen(false);
-    setSelectedGameUrl(null);
-  };
-
-  const handleOpenExternal = () => {
-    if (selectedGameUrl) {
-      window.open(selectedGameUrl, '_blank');
-    }
+    if (!url) return;
+    // Open game directly in the user's default browser without using an iframe/modal
+    window.open(url, '_blank');
   };
 
   return (
@@ -79,6 +63,7 @@ export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
           {featuredGames.map((game) => (
             <GameCard
               key={game.id}
+              id={game.id}
               name={game.name}
               imageUrl={game.imageUrl}
               gameUrl={game.gameUrl}
@@ -87,41 +72,6 @@ export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
           ))}
         </div>
       </section>
-
-      {/* Game Modal */}
-      <Dialog open={isGameModalOpen} onOpenChange={setIsGameModalOpen}>
-        <DialogContent className="!max-w-none !w-[98vw] !h-[95vh] p-0" style={{ width: '98vw', height: '95vh', maxWidth: 'none', maxHeight: 'none' }}>
-          <DialogHeader className="p-6 pb-0 mt-2">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">
-                Playing Game
-              </DialogTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenExternal}
-                className="flex items-center gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open in New Tab
-              </Button>
-            </div>
-          </DialogHeader>
-          
-          {selectedGameUrl && (
-            <div className="flex-1 p-6 pt-0" style={{ height: 'calc(95vh - 120px)' }}>
-              <iframe
-                src={selectedGameUrl}
-                className="w-full h-full border-0 rounded-lg"
-                title="Game"
-                allow="fullscreen; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{ height: 'calc(95vh - 120px)' }}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
