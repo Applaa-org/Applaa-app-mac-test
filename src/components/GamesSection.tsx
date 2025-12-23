@@ -4,12 +4,11 @@
  * Displays a collection of games created with Applaa
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { GameCard } from './GameCard';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
 import { AddGameDialog } from './AddGameDialog';
 import { EditGameDialog } from './EditGameDialog';
@@ -25,7 +24,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { showError, showSuccess } from '@/lib/toast';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
-import { GameStorageBridge } from '@/components/GameStorageBridge';
 
 interface Game {
   id: string;
@@ -44,11 +42,6 @@ interface GamesSectionProps {
 }
 
 export function GamesSection({ className = '' }: GamesSectionProps) {
-  const [selectedGameUrl, setSelectedGameUrl] = useState<string | null>(null);
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
-  const [selectedGameName, setSelectedGameName] = useState<string | null>(null);
-  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isAddGameDialogOpen, setIsAddGameDialogOpen] = useState(false);
   const [isEditGameDialogOpen, setIsEditGameDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -57,7 +50,6 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
   const queryClient = useQueryClient();
   const ipcClient = IpcClient.getInstance();
   const { hasPermission: hasAdminPermission } = useAdminPermission();
-  const [isDebuggingStorage, setIsDebuggingStorage] = useState(false);
 
   // Expose test function globally for debugging
   useEffect(() => {
@@ -113,69 +105,14 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
   });
 
   const handlePlayGame = (game: Game) => {
-    setSelectedGameUrl(game.gameUrl);
-    setSelectedGameId(game.id);
-    setSelectedGameName(game.name);
-    setIsGameModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsGameModalOpen(false);
-    setSelectedGameUrl(null);
-    setSelectedGameId(null);
-    setSelectedGameName(null);
-  };
-
-  // Debug helper: test storage by sending a save-score message into the iframe
-  const handleTestStorage = async () => {
-    if (!selectedGameId || !iframeRef.current?.contentWindow) {
-      showError(new Error('Open a game first to test storage.'));
-      return;
-    }
-
-    setIsDebuggingStorage(true);
-    const score = Math.floor(Math.random() * 1000) + 1;
-    const playerName = 'Debug Player';
-
-    try {
-      // Send a save-score message to the game iframe
-      iframeRef.current.contentWindow.postMessage(
-        {
-          type: 'applaa-game-save-score',
-          gameId: selectedGameId, // optional; bridge will fallback
-          gameName: selectedGameName || 'Unknown Game',
-          playerName,
-          score,
-        },
-        '*',
-      );
-
-      // Give the bridge a short moment to process
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Read back from storage
-      const { loadGameData } = await import('@/services/gameStorage');
-      const data = loadGameData(selectedGameId);
-
-      console.log('🧪 Storage test - gameId:', selectedGameId, 'data:', data);
-
-      showSuccess(
-        `Test saved: ${playerName} scored ${score}. ` +
-          (data?.scores?.length ? `Scores stored: ${data.scores.length}` : 'No scores found'),
-      );
-    } catch (error) {
-      console.error('🧪 Storage test failed:', error);
-      showError(error);
-    } finally {
-      setIsDebuggingStorage(false);
+    // Increment view count when game is opened
+    ipcClient.incrementGameView({ gameId: game.id }).catch(console.error);
+    // Open game directly in a new tab instead of iframe modal
+    if (game.gameUrl) {
+      window.open(game.gameUrl, '_blank');
     }
   };
 
-  const handleOpenExternal = () => {
-    if (selectedGameUrl) {
-      window.open(selectedGameUrl, '_blank');
-    }
-  };
 
   const handleGameAdded = () => {
     queryClient.invalidateQueries({ queryKey: ['games'] });
@@ -312,63 +249,6 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Game Modal */}
-      <Dialog open={isGameModalOpen} onOpenChange={setIsGameModalOpen}>
-        <DialogContent className="!max-w-none !w-[98vw] !h-[95vh] p-0" style={{ width: '98vw', height: '95vh', maxWidth: 'none', maxHeight: 'none' }}>
-          <DialogHeader className="p-6 pb-0 mt-2">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">
-                Playing Game
-              </DialogTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenExternal}
-                className="flex items-center gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open in New Tab
-              </Button>
-            </div>
-          </DialogHeader>
-          
-          {selectedGameUrl && selectedGameId && (
-            <>
-              <GameStorageBridge 
-                gameId={selectedGameId} 
-                gameName={selectedGameName || undefined}
-                iframeRef={iframeRef}
-              />
-              <div className="flex-1 p-6 pt-0" style={{ height: 'calc(95vh - 120px)' }}>
-                <iframe
-                  ref={iframeRef}
-                  src={selectedGameUrl}
-                  className="w-full h-full border-0 rounded-lg"
-                  title="Game"
-                  allow="fullscreen; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  style={{ height: 'calc(95vh - 120px)' }}
-                />
-                {process.env.NODE_ENV !== 'production' && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleTestStorage}
-                      disabled={isDebuggingStorage}
-                    >
-                      {isDebuggingStorage ? 'Testing storage...' : 'Test storage save'}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Saves a test score to localStorage for this game.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

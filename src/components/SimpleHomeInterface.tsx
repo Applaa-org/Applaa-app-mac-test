@@ -52,8 +52,6 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
   const [visibleIdeasCount, setVisibleIdeasCount] = useState<number>(6);
-  const [selectedGameUrl, setSelectedGameUrl] = useState<string | null>(null);
-  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
   const [isAddTemplateDialogOpen, setIsAddTemplateDialogOpen] = useState(false);
   const [isEditTemplateDialogOpen, setIsEditTemplateDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<{ id: string; name: string; details: string; previewUrl?: string | null; imageUrl?: string | null; emoji?: string | null; appType: 'web' | 'expo' | 'flutter' | 'godot' } | null>(null);
@@ -177,18 +175,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   };
 
   const handlePlayGame = (url: string) => {
-    setSelectedGameUrl(url);
-    setIsGameModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsGameModalOpen(false);
-    setSelectedGameUrl(null);
-  };
-
-  const handleOpenExternal = () => {
-    if (selectedGameUrl) {
-      window.open(selectedGameUrl, '_blank');
+    // Open game directly in a new tab instead of iframe modal
+    if (url) {
+      window.open(url, '_blank');
     }
   };
 
@@ -505,40 +494,6 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
         </div>
       )}
 
-      {/* Game Preview Modal - Same as Hub */}
-      <Dialog open={isGameModalOpen} onOpenChange={setIsGameModalOpen}>
-        <DialogContent className="!max-w-none !w-[98vw] !h-[95vh] p-0" style={{ width: '98vw', height: '95vh', maxWidth: 'none', maxHeight: 'none' }}>
-          <DialogHeader className="p-6 pb-0 mt-2">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">
-                Playing Game
-              </DialogTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenExternal}
-                className="flex items-center gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open in New Tab
-              </Button>
-            </div>
-          </DialogHeader>
-          
-          {selectedGameUrl && (
-            <div className="flex-1 p-6 pt-0" style={{ height: 'calc(95vh - 120px)' }}>
-              <iframe
-                src={selectedGameUrl}
-                className="w-full h-full border-0 rounded-lg"
-                title="Game Preview"
-                allow="fullscreen; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{ height: 'calc(95vh - 120px)' }}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Add Template Dialog */}
       {selectedAppType && (

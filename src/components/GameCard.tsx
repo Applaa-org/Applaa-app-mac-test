@@ -53,9 +53,13 @@ export function GameCard({ id, name, imageUrl, gameUrl, viewCount = 0, likeCount
   });
 
   const handleClick = () => {
-    // Increment view count when game is opened
-    ipcClient.incrementGameView({ gameId: id }).catch(console.error);
+    // Open game immediately (don't wait for view count increment)
     onPlay({ id, name, imageUrl, gameUrl });
+    
+    // Increment view count in background (non-blocking, fails silently for featured games)
+    ipcClient.incrementGameView({ gameId: id }).catch(() => {
+      // Silently fail - featured games might not exist in database
+    });
   };
 
   const handleLike = (e: React.MouseEvent) => {
