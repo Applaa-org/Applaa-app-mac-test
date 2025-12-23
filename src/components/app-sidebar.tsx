@@ -33,9 +33,10 @@ import { HelpDialog } from "./HelpDialog"; // Import the new dialog
 import { SettingsList } from "./SettingsList";
 // Advanced features temporarily disabled for core stability
 import { useWordPressAuth } from "@/hooks/useWordPressAuth";
-import { WordPressAuthDialog } from "@/components/auth/WordPressAuthDialog";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { CombinedAuthDialog } from "@/components/auth/CombinedAuthDialog";
 import { WordPressUserProfile } from "@/components/auth/WordPressUserProfile";
-// import { UserProfile } from "@/components/auth/UserProfile";
+import { UserDropdown } from "./UserDropdown";
 
 // Menu items with dynamic colors - blue for active, gray for inactive
 const items = [
@@ -90,9 +91,13 @@ export function AppSidebar() {
   
   // Authentication state
   // Advanced features temporarily disabled for core stability
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useWordPressAuth();
+  const { isAuthenticated: isWordPressAuthenticated, user: wordpressUser, isLoading: isWordPressLoading } = useWordPressAuth();
+  const { isAuthenticated: isSupabaseAuthenticated, user: supabaseUser, isLoading: isSupabaseLoading } = useSupabaseAuth();
+  const isAuthenticated = isWordPressAuthenticated || isSupabaseAuthenticated;
+  const isAuthLoading = isWordPressLoading || isSupabaseLoading;
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isWordPressUserDropdownOpen, setIsWordPressUserDropdownOpen] = useState(false);
+  const [isSupabaseUserDropdownOpen, setIsSupabaseUserDropdownOpen] = useState(false);
   const navigate = useNavigate();
   
   // Authentication state is now managed by useSupabaseAuth hook
@@ -191,13 +196,17 @@ export function AppSidebar() {
               <SidebarMenuButton
                 size="sm"
                 className="font-medium w-14 h-auto flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl"
-                onClick={() => {
-                  if (isAuthenticated) {
-                    setIsUserDropdownOpen(!isUserDropdownOpen);
+              onClick={() => {
+                if (isAuthenticated) {
+                  if (isSupabaseAuthenticated) {
+                    setIsSupabaseUserDropdownOpen(!isSupabaseUserDropdownOpen);
                   } else {
-                    setIsAuthDialogOpen(true);
+                    setIsWordPressUserDropdownOpen(!isWordPressUserDropdownOpen);
                   }
-                }}
+                } else {
+                  setIsAuthDialogOpen(true);
+                }
+              }}
               >
                 <div className="p-2 rounded-xl bg-gradient-to-r from-gray-500 to-gray-600 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
                   {isAuthenticated ? (
@@ -208,9 +217,11 @@ export function AppSidebar() {
                 </div>
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                   {isAuthLoading ? "..." : isAuthenticated ? (
-                    user?.display_name 
-                      ? user.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                      : user?.username?.[0].toUpperCase() || "U"
+                    isSupabaseAuthenticated
+                      ? (supabaseUser?.fullName || supabaseUser?.full_name || supabaseUser?.email || "U").split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                      : wordpressUser?.display_name 
+                        ? wordpressUser.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                        : wordpressUser?.username?.[0]?.toUpperCase() || "U"
                   ) : "Sign In"}
                 </span>
               </SidebarMenuButton>
@@ -234,17 +245,21 @@ export function AppSidebar() {
           </div>
 
           {/* Dialogs */}
-          <WordPressAuthDialog
+          <CombinedAuthDialog
             open={isAuthDialogOpen}
             onOpenChange={setIsAuthDialogOpen}
+          />
+          <UserDropdown
+            isOpen={isSupabaseUserDropdownOpen}
+            onClose={() => setIsSupabaseUserDropdownOpen(false)}
           />
           <HelpDialog
             isOpen={isHelpDialogOpen}
             onClose={() => setIsHelpDialogOpen(false)}
           />
           <WordPressUserProfile
-            isOpen={isUserDropdownOpen}
-            onClose={() => setIsUserDropdownOpen(false)}
+            isOpen={isWordPressUserDropdownOpen}
+            onClose={() => setIsWordPressUserDropdownOpen(false)}
           />
         </SidebarMenu>
       </SidebarFooter>

@@ -4,12 +4,11 @@
  * Displays a collection of games created with Applaa
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { GameCard } from './GameCard';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
 import { AddGameDialog } from './AddGameDialog';
 import { EditGameDialog } from './EditGameDialog';
@@ -52,6 +51,44 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
   const ipcClient = IpcClient.getInstance();
   const { hasPermission: hasAdminPermission } = useAdminPermission();
 
+  // Expose test function globally for debugging
+  useEffect(() => {
+    // @ts-ignore
+    window.testGameStorage = () => {
+      console.log('🧪 Testing Game Storage...');
+      const testGameId = 'test-game-' + Date.now();
+      const testGameName = 'Test Game';
+      
+      // Import storage functions
+      import('@/services/gameStorage').then(({ saveScore, loadGameData, saveGameData }) => {
+        console.log('🧪 Step 1: Saving test score...');
+        const saved = saveScore(testGameId, 'Test Player', 100, testGameName);
+        console.log('✅ Saved:', saved);
+        
+        console.log('🧪 Step 2: Loading data back...');
+        const loaded = loadGameData(testGameId);
+        console.log('✅ Loaded:', loaded);
+        
+        console.log('🧪 Step 3: Checking localStorage directly...');
+        const key = `applaa-game-data-${testGameId}`;
+        const raw = localStorage.getItem(key);
+        console.log('✅ Raw localStorage:', raw ? JSON.parse(raw) : 'null');
+        
+        console.log('🧪 Step 4: Listing all game storage keys...');
+        const allKeys = Object.keys(localStorage).filter(k => k.startsWith('applaa-game-data-'));
+        console.log('✅ All game storage keys:', allKeys);
+        allKeys.forEach(k => {
+          console.log(`  - ${k}:`, JSON.parse(localStorage.getItem(k) || '{}'));
+        });
+      });
+    };
+    
+    return () => {
+      // @ts-ignore
+      delete window.testGameStorage;
+    };
+  }, []);
+
   // Fetch all games from Supabase (includes default + custom games)
   const { data: allGames = [], isLoading, error: gamesError } = useQuery({
     queryKey: ['games'],
@@ -67,17 +104,15 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
     },
   });
 
-  const handlePlayGame = (url: string) => {
-    // Open the game directly in the user's default browser
-    if (!url) return;
-    window.open(url, "_blank");
-  };
-
-  const handleOpenExternal = () => {
-    if (selectedGameUrl) {
-      window.open(selectedGameUrl, '_blank');
+  const handlePlayGame = (game: Game) => {
+    // Increment view count when game is opened
+    ipcClient.incrementGameView({ gameId: game.id }).catch(console.error);
+    // Open game directly in a new tab instead of iframe modal
+    if (game.gameUrl) {
+      window.open(game.gameUrl, '_blank');
     }
   };
+
 
   const handleGameAdded = () => {
     queryClient.invalidateQueries({ queryKey: ['games'] });
@@ -164,7 +199,7 @@ export function GamesSection({ className = '' }: GamesSectionProps) {
               viewCount={game.viewCount}
               likeCount={game.likeCount}
               userLiked={game.userLiked}
-              onPlay={handlePlayGame}
+              onPlay={() => handlePlayGame(game)}
               onEdit={hasAdminPermission && !game.isDefault ? handleEditGame : undefined}
               onDelete={hasAdminPermission && !game.isDefault ? handleDeleteGame : undefined}
             />

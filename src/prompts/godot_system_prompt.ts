@@ -200,7 +200,192 @@ func _on_collectible_collected():
 
 ---
 
-### 4. 🏆 Victory State (MANDATORY)
+### 4. 💾 Game Data Persistence (RECOMMENDED)
+
+**Applaa provides automatic localStorage for game data!**
+
+Games can save and load player scores, names, high scores, and other game data using the Applaa Game Storage API. This data persists in the browser's localStorage and is automatically isolated per game.
+
+**Display saved stats (high score, last player, etc.) in the game UI**
+
+- On game start, always load previously saved stats and show them to the player.
+- Typical flow:
+  - Request data (via Applaa Game Storage API).
+  - If data exists, read \`highScore\`, \`lastPlayerName\`, and recent \`scores\`.
+  - Update labels in the UI (e.g. \`High Score: 1234\`, \`Last Player: Alice\`).
+
+**MANDATORY: Always save game stats (player name, score, high score) to localStorage for each game**
+- Persist player name, score, and high score per gameId using the Applaa Game Storage API.
+- Use \`window.parent.postMessage\` (HTML5/Canvas) or \`JavaScriptBridge.eval\` (Godot HTML export) to:
+  - Save score: \`applaa-game-save-score\` with \`{ playerName, score }\`
+  - Load data: \`applaa-game-load-data\` to retrieve \`{ highScore, scores, lastPlayerName }\`
+  - Save custom data: \`applaa-game-save-data\` for other stats (e.g., level, coins)
+- For Godot HTML export (GDScript):
+  \`\`\`gdscript
+  func save_score(player_name: String, score: int):
+      JavaScriptBridge.eval("window.applaaSaveScore('%s', %d);" % [player_name, score])
+  \`\`\`
+- Data is stored per gameId in localStorage as \`applaa-game-data-<gameId>\`:
+  \`\`\`
+  {
+    gameId,
+    gameName,
+    scores: [{ playerName, score, timestamp }],
+    highScore,
+    lastPlayerName,
+    gameProgress,
+    customData
+  }
+  \`\`\`
+
+**For HTML5/Canvas Games (godot-web-export/index.html):**
+
+Use \`window.parent.postMessage()\` to communicate with the Applaa parent window:
+
+\`\`\`javascript
+// Load game data when game starts
+window.addEventListener('load', () => {
+  // Get gameId from URL or embed it in your game
+  const gameId = 'your-game-id'; // Replace with actual game ID
+  
+  // Request game data
+  window.parent.postMessage({
+    type: 'applaa-game-load-data',
+    gameId: gameId
+  }, '*');
+  
+  // Listen for data response
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'applaa-game-data-loaded') {
+      const gameData = event.data.data;
+      if (gameData) {
+        // Use the loaded data
+        const highScore = gameData.highScore || 0;
+        const lastPlayerName = gameData.lastPlayerName || 'Player';
+        const scores = gameData.scores || [];
+        
+        // Display high score, load player name, etc.
+        console.log('High Score:', highScore);
+        console.log('Last Player:', lastPlayerName);
+      }
+    }
+  });
+});
+
+// Save a score
+function saveScore(playerName, score) {
+  const gameId = 'your-game-id';
+  window.parent.postMessage({
+    type: 'applaa-game-save-score',
+    gameId: gameId,
+    playerName: playerName,
+    score: score
+  }, '*');
+}
+
+// Save custom game data
+function saveGameData(customData) {
+  const gameId = 'your-game-id';
+  window.parent.postMessage({
+    type: 'applaa-game-save-data',
+    gameId: gameId,
+    data: customData
+  }, '*');
+}
+
+// Update game progress
+function updateProgress(progress) {
+  const gameId = 'your-game-id';
+  window.parent.postMessage({
+    type: 'applaa-game-update-progress',
+    gameId: gameId,
+    progress: progress
+  }, '*');
+}
+\`\`\`
+
+**For Godot Web Exports:**
+
+Since Godot exports to HTML5/JavaScript, you can use the same JavaScript API from GDScript:
+
+1. **Option 1: Use JavaScript interface in GDScript:**
+\`\`\`gdscript
+# In your GDScript file
+extends Node
+
+var game_id = "your-game-id"  # Replace with actual game ID
+
+func _ready():
+    # Call JavaScript function to save score
+    JavaScriptBridge.eval("""
+        window.parent.postMessage({
+            type: 'applaa-game-save-score',
+            gameId: '%s',
+            playerName: arguments[0],
+            score: arguments[1]
+        }, '*');
+    """ % game_id)
+
+func save_score(player_name: String, score: int):
+    JavaScriptBridge.eval("""
+        window.parent.postMessage({
+            type: 'applaa-game-save-score',
+            gameId: '%s',
+            playerName: '%s',
+            score: %d
+        }, '*');
+    """ % [game_id, player_name, score])
+\`\`\`
+
+2. **Option 2: Embed JavaScript in index.html wrapper:**
+Create a wrapper JavaScript file that handles storage and injects it into your Godot export.
+
+**Available Message Types:**
+
+- \`applaa-game-load-data\` - Request game data (scores, high score, player name, etc.)
+- \`applaa-game-save-score\` - Save a new score with player name
+- \`applaa-game-save-data\` - Save custom game data
+- \`applaa-game-update-progress\` - Update game progress (levels completed, achievements, etc.)
+- \`applaa-game-update-custom\` - Update custom data fields
+- \`applaa-game-clear-data\` - Clear all game data (use with caution)
+
+**Response Messages (listen for these):**
+
+- \`applaa-game-data-loaded\` - Contains \`data\` object with all game data
+- \`applaa-game-score-saved\` - Confirms score was saved, includes updated data
+- \`applaa-game-data-saved\` - Confirms data was saved
+- \`applaa-game-progress-updated\` - Confirms progress was updated
+- \`applaa-game-custom-updated\` - Confirms custom data was updated
+- \`applaa-game-data-cleared\` - Confirms data was cleared
+
+**Game Data Structure:**
+\`\`\`typescript
+{
+  gameId: string,
+  scores: Array<{
+    playerName: string,
+    score: number,
+    timestamp: string
+  }>,
+  highScore: number,
+  lastPlayerName: string | null,
+  gameProgress: Record<string, any>,
+  customData: Record<string, any>
+}
+\`\`\`
+
+**Best Practices:**
+- ✅ Load game data when the game starts (in \`_ready()\` or equivalent)
+- ✅ Save scores automatically when game ends
+- ✅ Display high scores and top scores on start/victory screens
+- ✅ Use player name input field that pre-fills with \`lastPlayerName\`
+- ✅ Save game progress periodically (level completed, achievements, etc.)
+
+**Note:** The gameId should be unique per game. You can embed it in your game code or extract it from the game URL when running in Applaa.
+
+---
+
+### 5. 🏆 Victory State (MANDATORY)
 
 **Requirements:**
 - Goal object (flag, door, finish line with Area2D)
@@ -247,7 +432,7 @@ func _on_close_pressed():
 
 ---
 
-### 5. 💀 Defeat State (MANDATORY)
+### 6. 💀 Defeat State (MANDATORY)
 
 **Defeat Triggers:**
 - Collision with hazards (spikes, enemies, traps)
@@ -278,14 +463,14 @@ func _on_body_entered(body):
 
 ---
 
-### 6. 🔄 Restart Functionality (MANDATORY)
+### 7. 🔄 Restart Functionality (MANDATORY)
 
 **Requirements:**
 - Restart Level button on victory/defeat screens
 - Properly reset game state (score, player position, etc.)
 - Use \`get_tree().reload_current_scene()\` or \`get_tree().change_scene_to_file()\`
 
-### 7. ❌ Close/Exit Functionality (MANDATORY)
+### 8. ❌ Close/Exit Functionality (MANDATORY)
 
 **Requirements:**
 - Close button on all screens (start, victory, defeat)

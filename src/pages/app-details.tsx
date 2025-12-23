@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { GitHubConnector } from "@/components/GitHubConnector";
 import { SupabaseConnector } from "@/components/SupabaseConnector";
+import { DatabaseSettings } from "@/components/DatabaseSettings";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
@@ -380,6 +381,7 @@ export default function AppDetailsPage() {
             <GitHubConnector appId={appId} folderName={selectedApp.path} />
           </div>
           {appId && <SupabaseConnector appId={appId} />}
+          {/* {appId && <DatabaseSettings appId={appId} />} */}
           {/* Always render Capacitor controls placeholder so the section is visible quickly */}
           {appId && <CapacitorControls appId={appId} />}
           {appId && <FlutterControls appId={appId} />}

@@ -125,7 +125,6 @@ export function useStreamChat({
               
               // 🚨 SIMPLIFIED: Always update messages - React is smart enough to batch updates
               // The "optimization" of comparing messages was causing silent streaming issues
-              console.log(`🔄 Updating messages: ${updatedMessages.length} messages`);
               setMessages(updatedMessages);
             },
             onEnd: (response: ChatResponseEnd) => {

@@ -2,7 +2,6 @@ import { ipcMain } from "electron";
 import { db } from "../../db";
 import { apps, chats } from "../../db/schema";
 import { eq } from "drizzle-orm";
-import { readSettings } from "../../main/settings";
 import { getDyadAppPath } from "../../paths/paths";
 import { ensureWorkspaceInitialized, getAppRelativePath } from "../../paths/workspace";
 import fs from "node:fs";
@@ -17,6 +16,8 @@ import { healAppCode } from "../utils/code_healer";
 import { execAsync } from "../utils/runShellCommand";
 import * as path from 'path';
 import { unifiedInstallDependencies } from "./unified_dependency_manager";
+import { getSupabaseAuth } from "../../lib/supabase";
+import { readSettings } from "../../main/settings";
 
 const logger = log.scope("parallel_app_creation");
 
@@ -43,6 +44,43 @@ interface ParallelAppCreationResult {
 // Task status tracking
 // Use the proper background task manager
 const taskManager = getBackgroundTaskManager();
+
+async function ensureAuthLimitForAppCreation(): Promise<void> {
+  const FREE_UNAUTH_LIMIT = 3;
+  const { count } = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
+
+  // Check both Supabase and WordPress authentication
+  let isAuthenticated = false;
+
+  // Check Supabase authentication
+  try {
+    const auth = getSupabaseAuth();
+    const session = await auth.getCurrentSession();
+    isAuthenticated = !!session;
+  } catch (error) {
+    // Supabase auth not available, continue to check WordPress
+    logger.debug("Supabase auth check failed, checking WordPress auth...");
+  }
+
+  // Check WordPress authentication if Supabase auth failed
+  if (!isAuthenticated) {
+    try {
+      const settings = readSettings();
+      const wordpressAuth = settings.wordpressAuth;
+      isAuthenticated = !!(wordpressAuth?.isAuthenticated && wordpressAuth?.user?.username);
+      if (isAuthenticated) {
+        logger.debug("WordPress authentication found for app creation");
+    }
+  } catch (error) {
+      logger.debug("WordPress auth check failed:", error);
+    }
+  }
+
+  // If still not authenticated and at limit, throw error
+  if (!isAuthenticated && count >= FREE_UNAUTH_LIMIT) {
+      throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
+  }
+}
 
 /**
  * 🔧 Generate a unique app name by appending numbers
@@ -115,19 +153,9 @@ export function registerParallelAppCreationHandlers() {
     logger.info(`🚀 [INSTANT] Starting instant app creation: ${params.name}`);
     
     try {
-      // 1. Quick permission check (5ms)
+      // 1. Quick permission check (auth-gated app creation)
       const permissionStart = performance.now();
-      const settings = readSettings();
-      const isProUser = settings.enableApplaaPro === true;
-      
-      if (!isProUser) {
-        const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
-        const FREE_APP_LIMIT = 5;
-        
-        if (existingApps.count >= FREE_APP_LIMIT) {
-          throw new Error(`Free users are limited to ${FREE_APP_LIMIT} apps. Upgrade to Applaa Pro for unlimited apps.`);
-        }
-      }
+      await ensureAuthLimitForAppCreation();
       const permissionTime = performance.now() - permissionStart;
       
       // 2. Quick path validation (10ms)

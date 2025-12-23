@@ -427,6 +427,39 @@ export function registerSupabaseAuthHandlers() {
     }
   });
 
+  // Exchange OAuth code for session
+  ipcMain.handle('supabase:exchange-code-for-session', async (_, { code }: { code: string }) => {
+    try {
+      if (!isInitialized) {
+        throw new Error('Supabase not initialized');
+      }
+
+      const auth = getSupabaseAuth();
+      const session = await auth.exchangeCodeForSession(code);
+      
+      // Update current session and user
+      currentSession = session.session;
+      currentUser = session.user;
+      
+      // Get full profile data
+      try {
+        const profile = await auth.getProfile(session.user.id);
+        currentUser = {
+          ...session.user,
+          ...profile,
+        };
+      } catch (error) {
+        log.warn('Failed to fetch user profile:', error);
+      }
+      
+      log.info('OAuth code exchanged successfully');
+      return { success: true, session };
+    } catch (error) {
+      log.error('Failed to exchange OAuth code:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Set session from OAuth callback
   ipcMain.handle('supabase:set-session', async (_, params: {
     accessToken: string;

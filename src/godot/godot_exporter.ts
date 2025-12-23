@@ -100,7 +100,15 @@ export async function exportGodotToHTML5(
     logger.info(`✅ Successfully exported to ${exportPath}`);
     logger.info(`Exported files: ${exportedFiles.join(", ")}`);
 
-    // 6. Create vercel.json for Vercel deployment at app root
+    // 6. Inject Applaa game storage helper into index.html to enable localStorage saving
+    try {
+      injectApplaaStorageHelper(exportPath);
+    } catch (injectError: any) {
+      logger.warn(`Failed to inject Applaa storage helper: ${injectError.message}`);
+      // Do not fail the export if injection fails
+    }
+
+    // 7. Create vercel.json for Vercel deployment at app root
     try {
       const appPath = options.appPath || path.dirname(exportPath);
       createVercelConfig(exportPath, appPath);
@@ -121,6 +129,82 @@ export async function exportGodotToHTML5(
       error: error.message || "Unknown export error",
     };
   }
+}
+
+/**
+ * Inject a small helper script into Godot's exported index.html
+ * so games can save/load scores via postMessage → localStorage
+ */
+function injectApplaaStorageHelper(exportPath: string) {
+  const indexPath = path.join(exportPath, "index.html");
+  if (!fs.existsSync(indexPath)) {
+    logger.warn("index.html not found in export; skipping storage helper injection");
+    return;
+  }
+
+  const html = fs.readFileSync(indexPath, "utf-8");
+
+  const helperScript = `
+    <!-- Applaa Game Storage Helper -->
+    <script>
+      (function() {
+        let gameId = null;
+        let gameName = "Godot Game";
+
+        // Listen for init from parent
+        window.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'applaa-game-init') {
+            gameId = event.data.gameId || gameId;
+            gameName = event.data.gameName || gameName;
+            console.log('[Applaa] Init received', { gameId, gameName });
+          }
+        });
+
+        function sendMessage(type, payload) {
+          if (!window.parent || window.parent === window) {
+            console.warn('[Applaa] No parent window to send message');
+            return;
+          }
+          window.parent.postMessage({ type, gameId, gameName, ...payload }, '*');
+        }
+
+        // Expose simple APIs to the game
+        window.applaaSaveScore = function(playerName, score) {
+          sendMessage('applaa-game-save-score', { playerName, score });
+        };
+
+        window.applaaLoadData = function() {
+          sendMessage('applaa-game-load-data', {});
+        };
+
+        window.applaaSaveData = function(data) {
+          sendMessage('applaa-game-save-data', { data });
+        };
+
+        window.applaaUpdateProgress = function(progress) {
+          sendMessage('applaa-game-update-progress', { progress });
+        };
+
+        window.applaaClearData = function() {
+          sendMessage('applaa-game-clear-data', {});
+        };
+
+        console.log('[Applaa] Storage helper injected');
+      })();
+    </script>
+    <!-- End Applaa Game Storage Helper -->
+  `;
+
+  // Inject before closing </head> if possible, otherwise prepend
+  let updatedHtml: string;
+  if (html.includes("</head>")) {
+    updatedHtml = html.replace("</head>", `${helperScript}\n</head>`);
+  } else {
+    updatedHtml = `${helperScript}\n${html}`;
+  }
+
+  fs.writeFileSync(indexPath, updatedHtml, "utf-8");
+  logger.info("Injected Applaa storage helper into Godot export index.html");
 }
 
 /**

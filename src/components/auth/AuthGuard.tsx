@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useWordPressAuth } from '../../hooks/useWordPressAuth';
-import { WordPressAuthDialog } from './WordPressAuthDialog';
-import { Alert, AlertDescription } from '../ui/alert';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { useSupabaseAuth } from '../../hooks/useSupabaseAuth';
+import { Loader2 } from 'lucide-react';
+import { CombinedAuthDialog } from './CombinedAuthDialog';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -13,8 +13,12 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   children, 
   fallback 
 }) => {
-  const { isAuthenticated, isLoading } = useWordPressAuth();
+  const { isAuthenticated: isWordPressAuthenticated, isLoading: isWordPressLoading } = useWordPressAuth();
+  const { isAuthenticated: isSupabaseAuthenticated, isLoading: isSupabaseLoading } = useSupabaseAuth();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+
+  const isAuthenticated = isWordPressAuthenticated || isSupabaseAuthenticated;
+  const isLoading = isWordPressLoading || isSupabaseLoading;
 
   useEffect(() => {
     // If not loading and not authenticated, show auth dialog
@@ -49,12 +53,12 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
         
         {/* Auth dialog popup - can be closed */}
         {showAuthDialog && (
-          <WordPressAuthDialog 
-            open={showAuthDialog} 
+          <CombinedAuthDialog
+            open={showAuthDialog}
             onOpenChange={(open) => {
               setShowAuthDialog(open);
               // If dialog is closed, allow user to continue (they can reopen it later)
-            }} 
+            }}
           />
         )}
       </>

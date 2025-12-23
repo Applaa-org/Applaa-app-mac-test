@@ -779,6 +779,106 @@ export class IpcClient {
     }
   }
 
+  // ===== Supabase Vault Methods =====
+
+  /**
+   * Check if Supabase Vault is enabled
+   */
+  public async isVaultEnabled(): Promise<boolean> {
+    try {
+      const result = await this.ipcRenderer.invoke("vault:is-enabled");
+      return result.enabled;
+    } catch (error) {
+      showError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a secret from Supabase Vault
+   */
+  public async getVaultSecret(secretName: string): Promise<string | null> {
+    try {
+      const result = await this.ipcRenderer.invoke("vault:get-secret", {
+        secretName,
+      });
+      return result.value;
+    } catch (error) {
+      showError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all secrets from Supabase Vault
+   */
+  public async getAllVaultSecrets(): Promise<Record<string, string>> {
+    try {
+      const result = await this.ipcRenderer.invoke("vault:get-all-secrets");
+      return result.secrets;
+    } catch (error) {
+      showError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * List all secret names in Supabase Vault
+   */
+  public async listVaultSecrets(): Promise<string[]> {
+    try {
+      const result = await this.ipcRenderer.invoke("vault:list-secrets");
+      return result.secretNames;
+    } catch (error) {
+      showError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set a secret in Supabase Vault
+   */
+  public async setVaultSecret(
+    secretName: string,
+    secretValue: string,
+  ): Promise<void> {
+    try {
+      await this.ipcRenderer.invoke("vault:set-secret", {
+        secretName,
+        secretValue,
+      });
+    } catch (error) {
+      showError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a secret from Supabase Vault
+   */
+  public async deleteVaultSecret(secretName: string): Promise<void> {
+    try {
+      await this.ipcRenderer.invoke("vault:delete-secret", {
+        secretName,
+      });
+    } catch (error) {
+      showError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reload secrets from Vault into process.env
+   */
+  public async reloadVaultSecrets(): Promise<void> {
+    try {
+      await this.ipcRenderer.invoke("vault:reload-secrets");
+    } catch (error) {
+      showError(error);
+      throw error;
+    }
+  }
+
   // List all versions (commits) of an app
   public async listVersions({ appId }: { appId: number }): Promise<Version[]> {
     try {
@@ -1998,6 +2098,14 @@ export class IpcClient {
     error?: string;
   }> {
     return this.ipcRenderer.invoke("supabase:sign-in-with-google");
+  }
+
+  public async supabaseExchangeCodeForSession(params: { code: string }): Promise<{
+    success: boolean;
+    session?: any;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("supabase:exchange-code-for-session", params);
   }
 
   public async supabaseSetSession(params: {
@@ -3422,6 +3530,25 @@ export class IpcClient {
 
   public async deleteGameTemplate(params: { id: string }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("game-templates:delete", params);
+  }
+
+  // Applaa Automation Methods
+  public async executeApplaaAutomationTask(params: {
+    task: string;
+  }): Promise<{
+    success: boolean;
+    task: string;
+    actions?: any[];
+    result?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("applaa-automation:execute-task", params);
+  }
+
+  public async getApplaaAutomationStatus(): Promise<{
+    available: boolean;
+  }> {
+    return this.ipcRenderer.invoke("applaa-automation:status");
   }
 }
 
