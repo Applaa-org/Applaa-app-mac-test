@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,7 @@ import { selectedAppIdAtom, gameCreationPromptAtom } from '@/atoms/appAtoms';
 import { showError, showSuccess } from '@/lib/toast';
 import { ChatInputControls } from '@/components/ChatInputControls';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface GodotGameCreationInputProps {
   onGameCreated?: () => void;
@@ -30,6 +31,35 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
   const setSelectedAppId = useSetAtom(selectedAppIdAtom);
   const setGameCreationPrompt = useSetAtom(gameCreationPromptAtom);
   const ipcClient = IpcClient.getInstance();
+  
+  // Add ref for textarea
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Game data storage option - checked by default for Applaa Games
+  const [saveGameData, setSaveGameData] = useState(true);
+
+  // Auto-resize textarea function
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      
+      // Calculate max height for 16 rows (assuming ~24px per line with padding)
+      const lineHeight = 24; // Approximate line height
+      const maxHeight = lineHeight * 16; // 16 rows max
+      const minHeight = 100; // Minimum height (matches min-h-[100px])
+      
+      // Set height based on scrollHeight, clamped between min and max
+      const scrollHeight = textarea.scrollHeight;
+      const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+      
+      textarea.style.height = `${newHeight}px`;
+      
+      // Enable scrolling if content exceeds max height
+      textarea.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
+    }
+  }, []);
 
   // Update description when initialDescription changes
   useEffect(() => {
@@ -37,6 +67,16 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
       setGameDescription(initialDescription);
     }
   }, [initialDescription]);
+
+  // Adjust height when description changes
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [gameDescription, adjustTextareaHeight]);
+
+  // Adjust height on mount
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [adjustTextareaHeight]);
 
   // Real-time name validation
   useEffect(() => {
@@ -92,7 +132,14 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
     setIsCreating(true);
     try {
       const normalizedName = gameName.trim().toLowerCase().replace(/\s+/g, '-');
-      const finalPrompt = gameDescription || `Create a ${gameName} game`;
+      let finalPrompt = gameDescription || `Create a ${gameName} game`;
+      
+      // Append localStorage instructions if checkbox is checked
+      if (saveGameData) {
+        finalPrompt = `${finalPrompt}
+
+Save high score, player name, scores, and game progress in localStorage.`;
+      }
       
       // Set the game creation prompt immediately so it shows in the preview
       setGameCreationPrompt(finalPrompt);
@@ -113,9 +160,16 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
 
       // Navigate to chat immediately - don't wait for spec generation/build
       // The user can generate the spec and build in the chat if needed
-      const chatPrompt = gameDescription.trim() 
+      let chatPrompt = gameDescription.trim() 
         ? `Create a game called "${gameName}"\n\n${gameDescription}`
         : `Create a ${gameName} game`;
+      
+      // Append localStorage instructions if checkbox is checked
+      if (saveGameData) {
+        chatPrompt = `${chatPrompt}
+
+Save high score, player name, scores, and game progress in localStorage.`;
+      }
       
       // Reset loading state before navigation for instant UI response
       setIsCreating(false);
@@ -156,7 +210,7 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
       setIsCreating(false);
       showError(error as Error);
     }
-  }, [gameName, gameDescription, ipcClient, router, setSelectedAppId, onGameCreated]);
+  }, [gameName, gameDescription, saveGameData, ipcClient, router, setSelectedAppId, onGameCreated, setGameCreationPrompt]);
 
   const handleCreate = useCallback(async () => {
     // If no game name, show dialog
@@ -189,13 +243,18 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
       <div className="relative flex flex-col space-y-2 border border-border rounded-lg bg-(--background-lighter) shadow-sm">
         <div className="flex items-start space-x-2">
           <Textarea
+            ref={textareaRef}
             id="gameDescription"
             value={gameDescription}
-            onChange={(e) => setGameDescription(e.target.value)}
+            onChange={(e) => {
+              setGameDescription(e.target.value);
+              // Height adjustment happens in useEffect
+            }}
             placeholder='Describe your game idea... (e.g., "A 2D platformer where the player jumps between platforms, collects coins, and defeats enemies")'
-            rows={2}
+            rows={1}
             disabled={isCreating}
-            className="flex-1 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] p-4"
+            className="flex-1 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] p-4 overflow-hidden"
+            style={{ height: 'auto' }}
           />
 
           {/* Build button on the right, inside input area - matching web input style */}
@@ -225,6 +284,27 @@ export function GodotGameCreationInput({ onGameCreated, initialDescription = '' 
               onInputChange={setGameDescription}
               disabled={isCreating}
             />
+          </div>
+        </div>
+        
+        {/* Game data storage option (checked by default for Applaa Game) */}
+        <div className="px-3 pb-3">
+          <div className="mt-1 space-y-1 rounded-md border border-dashed border-purple-300 bg-purple-50/40 p-2">
+            <div className="flex items-center space-x-2">
+              {/* <Checkbox
+                id="godot-save-game-data"
+                checked={saveGameData}
+                onCheckedChange={(val) => setSaveGameData(Boolean(val))}
+                disabled={isCreating}
+              /> */}
+              <Label
+                htmlFor="godot-save-game-data"
+                className="flex items-center gap-1 text-xs text-muted-foreground"
+              >
+                <Gamepad2 className="h-3 w-3 text-purple-600" />
+                <span>Save game data in localStorage</span>
+              </Label>
+            </div>
           </div>
         </div>
       </div>

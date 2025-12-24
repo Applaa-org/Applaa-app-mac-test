@@ -139,7 +139,7 @@ export function ModelPicker() {
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-1 h-6 max-w-[140px] px-2 text-xs !bg-white hover:!bg-gray-50 !text-gray-700 hover:!text-gray-700 border-gray-300 shadow-sm"
+              className="flex items-center gap-1 h-8 px-2 mr-2 max-w-[340px] px-1 text-xs !bg-white hover:!bg-gray-50 !text-gray-700 hover:!text-gray-700 border-gray-300 shadow-sm"
             >
               <div className="flex items-center gap-0.5">
                 <Brain className="h-2.5 w-2.5" />

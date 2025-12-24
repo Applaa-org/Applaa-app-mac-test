@@ -902,39 +902,65 @@ Games can save and load player scores, names, high scores, and other game data u
 
 ### **Using Applaa Game Storage API:**
 
+**MANDATORY FLOW:**
+1. Initialize high score display to 0 on page load
+2. Load game data from localStorage
+3. Update display with loaded values
+4. Save player name and score to localStorage when game ends
+
 \`\`\`javascript
-// Load game data when game starts
+// MANDATORY: Initialize high score display to 0 on game start
+// This must happen BEFORE loading from localStorage
 window.addEventListener('load', () => {
-  // Get gameId from URL or embed it in your game
+  // STEP 1: Initialize high score display to 0 immediately
+  // This ensures the UI shows something right away
+  const highScoreElement = document.getElementById('highScoreDisplay');
+  if (highScoreElement) {
+    highScoreElement.textContent = 'High Score: 0';
+    highScoreElement.style.display = 'block'; // Make it visible!
+  }
+  
+  // STEP 2: Get gameId from URL or embed it in your game
   const gameId = window.location.pathname.split('/').pop() || 'default-game-id';
   
-  // Request game data
+  // STEP 3: Request game data from localStorage
   if (window.parent && window.parent !== window) {
     window.parent.postMessage({
       type: 'applaa-game-load-data',
       gameId: gameId
     }, '*');
     
-    // Listen for data response
+    // STEP 4: Listen for data response and UPDATE the display
     window.addEventListener('message', (event) => {
       if (event.data.type === 'applaa-game-data-loaded') {
         const gameData = event.data.data;
         if (gameData) {
           // Use the loaded data
           const highScore = gameData.highScore || 0;
-          const lastPlayerName = gameData.lastPlayerName || 'Player';
+          const lastPlayerName = gameData.lastPlayerName || '';
           const scores = gameData.scores || [];
           
-          // Display high score, load player name, etc.
+          // MANDATORY: Update high score display with loaded value
           updateHighScoreDisplay(highScore);
-          loadPlayerName(lastPlayerName);
+          
+          // MANDATORY: Display top scores if available
+          if (scores.length > 0) {
+            displayTopScores(scores.slice(0, 5)); // Top 5
+          }
+          
+          // MANDATORY: Pre-fill player name
+          if (lastPlayerName) {
+            const nameInput = document.getElementById('playerNameInput');
+            if (nameInput) nameInput.value = lastPlayerName;
+          }
         }
       }
     });
   }
 });
 
-// Save a score when game ends
+// MANDATORY: Save a score when game ends
+// This saves to localStorage via Applaa Game Storage API
 function saveGameScore(playerName, score) {
   const gameId = window.location.pathname.split('/').pop() || 'default-game-id';
   if (window.parent && window.parent !== window) {
@@ -944,6 +970,17 @@ function saveGameScore(playerName, score) {
       playerName: playerName,
       score: score
     }, '*');
+    
+    // Listen for confirmation and update display
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'applaa-game-score-saved') {
+        const updatedData = event.data.data;
+        if (updatedData) {
+          // Update high score display with new value
+          displayHighScore(updatedData.highScore || 0);
+        }
+      }
+    }, { once: true }); // Only listen once for this save
   }
 }
 
@@ -1006,10 +1043,262 @@ function updateGameProgress(progress) {
 }
 \`\`\`
 
+### **MANDATORY: Display High Score at ALL Times**
+
+**You MUST display the high score prominently in the game UI at ALL times. This is REQUIRED, not optional.**
+
+**CRITICAL: High score must be visible in THREE places - Main Menu, During Gameplay (HUD), and Game Over Screen.**
+
+1. **Main Menu / Start Screen (MANDATORY - BEFORE GAME STARTS):**
+   - Display the current high score prominently and ALWAYS VISIBLE on main menu
+   - Place it near game controls, instructions, or in a prominent header area
+   - Show it even before loading from localStorage (starts at 0, then updates)
+   - Example UI structure with high score placement:
+     \`\`\`html
+     <div id="mainMenu">
+       <h1>Game Title</h1>
+       
+       <!-- High Score - ALWAYS VISIBLE on main menu -->
+       <div id="highScoreDisplay" style="font-size: 24px; font-weight: bold; margin: 20px 0; text-align: center;">
+         High Score: 1,234
+       </div>
+       
+       <!-- Game Controls/Instructions Section - High score can be shown here too -->
+       <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
+         <div>
+           <h3>Controls:</h3>
+           <p>Arrow keys to move</p>
+           <p>Space to jump</p>
+         </div>
+         <div id="highScoreDisplayAlt" style="font-size: 20px; font-weight: bold;">
+           Best: 1,234
+         </div>
+       </div>
+       
+       <input id="playerNameInput" type="text" placeholder="Enter your name" />
+       <button>Start Game</button>
+     </div>
+     \`\`\`
+
+2. **During Gameplay / HUD (MANDATORY - WHILE PLAYING):**
+   - Show high score in the HUD (Heads-Up Display) - ALWAYS VISIBLE during gameplay
+   - Place it in top-left, top-right, or top-center corner
+   - Show alongside current score
+   - Keep HUD visible throughout entire gameplay
+   - Update in real-time if high score changes
+   - Example HUD structure:
+     \`\`\`html
+     <!-- HUD - Always visible during gameplay -->
+     <div id="gameHUD" style="position: fixed; top: 10px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px;">
+       <div style="font-size: 18px; color: white;">
+         <div>Score: <span id="currentScore">0</span></div>
+         <div style="font-weight: bold; margin-top: 5px; color: gold;">
+           Best: <span id="highScoreHUD">1,234</span>
+         </div>
+       </div>
+     </div>
+     \`\`\`
+
+3. **Game Over Screen (MANDATORY - AFTER GAME ENDS):**
+   - Show the player's final score
+   - Compare to high score (e.g., "New High Score!" if beaten, or "High Score: 1,234" if not)
+   - Display updated top scores list
+   - High score must be prominently displayed
+   - Example UI structure:
+     \`\`\`html
+     <div id="gameOverScreen">
+       <h2>Game Over!</h2>
+       <div style="font-size: 20px;">Your Score: 1,500</div>
+       <div class="new-high-score" style="font-size: 24px; color: gold;">🎉 New High Score!</div>
+       <div style="font-size: 18px; margin-top: 10px;">
+         High Score: <span id="highScoreGameOver">1,500</span>
+       </div>
+       <div id="leaderboard">
+         <h3>Top Scores:</h3>
+         <div>1. You - 1,500</div>
+         <div>2. Player1 - 1,234</div>
+         <div>3. Player2 - 1,100</div>
+       </div>
+       <button>Play Again</button>
+     </div>
+     \`\`\`
+
+**Implementation Example (COMPLETE FLOW):**
+
+\`\`\`javascript
+// MANDATORY: Initialize high score to 0 on page load
+// This must happen FIRST, before loading from localStorage
+window.addEventListener('DOMContentLoaded', () => {
+  // Initialize high score display to 0 immediately
+  const highScoreElement = document.getElementById('highScoreDisplay');
+  if (highScoreElement) {
+    highScoreElement.textContent = 'High Score: 0';
+    highScoreElement.style.display = 'block'; // Make it visible from the start!
+  }
+});
+
+// Load and display game data on game start
+window.addEventListener('load', () => {
+  const gameId = window.location.pathname.split('/').pop() || 'default-game-id';
+  
+  if (window.parent && window.parent !== window) {
+    // Request game data from localStorage
+    window.parent.postMessage({
+      type: 'applaa-game-load-data',
+      gameId: gameId
+    }, '*');
+    
+    // Listen for data response and UPDATE the display
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'applaa-game-data-loaded') {
+        const gameData = event.data.data;
+        if (gameData) {
+          const highScore = gameData.highScore || 0;
+          const lastPlayerName = gameData.lastPlayerName || '';
+          const topScores = (gameData.scores || []).slice(0, 5); // Top 5
+          
+          // MANDATORY: Update high score display with loaded value from localStorage
+          displayHighScore(highScore);
+          
+          // MANDATORY: Display top scores if available
+          if (topScores.length > 0) {
+            displayTopScores(topScores);
+          }
+          
+          // MANDATORY: Pre-fill player name input
+          if (lastPlayerName) {
+            const nameInput = document.getElementById('playerNameInput');
+            if (nameInput) nameInput.value = lastPlayerName;
+          }
+        }
+      }
+    });
+  }
+});
+
+// Display high score on main menu
+// This function updates the display with the value from localStorage
+function displayHighScore(score) {
+  // Update main menu high score
+  const highScoreElement = document.getElementById('highScoreDisplay');
+  if (highScoreElement) {
+    highScoreElement.textContent = \`High Score: \${score.toLocaleString()}\`;
+    highScoreElement.style.display = 'block'; // Make it visible!
+  }
+  
+  // Update HUD high score (if game is playing)
+  const highScoreHUD = document.getElementById('highScoreHUD');
+  if (highScoreHUD) {
+    highScoreHUD.textContent = score.toLocaleString();
+  }
+  
+  // Update game over high score (if game over screen is showing)
+  const highScoreGameOver = document.getElementById('highScoreGameOver');
+  if (highScoreGameOver) {
+    highScoreGameOver.textContent = score.toLocaleString();
+  }
+}
+
+// Update HUD during gameplay - call this function to keep HUD visible
+function updateGameHUD(currentScore, highScore) {
+  const hudElement = document.getElementById('gameHUD');
+  if (hudElement) {
+    hudElement.style.display = 'block'; // Make HUD visible during gameplay
+  }
+  
+  const currentScoreElement = document.getElementById('currentScore');
+  if (currentScoreElement) {
+    currentScoreElement.textContent = currentScore.toLocaleString();
+  }
+  
+  const highScoreHUDElement = document.getElementById('highScoreHUD');
+  if (highScoreHUDElement) {
+    highScoreHUDElement.textContent = highScore.toLocaleString();
+  }
+}
+
+// Display top scores leaderboard
+function displayTopScores(scores) {
+  const leaderboardElement = document.getElementById('leaderboard');
+  if (leaderboardElement) {
+    leaderboardElement.innerHTML = scores.map((score, index) => 
+      \`<div>\${index + 1}. \${score.playerName} - \${score.score.toLocaleString()}</div>\`
+    ).join('');
+    leaderboardElement.style.display = 'block'; // Make it visible!
+  }
+}
+
+// On game over, show comparison with high score
+function showGameOverScreen(finalScore, highScore) {
+  const gameOverElement = document.getElementById('gameOverScreen');
+  if (gameOverElement) {
+    gameOverElement.innerHTML = \`
+      <h2>Game Over!</h2>
+      <p>Your Score: \${finalScore.toLocaleString()}</p>
+      \${finalScore > highScore 
+        ? '<p class="new-high-score">🎉 New High Score!</p>'
+        : \`<p>High Score: \${highScore.toLocaleString()}</p>\`
+      }
+    \`;
+    gameOverElement.style.display = 'block'; // Make it visible!
+  }
+}
+\`\`\`
+
+**Critical Requirements - DISPLAY HIGH SCORE AT ALL TIMES:**
+
+1. **Main Menu / Start Screen (MANDATORY - BEFORE GAME STARTS):**
+   - ✅ **MUST** display high score prominently on main menu
+   - ✅ **MUST** show it near game controls or in a header area
+   - ✅ **MUST** initialize to "High Score: 0" immediately, then update when data loads
+   - ✅ **MUST** keep it visible at all times on main menu
+
+2. **During Gameplay / HUD (MANDATORY - WHILE PLAYING):**
+   - ✅ **MUST** display high score in HUD during gameplay
+   - ✅ **MUST** place it in top corner (top-left, top-right, or top-center)
+   - ✅ **MUST** show it alongside current score
+   - ✅ **MUST** keep HUD visible throughout gameplay
+   - ✅ **MUST** update HUD high score when new high score is achieved
+
+3. **Game Over Screen (MANDATORY - AFTER GAME ENDS):**
+   - ✅ **MUST** display high score on game over screen
+   - ✅ **MUST** compare final score to high score
+   - ✅ **MUST** show "New High Score!" if beaten
+   - ✅ **MUST** update display after saving new score
+
+**INITIALIZATION FLOW:**
+1. **STEP 1: Initialize Display to 0 (MANDATORY)**
+   - ✅ **MUST** set high score display to "High Score: 0" immediately on page load
+   - ✅ **MUST** make the high score element visible from the start (display: block)
+   - ✅ **MUST** initialize HUD high score to 0 as well
+   - ✅ This happens BEFORE loading from localStorage
+
+2. **STEP 2: Load from localStorage (MANDATORY)**
+   - ✅ **MUST** request game data using \`applaa-game-load-data\` message
+   - ✅ **MUST** listen for \`applaa-game-data-loaded\` response
+
+3. **STEP 3: Update ALL Displays (MANDATORY)**
+   - ✅ **MUST** update main menu high score with value from localStorage
+   - ✅ **MUST** update HUD high score with value from localStorage
+   - ✅ **MUST** update game over high score when screen appears
+   - ✅ **MUST** show top scores list if scores exist
+   - ✅ **MUST** pre-fill player name input with \`lastPlayerName\` if available
+
+4. **STEP 4: Save to localStorage (MANDATORY)**
+   - ✅ **MUST** save scores automatically when game ends using \`applaa-game-save-score\`
+   - ✅ **MUST** save player name along with score
+   - ✅ **MUST** update ALL high score displays after saving (main menu, HUD, game over)
+
+**DO NOT:**
+- ❌ **DO NOT** just log data to console - it must be visible in the UI
+- ❌ **DO NOT** hide high score display - make it prominent and always visible
+- ❌ **DO NOT** wait for localStorage to load before showing high score - show 0 first, then update
+- ❌ **DO NOT** only show high score on one screen - it must be on main menu, HUD, AND game over
+
 ### **Best Practices for Games:**
 - ✅ Load game data when the game starts
 - ✅ Save scores automatically when game ends
-- ✅ Display high scores and top scores on start/game over screens
+- ✅ Display high scores and top scores on start/game over screens (MANDATORY - see above)
 - ✅ Use player name input field that pre-fills with \`lastPlayerName\`
 - ✅ Save game progress periodically (level completed, achievements, etc.)
 - ✅ Always check if \`window.parent\` exists before sending messages (handles both iframe and standalone scenarios)

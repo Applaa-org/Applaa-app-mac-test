@@ -136,8 +136,8 @@ function AutoResizePlugin() {
       
       // Calculate the scroll height and set new height
       const scrollHeight = contentEditable.scrollHeight;
-      // Max height for ~10 rows (assuming ~24px per line): 10 * 24 = 240px
-      const maxHeight = 240;
+      // Max height for ~16 rows (assuming ~24px per line): 16 * 24 = 384px
+      const maxHeight = 384;
       const minHeight = 80;
       const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
       
@@ -422,7 +422,7 @@ export function LexicalChatInput({
               style={{
                 WebkitUserSelect: 'text',
                 minHeight: '80px',
-                maxHeight: '240px',
+                maxHeight: '384px',
                 overflowY: 'auto',
               } as React.CSSProperties}
             />

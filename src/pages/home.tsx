@@ -46,6 +46,7 @@ export interface HomeSubmitOptions {
   attachments?: FileAttachment[];
   createDatabase?: boolean;
   databaseNotes?: string;
+  saveGameData?: boolean;
 }
 
 export default function HomePage() {
@@ -65,6 +66,7 @@ export default function HomePage() {
   const [pendingDbOptions, setPendingDbOptions] = useState<{
     createDatabase?: boolean;
     databaseNotes?: string;
+    saveGameData?: boolean;
   } | null>(null);
   const { streamMessage } = useStreamChat({ hasChatId: false });
   const { status: creationStatus, isMonitoring } = useAppCreationStatus(currentTaskId);
@@ -175,12 +177,13 @@ export default function HomePage() {
     setForceAuthDialog(false);
     setShowAuthDialog(false);
 
-    // Show naming dialog first, capture DB options and attachments
+    // Show naming dialog first, capture DB options, attachments, and game data option
     setPendingPrompt(inputValue);
     setPendingAttachments(attachments);
     setPendingDbOptions({
       createDatabase: options?.createDatabase,
       databaseNotes: options?.databaseNotes,
+      saveGameData: options?.saveGameData,
     });
     setShowNamingDialog(true);
   };
@@ -200,6 +203,13 @@ export default function HomePage() {
 
       // Base prompt from user input
       let finalPrompt = pendingPrompt;
+      
+      // Append localStorage instructions if user checked the game data storage option
+      if (pendingDbOptions?.saveGameData) {
+        finalPrompt = `${finalPrompt}
+
+Save high score, player name, scores, and game progress in localStorage.`;
+      }
 
       // Append database instructions if user requested a Postgres database
       if (pendingDbOptions?.createDatabase) {

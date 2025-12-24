@@ -350,14 +350,14 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
           {/* Chat Input */}
           <div className="max-w-4xl mx-auto">
-            <div className="mb-6 text-center">
+            {/* <div className="mb-6 text-center">
               <h2 className="text-3xl font-bold text-gray-900 mb-3">
                 What do you want to build?
               </h2>
               <p className="text-lg text-gray-600">
                 Describe your {selectedAppType === 'web' ? 'web app' : selectedAppType === 'godot' ? 'game' : 'mobile app'} and we'll create it for you
               </p>
-            </div>
+            </div> */}
             
             {selectedAppType === 'godot' ? (
               <GodotGameCreationInput
@@ -383,7 +383,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
             <div className="flex items-center justify-between mb-3 px-0.5">
               <div className="flex items-center gap-2 text-gray-600">
                 <Lightbulb className="h-4 w-4 text-amber-500" />
-                <span className="text-sm">Choose from 1000's of Game templates</span>
+                <span className="text-sm">Choose from 1000's of templates</span>
               </div>
               <div className="flex items-center gap-2">
                 {hasAdminPermission && (
