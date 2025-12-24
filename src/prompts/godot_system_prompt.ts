@@ -206,16 +206,35 @@ func _on_collectible_collected():
 
 Games can save and load player scores, names, high scores, and other game data using the Applaa Game Storage API. This data persists in the browser's localStorage and is automatically isolated per game.
 
-**Display saved stats (high score, last player, etc.) in the game UI**
+**MANDATORY: Display saved stats (high score, last player, etc.) in the game UI**
 
-- On game start, always load previously saved stats and show them to the player.
-- Typical flow:
-  - Request data (via Applaa Game Storage API).
-  - If data exists, read \`highScore\`, \`lastPlayerName\`, and recent \`scores\`.
-  - Update labels in the UI (e.g. \`High Score: 1234\`, \`Last Player: Alice\`).
+**CRITICAL INITIALIZATION FLOW:**
+
+1. **Initialize to 0 FIRST (MANDATORY):**
+   - On game start, immediately set high score display to "High Score: 0"
+   - Make the high score label visible from the start
+   - This happens in \`_ready()\` BEFORE loading from localStorage
+
+2. **Load from localStorage (MANDATORY):**
+   - Request data via Applaa Game Storage API using \`applaa-game-load-data\`
+   - Listen for \`applaa-game-data-loaded\` response
+
+3. **Update Display (MANDATORY):**
+   - If data exists, read \`highScore\`, \`lastPlayerName\`, and recent \`scores\`
+   - Update labels in the UI (e.g. \`High Score: 1234\`, \`Last Player: Alice\`)
+   - The high score will update from 0 to the saved value
+
+4. **Save to localStorage (MANDATORY):**
+   - Always save player name and score when game ends using \`applaa-game-save-score\`
+   - This persists the data to localStorage for next time
 
 **MANDATORY: Always save game stats (player name, score, high score) to localStorage for each game**
+
+**CRITICAL: You MUST save game data to localStorage. This is not optional.**
+
 - Persist player name, score, and high score per gameId using the Applaa Game Storage API.
+- Save automatically when game ends (game over screen, victory screen, or when player quits)
+- The high score is automatically calculated and saved - you just need to call \`applaa-game-save-score\` with player name and score
 - Use \`window.parent.postMessage\` (HTML5/Canvas) or \`JavaScriptBridge.eval\` (Godot HTML export) to:
   - Save score: \`applaa-game-save-score\` with \`{ playerName, score }\`
   - Load data: \`applaa-game-load-data\` to retrieve \`{ highScore, scores, lastPlayerName }\`
@@ -243,30 +262,55 @@ Games can save and load player scores, names, high scores, and other game data u
 Use \`window.parent.postMessage()\` to communicate with the Applaa parent window:
 
 \`\`\`javascript
+// MANDATORY: Initialize high score display to 0 on game start
+// This must happen BEFORE loading from localStorage
+window.addEventListener('DOMContentLoaded', () => {
+  // STEP 1: Initialize high score display to 0 immediately
+  const highScoreElement = document.getElementById('highScoreDisplay');
+  if (highScoreElement) {
+    highScoreElement.textContent = 'High Score: 0';
+    highScoreElement.style.display = 'block'; // Make it visible from the start!
+  }
+});
+
 // Load game data when game starts
 window.addEventListener('load', () => {
-  // Get gameId from URL or embed it in your game
+  // STEP 2: Get gameId from URL or embed it in your game
   const gameId = 'your-game-id'; // Replace with actual game ID
   
-  // Request game data
+  // STEP 3: Request game data from localStorage
   window.parent.postMessage({
     type: 'applaa-game-load-data',
     gameId: gameId
   }, '*');
   
-  // Listen for data response
+  // STEP 4: Listen for data response and UPDATE the display
   window.addEventListener('message', (event) => {
     if (event.data.type === 'applaa-game-data-loaded') {
       const gameData = event.data.data;
       if (gameData) {
         // Use the loaded data
         const highScore = gameData.highScore || 0;
-        const lastPlayerName = gameData.lastPlayerName || 'Player';
+        const lastPlayerName = gameData.lastPlayerName || '';
         const scores = gameData.scores || [];
         
-        // Display high score, load player name, etc.
-        console.log('High Score:', highScore);
-        console.log('Last Player:', lastPlayerName);
+        // MANDATORY: Update high score display with loaded value
+        const highScoreElement = document.getElementById('highScoreDisplay');
+        if (highScoreElement) {
+          highScoreElement.textContent = 'High Score: ' + highScore.toLocaleString();
+          highScoreElement.style.display = 'block';
+        }
+        
+        // MANDATORY: Pre-fill player name
+        if (lastPlayerName) {
+          const nameInput = document.getElementById('playerNameInput');
+          if (nameInput) nameInput.value = lastPlayerName;
+        }
+        
+        // MANDATORY: Display top scores if available
+        if (scores.length > 0) {
+          displayTopScores(scores.slice(0, 5));
+        }
       }
     }
   });
@@ -374,10 +418,210 @@ Create a wrapper JavaScript file that handles storage and injects it into your G
 }
 \`\`\`
 
+### **MANDATORY: Display High Score at ALL Times**
+
+**You MUST display the high score prominently in the game UI at ALL times. This is REQUIRED, not optional.**
+
+**CRITICAL: High score must be visible in THREE places - Main Menu, During Gameplay (HUD), and Game Over Screen.**
+
+1. **Main Menu / Start Screen (MANDATORY - BEFORE GAME STARTS):**
+   - Create a Label node showing "High Score: [value]" - make it prominent and ALWAYS VISIBLE
+   - Place it near game controls, instructions, or in a prominent header area
+   - Show it even before loading from localStorage (starts at 0, then updates)
+   - Create a VBoxContainer or similar showing top 3-5 scores as a leaderboard
+   - Pre-fill player name LineEdit with \`lastPlayerName\` if it exists
+   - Example GDScript (COMPLETE FLOW):
+   \`\`\`gdscript
+   @onready var high_score_label: Label = $MainMenu/HighScoreLabel
+   @onready var leaderboard_container: VBoxContainer = $MainMenu/LeaderboardContainer
+   @onready var player_name_input: LineEdit = $MainMenu/PlayerNameInput
+   
+   func _ready():
+       # STEP 1: Initialize high score display to 0 immediately
+       # This must happen FIRST, before loading from localStorage
+       if high_score_label:
+           high_score_label.text = "High Score: 0"
+           high_score_label.visible = true  # Make it visible from the start!
+       
+       # STEP 2: Load game data from localStorage
+       load_game_data()
+       
+       # STEP 3: Set up message listener to receive data
+       setup_message_listener()
+   
+   func load_game_data():
+       # Request data from Applaa storage (localStorage)
+       JavaScriptBridge.eval("""
+           window.parent.postMessage({
+               type: 'applaa-game-load-data',
+               gameId: '%s'
+           }, '*');
+       """ % game_id)
+   
+   func setup_message_listener():
+       # This should be set up to listen for 'applaa-game-data-loaded' messages
+       # When data arrives, call display_game_data()
+       # You can use JavaScriptBridge.eval to set up a global message listener
+       # or handle it in your HTML wrapper
+   
+   func display_game_data(game_data: Dictionary):
+       var high_score = game_data.get("highScore", 0)
+       var last_player = game_data.get("lastPlayerName", "")
+       var scores = game_data.get("scores", [])
+       
+       # STEP 3: Update high score display with value from localStorage
+       if high_score_label:
+           high_score_label.text = "High Score: " + str(high_score)
+           high_score_label.visible = true  # Make it visible!
+       
+       # MANDATORY: Display top scores
+       if leaderboard_container and scores.size() > 0:
+           leaderboard_container.visible = true
+           # Clear existing children
+           for child in leaderboard_container.get_children():
+               child.queue_free()
+           
+           # Show top 5 scores
+           for i in range(min(5, scores.size())):
+               var score_data = scores[i]
+               var score_label = Label.new()
+               score_label.text = str(i + 1) + ". " + score_data.playerName + " - " + str(score_data.score)
+               leaderboard_container.add_child(score_label)
+       
+       # MANDATORY: Pre-fill player name
+       if player_name_input and last_player != "":
+           player_name_input.text = last_player
+   
+   # MANDATORY: Save score to localStorage when game ends
+   func save_score_to_storage(player_name: String, score: int):
+       JavaScriptBridge.eval("""
+           window.parent.postMessage({
+               type: 'applaa-game-save-score',
+               gameId: '%s',
+               playerName: '%s',
+               score: %d
+           }, '*');
+       """ % [game_id, player_name, score])
+       
+       # After saving, listen for confirmation and update display
+       # The 'applaa-game-score-saved' message will contain updated data
+   \`\`\`
+
+2. **During Gameplay / HUD (MANDATORY - WHILE PLAYING):**
+   - Create a HUD (Heads-Up Display) that shows high score during gameplay
+   - Place it in top-left, top-right, or top-center corner
+   - Show it alongside current score
+   - Keep HUD visible throughout entire gameplay
+   - Update in real-time if high score changes
+   - Example GDScript:
+   \`\`\`gdscript
+   @onready var hud_panel: Control = $HUD
+   @onready var current_score_label: Label = $HUD/CurrentScoreLabel
+   @onready var high_score_hud_label: Label = $HUD/HighScoreLabel
+   
+   func _ready():
+       # Initialize HUD high score to 0
+       if high_score_hud_label:
+           high_score_hud_label.text = "Best: 0"
+           high_score_hud_label.visible = true
+       
+       # Make HUD visible during gameplay
+       if hud_panel:
+           hud_panel.visible = true
+   
+   func update_hud(current_score: int, high_score: int):
+       # Update HUD during gameplay
+       if current_score_label:
+           current_score_label.text = "Score: " + str(current_score)
+       
+       if high_score_hud_label:
+           high_score_hud_label.text = "Best: " + str(high_score)
+           high_score_hud_label.visible = true  # Always visible!
+   \`\`\`
+
+3. **Game Over Screen (MANDATORY - AFTER GAME ENDS):**
+   - Show final score
+   - Compare to high score (show "New High Score!" if beaten)
+   - Display updated top scores
+   - High score must be prominently displayed
+   - Example GDScript:
+   \`\`\`gdscript
+   func show_game_over(final_score: int, high_score: int):
+       var game_over_panel = $GameOverPanel
+       var final_score_label = $GameOverPanel/FinalScoreLabel
+       var high_score_label = $GameOverPanel/HighScoreLabel
+       var new_high_label = $GameOverPanel/NewHighScoreLabel
+       
+       final_score_label.text = "Your Score: " + str(final_score)
+       
+       if final_score > high_score:
+           new_high_label.visible = true
+           new_high_label.text = "🎉 New High Score!"
+           high_score_label.text = "New High Score: " + str(final_score)
+       else:
+           new_high_label.visible = false
+           high_score_label.text = "High Score: " + str(high_score)
+       
+       # Show updated leaderboard
+       display_leaderboard_on_game_over()
+       
+       game_over_panel.visible = true  # Make it visible!
+   \`\`\`
+
+**Critical Requirements - DISPLAY HIGH SCORE AT ALL TIMES:**
+
+1. **Main Menu / Start Screen (MANDATORY - BEFORE GAME STARTS):**
+   - ✅ **MUST** display high score prominently on main menu
+   - ✅ **MUST** show it near game controls or in a header area
+   - ✅ **MUST** initialize to "High Score: 0" immediately, then update when data loads
+   - ✅ **MUST** keep it visible at all times on main menu
+
+2. **During Gameplay / HUD (MANDATORY - WHILE PLAYING):**
+   - ✅ **MUST** create and display HUD with high score during gameplay
+   - ✅ **MUST** place it in top corner (top-left, top-right, or top-center)
+   - ✅ **MUST** show it alongside current score
+   - ✅ **MUST** keep HUD visible throughout gameplay
+   - ✅ **MUST** update HUD high score when new high score is achieved
+
+3. **Game Over Screen (MANDATORY - AFTER GAME ENDS):**
+   - ✅ **MUST** display high score on game over screen
+   - ✅ **MUST** compare final score to high score
+   - ✅ **MUST** show "New High Score!" if beaten
+   - ✅ **MUST** update display after saving new score
+
+**INITIALIZATION FLOW:**
+1. **STEP 1: Initialize Display to 0 (MANDATORY)**
+   - ✅ **MUST** set main menu high score label to "High Score: 0" in \`_ready()\` BEFORE loading data
+   - ✅ **MUST** set HUD high score label to "Best: 0" in \`_ready()\`
+   - ✅ **MUST** set \`visible = true\` on all high score labels immediately
+   - ✅ This ensures the UI shows something right away, even before localStorage loads
+
+2. **STEP 2: Load from localStorage (MANDATORY)**
+   - ✅ **MUST** request game data using \`applaa-game-load-data\` message in \`_ready()\`
+   - ✅ **MUST** set up message listener to receive \`applaa-game-data-loaded\` response
+
+3. **STEP 3: Update ALL Displays (MANDATORY)**
+   - ✅ **MUST** update main menu high score label with value from localStorage when data arrives
+   - ✅ **MUST** update HUD high score label with value from localStorage
+   - ✅ **MUST** update game over high score when screen appears
+   - ✅ **MUST** show top scores list if scores exist
+   - ✅ **MUST** pre-fill player name LineEdit with \`lastPlayerName\` if available
+
+4. **STEP 4: Save to localStorage (MANDATORY)**
+   - ✅ **MUST** save scores automatically when game ends using \`applaa-game-save-score\`
+   - ✅ **MUST** save player name along with score
+   - ✅ **MUST** update ALL high score displays after saving (main menu, HUD, game over)
+
+**DO NOT:**
+- ❌ **DO NOT** just print data to console - it must be visible in the UI
+- ❌ **DO NOT** create UI elements but leave them hidden - make them visible!
+- ❌ **DO NOT** wait for localStorage to load before showing high score - show 0 first, then update
+- ❌ **DO NOT** only show high score on one screen - it must be on main menu, HUD, AND game over
+
 **Best Practices:**
 - ✅ Load game data when the game starts (in \`_ready()\` or equivalent)
 - ✅ Save scores automatically when game ends
-- ✅ Display high scores and top scores on start/victory screens
+- ✅ Display high scores and top scores on start/victory screens (MANDATORY - see above)
 - ✅ Use player name input field that pre-fills with \`lastPlayerName\`
 - ✅ Save game progress periodically (level completed, achievements, etc.)
 

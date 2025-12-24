@@ -1,5 +1,5 @@
-import { Database, SendIcon, StopCircleIcon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Database, SendIcon, StopCircleIcon, Gamepad2 } from "lucide-react";
+import { useCallback, useState, useEffect } from "react";
 
 import { useSettings } from "@/hooks/useSettings";
 import { homeChatInputValueAtom } from "@/atoms/chatAtoms"; // Use a different atom for home input
@@ -35,7 +35,7 @@ export function HomeChatInput({
   placeholder?: string;
   showPlatformSelector?: boolean;
   showSparkSelector?: boolean;
-  appType?: 'web' | 'expo' | 'flutter' | 'mobile';
+  appType?: 'web' | 'expo' | 'flutter' | 'mobile' | 'godot';
 }) {
   const posthog = usePostHog();
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
@@ -65,6 +65,19 @@ export function HomeChatInput({
   // Database options for this prompt
   const [createDatabase, setCreateDatabase] = useState(false);
   const [databaseNotes, setDatabaseNotes] = useState("");
+  
+  // Game data storage option (only for Applaa Game) - checked by default
+  const [saveGameData, setSaveGameData] = useState(appType === 'godot');
+  
+  // Update saveGameData when appType changes
+  useEffect(() => {
+    console.log('[HomeChatInput] appType:', appType, 'isGodot:', appType === 'godot');
+    if (appType === 'godot') {
+      setSaveGameData(true);
+    } else {
+      setSaveGameData(false);
+    }
+  }, [appType]);
 
   // Handler for optimizing the prompt
   // Optimization handlers removed for MVP simplicity
@@ -77,8 +90,8 @@ export function HomeChatInput({
       return;
     }
 
-    // Call the parent's onSubmit handler with attachments and DB options
-    onSubmit({ attachments, createDatabase, databaseNotes });
+    // Call the parent's onSubmit handler with attachments, DB options, and game data option
+    onSubmit({ attachments, createDatabase, databaseNotes, saveGameData });
 
     // Clear attachments as part of submission process
     clearAttachments();
@@ -195,6 +208,33 @@ export function HomeChatInput({
                 />
               )}
             </div>
+            
+            {/* Game data storage option (only show for Applaa Game, checked by default) */}
+            {(() => {
+              if (appType === 'godot') {
+                console.log('[HomeChatInput] Rendering localStorage checkbox for godot game');
+                return (
+                  <div className="mt-2 space-y-1 rounded-md border border-dashed border-purple-300 bg-purple-50/40 p-2">
+                <div className="flex items-center space-x-2">
+                  {/* <Checkbox
+                    id="home-save-game-data"
+                    checked={saveGameData}
+                    onCheckedChange={(val) => setSaveGameData(Boolean(val))}
+                    disabled={isStreaming}
+                  /> */}
+                  <Label
+                    htmlFor="home-save-game-data"
+                    className="flex items-center gap-1 text-xs text-muted-foreground"
+                  >
+                    <Gamepad2 className="h-3 w-3 text-purple-600" />
+                    <span>Save game data in localStorage</span>
+                  </Label>
+                </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         </div>
 

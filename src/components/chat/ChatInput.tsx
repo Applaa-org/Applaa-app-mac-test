@@ -67,6 +67,7 @@ import { SelectedComponentDisplay } from "./SelectedComponentDisplay";
 // Prompt optimization imports removed for app-specific chat
 import { useCheckProblems } from "@/hooks/useCheckProblems";
 import { LexicalChatInput } from "./LexicalChatInput";
+import { enhancePromptForGameStorage } from "@/utils/promptEnhancement";
 // Voice input removed for MVP performance optimization
 
 const showTokenBarAtom = atom(false);
@@ -175,11 +176,14 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     setSelectedComponent(null);
 
     try {
-      console.log("📤 Sending message:", { prompt: currentInput, chatId, attachments: attachments.length });
+      // Enhance prompt for game storage if it's a game-related prompt
+      const enhancedPrompt = enhancePromptForGameStorage(currentInput);
+      
+      console.log("📤 Sending message:", { prompt: enhancedPrompt, chatId, attachments: attachments.length });
       
       // Send message with attachments and clear them after sending
       await streamMessage({
-        prompt: currentInput,
+        prompt: enhancedPrompt,
         chatId,
         attachments,
         redo: false,

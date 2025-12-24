@@ -66,7 +66,7 @@ export function PromptEnhanceButton({
           size="sm"
           onClick={handleEnhance}
           disabled={isDisabled}
-          className={`flex items-center gap-1 h-6 px-2 text-xs !bg-white hover:!bg-green-50 !text-green-700 hover:!text-green-700 border-green-300 shadow-sm ${
+          className={`flex items-center gap-1 h-8 px-1 text-xs !bg-white hover:!bg-green-50 !text-green-700 hover:!text-green-700 border-green-300 shadow-sm ${
             isOptimizing ? "opacity-75 cursor-wait" : ""
           }`}
         >
