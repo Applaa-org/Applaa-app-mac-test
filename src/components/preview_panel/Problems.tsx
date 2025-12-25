@@ -27,7 +27,9 @@ interface ProblemItemProps {
 }
 
 const ProblemItem = ({ problem }: ProblemItemProps) => {
-  const isGodotError = problem.code >= 9997;
+  // Only check for specific Godot error codes (9997, 9998, 9999)
+  // TypeScript errors can have codes >= 9997, so we need to be specific
+  const isGodotError = problem.code === 9997 || problem.code === 9998 || problem.code === 9999;
   return (
     <div className="flex items-start gap-3 p-3 border-b border-border hover:bg-[var(--background-darkest)] transition-colors">
       <div className="flex-shrink-0 mt-0.5">
