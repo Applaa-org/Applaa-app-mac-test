@@ -375,11 +375,48 @@ export function SnackPoweredPreview() {
     } catch (error) {
       console.error('❌ Failed to start:', error);
       setStartupProgress('');
-      setExpoStatus(prev => ({
-        ...prev,
-        buildStatus: 'error',
-        error: error instanceof Error ? error.message : 'Failed to start'
-      }));
+      
+      // Try to get terminal output for better error context
+      try {
+        const status = await ipcClient.simpleExpoStatus();
+        const lastOutput = status.terminalOutput?.slice(-1000) || '';
+        
+        // Build detailed error message
+        let errorMessage = error instanceof Error ? error.message : 'Failed to start Expo server';
+        
+        // Add context from terminal output if available
+        if (lastOutput) {
+          // Extract key error lines
+          const errorLines = lastOutput
+            .split('\n')
+            .filter(line => 
+              line.toLowerCase().includes('error') || 
+              line.toLowerCase().includes('failed') ||
+              line.toLowerCase().includes('cannot') ||
+              line.toLowerCase().includes('missing')
+            )
+            .slice(-5) // Last 5 error lines
+            .join('\n');
+          
+          if (errorLines) {
+            errorMessage += `\n\nRecent errors:\n${errorLines}`;
+          }
+        }
+        
+        setExpoStatus(prev => ({
+          ...prev,
+          buildStatus: 'error',
+          error: errorMessage,
+          terminalOutput: status.terminalOutput || prev.terminalOutput
+        }));
+      } catch (statusError) {
+        // Fallback if status check fails
+        setExpoStatus(prev => ({
+          ...prev,
+          buildStatus: 'error',
+          error: error instanceof Error ? error.message : 'Failed to start Expo server'
+        }));
+      }
     } finally {
       setIsLoading(false);
       startingRef.current = false;

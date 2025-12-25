@@ -10,7 +10,7 @@ import { apps } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { execAsync } from "../utils/runShellCommand";
 import log from "electron-log";
-import { unifiedInstallDependencies, areDependenciesInstalled } from "./unified_dependency_manager";
+import { unifiedInstallDependencies, areDependenciesInstalled, getInstallationErrorDetails } from "./unified_dependency_manager";
 import { spawnNode, checkNodeToolsAvailability } from "../../lib/node-runtime";
 import { findMissingDependencies } from "./dependency_validator";
 
@@ -548,6 +548,21 @@ export function registerSimpleExpoHandlers() {
         log.log("📦 Fixing package.json and installing dependencies...");
         expoStatus.terminalOutput += "📦 Fixing package.json and installing dependencies...\n";
         
+        // CRITICAL: Delete package-lock.json if it exists to prevent invalid versions from being locked
+        const packageLockPath = path.join(appPath, 'package-lock.json');
+        if (fs.existsSync(packageLockPath)) {
+          log.log("🗑️ Removing package-lock.json to allow fresh dependency resolution...");
+          expoStatus.terminalOutput += "🗑️ Removing package-lock.json to allow fresh dependency resolution...\n";
+          try {
+            fs.unlinkSync(packageLockPath);
+            log.log("✅ package-lock.json removed");
+            expoStatus.terminalOutput += "✅ package-lock.json removed\n";
+          } catch (lockError) {
+            log.warn("⚠️ Could not remove package-lock.json:", lockError);
+            expoStatus.terminalOutput += `⚠️ Could not remove package-lock.json: ${lockError.message}\n`;
+          }
+        }
+        
         // Fix common invalid package versions before installing
         try {
           if (fs.existsSync(packageJsonPath)) {
@@ -555,8 +570,66 @@ export function registerSimpleExpoHandlers() {
             let packageJson = JSON.parse(packageContent);
             let needsFixing = false;
             
+            // Ensure dependencies and devDependencies exist
+            if (!packageJson.dependencies) {
+              packageJson.dependencies = {};
+            }
+            if (!packageJson.devDependencies) {
+              packageJson.devDependencies = {};
+            }
+            
+            // CRITICAL: Add npm overrides to force correct versions for transitive dependencies
+            // This overrides ANY package's request for these invalid versions, even transitive deps
+            if (!packageJson.overrides) {
+              packageJson.overrides = {};
+              needsFixing = true;
+            }
+            
+            const requiredOverrides = {
+              "@react-navigation/core": "^7.0.0",
+              "@react-navigation/native": "^7.0.0",
+              "@react-navigation/bottom-tabs": "^7.0.0",
+              "@react-navigation/native-stack": "^7.0.0",
+              "@react-navigation/stack": "^7.0.0"
+            };
+            
+            let overridesAdded = false;
+            for (const [pkg, version] of Object.entries(requiredOverrides)) {
+              if (!packageJson.overrides[pkg] || packageJson.overrides[pkg] !== version) {
+                packageJson.overrides[pkg] = version;
+                overridesAdded = true;
+                needsFixing = true;
+                log.log(`🔧 Added override: ${pkg} -> ${version}`);
+                expoStatus.terminalOutput += `🔧 Added npm override: ${pkg}@${version}\n`;
+              }
+            }
+            
+            if (overridesAdded) {
+              expoStatus.terminalOutput += `✅ npm overrides configured to force correct React Navigation versions\n`;
+            }
+            
             // Fix common invalid versions
             const fixes = {
+              "@react-navigation/core": {
+                invalid: ["^7.13.5", "7.13.5", "~7.13.5", "7.13", "^7.13", ">=7.13.5", "7.13.5.0"],
+                fix: "^7.0.0" // Fix invalid v7 version to valid v7.0.0 (expo-router 5.x requires v7)
+              },
+              "@react-navigation/native": {
+                invalid: ["^7.13.5", "7.13.5"],
+                fix: "^7.0.0"
+              },
+              "@react-navigation/bottom-tabs": {
+                invalid: ["^7.13.5", "7.13.5"],
+                fix: "^7.0.0"
+              },
+              "@react-navigation/native-stack": {
+                invalid: ["^7.13.5", "7.13.5"],
+                fix: "^7.0.0"
+              },
+              "@react-navigation/stack": {
+                invalid: ["^7.13.5", "7.13.5"],
+                fix: "^7.0.0"
+              },
               "@react-native-async-storage/async-storage": {
                 invalid: ["1.25.0"],
                 fix: "^1.23.1"
@@ -576,31 +649,142 @@ export function registerSimpleExpoHandlers() {
             };
             
             // Check and fix dependencies
+            log.log(`🔍 Checking package.json for invalid versions...`);
+            expoStatus.terminalOutput += `🔍 Checking package.json for invalid versions...\n`;
+            
+            // Log all dependencies for debugging
+            const allDeps = { ...packageJson.dependencies || {}, ...packageJson.devDependencies || {} };
+            const reactNavPackages = Object.keys(allDeps).filter(k => k.includes('react-navigation'));
+            if (reactNavPackages.length > 0) {
+              expoStatus.terminalOutput += `Found React Navigation packages: ${reactNavPackages.join(', ')}\n`;
+              reactNavPackages.forEach(pkg => {
+                expoStatus.terminalOutput += `  ${pkg}: ${allDeps[pkg]}\n`;
+              });
+            } else {
+              expoStatus.terminalOutput += `⚠️ No React Navigation packages found in package.json (may be transitive dependency)\n`;
+            }
+            
             for (const [pkg, config] of Object.entries(fixes)) {
-              const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
-              if (allDeps[pkg] && config.invalid.includes(allDeps[pkg])) {
-                if (packageJson.dependencies && packageJson.dependencies[pkg]) {
-                  packageJson.dependencies[pkg] = config.fix;
-                  needsFixing = true;
-                  log.log(`🔧 Fixed ${pkg}: ${allDeps[pkg]} -> ${config.fix}`);
-                }
-                if (packageJson.devDependencies && packageJson.devDependencies[pkg]) {
-                  packageJson.devDependencies[pkg] = config.fix;
-                  needsFixing = true;
-                  log.log(`🔧 Fixed ${pkg}: ${allDeps[pkg]} -> ${config.fix}`);
-                }
+              const currentVersion = allDeps[pkg];
+              
+              if (currentVersion) {
+                log.log(`Found ${pkg}: ${currentVersion}`);
+                expoStatus.terminalOutput += `  Checking ${pkg}: ${currentVersion}\n`;
+                
+                // Check if version matches any invalid pattern (flexible matching)
+                const matchesInvalid = config.invalid.some(inv => {
+                  // First check exact match (handles most cases)
+                  if (currentVersion === inv || currentVersion.trim() === inv.trim()) {
+                    return true;
+                  }
+                  
+                  // Normalize both versions by removing version prefixes
+                  // Use global flag to replace all prefix characters
+                  const normalize = (v: string) => v.replace(/^[\^~=<>]+/g, '').trim();
+                  const normalizedInv = normalize(inv);
+                  const normalizedCurrent = normalize(currentVersion);
+                  
+                  // Check exact match (after normalization)
+                  if (normalizedCurrent === normalizedInv) {
+                    return true;
+                  }
+                  
+                  // Check if current version starts with invalid version number
+                  if (normalizedCurrent.startsWith(normalizedInv)) {
+                    return true;
+                  }
+                  
+                  // Check if current version contains the invalid version number (without prefix)
+                  if (currentVersion.includes(normalizedInv)) {
+                    return true;
+                  }
+                  
+                  // Also check if normalized current starts with any part of normalized invalid
+                  if (normalizedInv && normalizedCurrent.startsWith(normalizedInv.split('.')[0])) {
+                    // Check if it's the same major version
+                    const invMajor = normalizedInv.split('.')[0];
+                    const currentMajor = normalizedCurrent.split('.')[0];
+                    if (invMajor === currentMajor && normalizedCurrent.includes(normalizedInv)) {
+                      return true;
+                    }
+                  }
+                  
+                  return false;
+                });
+                
+                if (matchesInvalid) {
+                  if (packageJson.dependencies && packageJson.dependencies[pkg]) {
+                    const oldVersion = packageJson.dependencies[pkg];
+                    packageJson.dependencies[pkg] = config.fix;
+                    needsFixing = true;
+                    log.log(`🔧 Fixed ${pkg}: ${oldVersion} -> ${config.fix}`);
+                    expoStatus.terminalOutput += `🔧 Fixed ${pkg}: ${oldVersion} -> ${config.fix}\n`;
+                  }
+                  if (packageJson.devDependencies && packageJson.devDependencies[pkg]) {
+                    const oldVersion = packageJson.devDependencies[pkg];
+                    packageJson.devDependencies[pkg] = config.fix;
+                    needsFixing = true;
+                    log.log(`🔧 Fixed ${pkg}: ${oldVersion} -> ${config.fix}`);
+                    expoStatus.terminalOutput += `🔧 Fixed ${pkg}: ${oldVersion} -> ${config.fix}\n`;
+                  }
+                 } else {
+                   log.log(`✓ ${pkg} version ${currentVersion} is valid`);
+                   expoStatus.terminalOutput += `    ✓ ${pkg} version is valid\n`;
+                 }
               }
             }
             
             // Write back the fixed package.json
             if (needsFixing) {
+              const fixedContent = JSON.stringify(packageJson, null, 2);
+              fs.writeFileSync(packageJsonPath, fixedContent, 'utf8');
+              
+              // Verify the fix was written
+              const verifyContent = fs.readFileSync(packageJsonPath, 'utf8');
+              const verifyJson = JSON.parse(verifyContent);
+              const verifyDeps = { ...verifyJson.dependencies, ...verifyJson.devDependencies };
+              
+              log.log("✅ package.json fixed and verified");
+              expoStatus.terminalOutput += "✅ package.json fixed and verified\n";
+              
+              // Log what was actually fixed
+              for (const [pkg, config] of Object.entries(fixes)) {
+                if (verifyDeps[pkg]) {
+                  log.log(`Verified ${pkg}: ${verifyDeps[pkg]}`);
+                  expoStatus.terminalOutput += `  ✓ ${pkg}: ${verifyDeps[pkg]}\n`;
+                }
+              }
+              
+              // Log overrides if they exist
+              if (verifyJson.overrides) {
+                expoStatus.terminalOutput += `📋 npm overrides active:\n`;
+                Object.entries(verifyJson.overrides).forEach(([pkg, version]) => {
+                  expoStatus.terminalOutput += `  ${pkg}: ${version}\n`;
+                });
+              }
+            } else {
+              log.log("ℹ️ No package.json fixes needed");
+              expoStatus.terminalOutput += "ℹ️ No package.json fixes needed\n";
+            }
+            
+            // CRITICAL: If @react-navigation/core is missing but other react-navigation packages exist,
+            // add it explicitly with correct version to prevent transitive dependency issues
+            const hasReactNavNative = allDeps['@react-navigation/native'];
+            const hasReactNavCore = allDeps['@react-navigation/core'];
+            if (hasReactNavNative && !hasReactNavCore) {
+              log.log("⚠️ @react-navigation/native found but @react-navigation/core missing - adding explicitly");
+              expoStatus.terminalOutput += "⚠️ Adding @react-navigation/core explicitly to prevent transitive dependency issues\n";
+              if (!packageJson.dependencies) {
+                packageJson.dependencies = {};
+              }
+              packageJson.dependencies['@react-navigation/core'] = '^6.1.18';
               fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8');
-              log.log("✅ package.json fixed");
-              expoStatus.terminalOutput += "✅ package.json fixed\n";
+              expoStatus.terminalOutput += "✅ Added @react-navigation/core@^6.1.18 to package.json\n";
             }
           }
         } catch (fixError) {
-          log.warn("⚠️ Could not fix package.json:", fixError);
+          log.error("❌ Could not fix package.json:", fixError);
+          expoStatus.terminalOutput += `❌ Error fixing package.json: ${fixError.message}\n`;
         }
         
         const installSuccess = await unifiedInstallDependencies(appPath, appId, 'expo-preview');
@@ -608,7 +792,38 @@ export function registerSimpleExpoHandlers() {
         if (!installSuccess) {
           log.error("❌ Unified dependency installation failed");
           expoStatus.terminalOutput += "❌ Unified dependency installation failed\n";
-          throw new Error("Failed to install dependencies with unified manager");
+          
+          // Get detailed error information
+          const errorDetails = getInstallationErrorDetails(appPath);
+          if (errorDetails) {
+            expoStatus.terminalOutput += "\n" + errorDetails + "\n";
+          } else {
+            expoStatus.terminalOutput += "⚠️ All installation strategies failed. Check the app logs for detailed error messages.\n";
+          }
+          
+          expoStatus.terminalOutput += "\n💡 Common issues:\n";
+          expoStatus.terminalOutput += "   - Missing or invalid package.json\n";
+          expoStatus.terminalOutput += "   - Network connectivity issues\n";
+          expoStatus.terminalOutput += "   - npm/node version incompatibilities\n";
+          expoStatus.terminalOutput += "   - Disk space or permission issues\n";
+          
+          // Check if package.json exists and is readable
+          if (fs.existsSync(packageJsonPath)) {
+            try {
+              const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+              const packageJson = JSON.parse(packageContent);
+              if (!packageJson.dependencies && !packageJson.devDependencies) {
+                expoStatus.terminalOutput += "\n⚠️ Warning: package.json has no dependencies listed\n";
+              }
+            } catch (parseError) {
+              expoStatus.terminalOutput += `\n⚠️ Warning: package.json appears to be invalid JSON\n`;
+              log.error("Package.json parse error:", parseError);
+            }
+          } else {
+            expoStatus.terminalOutput += `\n⚠️ Error: package.json not found at ${packageJsonPath}\n`;
+          }
+          
+          throw new Error("Failed to install dependencies. All installation strategies failed. Check terminal output for details.");
         }
         
         log.log("✅ Dependencies installed successfully with unified manager");
@@ -1093,21 +1308,28 @@ export function registerSimpleExpoHandlers() {
         
         // ✅ FIX: Detect common Metro/Expo errors that prevent startup
         const errorPatterns = [
-          /Error:.*Cannot find module/i,
-          /Error:.*Module not found/i,
-          /Failed to compile/i,
-          /Metro bundler.*error/i,
-          /Unable to resolve module/i,
-          /TypeError:.*is not a function/i,
-          /SyntaxError:/i,
-          /ReferenceError:/i
+          { pattern: /Error:.*Cannot find module/i, severity: 'critical', message: 'Missing module dependency' },
+          { pattern: /Error:.*Module not found/i, severity: 'critical', message: 'Module not found' },
+          { pattern: /Failed to compile/i, severity: 'error', message: 'Compilation failed' },
+          { pattern: /Metro bundler.*error/i, severity: 'error', message: 'Metro bundler error' },
+          { pattern: /Unable to resolve module/i, severity: 'critical', message: 'Unable to resolve module' },
+          { pattern: /TypeError:.*is not a function/i, severity: 'error', message: 'Type error in code' },
+          { pattern: /SyntaxError:/i, severity: 'error', message: 'Syntax error in code' },
+          { pattern: /ReferenceError:/i, severity: 'error', message: 'Reference error in code' },
+          { pattern: /EADDRINUSE|port.*already in use/i, severity: 'critical', message: 'Port already in use' },
+          { pattern: /ENOENT.*package\.json/i, severity: 'critical', message: 'package.json not found' }
         ];
         
-        for (const pattern of errorPatterns) {
+        for (const { pattern, severity, message } of errorPatterns) {
           if (pattern.test(output)) {
-            log.error(`🚨 Metro build error detected: ${output.substring(0, 200)}`);
-            // Don't set buildStatus to error here - let it timeout naturally
-            // But log it so we can see what's wrong
+            log.error(`🚨 ${severity.toUpperCase()}: ${message}`);
+            log.error(`Error output: ${output.substring(0, 300)}`);
+            
+            // For critical errors, update status immediately
+            if (severity === 'critical') {
+              expoStatus.buildStatus = 'error';
+              expoStatus.terminalOutput += `\n❌ ${message}\n`;
+            }
             break;
           }
         }
@@ -1115,6 +1337,35 @@ export function registerSimpleExpoHandlers() {
 
       expoProcess.on("close", (code: number) => {
         log.log(`Expo process closed with code: ${code}`);
+        
+        // If process exits with error code, log detailed diagnostics
+        if (code !== 0 && code !== null) {
+          const lastOutput = expoStatus.terminalOutput.slice(-2000); // Last 2000 chars for context
+          log.error(`🚨 Expo process exited with code ${code}`);
+          log.error(`Last terminal output:\n${lastOutput}`);
+          
+          // Detect common error patterns and provide specific guidance
+          if (lastOutput.includes('Cannot find module') || lastOutput.includes('Module not found')) {
+            log.error('❌ Missing dependencies detected. The app may need npm install.');
+            expoStatus.terminalOutput += '\n❌ Error: Missing dependencies detected\n';
+          }
+          if (lastOutput.includes('EADDRINUSE') || lastOutput.includes('port') || lastOutput.includes('already in use')) {
+            log.error('❌ Port conflict detected. Port may be in use by another process.');
+            expoStatus.terminalOutput += '\n❌ Error: Port conflict - another process may be using the port\n';
+          }
+          if ((lastOutput.includes('tunnel') || lastOutput.includes('ngrok')) && (lastOutput.includes('failed') || lastOutput.includes('error'))) {
+            log.error('❌ Tunnel creation failed. Try starting without tunnel mode.');
+            expoStatus.terminalOutput += '\n❌ Error: Tunnel creation failed - try without tunnel mode\n';
+          }
+          if (lastOutput.includes('SyntaxError') || lastOutput.includes('ReferenceError') || lastOutput.includes('TypeError')) {
+            log.error('❌ JavaScript error detected in app code.');
+            expoStatus.terminalOutput += '\n❌ Error: JavaScript error in app code\n';
+          }
+          
+          // Update status to reflect error
+          expoStatus.buildStatus = 'error';
+        }
+        
         expoStatus.isRunning = false;
         expoProcess = null;
         // Clear fallback timer if process closes
@@ -1123,7 +1374,23 @@ export function registerSimpleExpoHandlers() {
 
       expoProcess.on("error", (error: Error) => {
         log.error("Expo process error:", error);
+        log.error("Error details:", {
+          message: error.message,
+          code: (error as any).code,
+          signal: (error as any).signal,
+          name: error.name,
+          stack: error.stack?.split('\n').slice(0, 5).join('\n') // First 5 stack lines
+        });
+        
+        // Log last terminal output for context
+        const lastOutput = expoStatus.terminalOutput.slice(-500);
+        if (lastOutput) {
+          log.error("Last terminal output before error:", lastOutput);
+        }
+        
         expoStatus.isRunning = false;
+        expoStatus.buildStatus = 'error';
+        expoStatus.terminalOutput += `\n❌ Process error: ${error.message}\n`;
         throw error;
       });
 
@@ -1149,6 +1416,16 @@ export function registerSimpleExpoHandlers() {
 
   // Wait a bit for initial output
   await new Promise(resolve => setTimeout(resolve, 3000));
+      
+  // Verify process is still running after initial wait
+  if (!expoProcess || expoProcess.killed || (expoProcess.exitCode !== null && expoProcess.exitCode !== 0)) {
+    const exitCode = expoProcess?.exitCode ?? 'unknown';
+    log.error(`❌ Expo process exited early with code: ${exitCode}`);
+    log.error(`Terminal output so far:\n${expoStatus.terminalOutput.slice(-1000)}`);
+    expoStatus.isRunning = false;
+    expoStatus.buildStatus = 'error';
+    throw new Error(`Expo process exited immediately with code ${exitCode}. Check terminal output for details.`);
+  }
       
   // Clear fallback timer if we return early (shouldn't happen, but safety)
   // Note: Timer will be cleared when process closes or URL is set
