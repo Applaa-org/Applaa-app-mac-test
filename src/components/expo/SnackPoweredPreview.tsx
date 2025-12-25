@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import QRCode from 'qrcode';
 import { useCheckProblems } from '@/hooks/useCheckProblems';
 import { PreviewWithDevTools } from '@/components/shared/PreviewWithDevTools';
+import { isStreamingAtom } from '@/atoms/chatAtoms';
 
 interface ExpoStatus {
   isRunning: boolean;
@@ -81,6 +82,7 @@ const DEVICES: DeviceOption[] = [
 export function SnackPoweredPreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const setPreviewMode = useSetAtom(previewModeAtom);
+  const isStreaming = useAtomValue(isStreamingAtom);
   
   // ✅ Integrate with existing Problems system
   const { problemReport, checkProblems, isChecking } = useCheckProblems(selectedAppId);
@@ -759,37 +761,54 @@ export function SnackPoweredPreview() {
         {/* ✅ SCENARIO A: Show START button when preview not started (ignore validation) */}
         {!hasStartedRef.current && !isLoading ? (
           <div className="flex items-center justify-center h-full dark:from-gray-900 dark:to-gray-800">
-            <div className="text-center max-w-md px-8">
-              {/* App Icon */}
-              
-              
-              <h2 className="text-2xl mt-8 font-bold text-gray-900 dark:text-white mb-3">
-                Ready to Preview
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-8">
-                Click start to build and preview your app
-              </p>
-              
-              {/* START Button */}
-              <button
-                onClick={() => {
-                  restartExpoPreview();
-                }}
-                className="group relative px-8 py-2 bg-primary text-white rounded-md font-medium text-md shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-              >
-                <span className="flex items-center gap-3">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Start Preview
-                </span>
-              </button>
-              
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-6">
-                First build may take 30-60 seconds
-              </p>
-            </div>
+            {isStreaming ? (
+              // Show loader when streaming
+              <div className="text-center mt-10 max-w-md px-8">
+                <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                  Building Your App...
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  AI is generating your mobile app code
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-500">
+                  Preview will be available once code generation completes
+                </p>
+              </div>
+            ) : (
+              // Show "Ready to Preview" when not streaming
+              <div className="text-center max-w-md px-8">
+                {/* App Icon */}
+                
+                
+                <h2 className="text-2xl mt-8 font-bold text-gray-900 dark:text-white mb-3">
+                  Ready to Preview
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-8">
+                  Click start to build and preview your app
+                </p>
+                
+                {/* START Button */}
+                <button
+                  onClick={() => {
+                    restartExpoPreview();
+                  }}
+                  className="group relative px-8 py-2 bg-primary text-white rounded-md font-medium text-md shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  <span className="flex items-center gap-3">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Start Preview
+                  </span>
+                </button>
+                
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-6">
+                  First build may take 30-60 seconds
+                </p>
+              </div>
+            )}
           </div>
         ) : validationStatus === 'has-errors' && problemReport ? (
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">

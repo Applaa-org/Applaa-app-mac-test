@@ -121,22 +121,32 @@ export function registerSimpleExpoHandlers() {
     }
   };
 
-  // Enhanced port finder: guaranteed port allocation
-  const findAvailablePort = async (basePort: number = 8081, maxTries = 20): Promise<number> => {
-    log.log(`🔍 Scanning for available port starting from ${basePort}...`);
+  // Enhanced port finder: guaranteed port allocation with kill fallback
+  const findAvailablePort = async (basePort: number = 8081, maxTries = 19): Promise<number> => {
+    log.log(`🔍 Scanning for available port starting from ${basePort} (up to ${basePort + maxTries - 1})...`);
     
     for (let i = 0; i < maxTries; i++) {
       const port = basePort + i;
+      
+      // Try to kill any process using this port first
+      log.log(`🔫 Attempting to kill process on port ${port}...`);
+      const killed = await killProcessOnPort(port);
+      
+      // Wait a moment for port to be freed (longer wait for preferred port)
+      const waitTime = port === basePort ? 2000 : 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      
+      // Check if port is now available
       // eslint-disable-next-line no-await-in-loop
       const isAvailable = await new Promise<boolean>((resolve) => {
         const server = net.createServer();
         server.once("error", () => {
-          log.log(`❌ Port ${port} is occupied`);
+          log.log(`❌ Port ${port} is still occupied${killed ? ' (kill attempted)' : ''}`);
           resolve(false);
         });
         server.once("listening", () => {
           server.close(() => {
-            log.log(`✅ Port ${port} is available`);
+            log.log(`✅ Port ${port} is available${killed ? ' (reclaimed)' : ''}`);
             resolve(true);
           });
         });
@@ -144,34 +154,11 @@ export function registerSimpleExpoHandlers() {
       });
       
       if (isAvailable) {
-        log.log(`🎯 Selected port ${port} for Expo Metro server`);
+        const isPreferred = port === basePort;
+        log.log(`🎯 Selected port ${port} for Expo Metro server${isPreferred ? ' (preferred)' : ' (fallback)'}`);
         return port;
-      } else if (port === basePort) {
-        // Try to kill process on preferred port (8081) only - dedicate it to Applaa
-        log.log(`🔫 Port ${port} occupied, attempting to reclaim for Applaa...`);
-        // eslint-disable-next-line no-await-in-loop
-        const killed = await killProcessOnPort(port);
-        if (killed) {
-          // Wait a moment for port to be freed
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          // eslint-disable-next-line no-await-in-loop
-          const nowAvailable = await new Promise<boolean>((resolve) => {
-            const server = net.createServer();
-            server.once("error", () => resolve(false));
-            server.once("listening", () => {
-              server.close(() => resolve(true));
-            });
-            server.listen(port, "0.0.0.0");
-          });
-          
-          if (nowAvailable) {
-            log.log(`🎉 Successfully reclaimed port ${port} for Applaa!`);
-            return port;
-          } else {
-            log.warn(`⚠️ Failed to reclaim port ${port}, continuing search...`);
-          }
-        }
+      } else {
+        log.warn(`⚠️ Port ${port} unavailable, trying next port...`);
       }
     }
     
@@ -954,18 +941,9 @@ export function registerSimpleExpoHandlers() {
       }
 
       // NON-INTERACTIVE PORT SELECTION: pick the first free port starting at 8081
+      // Try ports 8081-8099, attempting to kill processes on each port before checking
       log.log("🎯 Selecting a free Metro port starting at 8081 (non-interactive)...");
-      const net = require('net');
-      const isPortFree = (port: number) => new Promise<boolean>((resolve) => {
-        const s = net.createServer();
-        s.once('listening', () => s.close(() => resolve(true)));
-        s.once('error', () => resolve(false));
-        s.listen(port, '0.0.0.0');
-      });
-      let finalPort = 8081;
-      while (!(await isPortFree(finalPort)) && finalPort < 8100) {
-        finalPort += 1;
-      }
+      const finalPort = await findAvailablePort(8081, 19); // Try ports 8081-8099
       log.log(`✅ Using Metro port ${finalPort} (auto-selected)`);
       
       const portMessage = `Using port ${finalPort}\n`;
