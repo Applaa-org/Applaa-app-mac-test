@@ -23,12 +23,12 @@
     },
     "full-stack": {
       "name": "Full-Stack App",
-      "description": "Complete app with database and auth",
+      "description": "Complete app with database, auth, and notifications",
       "path": "base-router",
-      "features": ["supabase", "offline-storage", "camera"],
+      "features": ["supabase", "notifications", "offline-storage", "camera"],
       "plugins": {
         "core": ["expo-router", "expo-splash-screen"],
-        "features": ["expo-camera", "expo-sqlite"],
+        "features": ["expo-camera", "expo-notifications", "expo-sqlite"],
         "applaa": ["./plugins/applaa-config-plugin"]
       }
     },
@@ -36,11 +36,11 @@
       "name": "AI Assistant App",
       "description": "Personal AI assistant with all features",
       "path": "base-router",
-      "features": ["transformers-ai", "supabase", "offline-storage", "camera", "snapai-icons", "superdesign-ui", "splash-screen"],
+      "features": ["transformers-ai", "supabase", "notifications", "offline-storage", "camera", "snapai-icons", "superdesign-ui", "splash-screen"],
       "plugins": {
         "core": ["expo-router", "expo-splash-screen", "expo-font"],
         "ai": ["onnxruntime-react-native"],
-        "features": ["expo-camera", "expo-sqlite", "expo-location"],
+        "features": ["expo-camera", "expo-notifications", "expo-sqlite", "expo-location"],
         "applaa": ["./plugins/applaa-config-plugin"]
       }
     },
@@ -62,10 +62,10 @@
       "name": "Social Media App",
       "description": "Social networking app with media sharing and real-time features",
       "path": "base-router",
-      "features": ["camera", "sharing", "supabase", "haptics"],
+      "features": ["camera", "sharing", "notifications", "supabase", "haptics"],
       "plugins": {
         "core": ["expo-router", "expo-splash-screen", "expo-font"],
-        "features": ["expo-camera", "expo-sharing", "expo-haptics"],
+        "features": ["expo-camera", "expo-sharing", "expo-notifications", "expo-haptics"],
         "applaa": ["./plugins/applaa-config-plugin"]
       }
     }
@@ -80,6 +80,17 @@
       "permissions": {
         "android": ["android.permission.WRITE_EXTERNAL_STORAGE"],
         "ios": []
+      }
+    },
+    "notifications": {
+      "name": "Push Notifications",
+      "description": "Local and push notifications",
+      "dependencies": ["expo-notifications", "expo-device", "expo-constants"],
+      "plugins": ["expo-notifications"],
+      "utils": ["notifications"],
+      "permissions": {
+        "android": ["android.permission.RECEIVE_BOOT_COMPLETED", "android.permission.VIBRATE"],
+        "ios": ["NSUserNotificationsUsageDescription"]
       }
     },
     "camera": {
@@ -241,6 +252,11 @@
     "expo-location": {
       "locationAlwaysAndWhenInUsePermission": "This app uses your location to provide location-based features.",
       "locationWhenInUsePermission": "This app uses your location to provide location-based features."
+    },
+    "expo-notifications": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#4F46E5",
+      "sounds": ["./assets/notification.wav"]
     },
     "expo-contacts": {
       "contactsPermission": "This app accesses your contacts to help you connect with friends."

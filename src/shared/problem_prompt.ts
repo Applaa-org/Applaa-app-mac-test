@@ -50,8 +50,11 @@ export function createProblemFixPrompt(problemReport: ProblemReport, appCategory
     prompt += `🔧 **EXPO-SPECIFIC FIXES:**\n`;
     prompt += `- Use React Native components (View, Text, Pressable) — never HTML elements\n`;
     prompt += `- Style with StyleSheet or inline styles — never className\n`;
-    prompt += `- For LinearGradient colors: use 'as const' or tuple types\n`;
-    prompt += `- **DO NOT use expo-notifications - it's not supported in MVP templates**\n\n`;
+    prompt += `- For expo-notifications types (NotificationTriggerInput, TimeIntervalTriggerInput, DateTriggerInput):\n`;
+    prompt += `  - Time-interval: { type: 'timeInterval', seconds: number, repeats?: boolean }\n`;
+    prompt += `  - Date: { type: 'date', date: Date } (ensure Date is in the future)\n`;
+    prompt += `  - Do NOT pass raw Date or { seconds } without 'type' discriminant\n`;
+    prompt += `- For LinearGradient colors: use 'as const' or tuple types\n\n`;
   } else {
     prompt += `🌐 **WEB-SPECIFIC FIXES:**\n`;
     prompt += `- Use HTML elements (div, span, button) — never React Native components\n`;
