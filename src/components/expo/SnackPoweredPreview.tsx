@@ -43,6 +43,47 @@ interface DeviceOption {
   platform: 'android' | 'ios';
 }
 
+// ✅ FIX: Streaming build indicator with timeout warning
+function StreamingBuildIndicator() {
+  const [streamingDuration, setStreamingDuration] = useState(0);
+  const isStreaming = useAtomValue(isStreamingAtom);
+  
+  useEffect(() => {
+    if (!isStreaming) {
+      setStreamingDuration(0);
+      return;
+    }
+    
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setStreamingDuration(Date.now() - startTime);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isStreaming]);
+  
+  return (
+    <div className="text-center mt-10 max-w-md px-8">
+      <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+        Building Your App...
+      </h2>
+      <p className="text-gray-600 dark:text-gray-400 mb-4">
+        AI is generating your mobile app code
+      </p>
+      <p className="text-sm text-gray-500 dark:text-gray-500">
+        Preview will be available once code generation completes
+      </p>
+      {/* ✅ FIX: Add timeout warning if streaming for too long */}
+      {streamingDuration > 60000 && (
+        <p className="text-xs text-orange-500 mt-2">
+          Taking longer than expected. Check terminal for errors.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Complete device list matching Expo Snack
 const DEVICES: DeviceOption[] = [
   // Android devices
@@ -762,19 +803,7 @@ export function SnackPoweredPreview() {
         {!hasStartedRef.current && !isLoading ? (
           <div className="flex items-center justify-center h-full dark:from-gray-900 dark:to-gray-800">
             {isStreaming ? (
-              // Show loader when streaming
-              <div className="text-center mt-10 max-w-md px-8">
-                <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                  Building Your App...
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  AI is generating your mobile app code
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-500">
-                  Preview will be available once code generation completes
-                </p>
-              </div>
+              <StreamingBuildIndicator />
             ) : (
               // Show "Ready to Preview" when not streaming
               <div className="text-center max-w-md px-8">

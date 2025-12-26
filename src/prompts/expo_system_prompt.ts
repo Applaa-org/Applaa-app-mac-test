@@ -719,6 +719,53 @@ const triggerHaptic = () => {
 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // ERROR!
 \`\`\`
 
+### **Expo Notifications (Preview-Safe Pattern)**
+\`\`\`typescript
+// ✅ CORRECT: Optional import with Platform.OS check for preview compatibility
+import { Platform } from 'react-native';
+
+// Conditionally import notifications only on native platforms (prevents preview errors)
+let Notifications: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    Notifications = require('expo-notifications');
+  } catch (e) {
+    // Notifications not installed - will work on device but not in preview
+    console.log('Notifications not available in preview');
+  }
+}
+
+// Use with safe checks
+const scheduleNotification = async (title: string, body: string) => {
+  if (Platform.OS === 'web') {
+    // Use Web Notifications API for preview
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body });
+    } else if ('Notification' in window && Notification.permission !== 'denied') {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        new Notification(title, { body });
+      }
+    }
+    return;
+  }
+  
+  // Native: Use expo-notifications if available
+  if (Notifications) {
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body },
+      trigger: { seconds: 2 },
+    });
+  } else {
+    console.log('Notifications not available - install expo-notifications for device');
+  }
+};
+
+// ❌ WRONG: Direct import will break preview if not installed
+import * as Notifications from 'expo-notifications';
+Notifications.scheduleNotificationAsync(...); // ERROR if not installed!
+\`\`\`
+
 ### **Common Platform-Specific APIs:**
 \`\`\`typescript
 // Camera, Microphone, Haptics, Face ID, etc.
@@ -737,18 +784,20 @@ const hapticFeedback = Platform.select({
 ### **APIs That REQUIRE Platform Checks:**
 - ✅ \`expo-haptics\` - Only works on iOS/Android
 - ✅ \`expo-camera\` - Web has different camera API
+- ✅ \`expo-notifications\` - Use optional require() + Platform.OS check for preview compatibility
 - ✅ \`expo-face-detector\` - Native only
 - ✅ \`expo-biometrics\` - Native only
 - ✅ \`Animated.useNativeDriver\` - Should check if available
 
-**RULE: If an API throws "not available on web", wrap it in Platform.OS check!**
+**RULE: If an API throws "not available on web" or requires a dependency, use optional require() with Platform.OS check!**
 
 ## 🔍 ERROR PREVENTION CHECKLIST
 
 Before generating code, verify:
 - [ ] All imports resolve to real packages
 - [ ] No web patterns (div, className, onClick)
-- [ ] **Platform.OS checks for native APIs (Haptics, Camera, etc.)** ⚠️ CRITICAL
+- [ ] **Platform.OS checks for native APIs (Haptics, Camera, Notifications, etc.)** ⚠️ CRITICAL
+- [ ] **Optional require() for expo-notifications to prevent preview errors** ⚠️ CRITICAL
 - [ ] SafeAreaView wraps main content
 - [ ] Styles use StyleSheet.create()
 - [ ] Platform differences handled with Platform.select()

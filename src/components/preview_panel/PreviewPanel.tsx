@@ -80,8 +80,6 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [, setAppUrlObj] = useAtom(appUrlAtom);
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
-  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
-  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading, isBuilding: isGodotBuilding } = useGodotProjectStatus();
   const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
   const gameCreationPrompt = useAtomValue(gameCreationPromptAtom);
@@ -104,6 +102,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     }
     return false;
   }, [app?.appType, app?.files]);
+  
+  // ✅ FIX: Only call Godot hooks if it's actually a Godot app
+  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
+  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading, isBuilding: isGodotBuilding } = useGodotProjectStatus();
   
   // Check if Godot engine is installed
   const { data: godotEngine } = useQuery({

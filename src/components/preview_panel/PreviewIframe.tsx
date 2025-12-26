@@ -146,10 +146,12 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   const gameCreationPrompt = useAtomValue(gameCreationPromptAtom);
   const { streamMessage } = useStreamChat({ hasChatId: false });
   
-  // Check if this is a Godot app and if it's building
+  // ✅ FIX: Check if this is a Godot app first, then conditionally use hooks
+  const isGodotApp = !!(godotExportUrl);
+  
+  // ✅ FIX: Only call Godot hooks if it's actually a Godot app
   // Use the hook's exportUrl to get current status (prop might be stale)
   const { hasExport: hasGodotExport, exportUrl: currentGodotExportUrl, isLoading: isGodotExportLoading } = useGodotExport();
-  const isGodotApp = !!(godotExportUrl || currentGodotExportUrl);
   const { isBuilding: isGodotBuilding, isLoading: isGodotProjectLoading, hasProject: hasGodotProject } = useGodotProjectStatus();
   
   // 🚫 DISABLED: Auto-error detection to match Dyad's approach
