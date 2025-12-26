@@ -20,6 +20,7 @@ import QRCode from 'qrcode';
 import { useCheckProblems } from '@/hooks/useCheckProblems';
 import { PreviewWithDevTools } from '@/components/shared/PreviewWithDevTools';
 import { isStreamingAtom } from '@/atoms/chatAtoms';
+import { useAutoErrorFix } from '@/hooks/useAutoErrorFix';
 
 interface ExpoStatus {
   isRunning: boolean;
@@ -127,6 +128,10 @@ export function SnackPoweredPreview() {
   
   // ✅ Integrate with existing Problems system
   const { problemReport, checkProblems, isChecking } = useCheckProblems(selectedAppId);
+  
+  // ✅ CRITICAL: Enable auto-fix for Expo apps - this hook will automatically fix problems when streaming stops
+  // The hook is called here to ensure it's active for Expo apps
+  useAutoErrorFix();
   
   // State
   const [activeTab, setActiveTab] = useState<PreviewTab>('android');

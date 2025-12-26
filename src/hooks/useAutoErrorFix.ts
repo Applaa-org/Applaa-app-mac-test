@@ -233,10 +233,16 @@ export function useAutoErrorFix(options: UseAutoErrorFixOptions = {}) {
     IpcClient.getInstance()
       .getApp(selectedAppId)
       .then(app => {
-        const appType = app?.type || '';
-        setIsExpoApp(appType === 'expo' || appType === 'mobile');
+        // Check both app.type and app.appType (different APIs might use different fields)
+        const appType = app?.type || app?.appType || '';
+        const isExpo = appType === 'expo' || appType === 'mobile';
+        console.log('🔍 App type detection:', { selectedAppId, appType, isExpo, app });
+        setIsExpoApp(isExpo);
       })
-      .catch(() => setIsExpoApp(false));
+      .catch((error) => {
+        console.error('Failed to detect app type:', error);
+        setIsExpoApp(false);
+      });
   }, [selectedAppId]);
   
   // 🚨 SIMPLE LOGIC: Only enable for Expo apps
@@ -426,11 +432,28 @@ Please fix these errors immediately and ensure the app runs without issues.`;
   const autoFixErrors = useCallback(async () => {
     // Prevent multiple simultaneous auto-fixes
     if (isAutoFixingRef.current) {
-      console.log(`⏸️ Auto-fix already in progress, skipping...`);
+      console.log(`⏸️ Auto-fix already in progress (ref check), skipping...`);
       return;
     }
     
-    if (!simpleEnabled || !chatId || isStreaming || isAutoFixing) {
+    // ✅ FIX: For Problems tab errors, don't require simpleEnabled - always allow for Expo apps
+    const hasProblemsTabErrors = detectedErrors.some(e => e.source === 'problems' && !e.autoFixed);
+    const hasDependencyErrors = detectedErrors.some(e => e.category === 'dependency' && !e.autoFixed);
+    
+    // Problems tab errors: only need isExpoApp and chatId
+    // Dependency errors: need simpleEnabled (enabled && isExpoApp)
+    if (hasProblemsTabErrors) {
+      if (!isExpoApp || !chatId || isStreaming || isAutoFixing) {
+        console.log('⏸️ Problems tab auto-fix blocked:', { isExpoApp, chatId, isStreaming, isAutoFixing });
+        return;
+      }
+    } else if (hasDependencyErrors) {
+      if (!simpleEnabled || !chatId || isStreaming || isAutoFixing) {
+        console.log('⏸️ Dependency auto-fix blocked:', { simpleEnabled, chatId, isStreaming, isAutoFixing });
+        return;
+      }
+    } else {
+      console.log('⏸️ No errors to fix');
       return;
     }
 
@@ -441,9 +464,12 @@ Please fix these errors immediately and ensure the app runs without issues.`;
                error.severity === 'error'
     );
     
-    if (unfixedErrors.length === 0) return;
+    if (unfixedErrors.length === 0) {
+      console.log('⏸️ No unfixed errors found');
+      return;
+    }
 
-    console.log(`🔧 Auto-fixing ${unfixedErrors.length} errors (dependency + problems tab)...`);
+    console.log(`🔧 AUTO-FIX EXECUTING: Fixing ${unfixedErrors.length} errors (dependency + problems tab)...`);
     isAutoFixingRef.current = true;
     setIsAutoFixing(true);
 
@@ -482,7 +508,7 @@ Please fix these errors immediately and ensure the app runs without issues.`;
       isAutoFixingRef.current = false;
       setIsAutoFixing(false);
     }
-  }, [simpleEnabled, chatId, isStreaming, isAutoFixing, detectedErrors, createAutoFixPrompt, streamMessage, selectedAppId]);
+  }, [simpleEnabled, isExpoApp, chatId, isStreaming, isAutoFixing, detectedErrors, createAutoFixPrompt, streamMessage, selectedAppId]);
 
   // 🚨 CRITICAL FIX: Prevent auto-fix spam (5-6 times per error)
   const lastAutoFixTimeRef = useRef<number>(0);
@@ -502,12 +528,9 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     
     if (unfixedDependencyErrors.length === 0) return;
 
-    // 🚨 SIMPLE SPAM PREVENTION: Only auto-fix once per app
-    // (lastAutoFixTimeRef is reset when app changes)
-    if (lastAutoFixTimeRef.current > 0) {
-      console.log(`⏸️ Already auto-fixed for this app, skipping...`);
-      return;
-    }
+    // ✅ FIX: Allow re-triggering for Problems tab (remove "once per app" restriction)
+    // Only prevent spam for console errors, not Problems tab errors
+    // Problems tab auto-fix should be able to run multiple times if problems persist
 
     // Debounce (wait for errors to settle)
     if (errorDebounceRef.current) {
@@ -607,20 +630,48 @@ Please fix these errors immediately and ensure the app runs without issues.`;
 
   // Enhanced Problems tab integration - trigger auto-fix when problems are detected
   const triggerProblemsAutoFix = useCallback(async () => {
-    // ✅ FIX: Don't auto-fix if chat is streaming
-    if (!enabled || !chatId || isStreaming || !problemReport?.problems?.length) return;
+    console.log('🔍 triggerProblemsAutoFix called', {
+      isExpoApp,
+      chatId,
+      isStreaming,
+      problemCount: problemReport?.problems?.length || 0,
+      selectedAppId,
+      isAutoFixing
+    });
 
-    // ✅ FIX: Check for auto-fixable problems only
-    const autoFixableProblems = problemReport.problems.filter(p => p.autoFixable);
-    if (autoFixableProblems.length === 0) return;
-
-    // ✅ FIX: Allow re-triggering if problems persist (check isAutoFixing only)
+    // ✅ FIX: Enable Problems tab auto-fix for Expo apps (regardless of enabled option)
+    if (!isExpoApp) {
+      console.log('⏸️ Auto-fix only available for Expo apps', { isExpoApp, selectedAppId });
+      return;
+    }
+    if (!chatId) {
+      console.log('⏸️ No chatId available', { chats: chats?.length, selectedAppId });
+      return;
+    }
+    if (isStreaming) {
+      console.log('⏸️ Chat is streaming, skipping auto-fix', { isStreaming });
+      return;
+    }
+    if (!problemReport?.problems?.length) {
+      console.log('⏸️ No problems detected', { problemReport });
+      return;
+    }
     if (isAutoFixing) {
       console.log('⏸️ Auto-fix already in progress, skipping...');
       return;
     }
 
-    console.log(`🚀 Auto-triggering fix for ${autoFixableProblems.length} Problems tab errors (chat not streaming)`);
+    // ✅ FIX: Check for auto-fixable problems only
+    const autoFixableProblems = problemReport.problems.filter(p => p.autoFixable);
+    console.log(`🔍 Found ${problemReport.problems.length} total problems, ${autoFixableProblems.length} auto-fixable`, {
+      problems: problemReport.problems.map(p => ({ file: p.file, line: p.line, autoFixable: p.autoFixable }))
+    });
+    if (autoFixableProblems.length === 0) {
+      console.log('⏸️ No auto-fixable problems found - all problems:', problemReport.problems);
+      return;
+    }
+
+    console.log(`🚀 AUTO-FIX STARTING: Fixing ${autoFixableProblems.length} Problems tab errors`);
     
     // Create errors from current auto-fixable problems
     const currentProblemErrors: DetectedError[] = autoFixableProblems.map(problem => ({
@@ -637,49 +688,94 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     setDetectedErrors(prev => {
       const existingIds = new Set(prev.map(e => e.id));
       const newErrors = currentProblemErrors.filter(e => !existingIds.has(e.id));
+      console.log(`📝 Adding ${newErrors.length} new errors to detectedErrors`);
       return [...prev, ...newErrors];
     });
     
+    // ✅ CRITICAL: Call autoFixErrors directly (it will handle the actual fix)
     await autoFixErrors();
-  }, [enabled, chatId, isStreaming, problemReport, isAutoFixing, autoFixErrors, setDetectedErrors]);
+  }, [isExpoApp, chatId, isStreaming, problemReport, isAutoFixing, autoFixErrors, setDetectedErrors, chats, selectedAppId]);
 
-  // ✅ FIX: Re-check problems after stream completes and re-trigger auto-fix if needed
+  // ✅ FIX: Re-check problems after stream completes (handled by main effect above)
+  // Removed duplicate effect - main effect handles this now
+
+  // ✅ CRITICAL FIX: Auto-trigger fix when streaming stops and problems exist
   useEffect(() => {
-    // Only re-check if we just finished streaming and have problems
-    if (!isStreaming && problemReport?.problems?.length > 0) {
-      const timer = setTimeout(async () => {
-        console.log('🔍 Re-checking problems after stream completed...');
-        try {
-          const IpcClient = (await import("@/ipc/ipc_client")).IpcClient;
-          await IpcClient.getInstance().checkProblems({ appId: selectedAppId });
-          
-          // Trigger auto-fix again if problems still exist after a delay
-          setTimeout(() => {
-            triggerProblemsAutoFix();
-          }, 2000);
-        } catch (error) {
-          console.error('Failed to re-check problems:', error);
-        }
-      }, 3000); // Wait 3s after stream completes
+    console.log('🔍 Auto-fix effect running...', {
+      isExpoApp,
+      isStreaming,
+      problemCount: problemReport?.problems?.length || 0,
+      chatId,
+      chatsCount: chats?.length || 0,
+      isAutoFixing,
+      selectedAppId
+    });
 
-      return () => clearTimeout(timer);
+    // Must have: Expo app, not streaming, problems exist
+    if (!isExpoApp) {
+      console.log('⏸️ Not an Expo app, skipping auto-fix');
+      return;
     }
-  }, [isStreaming, problemReport, selectedAppId, triggerProblemsAutoFix]);
-
-  // Trigger auto-fix when new problems are detected (only if not streaming)
-  useEffect(() => {
-    // ✅ FIX: Don't trigger if streaming
+    
     if (isStreaming) {
-      console.log('⏸️ Chat is streaming, skipping auto-fix trigger');
+      console.log('⏸️ Chat is streaming, waiting for stream to complete...');
       return;
     }
 
-    const timer = setTimeout(() => {
-      triggerProblemsAutoFix();
-    }, 500); // Reduced delay for faster response
+    if (!problemReport?.problems?.length) {
+      console.log('⏸️ No problems detected');
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [problemReport, isStreaming, triggerProblemsAutoFix]);
+    // ✅ FIX: Wait for chatId to be available (chats might still be loading)
+    if (!chatId) {
+      console.log('⏸️ No chatId available yet, waiting for chats to load...', { 
+        chats: chats?.length,
+        chatsData: chats 
+      });
+      
+      // Wait for chats to load, then retry
+      const timer = setTimeout(() => {
+        const updatedChatId = chats?.[0]?.id;
+        if (updatedChatId && !isStreaming && problemReport?.problems?.length > 0) {
+          console.log('✅ ChatId loaded, retrying auto-fix...', { updatedChatId });
+          // Re-trigger by calling triggerProblemsAutoFix with updated chatId
+          // The effect will re-run when chatId changes
+        } else if (!updatedChatId) {
+          console.log('⏸️ Still no chatId after wait, cannot auto-fix');
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+
+    if (isAutoFixing) {
+      console.log('⏸️ Auto-fix already in progress');
+      return;
+    }
+
+    // ✅ FIX: Remove "once per app" restriction - allow re-triggering if problems persist
+    // Check if we have auto-fixable problems
+    const autoFixableProblems = problemReport.problems.filter(p => p.autoFixable);
+    if (autoFixableProblems.length === 0) {
+      console.log('⏸️ No auto-fixable problems found', {
+        totalProblems: problemReport.problems.length,
+        problems: problemReport.problems.map(p => ({ file: p.file, line: p.line, autoFixable: p.autoFixable }))
+      });
+      return;
+    }
+
+    console.log('🚀 AUTO-FIX TRIGGERED: Streaming stopped, problems detected', {
+      problemCount: problemReport.problems.length,
+      autoFixableCount: autoFixableProblems.length,
+      isStreaming,
+      isExpoApp,
+      chatId,
+      selectedAppId
+    });
+
+    // Trigger immediately (no delay) since streaming already stopped
+    triggerProblemsAutoFix();
+  }, [isStreaming, problemReport, isExpoApp, chatId, isAutoFixing, selectedAppId, triggerProblemsAutoFix, chats]);
 
   // 🚨 NEW: Detect Expo dependency errors from terminal output
   const detectExpoDependencyErrors = useCallback((terminalOutput: string) => {
