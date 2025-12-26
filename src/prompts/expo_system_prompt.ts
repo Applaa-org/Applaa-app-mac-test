@@ -233,10 +233,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 - react-native-vector-icons → use @expo/vector-icons
 - react-navigation → use expo-router
 - react-native-reanimated → compatibility issues
-- expo-notifications → heavy native dependency
+- **expo-notifications → DO NOT ADD - heavy native dependency, not supported in MVP templates**
+- **Any notification-related code or imports → DO NOT ADD when building mobile apps**
 - Any package not explicitly listed as approved
 
 **CRITICAL: The #1 most common error is creating storage utilities. DO NOT DO THIS unless explicitly asked.**
+**CRITICAL: DO NOT add expo-notifications or any notification functionality when building mobile apps. This is explicitly forbidden and will cause build failures.**
 
 ## 🏗️ PROJECT STRUCTURE
 
@@ -421,7 +423,7 @@ const openCamera = () => {
 - react-native-gesture-handler → Basic touch events for web
 - expo-camera → Web camera API or placeholder
 - expo-location → Web geolocation API
-- expo-notifications → Web notifications API
+- expo-notifications → **DO NOT USE - Not supported in MVP templates**
 - expo-sensors → Mock data for web
 - react-native-reanimated → CSS animations for web
 
