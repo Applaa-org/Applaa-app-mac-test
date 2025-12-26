@@ -315,7 +315,7 @@ export function useAutoErrorFix(options: UseAutoErrorFixOptions = {}) {
 - For missing Expo modules: expo install <package>
 - For port 8081 conflicts: kill processes and restart Metro
 - For Metro stuck: clear cache and restart; kill 8081 processes
-- Keep versions aligned (expo@53.x, expo-router@~5.x)
+- Keep versions aligned (expo@54.x, expo-router@~5.x)
 
 🚨 **METRO BUNDLER RECOVERY:**
 - If Metro is stuck on 8081, clean up aggressively and restart

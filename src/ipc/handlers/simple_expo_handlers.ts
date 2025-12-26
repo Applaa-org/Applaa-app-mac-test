@@ -322,11 +322,11 @@ export function registerSimpleExpoHandlers() {
       const appPath = getDyadAppPath(appData[0].path);
       log.log(`Updating packages in: ${appPath}`);
       
-      // Update to expected versions based on Expo SDK 53
+      // Update to expected versions based on Expo SDK 54
       const updateCommands = [
-        "npx expo install expo@53.0.22",
+        "npx expo install expo@54.0.0",
         "npx expo install expo-router@~5.1.5", 
-        "npx expo install react-native@0.79.5",
+        "npx expo install react-native@0.81.0",
         "npx expo install typescript@~5.8.3",
         "npm install" // Final install to resolve dependencies
       ];
@@ -358,7 +358,7 @@ export function registerSimpleExpoHandlers() {
       return {
         success: true,
         output: updateOutput,
-        message: "Package versions updated to match Expo SDK 53"
+        message: "Package versions updated to match Expo SDK 54"
       };
       
     } catch (error) {
@@ -622,8 +622,8 @@ export function registerSimpleExpoHandlers() {
                 fix: "^1.23.1"
               },
               "@types/react-native": {
-                invalid: ["~0.79.0"],
-                fix: "^0.73.0"
+                invalid: ["~0.79.0", "~0.80.0"],
+                fix: "^0.81.0"
               },
               "expo-battery": {
                 invalid: ["~7.0.1"],

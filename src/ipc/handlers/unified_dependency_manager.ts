@@ -408,8 +408,8 @@ async function fixPackageJsonIssues(packageJsonPath: string): Promise<void> {
       fix: "^1.23.1"
     },
     "@types/react-native": {
-      invalid: ["~0.79.0"],
-      fix: "^0.73.0"
+      invalid: ["~0.79.0", "~0.80.0"],
+      fix: "^0.81.0"
     },
     "expo-battery": {
       invalid: ["~7.0.1"],
