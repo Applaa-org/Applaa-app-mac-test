@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Globe, Smartphone, Gamepad2, Loader2 } from 'lucide-react';
+import { ExternalLink, Globe, Smartphone, Gamepad2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
 
 interface DeployedApp {
@@ -22,13 +22,15 @@ interface DeployedApp {
 interface YourDeployedAppsProps {
   className?: string;
   maxApps?: number; // Limit number of apps to show
+  filterByAppType?: 'web' | 'expo' | 'flutter' | 'godot' | null; // Filter apps by selected app type
 }
 
-export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAppsProps) {
+export function YourDeployedApps({ className = '', maxApps = 3, filterByAppType = null }: YourDeployedAppsProps) {
   const [selectedAppUrl, setSelectedAppUrl] = useState<string | null>(null);
   const [isAppModalOpen, setIsAppModalOpen] = useState(false);
   const [apps, setApps] = useState<DeployedApp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   useEffect(() => {
     const fetchApps = async () => {
@@ -37,13 +39,35 @@ export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAp
         const result = await IpcClient.getInstance().listAppsInSupabase();
         
         if (result.success && result.userApps) {
+          // Map selectedAppType to app_type
+          let filterAppType: 'web' | 'mobile' | 'applaa' | null = null;
+          if (filterByAppType) {
+            switch (filterByAppType) {
+              case 'web':
+                filterAppType = 'web';
+                break;
+              case 'expo':
+              case 'flutter':
+                filterAppType = 'mobile';
+                break;
+              case 'godot':
+                filterAppType = 'applaa';
+                break;
+            }
+          }
+          
           // Filter apps that are deployed (have deployment URL or status is deployed) AND have user consent
-          const deployedApps = result.userApps.filter((app: any) => {
+          let deployedApps = result.userApps.filter((app: any) => {
             const hasDeploymentUrl = app.vercel_deployment_url || app.eas_deployment_url;
             const isDeployed = app.deployment_status === 'deployed';
             const hasConsent = app.show_in_hub === true;
             return (hasDeploymentUrl || isDeployed) && hasConsent;
           });
+          
+          // Filter by app type if filterByAppType is provided
+          if (filterAppType) {
+            deployedApps = deployedApps.filter((app: any) => app.app_type === filterAppType);
+          }
           
           // Limit to maxApps
           setApps(deployedApps.slice(0, maxApps));
@@ -56,7 +80,7 @@ export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAp
     };
 
     fetchApps();
-  }, [maxApps]);
+  }, [maxApps, filterByAppType]);
 
   const handleLoadApp = (url: string) => {
     setSelectedAppUrl(url);
@@ -103,6 +127,24 @@ export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAp
     }
   };
 
+  const getSectionTitle = (): string => {
+    if (!filterByAppType) {
+      return 'Your Deployed Apps';
+    }
+    
+    switch (filterByAppType) {
+      case 'web':
+        return 'Your Deployed Web Apps';
+      case 'expo':
+      case 'flutter':
+        return 'Your Deployed Mobile Apps';
+      case 'godot':
+        return 'Your Deployed Games';
+      default:
+        return 'Your Deployed Apps';
+    }
+  };
+
   const getAppUrl = (app: DeployedApp): string | null => {
     return app.vercel_deployment_url || app.eas_deployment_url || null;
   };
@@ -116,15 +158,37 @@ export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAp
     <>
       <section className={`mb-8 ${className}`}>
         <header className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Your Deployed Apps
-          </h2>
-          <p className="text-md text-gray-600 dark:text-gray-400">
-            Your apps that are deployed and ready to use
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                {getSectionTitle()}
+              </h2>
+              <p className="text-md text-gray-600 dark:text-gray-400">
+                Your apps that are deployed and ready to use
+              </p>
+            </div>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              aria-label={isExpanded ? "Hide deployed apps" : "Show deployed apps"}
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4" />
+                  <span>Hide</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  <span>Show</span>
+                </>
+              )}
+            </button>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {isExpanded && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {apps.map((app) => {
             const appUrl = getAppUrl(app);
             if (!appUrl) return null;
@@ -169,7 +233,8 @@ export function YourDeployedApps({ className = '', maxApps = 3 }: YourDeployedAp
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
       </section>
 
       {/* App Modal */}

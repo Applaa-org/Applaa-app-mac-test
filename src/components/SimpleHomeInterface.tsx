@@ -378,6 +378,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
             )}
           </div>
 
+          {/* Your Deployed Apps - Filtered by selected app type */}
+          <YourDeployedApps className="mt-12" filterByAppType={selectedAppType} maxApps={3} />
+
           {/* Inspiration Ideas - Game Templates */}
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-3 px-0.5">

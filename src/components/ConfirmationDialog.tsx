@@ -27,7 +27,8 @@ export default function ConfirmationDialog({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
         <div
-          className="fixed inset-0 bg-gray-500/30 backdrop-blur-sm transition-opacity"
+
+className="fixed inset-0 bg-gray-500/30 backdrop-blur-sm transition-opacity"
           onClick={onCancel}
         />
 
