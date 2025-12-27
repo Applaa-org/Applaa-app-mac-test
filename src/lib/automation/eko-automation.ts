@@ -48,7 +48,7 @@ export class EkoAutomation {
                 llms: {
                     default: {
                         provider: 'google',
-                        model: 'gemini-2.0-flash-exp',
+                        model: 'gemini-3-flash',
                         apiKey: geminiApiKey
                     }
                 },

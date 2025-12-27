@@ -53,24 +53,39 @@ export function BuddyChat({ onNavigateToUrl, tabs, onTabSwitch, onTabCreate }: B
             if (!data) return; // Safety check
             console.log('[Buddy] Progress update:', data);
 
-            // Find the last assistant message and update it
             setMessages(prev => {
-                const lastAssistantIndex = prev.length - 1;
-                if (lastAssistantIndex >= 0 && prev[lastAssistantIndex].role === 'assistant') {
-                    const updated = [...prev];
-                    if (data.type === 'status') {
-                        // Append status updates
-                        updated[lastAssistantIndex] = {
-                            ...updated[lastAssistantIndex],
-                            content: updated[lastAssistantIndex].content + `\n${data.message}`
-                        };
-                    } else if (data.type === 'complete') {
-                        // Mark as complete
-                        updated[lastAssistantIndex] = {
-                            ...updated[lastAssistantIndex],
-                            content: updated[lastAssistantIndex].content + `\n\n${data.message}`
-                        };
+                let lastAssistantIndex = -1;
+                for (let i = prev.length - 1; i >= 0; i--) {
+                    if (prev[i].role === 'assistant') {
+                        lastAssistantIndex = i;
+                        break;
                     }
+                }
+
+                if (lastAssistantIndex >= 0) {
+                    const updated = [...prev];
+                    const msg = { ...updated[lastAssistantIndex] };
+
+                    if (!msg.steps) msg.steps = [];
+
+                    if (data.type === 'status') {
+                        // Mark previous running steps as completed
+                        const steps = msg.steps.map(s =>
+                            s.status === 'running' ? { ...s, status: 'completed' as const } : s
+                        );
+
+                        // Add new running step
+                        msg.steps = [...steps, {
+                            title: data.message,
+                            status: 'running' as const
+                        }];
+                    } else if (data.type === 'complete') {
+                        // Mark all as completed
+                        msg.steps = msg.steps.map(s => ({ ...s, status: 'completed' as const }));
+                        // Also append a final conversational line if needed, but usually content will be updated by execute result
+                    }
+
+                    updated[lastAssistantIndex] = msg;
                     return updated;
                 }
                 return prev;
@@ -95,8 +110,9 @@ export function BuddyChat({ onNavigateToUrl, tabs, onTabSwitch, onTabCreate }: B
         const assistantMessage: Message = {
             id: Date.now() + 1,
             role: 'assistant',
-            content: 'Executing plan... 🚀',
+            content: 'I\'m starting the execution now. I\'ll keep you updated as I progress through the steps! ✨',
             dbTimestamp: new Date().toISOString(),
+            steps: []
         };
         setMessages(prev => [...prev, assistantMessage]);
         setIsLoading(true);

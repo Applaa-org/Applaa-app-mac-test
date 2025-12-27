@@ -11,7 +11,7 @@ export class JarvisAutomation {
     private eko: Eko | null = null;
     private browserAgent: BrowserAgent | null = null;
     private isInitialized = false;
-    private modelName: string = 'gemini-2.0-flash-exp'; // Default model
+    private modelName: string = 'gemini-3-flash'; // Default model
     private apiKey: string | undefined = undefined;
 
     async initialize() {
@@ -107,7 +107,7 @@ export class JarvisAutomation {
             logger.info(`Generating plan for: "${instruction}"`);
 
             const settings = readSettings();
-            const modelToUse = modelOverride || settings.planningModel?.name || 'gemini-2.0-flash-exp';
+            const modelToUse = modelOverride || settings.planningModel?.name || 'gemini-3-flash';
             logger.info(`Using model for planning: ${modelToUse}`);
 
             const genAI = new GoogleGenerativeAI(this.apiKey);
@@ -162,9 +162,9 @@ Return ONLY the plan as a numbered list.`;
         };
 
         try {
-            // Try the user's configured model first (likely gemini-2.0-flash-exp)
+            // Try the user's configured model first (likely gemini-3-flash)
             // Ensure we don't pass an empty string
-            const primaryModel = this.modelName || "gemini-2.0-flash-exp";
+            const primaryModel = this.modelName || "gemini-3-flash";
             const text = await tryTranscribe(primaryModel);
             logger.info(`Transcription result: "${text}"`);
 
@@ -173,10 +173,10 @@ Return ONLY the plan as a numbered list.`;
                 text: text.trim()
             };
         } catch (error: any) {
-            logger.warn(`Initial transcription with ${this.modelName} failed, trying fallback gemini-2.0-flash-exp...`, error.message);
+            logger.warn(`Initial transcription with ${this.modelName} failed, trying fallback gemini-3-flash...`, error.message);
             try {
                 // Fallback to the known robust experimental model which supports audio
-                const text = await tryTranscribe("gemini-2.0-flash-exp");
+                const text = await tryTranscribe("gemini-3-flash");
                 return {
                     success: true,
                     text: text.trim()
@@ -210,7 +210,7 @@ Return ONLY the plan as a numbered list.`;
             if (mainWindow) {
                 mainWindow.webContents.send('automation:progress', {
                     type: 'status',
-                    message: '🚀 Starting automation...'
+                    message: '🏗️ Initializing browser environment...'
                 });
 
                 mainWindow.webContents.send('automation:create-tab');
@@ -221,7 +221,7 @@ Return ONLY the plan as a numbered list.`;
 
                 mainWindow.webContents.send('automation:progress', {
                     type: 'status',
-                    message: '🔍 Analyzing the page...'
+                    message: '🌐 Navigating and analyzing page content...'
                 });
             }
 
@@ -238,37 +238,20 @@ Return ONLY the plan as a numbered list.`;
                 });
             }
 
-            // Extract thinking and explanation from result
-            let detailedMessage = `✅ Task completed successfully!\n\n`;
+            // Construct conversational result message
+            let detailedMessage = "";
+            const resultObj = result as any;
 
-            if (result && typeof result === 'object') {
-                const resultObj = result as any; // Type assertion for flexibility
-
-                // If result has thinking or explanation, include it
-                if (resultObj.thinking) {
-                    detailedMessage += `**Thinking Process:**\n${resultObj.thinking}\n\n`;
-                }
-                if (resultObj.steps && Array.isArray(resultObj.steps)) {
-                    detailedMessage += `**Steps Performed:**\n`;
-                    resultObj.steps.forEach((step: string, i: number) => {
-                        detailedMessage += `${i + 1}. ${step}\n`;
-                    });
-                    detailedMessage += `\n`;
-                }
-                if (resultObj.summary) {
-                    detailedMessage += `**Summary:** ${resultObj.summary}\n\n`;
-                } else {
-                    detailedMessage += `**Command:** "${instruction}"\n\n`;
-                }
-                detailedMessage += `_(AI Agent running on **${this.modelName}**)_`;
+            if (resultObj && resultObj.summary) {
+                detailedMessage = resultObj.summary;
             } else {
-                detailedMessage += `Successfully executed: "${instruction}"\n_(AI Agent running on **${this.modelName}**)_`;
+                detailedMessage = `Perfect! I've successfully completed the task: **"${instruction}"**. \n\nI've navigated through the pages and performed the requested actions. You can see the result in the browser view above!`;
             }
 
             return {
                 success: true,
                 message: detailedMessage,
-                result
+                result: result
             };
         } catch (error: any) {
             logger.error('Command execution failed:', error);

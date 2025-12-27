@@ -36,7 +36,7 @@ export class StagehandExecutor {
             this.stagehand = new Stagehand({
                 env: 'LOCAL',
                 verbose: 1,
-                model: 'google/gemini-2.0-flash-exp', // V3 API uses 'model' not 'modelName'
+                model: 'google/gemini-3-flash', // V3 API uses 'model' not 'modelName'
             });
 
             // Initialize Stagehand

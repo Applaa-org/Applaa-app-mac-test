@@ -15,11 +15,11 @@ const logger = log.scope("settings");
 // Need to maintain backwards compatibility!
 const DEFAULT_SETTINGS: UserSettings = {
   selectedModel: {
-    name: "auto",
-    provider: "auto",
+    name: "gemini-3-flash",
+    provider: "google",
   },
   planningModel: {
-    name: "gemini-2.0-flash-exp",
+    name: "gemini-3-flash",
     provider: "google",
   },
   providerSettings: {},

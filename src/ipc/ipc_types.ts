@@ -78,6 +78,7 @@ export interface Message {
   approvalState?: "approved" | "rejected" | null;
   commitHash?: string | null;
   dbTimestamp?: string | null;
+  steps?: { title: string; status: 'completed' | 'pending' | 'running' }[];
 }
 
 export interface Chat {

@@ -22,7 +22,7 @@ export class ActionPlanner {
             }
 
             this.genAI = new GoogleGenerativeAI(apiKey);
-            this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+            this.model = this.genAI.getGenerativeModel({ model: 'gemini-3-flash' });
 
             logger.info('✅ ActionPlanner initialized with Gemini');
         } catch (error) {

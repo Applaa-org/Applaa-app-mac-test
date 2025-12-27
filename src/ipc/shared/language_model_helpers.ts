@@ -57,6 +57,24 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
   ],
   google: [
     {
+      name: "gemini-3-pro",
+      displayName: "Gemini 3 Pro",
+      description: "Google's next-generation high-performance model (Future)",
+      maxOutputTokens: 8192,
+      contextWindow: 2_000_000,
+      temperature: 0,
+      tag: "Experimental",
+    },
+    {
+      name: "gemini-3-flash",
+      displayName: "Gemini 3 Flash",
+      description: "Google's next-generation fast model (Future)",
+      maxOutputTokens: 8192,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Flash",
+    },
+    {
       name: "gemini-2.0-flash-exp",
       displayName: "Gemini 2.0 Flash (Exp)",
       description: "Google's next-generation fast model (Experimental)",

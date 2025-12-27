@@ -17,6 +17,16 @@ interface OptionInfo {
 
 const options: OptionInfo[] = [
     {
+        value: "gemini-3-pro",
+        label: "Gemini 3 Pro",
+        description: "Google's next-gen high-performance model. Best for deep reasoning.",
+    },
+    {
+        value: "gemini-3-flash",
+        label: "Gemini 3 Flash",
+        description: "Google's next-gen fast model. Balanced performance and speed.",
+    },
+    {
         value: "gemini-2.0-flash-thinking-exp",
         label: "Gemini 2.0 Flash Thinking",
         description: "Best for planning. Includes reasoning process.",
@@ -46,7 +56,7 @@ export const PlanningModelSelector: React.FC = () => {
     };
 
     // Determine the current value
-    const currentValue = settings?.planningModel?.name || "gemini-2.0-flash-exp";
+    const currentValue = settings?.planningModel?.name || "gemini-3-flash";
 
     // Find the current option to display its description
     const currentOption =
