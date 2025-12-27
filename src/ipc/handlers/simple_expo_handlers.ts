@@ -213,6 +213,34 @@ export function registerSimpleExpoHandlers() {
     return url.replace(/^https?:\/\//i, 'exp://');
   };
 
+  // ✅ FIX: Helper to construct URLs when detection fails
+  const constructExpoUrls = (port: number): {
+    webUrl: string;
+    lanUrl?: string;
+    qrUrl?: string;
+  } => {
+    const webUrl = `http://localhost:${port}`;
+    
+    // Try to get LAN IP
+    const interfaces = os.networkInterfaces();
+    let lanIp: string | undefined;
+    
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          lanIp = iface.address;
+          break;
+        }
+      }
+      if (lanIp) break;
+    }
+    
+    const lanUrl = lanIp ? `http://${lanIp}:${port}` : undefined;
+    const qrUrl = lanUrl ? toExpUrl(lanUrl) : undefined;
+    
+    return { webUrl, lanUrl, qrUrl };
+  };
+
   // Helper: Poll .expo/packager-info.json for tunnel URL (.exp.direct / expo.dev / tunnels.expo.dev)
   const startTunnelPoller = (projectRoot: string) => {
     try {
@@ -941,9 +969,46 @@ export function registerSimpleExpoHandlers() {
       }
 
       // NON-INTERACTIVE PORT SELECTION: pick the first free port starting at 8081
-      // Try ports 8081-8099, attempting to kill processes on each port before checking
+      // ✅ FIX: More aggressive port cleanup before selection
       log.log("🎯 Selecting a free Metro port starting at 8081 (non-interactive)...");
-      const finalPort = await findAvailablePort(8081, 19); // Try ports 8081-8099
+      
+      // ✅ CRITICAL: Kill processes on multiple ports before checking
+      const portsToClean = [8081, 8082, 8083, 8084, 8085];
+      for (const port of portsToClean) {
+        try {
+          await killProcessOnPort(port);
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait for cleanup
+        } catch (e) {
+          // Ignore errors - port might not be in use
+        }
+      }
+      
+      let finalPort = await findAvailablePort(8081, 19); // Try ports 8081-8099
+      
+      // ✅ ADD: Verify port is actually free before starting
+      try {
+        const testServer = net.createServer();
+        await new Promise<void>((resolve, reject) => {
+          testServer.listen(finalPort, () => {
+            testServer.close(() => resolve());
+          });
+          testServer.on('error', (err: any) => {
+            if (err.code === 'EADDRINUSE') {
+              log.warn(`⚠️ Port ${finalPort} still in use, trying next port...`);
+              reject(err);
+            } else {
+              reject(err);
+            }
+          });
+        });
+        log.log(`✅ Port ${finalPort} verified as free`);
+      } catch (portError: any) {
+        log.warn(`⚠️ Port ${finalPort} conflict detected, finding alternative...`);
+        // Try next port
+        finalPort = await findAvailablePort(finalPort + 1, 19);
+        log.log(`✅ Using alternative port ${finalPort}`);
+      }
+      
       log.log(`✅ Using Metro port ${finalPort} (auto-selected)`);
       
       const portMessage = `Using port ${finalPort}\n`;
@@ -1078,6 +1143,56 @@ export function registerSimpleExpoHandlers() {
           log.log(`🔍 Tunnel/QR Debug Output: ${data.slice(0, 500)}`);
         }
 
+        // ✅ FIX: Detect "using LAN mode" message and extract URL
+        if (output.includes('using LAN mode') || output.includes('LAN mode instead')) {
+          log.log('🔍 LAN mode detected in output - extracting URL...');
+          
+          // Try to find LAN URL in the output
+          const lanPatterns = [
+            /(?:LAN|Network)[:\s]+(https?:\/\/[\d\.]+:\d+)/i,
+            /(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d\.]+:\d+)/i,
+            /(?:running|available)[^\n]*(https?:\/\/[\d\.]+:\d+)/i
+          ];
+          
+          for (const pattern of lanPatterns) {
+            const match = output.match(pattern);
+            if (match && match[1]) {
+              expoStatus.lanUrl = match[1];
+              expoStatus.qrUrl = toExpUrl(match[1]);
+              if (!expoStatus.webUrl) {
+                // Extract port from LAN URL and create localhost version
+                const portMatch = match[1].match(/:(\d+)/);
+                if (portMatch) {
+                  expoStatus.webUrl = `http://localhost:${portMatch[1]}`;
+                }
+              }
+              log.log(`✅ LAN URL extracted from output: ${expoStatus.lanUrl}`);
+              break;
+            }
+          }
+        }
+
+        // ✅ FIX: Better detection of Metro bundler running message
+        if (output.includes('Metro bundler') && output.includes('running')) {
+          // Extract port from the message
+          const portMatch = output.match(/:(\d+)/);
+          if (portMatch) {
+            const port = parseInt(portMatch[1], 10);
+            if (!expoStatus.webUrl) {
+              expoStatus.webUrl = `http://localhost:${port}`;
+              log.log(`✅ Web URL set from Metro message: ${expoStatus.webUrl}`);
+            }
+            if (!expoStatus.lanUrl) {
+              const computedLan = getLanUrl(port);
+              if (computedLan) {
+                expoStatus.lanUrl = computedLan;
+                expoStatus.qrUrl = toExpUrl(computedLan);
+                log.log(`✅ LAN URL computed from Metro port: ${expoStatus.lanUrl}`);
+              }
+            }
+          }
+        }
+
         // 🎯 STEP 1: Enhanced tunnel URL detection (both HTTP and exp:// formats)
         const tunnelMatches = [
           // HTTP/HTTPS tunnel URLs
@@ -1149,10 +1264,12 @@ export function registerSimpleExpoHandlers() {
           }
         }
 
-        // 🎯 STEP 3: LAN URL patterns (mobile device access)
+        // 🎯 STEP 3: Enhanced LAN URL patterns (mobile device access)
         const lanMatches = [
-          output.match(/(?:LAN|Network):\s+(https?:\/\/[\d\.]+:\d+)/i),
-          output.match(/(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d\.]+:\d+)/i)
+          output.match(/(?:LAN|Network)[:\s]+(https?:\/\/[\d\.]+:\d+)/i),
+          output.match(/(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d\.]+:\d+)/i),
+          output.match(/(?:running on|available at)[^\n]*(https?:\/\/[\d\.]+:\d+)/i),  // ✅ ADD THIS
+          output.match(/Metro[^\n]*(https?:\/\/[\d\.]+:\d+)/i)  // ✅ ADD THIS
         ].filter(Boolean);
         
         if (lanMatches.length > 0 && lanMatches[0]) {
@@ -1162,9 +1279,9 @@ export function registerSimpleExpoHandlers() {
             log.log(`📱 LAN URL: ${newLanUrl}`);
             // Use LAN URL for QR only if no tunnel is available
             if (!expoStatus.tunnelUrl && !hasFoundQR) {
-              expoStatus.qrUrl = newLanUrl;
+              expoStatus.qrUrl = toExpUrl(newLanUrl);
               hasFoundQR = true;
-              log.log(`📱 Using LAN URL for QR (no tunnel available): ${newLanUrl}`);
+              log.log(`📱 Using LAN URL for QR (no tunnel available): ${expoStatus.qrUrl}`);
             }
           }
         }
@@ -1254,30 +1371,92 @@ export function registerSimpleExpoHandlers() {
         log.warn("Expo Error:", output);
         expoStatus.terminalOutput += output;
         
-        // ✅ FIX: Detect tunnel creation failures
+        // ✅ FIX 1: Detect ngrok tunnel timeout specifically
+        if (output.includes('ngrok tunnel took too long') || 
+            output.includes('CommandError: ngrok tunnel took too long')) {
+          log.warn('🚨 ngrok tunnel timeout detected - falling back to LAN mode');
+          expoStatus.terminalOutput += '\n⚠️ Tunnel timeout - using LAN mode instead\n';
+          
+          // ✅ CRITICAL: When tunnel fails, immediately set LAN URL
+          if (!expoStatus.lanUrl) {
+            const portMatch = expoStatus.webUrl?.match(/:(\d+)/);
+            const port = portMatch ? parseInt(portMatch[1], 10) : finalPort;
+            const computedLan = getLanUrl(port);
+            if (computedLan) {
+              expoStatus.lanUrl = computedLan;
+              expoStatus.qrUrl = toExpUrl(computedLan);
+              expoStatus.webUrl = expoStatus.webUrl || `http://localhost:${port}`;
+              log.log(`✅ Tunnel failed, using LAN URL: ${expoStatus.lanUrl}`);
+              log.log(`✅ QR URL set: ${expoStatus.qrUrl}`);
+            }
+          }
+        }
+        
+        // ✅ FIX 2: Detect "Tunnel mode failed, using LAN mode" message
+        if (output.includes('Tunnel mode failed') || 
+            output.includes('using LAN mode instead') ||
+            output.includes('Tunnel mode unavailable')) {
+          log.warn('🚨 Tunnel mode failed - LAN mode active');
+          
+          // Ensure LAN URL is set
+          if (!expoStatus.lanUrl) {
+            const portMatch = expoStatus.webUrl?.match(/:(\d+)/);
+            const port = portMatch ? parseInt(portMatch[1], 10) : finalPort;
+            const computedLan = getLanUrl(port);
+            if (computedLan) {
+              expoStatus.lanUrl = computedLan;
+              expoStatus.qrUrl = toExpUrl(computedLan);
+              log.log(`✅ LAN URL set after tunnel failure: ${expoStatus.lanUrl}`);
+            }
+          }
+          
+          // Also ensure webUrl is set
+          if (!expoStatus.webUrl) {
+            const portMatch = expoStatus.lanUrl?.match(/:(\d+)/);
+            const port = portMatch ? parseInt(portMatch[1], 10) : finalPort;
+            expoStatus.webUrl = `http://localhost:${port}`;
+            log.log(`✅ Web URL set: ${expoStatus.webUrl}`);
+          }
+        }
+        
+        // ✅ FIX 3: Enhanced tunnel error detection (keep existing but improve)
         const tunnelErrorPatterns = [
           /tunnel.*failed/i,
           /ngrok.*error/i,
           /tunnel.*timeout/i,
+          /ngrok tunnel took too long/i,  // ✅ ADD THIS
           /Unable to create tunnel/i,
           /Tunnel creation failed/i,
           /@expo\/ngrok.*not found/i,
-          /ngrok.*not installed/i
+          /ngrok.*not installed/i,
+          /Tunnel mode failed/i,  // ✅ ADD THIS
+          /Tunnel mode unavailable/i  // ✅ ADD THIS
         ];
         
         for (const pattern of tunnelErrorPatterns) {
           if (pattern.test(output)) {
-            log.error(`🚨 Tunnel creation error detected: ${output.substring(0, 300)}`);
-            // If tunnel fails, fall back to LAN mode
-            if (currentStartOptions.useTunnel && !expoStatus.lanUrl) {
-              // Try to get port from webUrl or use default 8081
-              const portMatch = expoStatus.webUrl?.match(/:(\d+)/);
-              const port = portMatch ? parseInt(portMatch[1], 10) : 8081;
-              const computedLan = getLanUrl(port);
-              if (computedLan) {
-                expoStatus.lanUrl = computedLan;
-                expoStatus.qrUrl = toExpUrl(computedLan);
-                log.warn(`⚠️ Tunnel failed, falling back to LAN: ${expoStatus.qrUrl}`);
+            log.error(`🚨 Tunnel error detected: ${output.substring(0, 300)}`);
+            
+            // ✅ IMPROVED: Always set LAN URL when tunnel fails
+            if (currentStartOptions.useTunnel) {
+              const portMatch = expoStatus.webUrl?.match(/:(\d+)/) || 
+                               expoStatus.lanUrl?.match(/:(\d+)/);
+              const port = portMatch ? parseInt(portMatch[1], 10) : finalPort;
+              
+              // Set web URL if missing
+              if (!expoStatus.webUrl) {
+                expoStatus.webUrl = `http://localhost:${port}`;
+                log.log(`✅ Set web URL after tunnel failure: ${expoStatus.webUrl}`);
+              }
+              
+              // Set LAN URL if missing
+              if (!expoStatus.lanUrl) {
+                const computedLan = getLanUrl(port);
+                if (computedLan) {
+                  expoStatus.lanUrl = computedLan;
+                  expoStatus.qrUrl = toExpUrl(computedLan);
+                  log.log(`✅ Set LAN URL after tunnel failure: ${expoStatus.lanUrl}`);
+                }
               }
             }
             break;
@@ -1374,21 +1553,35 @@ export function registerSimpleExpoHandlers() {
 
   // ✅ FIX: Fallback mechanism - if Metro is running but no URL detected after 10s, use localhost:port
       fallbackTimerRef = setTimeout(() => {
-        if (expoStatus.isRunning && (!expoStatus.webUrl || expoStatus.webUrl === '') && (!expoStatus.tunnelUrl || expoStatus.tunnelUrl === '')) {
-          // Metro is running but no URL was detected - try localhost fallback
-          const fallbackUrl = `http://localhost:${finalPort}`;
-          log.warn(`⚠️ No URL detected from Metro output after 10s, using fallback: ${fallbackUrl}`);
-          expoStatus.webUrl = fallbackUrl;
+        if (expoStatus.isRunning && (!expoStatus.webUrl || expoStatus.webUrl === '')) {
+          // ✅ IMPROVED: Use helper function
+          const urls = constructExpoUrls(finalPort);
+          expoStatus.webUrl = urls.webUrl;
           
-          // Also set LAN URL if available
-          if (expoStatus.lanUrl) {
-            log.log(`📱 Using computed LAN URL: ${expoStatus.lanUrl}`);
-          } else if (computedLan) {
-            expoStatus.lanUrl = computedLan;
-            log.log(`📱 Using computed LAN URL: ${computedLan}`);
+          if (urls.lanUrl) {
+            expoStatus.lanUrl = urls.lanUrl;
+            log.log(`📱 Fallback: Constructed LAN URL ${urls.lanUrl}`);
           }
           
-          log.log(`✅ Fallback URL set: ${fallbackUrl} - Status will be updated on next poll`);
+          if (urls.qrUrl) {
+            expoStatus.qrUrl = urls.qrUrl;
+            log.log(`📱 Fallback: Constructed QR URL ${urls.qrUrl}`);
+          }
+          
+          log.warn(`⚠️ No URL detected from Metro output after 10s, using constructed URLs`);
+          log.log(`✅ Fallback URLs set - Status will be updated on next poll`);
+        } else if (expoStatus.isRunning && expoStatus.webUrl && !expoStatus.lanUrl) {
+          // ✅ ADD: If webUrl exists but lanUrl doesn't, construct it
+          const portMatch = expoStatus.webUrl.match(/:(\d+)/);
+          if (portMatch) {
+            const port = parseInt(portMatch[1], 10);
+            const urls = constructExpoUrls(port);
+            if (urls.lanUrl) {
+              expoStatus.lanUrl = urls.lanUrl;
+              expoStatus.qrUrl = urls.qrUrl;
+              log.log(`📱 Fallback: Constructed LAN/QR URLs from webUrl`);
+            }
+          }
         }
       }, 10000); // 10 second fallback (reduced from 15s for faster response)
 

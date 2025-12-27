@@ -328,6 +328,38 @@ export function SnackPoweredPreview() {
           attempts++;
           const status = await ipcClient.simpleExpoStatus();
           
+          // ✅ FIX: Check terminal output for tunnel failure
+          const terminalOutput = status.terminalOutput || '';
+          if (terminalOutput.includes('ngrok tunnel took too long') ||
+              terminalOutput.includes('Tunnel mode failed') ||
+              terminalOutput.includes('using LAN mode instead')) {
+            console.log('🔍 Tunnel failed detected in terminal output');
+            // Don't wait for tunnel URL - use LAN immediately if available
+            if (status.lanUrl || status.webUrl) {
+              const previewUrlToUse = status.webUrl || status.lanUrl;
+              if (previewUrlToUse) {
+                setPreviewUrl(previewUrlToUse);
+                setExpoStatus({
+                  isRunning: status.isRunning,
+                  webUrl: status.webUrl,
+                  lanUrl: status.lanUrl,
+                  tunnelUrl: status.tunnelUrl,
+                  qrUrl: status.qrUrl
+                });
+                setConnectionStatus('connected');
+                hasStartedRef.current = true;
+                console.log('✅ Preview URL ready (LAN fallback):', previewUrlToUse);
+                
+                const qrUrl = status.qrUrl || status.lanUrl;
+                if (qrUrl) {
+                  await generateQRCode(qrUrl);
+                }
+                setStartupProgress('');
+                return true;
+              }
+            }
+          }
+          
           // Update progress message
           if (attempts <= 5) {
             setStartupProgress(`Initializing Expo... (${attempts}s)`);
@@ -346,14 +378,14 @@ export function SnackPoweredPreview() {
             lanUrl: status.lanUrl || 'empty'
           });
           
-          // ✅ FIX: Check for ANY URL (tunnel, QR, LAN, or web) - prioritize tunnel URL
-          const availableUrl = status.tunnelUrl || status.qrUrl || status.lanUrl || status.webUrl;
+          // ✅ IMPROVED: Prioritize URLs - webUrl for preview, lanUrl/qrUrl for mobile
+          const availableUrl = status.tunnelUrl || status.webUrl || status.lanUrl || status.qrUrl;
           
           if (availableUrl) {
             setStartupProgress('Preview ready! Loading...');
             
-            // Use tunnel URL for preview if available, otherwise fall back to web URL
-            const previewUrlToUse = status.tunnelUrl || status.webUrl || status.lanUrl || status.qrUrl;
+            // ✅ FIX: Use webUrl for iframe preview, tunnelUrl/qrUrl for mobile
+            const previewUrlToUse = status.webUrl || status.tunnelUrl || status.lanUrl || status.qrUrl;
             setPreviewUrl(previewUrlToUse);
             
             setExpoStatus({
@@ -373,7 +405,7 @@ export function SnackPoweredPreview() {
               web: status.webUrl
             });
             
-            // ✅ FIX: Generate QR code for tunnel or LAN URL
+            // ✅ FIX: Generate QR code - prefer tunnel, fallback to LAN
             const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
             if (qrUrl) {
               console.log('📱 Generating QR code for:', qrUrl);
