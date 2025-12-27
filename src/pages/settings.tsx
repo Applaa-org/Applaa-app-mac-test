@@ -405,7 +405,12 @@ export function WorkflowSettings() {
               });
             }}
           />
-          <Label htmlFor="enable-game-window-during-stream">Show Game Window During Chat Streaming</Label>
+          <Label 
+            htmlFor="enable-game-window-during-stream"
+            className="text-gray-900 dark:text-gray-100 cursor-pointer"
+          >
+            Show Game Window During Chat Streaming
+          </Label>
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           Display a game window while chat is streaming to keep you entertained.
