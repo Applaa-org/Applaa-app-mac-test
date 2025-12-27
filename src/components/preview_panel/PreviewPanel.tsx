@@ -260,8 +260,8 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             }`}
             title="Toggle Problems Panel"
           >
-            {/* ✅ FIX: Show loader when fix is running */}
-            {isStreaming ? (
+            {/* ✅ FIX: Show loader when fix is running AND there are problems */}
+            {isStreaming && problemReport?.problems?.length ? (
               <Loader2 size={14} className="animate-spin text-red-500" />
             ) : (
               <AlertTriangle size={16} className={problemReport?.problems?.length ? 'text-red-500' : ''} />
