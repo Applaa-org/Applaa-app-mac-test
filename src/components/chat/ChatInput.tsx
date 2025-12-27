@@ -401,10 +401,10 @@ export function ChatInput({ chatId }: { chatId?: number }) {
                   disabled={isStreaming}
                 />
                 {/* File attachment dropdown */}
-                <FileAttachmentDropdown
+                {/* <FileAttachmentDropdown
                   onFileSelect={handleFileSelect}
                   disabled={isStreaming}
-                />
+                /> */}
               </div>
 
               <TooltipProvider>

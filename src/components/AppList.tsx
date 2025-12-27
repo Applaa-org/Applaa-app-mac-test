@@ -18,6 +18,7 @@ import { useLoadApps } from "@/hooks/useLoadApps";
 import type { App } from "@/lib/schemas";
 import { detectAppCategory, getCategoryLabel, getCategoryIcon, type AppCategory } from "@/utils/appTypeDetection";
 import { AppTypeFilter, type AppFilterType } from "@/components/AppTypeFilter";
+import { showWarning } from "@/lib/toast";
 // Advanced features temporarily disabled for core stability
 // import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 // import { CloudSyncPanel } from "@/components/cloud/CloudSyncPanel";
@@ -132,6 +133,12 @@ export function AppList({ show }: { show?: boolean }) {
   }
 
   const handleAppClick = (id: number) => {
+    // Prevent switching if the current app is building/streaming
+    if (currentStreamingAppId !== null && currentStreamingAppId === selectedAppId && id !== selectedAppId) {
+      showWarning("Please wait for the current app to finish building before switching to another app.");
+      return;
+    }
+    
     setSelectedAppId(id);
     setSelectedChatId(null);
     

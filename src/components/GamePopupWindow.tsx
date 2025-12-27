@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { X, Maximize2, Minimize2, Gamepad2 } from 'lucide-react';
 import { GameOption } from '@/hooks/useRandomGame';
 import { StreamingGameSelector } from '@/components/StreamingGameSelector';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
+import { useSettings } from '@/hooks/useSettings';
 
 interface GamePopupWindowProps {
   isOpen: boolean;
@@ -19,8 +21,11 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
   const [previousPosition, setPreviousPosition] = useState({ x: 100, y: 100 });
   const [previousSize, setPreviousSize] = useState({ width: 800, height: 600 });
   const [size, setSize] = useState({ width: 800, height: 600 });
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  
+  const { updateSettings } = useSettings();
   
   // Use a stable game state that only updates when the game actually changes
   const [stableGame, setStableGame] = useState(game);
@@ -98,7 +103,26 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
     }
   };
 
-  if (!isOpen) return null;
+  const handleClose = () => {
+    // Show the confirmation dialog (this will hide the game window)
+    setShowCloseConfirmation(true);
+  };
+
+  const handleConfirmClose = async (enableGameWindow: boolean) => {
+    // Update the setting based on user's choice
+    await updateSettings({
+      enableGameWindowDuringStream: enableGameWindow,
+    });
+    
+    // Close the confirmation dialog and the game window
+    setShowCloseConfirmation(false);
+    onClose();
+  };
+
+  // Don't render game window if confirmation dialog is showing
+  const shouldRenderGameWindow = isOpen && !showCloseConfirmation;
+  
+  if (!isOpen && !showCloseConfirmation) return null;
 
   const content = (
     <div
@@ -148,7 +172,7 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onClose();
+              handleClose();
             }}
             className="p-1.5 hover:bg-red-500 rounded transition-colors"
             title="Close"
@@ -202,5 +226,19 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
     </div>
   );
 
-  return createPortal(content, document.body);
+  return (
+    <>
+      {shouldRenderGameWindow && createPortal(content, document.body)}
+      <ConfirmationDialog
+        isOpen={showCloseConfirmation}
+        title="Game Window Preference"
+        message="Do you want to play a game while app is being created? You can change this setting later from Settings."
+        confirmText="Yes"
+        cancelText="No"
+        confirmButtonClass="bg-green-600 hover:bg-green-700 focus:ring-green-500"
+        onConfirm={() => handleConfirmClose(true)}
+        onCancel={() => handleConfirmClose(false)}
+      />
+    </>
+  );
 }

@@ -43,7 +43,7 @@ export function ChatInputControls({
       
       {/* Right group: App Type, Spark, and Import App */}
       <div className="flex items-center gap-0.5">
-        <ChatModeSelector />
+        {/* <ChatModeSelector /> */}
         <SparkModeSelector />
         {/* 🚀 MVP: Import option hidden for simplicity - can be re-enabled post-MVP */}
         {/* {showImportButton && <ImportAppIcon />} */}
