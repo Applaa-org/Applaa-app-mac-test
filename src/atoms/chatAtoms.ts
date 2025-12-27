@@ -13,9 +13,8 @@ export const selectedChatIdAtom = atom<number | null>(null);
 // This is the PROVEN pattern from Dyad that we should NOT deviate from
 export const isStreamingAtom = atom<boolean>(false);
 
-// 🔮 FUTURE: For multi-app support without hijacking, add:
-// export const currentStreamingAppIdAtom = atom<number | null>(null);
-// Then components can check: isStreaming && currentStreamingAppId === myAppId
+// ✅ ADD: Track which app is currently streaming (for app list loader)
+export const currentStreamingAppIdAtom = atom<number | null>(null);
 
 export const chatInputValueAtom = atom<string>("");
 export const homeChatInputValueAtom = atom<string>("");
