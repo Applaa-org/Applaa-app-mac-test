@@ -228,7 +228,6 @@ export function AppList({ show }: { show?: boolean }) {
               </span>
             </div>
           </div>
-        </div>
       </Button>
     </SidebarMenuItem>
   );
