@@ -26,7 +26,11 @@ const AUTO_MODELS = [
   },
   {
     provider: "google",
-    name: "gemini-2.5-flash",
+    name: "gemini-1.5-flash-latest",
+  },
+  {
+    provider: "google",
+    name: "gemini-1.5-flash",
   },
   {
     provider: "anthropic",
@@ -242,6 +246,7 @@ function getRegularModelClient(
       };
     }
     case "google": {
+      logger.info(`🔍 Initializing Google provider for model: ${model.name}`);
       const provider = createGoogle({ apiKey });
       return {
         modelClient: {
@@ -477,7 +482,7 @@ function getRegularModelClient(
                 if (bodyJson.messages && Array.isArray(bodyJson.messages)) {
                   const systemMessages: string[] = [];
                   const nonSystemMessages: any[] = [];
-                  
+
                   for (const msg of bodyJson.messages) {
                     if (msg.role === 'system') {
                       systemMessages.push(msg.content || '');
@@ -485,7 +490,7 @@ function getRegularModelClient(
                       nonSystemMessages.push(msg);
                     }
                   }
-                  
+
                   if (systemMessages.length > 0) {
                     // Combine all system messages into a single system string
                     const systemContent = systemMessages.join('\n\n');
@@ -495,7 +500,7 @@ function getRegularModelClient(
                     bodyJson.messages = nonSystemMessages;
                     logger.info(`  - ✅ System messages converted. Remaining messages: ${nonSystemMessages.length}`);
                   }
-                  
+
                   // Keep existing system parameter if no system messages were found in messages array
                   if (bodyJson.system && systemMessages.length === 0) {
                     logger.info(`  - ℹ️  Using existing system parameter: ${bodyJson.system.substring(0, 100)}...`);
@@ -544,12 +549,12 @@ function getRegularModelClient(
 
             logger.info(`  - 🚀 Making Anthropic request to: ${anthropicUrl}`);
             logger.info(`  - ⏱️  Request started at: ${new Date().toISOString()}`);
-            
+
             const response = await fetch(anthropicUrl, modifiedOptions);
-            
+
             logger.info(`  - 📥 Claude Response status: ${response.status} ${response.statusText}`);
             logger.info(`  - ⏱️  Response received at: ${new Date().toISOString()}`);
-            
+
             if (!response.ok) {
               const responseText = await response.clone().text();
               logger.error(`  - ❌ Claude Error response body: ${responseText.substring(0, 2000)}`);
@@ -557,8 +562,8 @@ function getRegularModelClient(
               logger.error(`  - ❌ Request method: ${modifiedOptions.method || 'POST'}`);
               if (modifiedOptions.body) {
                 try {
-                  const bodyPreview = typeof modifiedOptions.body === 'string' 
-                    ? modifiedOptions.body.substring(0, 500) 
+                  const bodyPreview = typeof modifiedOptions.body === 'string'
+                    ? modifiedOptions.body.substring(0, 500)
                     : 'Body is not a string';
                   logger.error(`  - ❌ Request body preview: ${bodyPreview}`);
                 } catch (e) {
@@ -568,43 +573,43 @@ function getRegularModelClient(
             } else {
               logger.info(`  - ✅ Claude response received successfully`);
               logger.info(`  - 📋 Content-Type: ${response.headers.get('content-type')}`);
-              
+
               const contentType = response.headers.get('content-type') || '';
-              
+
               // CRITICAL: Transform Anthropic responses (both streaming and non-streaming) to OpenAI-compatible format
               // Anthropic uses different format - we need to convert to OpenAI format with 'choices' array
               if (response.body && contentType.includes('text/event-stream')) {
                 // Handle streaming responses
                 logger.info(`  - 🔄 Transforming Anthropic stream to OpenAI-compatible format`);
-                
+
                 const transformedResponse = new Response(
                   new ReadableStream({
                     async start(controller) {
                       const reader = response.body?.getReader();
                       const decoder = new TextDecoder();
                       const encoder = new TextEncoder();
-                      
+
                       if (!reader) {
                         controller.close();
                         return;
                       }
-                      
+
                       let buffer = '';
                       let messageId = '';
                       let currentContent = '';
-                      
+
                       try {
                         while (true) {
                           const { done, value } = await reader.read();
                           if (done) break;
-                          
+
                           buffer += decoder.decode(value, { stream: true });
                           const lines = buffer.split('\n');
                           buffer = lines.pop() || ''; // Keep incomplete line in buffer
-                          
+
                           for (const line of lines) {
                             if (line.trim() === '') continue;
-                            
+
                             if (line.startsWith('data: ')) {
                               const data = line.slice(6);
                               if (data === '[DONE]') {
@@ -614,7 +619,7 @@ function getRegularModelClient(
                                   delta: {},
                                   finish_reason: 'stop'
                                 };
-                                
+
                                 const openAIFormat = {
                                   id: messageId || 'msg_' + Date.now(),
                                   object: 'chat.completion.chunk',
@@ -622,21 +627,21 @@ function getRegularModelClient(
                                   model: anthropicModelName,
                                   choices: [finalChoice]
                                 };
-                                
+
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                                 continue;
                               }
-                              
+
                               try {
                                 const event = JSON.parse(data);
-                                
+
                                 // Handle different Anthropic event types
                                 if (event.type === 'message_start') {
                                   messageId = event.message?.id || 'msg_' + Date.now();
                                   currentContent = '';
                                   logger.info(`  - 📋 Anthropic message_start: ${messageId}`);
-                                  
+
                                   // Send initial chunk with empty content
                                   const initialChoice = {
                                     index: 0,
@@ -646,7 +651,7 @@ function getRegularModelClient(
                                     },
                                     finish_reason: null
                                   };
-                                  
+
                                   const openAIFormat = {
                                     id: messageId,
                                     object: 'chat.completion.chunk',
@@ -654,14 +659,14 @@ function getRegularModelClient(
                                     model: event.message?.model || anthropicModelName,
                                     choices: [initialChoice]
                                   };
-                                  
+
                                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                 } else if (event.type === 'content_block_delta') {
                                   // Content delta - extract text
                                   const textDelta = event.delta?.text || '';
                                   if (textDelta) {
                                     currentContent += textDelta;
-                                    
+
                                     const choice = {
                                       index: 0,
                                       delta: {
@@ -669,7 +674,7 @@ function getRegularModelClient(
                                       },
                                       finish_reason: null
                                     };
-                                    
+
                                     const openAIFormat = {
                                       id: messageId || 'msg_' + Date.now(),
                                       object: 'chat.completion.chunk',
@@ -677,7 +682,7 @@ function getRegularModelClient(
                                       model: anthropicModelName,
                                       choices: [choice]
                                     };
-                                    
+
                                     controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                   }
                                 } else if (event.type === 'content_block_start') {
@@ -693,7 +698,7 @@ function getRegularModelClient(
                                       delta: {},
                                       finish_reason: event.delta.stop_reason === 'end_turn' ? 'stop' : event.delta.stop_reason
                                     };
-                                    
+
                                     const openAIFormat = {
                                       id: messageId || 'msg_' + Date.now(),
                                       object: 'chat.completion.chunk',
@@ -701,7 +706,7 @@ function getRegularModelClient(
                                       model: anthropicModelName,
                                       choices: [finalChoice]
                                     };
-                                    
+
                                     controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                   }
                                 } else if (event.type === 'message_stop') {
@@ -738,18 +743,18 @@ function getRegularModelClient(
                     })
                   }
                 );
-                
+
                 logger.info(`  - ✅ Transformed Anthropic stream to OpenAI-compatible format`);
                 return transformedResponse;
               } else if (response.body && contentType.includes('application/json')) {
                 // Handle non-streaming JSON responses
                 logger.info(`  - 🔄 Transforming Anthropic JSON response to OpenAI-compatible format`);
-                
+
                 try {
                   // Clone the response to read it without consuming the original
                   const responseClone = response.clone();
                   const anthropicData = await responseClone.json();
-                  
+
                   logger.info(`  - 📋 Anthropic response structure: ${JSON.stringify({
                     id: anthropicData.id,
                     type: anthropicData.type,
@@ -758,7 +763,7 @@ function getRegularModelClient(
                     stop_reason: anthropicData.stop_reason,
                     content_type: Array.isArray(anthropicData.content) ? 'array' : typeof anthropicData.content
                   })}`);
-                  
+
                   // Extract content from Anthropic format
                   // Anthropic content can be an array of content blocks or a string
                   let content = '';
@@ -772,7 +777,7 @@ function getRegularModelClient(
                   } else if (typeof anthropicData.content === 'string') {
                     content = anthropicData.content;
                   }
-                  
+
                   // Map Anthropic stop_reason to OpenAI finish_reason
                   let finishReason: string | null = null;
                   if (anthropicData.stop_reason) {
@@ -784,7 +789,7 @@ function getRegularModelClient(
                       finishReason = anthropicData.stop_reason;
                     }
                   }
-                  
+
                   // Transform to OpenAI format
                   const openAIFormat = {
                     id: anthropicData.id || 'msg_' + Date.now(),
@@ -807,7 +812,7 @@ function getRegularModelClient(
                       total_tokens: (anthropicData.usage.input_tokens || 0) + (anthropicData.usage.output_tokens || 0)
                     } : undefined
                   };
-                  
+
                   logger.info(`  - ✅ Transformed Anthropic JSON to OpenAI format`);
                   logger.info(`  - 📋 OpenAI format preview: ${JSON.stringify({
                     id: openAIFormat.id,
@@ -817,7 +822,7 @@ function getRegularModelClient(
                     content_length: openAIFormat.choices[0]?.message?.content?.length || 0,
                     finish_reason: openAIFormat.choices[0]?.finish_reason
                   })}`);
-                  
+
                   // Return transformed response
                   return new Response(JSON.stringify(openAIFormat), {
                     status: response.status,

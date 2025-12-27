@@ -23,17 +23,18 @@ import { handleNeonOAuthReturn } from "./neon_admin/neon_return_handler";
 import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
+import { chromiumManager } from "./lib/browser/chromium-manager";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
   // Initialize electron-log properly to avoid "logger isn't initialized" warnings
   log.initialize();
-  
+
   // Configure transports with EPIPE error handling
   log.transports.file.level = 'info';
   log.transports.console.level = 'info';
   log.transports.ipc.level = false; // Disable IPC transport to prevent EPIPE errors
-  
+
   // Add custom error handling for broken pipe errors
   log.errorHandler.startCatching({
     showDialog: false, // Don't show error dialogs for EPIPE errors
@@ -45,7 +46,7 @@ try {
       return true; // Handle other errors normally
     }
   });
-  
+
 } catch (error) {
   console.warn('Failed to initialize electron-log, using console fallback:', error);
 }
@@ -116,7 +117,7 @@ export async function onReady() {
   app.commandLine.appendSwitch('use-fake-ui-for-media-stream'); // Auto-grant media permissions
   // ✅ Disable web security only for media permissions (keep other security)
   app.commandLine.appendSwitch('disable-features', 'VizDisplayCompositor');
-  
+
   try {
     const backupManager = new BackupManager({
       settingsFile: getSettingsFilePath(),
@@ -134,24 +135,34 @@ export async function onReady() {
     const workspaceRoot = path.join(userDataPath, "applaa-workspace");
     await workspaceDependencyManager.initialize(workspaceRoot);
     logger.info("🚀 Workspace dependency manager initialized successfully");
-    
+
     // 🔧 INTEGRATION: Validate container strategy integration
     try {
       const { validateCoreFunctionality } = await import("./ipc/utils/container_strategy_integration_test");
       const validationResults = await validateCoreFunctionality();
       logger.info("🧪 Container strategy integration validation:", validationResults);
-      
+
       if (!validationResults.containerStrategy) {
         logger.warn("⚠️ Container strategy integration validation failed - performance optimizations may not work optimally");
       }
     } catch (validationError) {
       logger.warn("⚠️ Container strategy integration validation failed (non-critical):", validationError);
     }
-    
+
   } catch (error) {
     logger.error("❌ Failed to initialize workspace dependency manager:", error);
   }
-  
+
+  // 🌐 BROWSER: Launch professional Chromium browser
+  try {
+    logger.info('🚀 Launching professional Chromium browser...');
+    await chromiumManager.launch();
+    logger.info('✅ Chromium browser launched successfully');
+  } catch (error) {
+    logger.error('❌ Failed to launch Chromium browser:', error);
+    logger.warn('⚠️ Browser features may not work correctly');
+  }
+
   // 🔄 Auto-migrate settings encryption for seamless updates
   try {
     if (isMigrationNeeded()) {
@@ -164,7 +175,7 @@ export async function onReady() {
   } catch (error) {
     logger.error("❌ Settings migration failed, but continuing with app startup:", error);
   }
-  
+
   const settings = readSettings();
   await onFirstRunMaybe(settings);
   createWindow();
@@ -278,10 +289,10 @@ const createWindow = () => {
     // backgroundColor: "#00000001",
     // frame: false,
   });
-  
+
   // Make mainWindow available globally for IPC handlers
   global.mainWindow = mainWindow;
-  
+
   // ✅ Handle media permissions for Web Speech API
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     // Allow media permissions for speech recognition
@@ -290,7 +301,7 @@ const createWindow = () => {
       callback(true);
       return;
     }
-    
+
     // Deny other permissions by default for security
     console.log(`🚫 Permission denied: ${permission}`);
     callback(false);
@@ -303,7 +314,7 @@ const createWindow = () => {
       console.log('🎵 Media permission check - allowing for voice input');
       return true;
     }
-    
+
     // Deny other permissions by default
     return false;
   });
@@ -312,26 +323,26 @@ const createWindow = () => {
   // Only apply in production to avoid blob URL issues in development
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
-    
+
     // Add COOP/COEP headers only in production
     if (process.env.NODE_ENV === 'production') {
       responseHeaders['Cross-Origin-Opener-Policy'] = ['same-origin'];
       responseHeaders['Cross-Origin-Embedder-Policy'] = ['require-corp'];
     }
-    
+
     callback({ responseHeaders });
   });
-  
+
   if (process.env.NODE_ENV !== 'production') {
     console.log('🔧 COOP/COEP headers disabled in development to allow blob URLs for WASM');
   }
-  
+
   // Bind terminal window for terminal handlers
   bindTerminalWindow(mainWindow);
-  
+
   // ✅ Set spell checker language to English US
   mainWindow.webContents.session.setSpellCheckerLanguages(['en-US']);
-  
+
   // ✅ Register global keyboard shortcut for voice input (Ctrl+Shift+V)
   const { globalShortcut } = require('electron');
   globalShortcut.register('CommandOrControl+Shift+V', () => {
@@ -340,7 +351,7 @@ const createWindow = () => {
       mainWindow.webContents.send('trigger-voice-input');
     }
   });
-  
+
   // ✅ Handle spell check context menu (per Electron docs)
   mainWindow.webContents.on('context-menu', (event, params) => {
     const { Menu, MenuItem } = require('electron');
@@ -396,7 +407,7 @@ const createWindow = () => {
       menu.popup();
     }
   });
-  
+
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -426,7 +437,7 @@ if (!gotTheLock) {
   // We got the lock, so this is the main instance
   logger.info("Got single instance lock, this is the main instance");
   app.whenReady().then(onReady);
-  
+
   // Handle the protocol when the app is already running
   app.on("open-url", (event, url) => {
     event.preventDefault(); // Prevent opening a new window
@@ -437,14 +448,14 @@ if (!gotTheLock) {
   // Handle when someone tries to run a second instance
   app.on("second-instance", (event, commandLine, workingDirectory) => {
     logger.info("Second instance attempted, focusing existing window");
-    
+
     // Focus the existing window
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
       mainWindow.show();
     }
-    
+
     // Check if there's a deep link in the command line
     const deepLink = commandLine.find(arg => arg.startsWith('applaa://'));
     if (deepLink) {
@@ -530,21 +541,21 @@ function handleDeepLinkReturn(url: string) {
     });
     return;
   }
-  
+
   // Handle Google OAuth callback: applaa://auth-callback#access_token=...&refresh_token=...
   if (parsed.hostname === "auth-callback") {
     logger.info("Handling Google OAuth callback");
     logger.info("Main window exists:", !!mainWindow);
     logger.info("App is in development mode:", process.env.NODE_ENV === "development");
-    
+
     // Extract tokens from URL fragment (after #)
     const fragment = parsed.hash.substring(1); // Remove the #
     const params = new URLSearchParams(fragment);
-    
+
     const accessToken = params.get('access_token');
     const refreshToken = params.get('refresh_token');
     const expiresIn = params.get('expires_in');
-    
+
     if (!accessToken || !refreshToken) {
       dialog.showErrorBox(
         "OAuth Error",
@@ -552,7 +563,7 @@ function handleDeepLinkReturn(url: string) {
       );
       return;
     }
-    
+
     // Focus the existing window instead of opening a new one
     if (mainWindow) {
       if (mainWindow.isMinimized()) {
@@ -561,29 +572,37 @@ function handleDeepLinkReturn(url: string) {
       mainWindow.focus();
       mainWindow.show();
     }
-    
+
     // Send the tokens to the renderer process to complete the OAuth flow
     mainWindow?.webContents.send("oauth-callback", {
       accessToken,
       refreshToken,
       expiresIn: expiresIn ? parseInt(expiresIn) : 3600,
     });
-    
+
     logger.info("OAuth callback processed successfully");
     return;
   }
-  
+
   dialog.showErrorBox("Invalid deep link URL", url);
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
-app.on("window-all-closed", () => {
+app.on("window-all-closed", async () => {
   // ✅ Cleanup global shortcuts
   const { globalShortcut } = require('electron');
   globalShortcut.unregisterAll();
-  
+
+  // 🌐 BROWSER: Close Chromium browser
+  try {
+    await chromiumManager.close();
+    logger.info('✅ Chromium browser closed');
+  } catch (error) {
+    logger.error('Error closing Chromium:', error);
+  }
+
   if (process.platform !== "darwin") {
     app.quit();
   }

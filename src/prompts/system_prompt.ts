@@ -3,6 +3,8 @@ import fs from "node:fs";
 import log from "electron-log";
 import { EXPO_SYSTEM_PROMPT } from "./expo_system_prompt";
 import { GODOT_SYSTEM_PROMPT } from "./godot_system_prompt";
+import { MAKECODE_SYSTEM_PROMPT } from "./makecode_system_prompt";
+import { MINECRAFT_MOD_SYSTEM_PROMPT } from "./minecraft_mod_system_prompt";
 import { replaceColorPlaceholders } from "./color_system";
 
 const logger = log.scope("system_prompt");
@@ -16,23 +18,23 @@ export const isExpoApp = (appPath: string): boolean => {
     const packageJsonPath = path.join(appPath, "package.json");
     const appJsonPath = path.join(appPath, "app.json");
     const expoJsonPath = path.join(appPath, "expo.json");
-    
+
     // Check if package.json exists and contains Expo dependencies
     if (fs.existsSync(packageJsonPath)) {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
       const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
-      
+
       // Check for Expo-specific dependencies
       if (dependencies.expo || dependencies["@expo/cli"] || dependencies["expo-cli"]) {
         return true;
       }
     }
-    
+
     // Check for Expo config files
     if (fs.existsSync(appJsonPath) || fs.existsSync(expoJsonPath)) {
       return true;
     }
-    
+
     // Check for app directory structure (Expo Router)
     const appDirPath = path.join(appPath, "app");
     if (fs.existsSync(appDirPath)) {
@@ -41,7 +43,7 @@ export const isExpoApp = (appPath: string): boolean => {
         return true;
       }
     }
-    
+
     return false;
   } catch (error) {
     logger.warn(`Error detecting Expo app at ${appPath}:`, error);
@@ -59,23 +61,67 @@ export const isGodotApp = (appPath: string): boolean => {
     if (fs.existsSync(godotProjectPath)) {
       return true;
     }
-    
+
     // Check for game_spec.json
     const gameSpecPath = path.join(appPath, "godot-project", "game_spec.json");
     if (fs.existsSync(gameSpecPath)) {
       return true;
     }
-    
+
     // Check for Godot-specific directories
     const scriptsPath = path.join(appPath, "godot-project", "scripts");
     const scenesPath = path.join(appPath, "godot-project", "scenes");
     if (fs.existsSync(scriptsPath) || fs.existsSync(scenesPath)) {
       return true;
     }
-    
+
     return false;
   } catch (error) {
     logger.warn(`Error detecting Godot app at ${appPath}:`, error);
+    return false;
+  }
+};
+
+/**
+ * Detect if an app is a MakeCode app based on its path and files
+ */
+export const isMakeCodeApp = (appPath: string): boolean => {
+  try {
+    // Check for pxt.json (MakeCode configuration file)
+    const pxtJsonPath = path.join(appPath, "pxt.json");
+    if (fs.existsSync(pxtJsonPath)) {
+      return true;
+    }
+
+    // Check for main.ts and absence of other framework markers
+    const mainTsPath = path.join(appPath, "main.ts");
+    if (fs.existsSync(mainTsPath) && !isExpoApp(appPath) && !isGodotApp(appPath)) {
+      // Further check: does it look like MakeCode?
+      const content = fs.readFileSync(mainTsPath, "utf8");
+      if (content.includes('sprites.create') || content.includes('basic.forever') || content.includes('player.onChat')) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    logger.warn(`Error detecting MakeCode app at ${appPath}:`, error);
+    return false;
+  }
+};
+
+/**
+ * Detect if an app is a Minecraft Mod (Java)
+ */
+export const isMinecraftModApp = (appPath: string): boolean => {
+  try {
+    const files = fs.readdirSync(appPath);
+    const hasJavaFile = files.some(f => f.endsWith('.java'));
+    const hasBuildGradle = fs.existsSync(path.join(appPath, "build.gradle"));
+    const hasPxtJson = fs.existsSync(path.join(appPath, "pxt.json"));
+
+    return (hasJavaFile || hasBuildGradle) && !hasPxtJson;
+  } catch (error) {
     return false;
   }
 };
@@ -1128,13 +1174,13 @@ export const constructSystemPrompt = ({
   appContent?: string;
 }) => {
   let systemPrompt: string;
-  
+
   if (chatMode === "ask") {
     systemPrompt = ASK_MODE_SYSTEM_PROMPT;
   } else if (appPath && isExpoApp(appPath)) {
     // Use Expo-specific system prompt for mobile apps
     systemPrompt = EXPO_SYSTEM_PROMPT;
-    
+
     // 🚀 CRITICAL FIX: Add AsyncStorage prevention instructions
     const asyncStorageWarning = `
 
@@ -1155,13 +1201,21 @@ export const constructSystemPrompt = ({
 6. ✅ **CRITICAL**: Complete all code blocks, functions, and components before closing tags
 
 `;
-    
+
     systemPrompt = asyncStorageWarning + systemPrompt;
     logger.log(`Using Expo system prompt for app at: ${appPath}`);
   } else if (appPath && isGodotApp(appPath)) {
     // Use Godot-specific system prompt for game apps
     systemPrompt = GODOT_SYSTEM_PROMPT;
     logger.log(`Using Godot system prompt for app at: ${appPath}`);
+  } else if (appPath && isMakeCodeApp(appPath)) {
+    // Use MakeCode-specific system prompt for educational apps
+    systemPrompt = MAKECODE_SYSTEM_PROMPT;
+    logger.log(`Using MakeCode system prompt for app at: ${appPath}`);
+  } else if (appPath && isMinecraftModApp(appPath)) {
+    // Use Minecraft Mod-specific system prompt
+    systemPrompt = MINECRAFT_MOD_SYSTEM_PROMPT;
+    logger.log(`Using Minecraft Mod system prompt for app at: ${appPath}`);
   } else {
     // Default to web system prompt
     systemPrompt = BUILD_SYSTEM_PROMPT;
@@ -1195,7 +1249,7 @@ export const constructCacheableSystemPrompt = ({
 }) => {
   // Get the base system prompt
   const systemPrompt = constructSystemPrompt({ aiRules, chatMode, appPath, appName, appDescription, appContent });
-  
+
   // Return both the prompt and caching metadata
   return {
     prompt: systemPrompt,

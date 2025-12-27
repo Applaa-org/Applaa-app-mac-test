@@ -19,12 +19,12 @@ const validInvokeChannels = [
   "chat:stream",
   "chat:stream-autofix",
   "performance:get-report",
-  "performance:get-metrics", 
+  "performance:get-metrics",
   "performance:clear",
   "performance:log-report",
   "chat:count-tokens",
   "speech:start-native",
-  "speech:stop-native", 
+  "speech:stop-native",
   "speech:check-native-support",
   "create-chat",
   "create-app",
@@ -158,11 +158,11 @@ const validInvokeChannels = [
   "restart-dyad",
   "get-templates",
   "portal:migrate-create",
-    "expo:start",
-    "expo:stop",
-    "expo:status",
-    "expo:health-check",
-    "expo:trigger-reload",
+  "expo:start",
+  "expo:stop",
+  "expo:status",
+  "expo:health-check",
+  "expo:trigger-reload",
   // Expo maintenance/reset
   "expo:reset",
   // Simple Expo channels (RORK-style lightweight preview)
@@ -171,7 +171,7 @@ const validInvokeChannels = [
   "simple-expo:stop",
   "simple-expo:metro-recovery",
   "simple-expo:update-packages",
-  
+
   // Snack Preview channels (Hot Reload & File Watching)
   "snack:start-hot-reload",
   "snack:stop-hot-reload",
@@ -180,7 +180,7 @@ const validInvokeChannels = [
   "snack:manual-trigger",
   "snack:update-options",
   "snack:get-options",
-  
+
   // Code Validation channels
   "code:validate",
   "code:auto-fix",
@@ -192,15 +192,15 @@ const validInvokeChannels = [
   "chrome-devtools:console-messages",
   "chrome-devtools:network-requests",
   "chrome-devtools:screenshot",
-    "chrome-devtools:status",
-    "app:repair",
-    "app:check-repair-needed",
-    "problems:add-runtime",
-    "problems:get-runtime",
-    "problems:clear-runtime",
-  
+  "chrome-devtools:status",
+  "app:repair",
+  "app:check-repair-needed",
+  "problems:add-runtime",
+  "problems:get-runtime",
+  "problems:clear-runtime",
+
   // Design Generation
-    "generate-app-icons",
+  "generate-app-icons",
   "generate-gemini-icons",
   "generate-platform-icons",
   "generate-ui-designs",
@@ -210,7 +210,7 @@ const validInvokeChannels = [
   "simple-expo:input",
   // Parallel App Creation channels
   "create-app-instant",
-  "get-app-creation-status", 
+  "get-app-creation-status",
   "cleanup-app-creation-task",
   "prompt:optimize",
   "prompts:list",
@@ -224,10 +224,10 @@ const validInvokeChannels = [
   "terminal:status",
   "terminal:clear",
   // Expo Snack preview (auto-preview)
-  
+
   // Semantic Context channels
   "semantic-context:get-suggestions",
-  "semantic-context:index-app", 
+  "semantic-context:index-app",
   "semantic-context:update-file",
   "semantic-context:delete-file",
   "semantic-context:delete-app",
@@ -236,11 +236,11 @@ const validInvokeChannels = [
   "semantic-context:is-app-indexed",
   "semantic-context:get-file-count",
   "semantic-context:initialize",
-  
+
   // AI Features Installation channels
   "install-ai-transformers",
   "check-ai-transformers-installed",
-  
+
   // Flutter IPC channels
   "flutter:doctor",
   "flutter:check-sdk",
@@ -252,20 +252,44 @@ const validInvokeChannels = [
   "flutter:create-project",
   "flutter:validate-project",
   "flutter:get-dependencies",
-  
+
   // Playwright MCP channels
   "playwright-mcp:start-server",
-  "playwright-mcp:stop-server", 
+  "playwright-mcp:stop-server",
   "playwright-mcp:run-test",
   "playwright-mcp:status",
-  
+
+  // Professional Chromium Browser channels
+  "chromium:launch",
+  "chromium:init-view",
+  "chromium:set-bounds",
+  "chromium:create-tab",
+  "chromium:close-tab",
+  "chromium:switch-tab",
+  "chromium:navigate",
+  "chromium:go-back",
+  "chromium:go-forward",
+  "chromium:reload",
+  "chromium:get-all-tabs",
+  "chromium:get-tab-info",
+  "chromium:close",
+  "chromium:hide-view",
+
+  // 🤖 Gemini AI Browser Automation channels
+  "automation:init",
+  "automation:plan",
+  "automation:transcribe",
+  "automation:execute",
+  "automation:execute",
+  "automation:extract",
+
   // Gemini CLI Authentication channels
   "gemini-oauth-login",
   "gemini-auth-status",
   "gemini-auth-refresh",
   "gemini-auth-logout",
   "gemini-run-prompt",
-  
+
   // Gemini API channels
   "gemini-list-models",
   "gemini-complete",
@@ -282,16 +306,16 @@ const validInvokeChannels = [
   "background-tasks:cleanup",
   "background-tasks:running-count",
   "create-app-background",
-  
+
   // Terminal channels
   "terminal:create",
-  
+
   // Test-only channels
   // These should ALWAYS be guarded with IS_TEST_BUILD in the main process.
   // We can't detect with IS_TEST_BUILD in the preload script because
   // it's a separate process from the main process.
   "supabase:fake-connect-and-set-project",
-  
+
   // EAS Integration channels
   "eas:status",
   "eas:login",
@@ -371,6 +395,9 @@ const validReceiveChannels = [
   "local-build:log",
   // Voice input trigger
   "trigger-voice-input",
+  // Automation events
+  "automation:create-tab",
+  "automation:progress",
 ] as const;
 
 type ValidInvokeChannel = (typeof validInvokeChannels)[number];
@@ -441,7 +468,7 @@ contextBridge.exposeInMainWorld("applaaShell", {
 contextBridge.exposeInMainWorld("viewAppData", async () => {
   try {
     const result = await ipcRenderer.invoke("console-db-data");
-    
+
     if (result.success) {
       console.group("🔍 Applaa Database Data");
       console.log("📊 Summary:", result.summary);
@@ -454,7 +481,7 @@ contextBridge.exposeInMainWorld("viewAppData", async () => {
       console.log("\n💬 Message Counts:");
       console.table(result.messageCounts);
       console.groupEnd();
-      
+
       // Also return the data for further inspection
       return result;
     } else {
@@ -472,7 +499,7 @@ contextBridge.exposeInMainWorld("applaa", {
   viewAppData: async () => {
     try {
       const result = await ipcRenderer.invoke("console-db-data");
-      
+
       if (result.success) {
         console.group("🔍 Applaa Database Data");
         console.log("📊 Summary:", result.summary);
@@ -485,7 +512,7 @@ contextBridge.exposeInMainWorld("applaa", {
         console.log("\n💬 Message Counts:");
         console.table(result.messageCounts);
         console.groupEnd();
-        
+
         return result;
       } else {
         console.error("❌ Error:", result.error);
@@ -500,15 +527,15 @@ contextBridge.exposeInMainWorld("applaa", {
     try {
       console.log("🔍 Testing all game image URLs...");
       const results = await ipcRenderer.invoke("games:test-all-images");
-      
+
       console.group("📸 Game Image URL Test Results");
-      
+
       const accessible = results.filter((r: any) => r.accessible);
       const failed = results.filter((r: any) => !r.accessible);
-      
+
       console.log(`✅ Accessible: ${accessible.length}/${results.length}`);
       console.log(`❌ Failed: ${failed.length}/${results.length}`);
-      
+
       if (accessible.length > 0) {
         console.log("\n✅ Accessible Images:");
         console.table(accessible.map((r: any) => ({
@@ -517,7 +544,7 @@ contextBridge.exposeInMainWorld("applaa", {
           Status: r.statusCode,
         })));
       }
-      
+
       if (failed.length > 0) {
         console.log("\n❌ Failed Images:");
         console.table(failed.map((r: any) => ({
@@ -526,9 +553,9 @@ contextBridge.exposeInMainWorld("applaa", {
           Error: r.error || `Status: ${r.statusCode}`,
         })));
       }
-      
+
       console.groupEnd();
-      
+
       return results;
     } catch (error) {
       console.error("❌ Failed to test image URLs:", error);

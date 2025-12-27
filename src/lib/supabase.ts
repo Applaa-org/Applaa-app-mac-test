@@ -53,7 +53,7 @@ export interface Database {
           user_display_name: string;
           local_app_id: number;
           app_name: string;
-          app_type: 'web' | 'mobile' | 'godot';
+          app_type: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
           local_path: string | null;
           status: string | null;
           github_org: string | null;
@@ -90,7 +90,7 @@ export interface Database {
           user_display_name: string;
           local_app_id: number;
           app_name: string;
-          app_type?: 'web' | 'mobile' | 'godot';
+          app_type?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
           local_path?: string | null;
           status?: string | null;
           github_org?: string | null;
@@ -127,7 +127,7 @@ export interface Database {
           user_display_name?: string;
           local_app_id?: number;
           app_name?: string;
-          app_type?: 'web' | 'mobile' | 'godot';
+          app_type?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
           local_path?: string | null;
           status?: string | null;
           github_org?: string | null;
@@ -223,7 +223,7 @@ export interface Database {
           preview_url: string | null;
           image_url: string | null;
           emoji: string | null;
-          app_type: 'web' | 'expo' | 'flutter' | 'godot';
+          app_type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
           is_default: boolean;
           display_order: number;
           created_at: string;
@@ -236,7 +236,7 @@ export interface Database {
           preview_url?: string | null;
           image_url?: string | null;
           emoji?: string | null;
-          app_type: 'web' | 'expo' | 'flutter' | 'godot';
+          app_type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
           is_default?: boolean;
           display_order?: number;
           created_at?: string;
@@ -249,7 +249,7 @@ export interface Database {
           preview_url?: string | null;
           image_url?: string | null;
           emoji?: string | null;
-          app_type?: 'web' | 'expo' | 'flutter' | 'godot';
+          app_type?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
           is_default?: boolean;
           display_order?: number;
           created_at?: string;
@@ -763,8 +763,8 @@ export async function syncAppToSupabase(
     );
 
     // Check if app exists in Supabase
-    const { data: existingApp, error: checkError } = await adminClient
-      .from('user_apps')
+    const { data: existingApp, error: checkError } = await (adminClient
+      .from('user_apps') as any)
       .select('*')
       .eq('user_display_name', userDisplayName)
       .eq('local_app_id', appData.id)
@@ -777,59 +777,60 @@ export async function syncAppToSupabase(
     // Helper function to safely convert Unix timestamp to ISO string
     const safeTimestampToISO = (timestamp: number | null | undefined): string | null => {
       if (!timestamp) return null;
-      
+
       // If timestamp is already in milliseconds (>= year 2000), use as-is
       // If timestamp is in seconds (< year 2000), multiply by 1000
       // Check if it's already in milliseconds (timestamp > year 2000 in seconds = 946684800)
       const timestampMs = timestamp > 946684800000 ? timestamp : timestamp * 1000;
-      
+
       const date = new Date(timestampMs);
-      
+
       // Validate the date is reasonable (between 1970 and 2100)
       const year = date.getFullYear();
       if (isNaN(timestampMs) || year < 1970 || year > 2100) {
         log.warn(`Invalid timestamp ${timestamp} (converted to year ${year}), skipping date conversion`);
         return null;
       }
-      
+
       return date.toISOString();
     };
 
-    const appDataToSync: Database['public']['Tables']['user_apps']['Insert'] = {
+    const appDataToSync: any = {
       user_display_name: userDisplayName,
       local_app_id: appData.id,
       app_name: appData.name,
-      app_type: (appData.appType as 'web' | 'mobile' | 'godot') || 'web',
+      app_type: appData.appType as any,
       local_path: appData.path,
-      status: appData.status || 'ready',
-      github_org: appData.githubOrg || null,
-      github_repo: appData.githubRepo || null,
-      github_branch: appData.githubBranch || null,
-      github_repo_url: appData.githubRepoUrl || null,
-      vercel_project_id: appData.vercelProjectId || null,
-      vercel_project_name: appData.vercelProjectName || null,
-      vercel_team_id: appData.vercelTeamId || null,
-      vercel_deployment_url: appData.vercelDeploymentUrl || null,
-      supabase_project_id: appData.supabaseProjectId || null,
-      neon_project_id: appData.neonProjectId || null,
-      neon_development_branch_id: appData.neonDevelopmentBranchId || null,
-      neon_preview_branch_id: appData.neonPreviewBranchId || null,
-      eas_build_url: appData.easBuildUrl || null,
-      eas_deployment_url: appData.easDeploymentUrl || null,
-      eas_project_id: appData.easProjectId || null,
-      eas_build_id: appData.easBuildId || null,
-      local_apk_path: appData.localApkPath || null,
-      local_aab_path: appData.localAabPath || null,
-      local_ipa_path: appData.localIpaPath || null,
+      status: appData.status,
+      github_org: appData.githubOrg,
+      github_repo: appData.githubRepo,
+      github_branch: appData.githubBranch,
+      github_repo_url: appData.githubRepoUrl,
+      vercel_project_id: appData.vercelProjectId,
+      vercel_project_name: appData.vercelProjectName,
+      vercel_team_id: appData.vercelTeamId,
+      vercel_deployment_url: appData.vercelDeploymentUrl,
+      supabase_project_id: appData.supabaseProjectId,
+      neon_project_id: appData.neonProjectId,
+      neon_development_branch_id: appData.neonDevelopmentBranchId,
+      neon_preview_branch_id: appData.neonPreviewBranchId,
+      eas_build_url: appData.easBuildUrl,
+      eas_deployment_url: appData.easDeploymentUrl,
+      eas_project_id: appData.easProjectId,
+      eas_build_id: appData.easBuildId,
+      local_apk_path: appData.localApkPath,
+      local_aab_path: appData.localAabPath,
+      local_ipa_path: appData.localIpaPath,
       local_apk_built_at: safeTimestampToISO(appData.localApkBuiltAt),
       local_aab_built_at: safeTimestampToISO(appData.localAabBuiltAt),
       local_ipa_built_at: safeTimestampToISO(appData.localIpaBuiltAt),
-      deployment_status: appData.deploymentStatus || 'not_deployed',
+      deployment_status: appData.deploymentStatus,
       last_deployment_at: safeTimestampToISO(appData.lastDeploymentAt),
-      deployment_notes: appData.deploymentNotes || null,
-      show_in_hub: appData.showInHub === true || appData.showInHub === 1,
+      deployment_notes: appData.deploymentNotes,
+      show_in_hub: appData.showInHub,
+      updated_at: new Date().toISOString(),
     };
-    
+
     // Debug: Log show_in_hub value being sent to Supabase
     log.info(`📤 Syncing show_in_hub to Supabase:`, {
       appId: appData.id,
@@ -840,11 +841,10 @@ export async function syncAppToSupabase(
 
     if (existingApp) {
       // Update existing app
-      const { data, error } = await adminClient
-        .from('user_apps')
+      const { data, error } = await (adminClient
+        .from('user_apps') as any)
         .update(appDataToSync)
-        .eq('user_display_name', userDisplayName)
-        .eq('local_app_id', appData.id)
+        .eq('id', existingApp.id)
         .select()
         .single();
 
@@ -876,31 +876,31 @@ export async function syncAppToSupabase(
         log.error(`   Error hint: ${error.hint}`);
         log.error(`   App data being inserted:`, JSON.stringify(appDataToSync, null, 2));
         log.error(`   User display_name: ${userDisplayName}`);
-        
+
         // If it's a schema issue, provide helpful message
         if (error.message?.includes('user_email') && error.message?.includes('not-null')) {
           log.error(`   ⚠️ TABLE SCHEMA ISSUE: user_email column is NOT NULL`);
           log.error(`   ⚠️ Run this SQL in Supabase: ALTER TABLE public.user_apps ALTER COLUMN user_email DROP NOT NULL;`);
         }
-        
+
         throw error;
       }
       log.info(`✅ App synced to Supabase (created): ${appData.name} (ID: ${appData.id}) for user: ${userDisplayName}`);
       log.info(`   Supabase record ID: ${data.id}`);
-      
+
       // Verify the data was actually saved
       const { data: verifyData } = await adminClient
         .from('user_apps')
         .select('*')
         .eq('id', data.id)
         .single();
-      
+
       if (verifyData) {
         log.info(`   ✅ Verified: App data exists in Supabase`);
       } else {
         log.warn(`   ⚠️ Warning: App data not found after insert (may be RLS issue)`);
       }
-      
+
       return data;
     }
   } catch (error: any) {
@@ -911,7 +911,7 @@ export async function syncAppToSupabase(
       details: error.details,
       hint: error.hint,
     });
-    
+
     // Don't return null - throw the error so it can be caught and reported
     // This allows the sync handler to see the actual error
     throw error;

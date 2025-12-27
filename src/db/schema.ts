@@ -45,7 +45,9 @@ export const apps = sqliteTable("apps", {
   deploymentNotes: text("deployment_notes"),
   showInHub: integer("show_in_hub", { mode: "boolean" }).default(false),
   chatContext: text("chat_context", { mode: "json" }),
-  appType: text("app_type", { enum: ["web", "mobile", "godot"] }).default("web"),
+  appType: text("app_type", { enum: ["web", "mobile", "godot", "arcade", "microbit", "minecraft", "blockly"] }).default("web"),
+  promptHistory: text("prompt_history", { mode: "json" }), // Array of {role, text, ts}
+  engineMetadata: text("engine_metadata", { mode: "json" }), // MakeCode/Blockly specific data
   status: text("status").default("ready"),
 });
 
@@ -178,6 +180,110 @@ export const versionsRelations = relations(versions, ({ one }) => ({
   app: one(apps, {
     fields: [versions.appId],
     references: [apps.id],
+  }),
+}));
+
+// ============================================================================
+// APPLAA BUDDY - SUPER POWERS BROWSER TABLES
+// ============================================================================
+
+// Browser Tabs - Multi-tab management with per-tab chat
+export const browserTabs = sqliteTable("browser_tabs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull().default("New Tab"),
+  url: text("url").notNull().default(""),
+  chatId: integer("chat_id").references(() => chats.id, { onDelete: "cascade" }),
+  faviconUrl: text("favicon_url"),
+  isActive: integer("is_active", { mode: "boolean" }).default(false),
+  position: integer("position").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// Chat Embeddings - Vector storage for RAG (Retrieval Augmented Generation)
+export const chatEmbeddings = sqliteTable("chat_embeddings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  messageId: integer("message_id")
+    .notNull()
+    .references(() => messages.id, { onDelete: "cascade" }),
+  embedding: text("embedding", { mode: "json" }).notNull(), // JSON array of floats
+  embeddingModel: text("embedding_model").notNull().default("text-embedding-3-small"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// App Knowledge - Code, errors, and success patterns with embeddings
+export const appKnowledge = sqliteTable("app_knowledge", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  appId: integer("app_id").references(() => apps.id, { onDelete: "cascade" }),
+  contentType: text("content_type", {
+    enum: ["code", "chat", "error", "success", "pattern"]
+  }).notNull(),
+  content: text("content").notNull(),
+  embedding: text("embedding", { mode: "json" }).notNull(),
+  metadata: text("metadata", { mode: "json" }), // {file_path, line_number, etc}
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// Automation Plans - Store LLM-generated automation plans
+export const automationPlans = sqliteTable("automation_plans", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  tabId: integer("tab_id").references(() => browserTabs.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  goal: text("goal").notNull(), // User's original goal
+  steps: text("steps", { mode: "json" }).notNull(), // Array of automation steps
+  scriptType: text("script_type", {
+    enum: ["playwright", "puppeteer", "manual"]
+  }).notNull().default("playwright"),
+  scriptContent: text("script_content"), // Generated script
+  status: text("status", {
+    enum: ["draft", "approved", "executing", "completed", "failed"]
+  }).notNull().default("draft"),
+  embedding: text("embedding", { mode: "json" }), // For plan similarity search
+  executionLog: text("execution_log", { mode: "json" }), // Execution results
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// Relations for new tables
+export const browserTabsRelations = relations(browserTabs, ({ one, many }) => ({
+  chat: one(chats, {
+    fields: [browserTabs.chatId],
+    references: [chats.id],
+  }),
+  automationPlans: many(automationPlans),
+}));
+
+export const chatEmbeddingsRelations = relations(chatEmbeddings, ({ one }) => ({
+  message: one(messages, {
+    fields: [chatEmbeddings.messageId],
+    references: [messages.id],
+  }),
+}));
+
+export const appKnowledgeRelations = relations(appKnowledge, ({ one }) => ({
+  app: one(apps, {
+    fields: [appKnowledge.appId],
+    references: [apps.id],
+  }),
+}));
+
+export const automationPlansRelations = relations(automationPlans, ({ one }) => ({
+  tab: one(browserTabs, {
+    fields: [automationPlans.tabId],
+    references: [browserTabs.id],
   }),
 }));
 

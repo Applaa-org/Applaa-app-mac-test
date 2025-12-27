@@ -18,7 +18,7 @@ import { Loader2 } from 'lucide-react';
 interface AddGameTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  appType: 'web' | 'expo' | 'flutter' | 'applaa';
+  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
   onTemplateAdded?: () => void;
 }
 
@@ -28,14 +28,14 @@ export function AddGameTemplateDialog({ open, onOpenChange, appType, onTemplateA
   const [previewUrl, setPreviewUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [emoji, setEmoji] = useState('');
-  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'applaa'>(appType);
+  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly'>(appType as any);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const ipcClient = IpcClient.getInstance();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim() || !details.trim() || !selectedAppType) {
       showError(new Error('Please fill in name, details, and app type'));
       return;
@@ -72,7 +72,7 @@ export function AddGameTemplateDialog({ open, onOpenChange, appType, onTemplateA
       });
 
       showSuccess('Game template added successfully!');
-      
+
       // Reset form
       setName('');
       setDetails('');
@@ -80,7 +80,7 @@ export function AddGameTemplateDialog({ open, onOpenChange, appType, onTemplateA
       setImageUrl('');
       setEmoji('');
       setSelectedAppType(appType);
-      
+
       onTemplateAdded?.();
       onOpenChange(false);
     } catch (error) {
@@ -136,7 +136,10 @@ export function AddGameTemplateDialog({ open, onOpenChange, appType, onTemplateA
                   <SelectItem value="web">Web</SelectItem>
                   <SelectItem value="expo">Expo</SelectItem>
                   <SelectItem value="flutter">Flutter</SelectItem>
-                  <SelectItem value="applaa">Applaa</SelectItem>
+                  <SelectItem value="godot">Applaa (Godot)</SelectItem>
+                  <SelectItem value="arcade">MakeCode Arcade</SelectItem>
+                  <SelectItem value="microbit">Applaa:bit</SelectItem>
+                  <SelectItem value="minecraft">Minecraft</SelectItem>
                 </SelectContent>
               </Select>
             </div>

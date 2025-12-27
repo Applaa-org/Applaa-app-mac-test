@@ -20,7 +20,7 @@ import { IpcClient } from '@/ipc/ipc_client';
 import { useSettings } from '@/hooks/useSettings';
 import { useApplaaPro } from '@/hooks/useApplaaPro';
 import { useNavigate } from '@tanstack/react-router';
-import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, ExternalLink, Gamepad2, Play } from 'lucide-react';
+import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, ExternalLink, Gamepad2, Play, Cpu, Box } from 'lucide-react';
 import { GODOT_GAMES_DATA, getEmojiForGame } from '@/data/godotGamesData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { AddGameTemplateDialog } from './AddGameTemplateDialog';
 import { EditGameTemplateDialog } from './EditGameTemplateDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 import { Edit2, Trash2, Plus } from 'lucide-react';
 import { showError, showSuccess } from '@/lib/toast';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
@@ -47,7 +48,7 @@ type ExampleIdea = {
 export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) {
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
   const navigate = useNavigate();
-  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | null>(null);
+  const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | null>(null);
   const { updateSettings } = useSettings();
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
@@ -56,17 +57,52 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const [isGameModalOpen, setIsGameModalOpen] = useState(false);
   const [isAddTemplateDialogOpen, setIsAddTemplateDialogOpen] = useState(false);
   const [isEditTemplateDialogOpen, setIsEditTemplateDialogOpen] = useState(false);
-  const [templateToEdit, setTemplateToEdit] = useState<{ id: string; name: string; details: string; previewUrl?: string | null; imageUrl?: string | null; emoji?: string | null; appType: 'web' | 'expo' | 'flutter' | 'godot' } | null>(null);
+  const [templateToEdit, setTemplateToEdit] = useState<{ id: string; name: string; details: string; previewUrl?: string | null; imageUrl?: string | null; emoji?: string | null; appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' } | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Handle app type selection
-  const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot') => {
+  const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly') => {
     console.log('[SimpleHomeInterface] App type selected:', type);
-    
+
     setSelectedAppType(type);
 
-    // Update settings based on selection
+    // Handle Arcade - create app directly and open in editor
+    if (type === 'arcade') {
+      try {
+        toast.info('Creating Arcade app...');
+        const client = IpcClient.getInstance();
+
+        const appName = `arcade-game-${Date.now()}`;
+
+        // Create empty Arcade app
+        const result = await client.createApp({
+          name: appName,
+          displayName: 'My Arcade Game',
+          appType: 'arcade',
+          framework: 'arcade' as any, // Type cast to avoid TS error
+          path: `apps/web/${appName}`, // Provide explicit path
+        });
+
+        toast.success('Arcade app created!');
+
+        // Navigate to Arcade editor
+        window.location.href = `/arcade?id=${result.app.id}`;
+      } catch (error: any) {
+        console.error('Failed to create Arcade app:', error);
+        toast.error(`Failed to create Arcade app: ${error?.message || 'Unknown error'}`);
+      }
+      return;
+    }
+
+    // Other educational frameworks go to prompted creation
+    const educationalTypes = ['microbit', 'minecraft', 'blockly'];
+    if (educationalTypes.includes(type)) {
+      navigate({ to: `/create-with-prompt`, search: { type: type as any } });
+      return;
+    }
+
+    // Update settings based on selection for traditional frameworks
     try {
       if (type === 'web') {
         await updateSettings({
@@ -84,12 +120,11 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
           selectedTemplateId: 'flutter-basic', // Default Flutter template
         });
       }
-
       console.log('[SimpleHomeInterface] Settings updated for:', type);
     } catch (error) {
       console.error('[SimpleHomeInterface] Failed to update settings:', error);
     }
-  }, [updateSettings]);
+  }, [updateSettings, navigate]);
 
   const ipcClient = IpcClient.getInstance();
   const queryClient = useQueryClient();
@@ -119,10 +154,10 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
         // Convert Supabase templates to ExampleIdea format
         const templateIdeas: ExampleIdea[] = gameTemplates.map(template => {
           const firstSentence = template.details.split('.')[0] || template.name;
-          const shortDesc = firstSentence.length > 100 
+          const shortDesc = firstSentence.length > 100
             ? firstSentence.substring(0, 97) + '...'
             : firstSentence;
-          
+
           return {
             title: template.name,
             description: shortDesc + '\nClick to use the full detailed prompt.',
@@ -143,7 +178,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   // Handle chat submission
   const handleChatSubmit = useCallback(async (options?: any) => {
     console.log('[SimpleHomeInterface] Chat submitted with type:', selectedAppType);
-    
+
     if (!selectedAppType) {
       // If no app type selected, show a helpful message
       alert('Please select an app type first (Web or Mobile)');
@@ -207,7 +242,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
         previewUrl: template.previewUrl,
         imageUrl: template.imageUrl,
         emoji: template.emoji,
-        appType: template.appType,
+        appType: template.appType as any,
       });
       setIsEditTemplateDialogOpen(true);
     }
@@ -253,7 +288,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Choose your platform and let Applaa build it for you
           </p>
-          
+
           {/* Pro Status Indicator */}
           <div className="flex justify-center">
             {isPro ? (
@@ -282,27 +317,27 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
       {!selectedAppType ? (
         <>
           <SimpleAppTypeSelector onSelection={handleAppTypeSelection} />
-          
+
           {/* Your Deployed Apps */}
           <YourDeployedApps className="mt-12" />
-          
+
           {/* Featured Games */}
           <FeaturedGames className="mt-12" />
-          
+
           {/* Hub Link */}
           <div className="mt-8 text-center space-y-4">
             <p className="text-lg text-gray-700 dark:text-gray-300 font-medium">
               Check out awesome games and applications built by Applaa
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button 
+              <button
                 onClick={() => navigate({ to: "/hub" })}
                 className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-lg rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 <Sparkles className="w-6 h-6" />
                 Explore Hub
               </button>
-              <button 
+              <button
                 onClick={() => navigate({ to: "/docs" })}
                 className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold text-lg rounded-lg hover:from-green-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
@@ -311,10 +346,10 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               </button>
             </div>
           </div>
-          
+
           {/* Coming Soon Cards */}
           <ComingSoonCards className="mt-12" />
-          
+
           {/* 🚀 PERFORMANCE: Commented out for MVP - move to website as marketing content */}
           {/* <ComingSoonTiles /> */}
         </>
@@ -331,6 +366,12 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                   <div className="w-8 h-8 rounded-md bg-white/70 dark:bg-gray-800/70 flex items-center justify-center shadow-sm">
                     {selectedAppType === 'web' ? (
                       <Globe className="h-4 w-4 text-emerald-600" />
+                    ) : selectedAppType === 'arcade' ? (
+                      <Gamepad2 className="h-4 w-4 text-indigo-600" />
+                    ) : selectedAppType === 'microbit' ? (
+                      <Cpu className="h-4 w-4 text-orange-600" />
+                    ) : selectedAppType === 'minecraft' ? (
+                      <Box className="h-4 w-4 text-green-600" />
                     ) : selectedAppType === 'godot' ? (
                       <Gamepad2 className="h-4 w-4 text-purple-600" />
                     ) : (
@@ -340,11 +381,23 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                   <div>
                     <div className="text-[10px] uppercase tracking-wide text-gray-600">Building a</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {selectedAppType === 'web' ? 'Web App' : selectedAppType === 'expo' ? 'Expo Mobile App' : selectedAppType === 'flutter' ? 'Flutter Mobile App' : 'Applaa Game'}
+                      {selectedAppType === 'web' ? 'Web App' :
+                        selectedAppType === 'expo' ? 'Expo Mobile App' :
+                          selectedAppType === 'flutter' ? 'Flutter Mobile App' :
+                            selectedAppType === 'arcade' ? 'MakeCode Arcade Game' :
+                              selectedAppType === 'microbit' ? 'Applaa:bit Project' :
+                                selectedAppType === 'minecraft' ? 'Minecraft Mod' :
+                                  'Applaa Game'}
                     </div>
                     <div className="mt-1">
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                        {selectedAppType === 'web' ? 'Framework: React (default)' : selectedAppType === 'expo' ? 'Framework: Expo' : selectedAppType === 'flutter' ? 'Framework: Flutter' : 'Engine: Applaa'}
+                        {selectedAppType === 'web' ? 'Framework: React (default)' :
+                          selectedAppType === 'expo' ? 'Framework: Expo' :
+                            selectedAppType === 'flutter' ? 'Framework: Flutter' :
+                              selectedAppType === 'arcade' ? 'Platform: MakeCode Arcade' :
+                                selectedAppType === 'microbit' ? 'Platform: Applaa:bit' :
+                                  selectedAppType === 'minecraft' ? 'Platform: Minecraft' :
+                                    'Engine: Applaa'}
                       </span>
                     </div>
                   </div>
@@ -366,10 +419,17 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                 What do you want to build?
               </h2>
               <p className="text-lg text-gray-600">
-                Describe your {selectedAppType === 'web' ? 'web app' : selectedAppType === 'godot' ? 'game' : 'mobile app'} and we'll create it for you
+                Describe your {
+                  selectedAppType === 'web' ? 'web app' :
+                    selectedAppType === 'arcade' ? 'arcade game' :
+                      selectedAppType === 'microbit' ? 'Applaa:bit project' :
+                        selectedAppType === 'minecraft' ? 'minecraft mod' :
+                          selectedAppType === 'godot' ? 'game' :
+                            'mobile app'
+                } and we'll create it for you
               </p>
             </div>
-            
+
             {selectedAppType === 'godot' ? (
               <GodotGameCreationInput
                 onGameCreated={() => {
@@ -419,7 +479,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                 // Find the template ID from gameTemplates
                 const template = gameTemplates.find(t => t.name === idea.title && t.details === idea.prompt);
                 const canEdit = hasAdminPermission && template && !template.isDefault;
-                
+
                 return (
                   <div
                     key={`${idea.title}-${index}`}
@@ -524,7 +584,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               </Button>
             </div>
           </DialogHeader>
-          
+
           {selectedGameUrl && (
             <div className="flex-1 p-6 pt-0" style={{ height: 'calc(95vh - 120px)' }}>
               <iframe
@@ -588,7 +648,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
 
 // PERFORMANCE: Simple static ideas (like Dyad) - no complex generation
-function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea[] {
+function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly'): ExampleIdea[] {
   if (type === 'web') {
     return [
       {
@@ -598,7 +658,7 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
         prompt: "Create a todo app with add, edit, delete, and mark complete functionality. Use React with clean, modern UI and local storage."
       },
       {
-        title: "Weather Dashboard", 
+        title: "Weather Dashboard",
         description: "Display current weather and 5-day forecast.\nLocation-based with search functionality.",
         emoji: "🌤️",
         prompt: "Build a weather dashboard that shows current weather and 5-day forecast. Include location search and clean, responsive design."
@@ -701,9 +761,93 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
       },
       {
         title: "Meditation Timer",
-        description: "Guided meditation with timers.\nProgress tracking and ambient sounds.",
+        description: "Build a meditation timer app with guided sessions, ambient sounds, progress tracking, and calming Flutter UI design.",
         emoji: "🧘",
         prompt: "Build a meditation timer app with guided sessions, ambient sounds, progress tracking, and calming Flutter UI design."
+      }
+    ];
+  } else if (type === 'arcade') {
+    return [
+      {
+        title: "Space Shooter",
+        description: "Classic retro space shooter with enemies and power-ups.\nSmooth controls and explosive effects.",
+        emoji: "🚀",
+        prompt: "Create a retro space shooter game in MakeCode Arcade. Include player movement, enemy waves, projectile firing, and score tracking. Use cool sprites and background music."
+      },
+      {
+        title: "Platformer Adventure",
+        description: "Side-scrolling platformer with jumps and levels.\nCollectible coins and obstacles.",
+        emoji: "🚀",
+        prompt: "Build an epic adventure game where you explore ancient ruins!"
+      },
+      {
+        title: "Dino Runner",
+        description: "Endless runner inspired by the classic chrome game.\nIncreasing difficulty and sound effects.",
+        emoji: "🦖",
+        prompt: "Create an endless runner game in MakeCode Arcade where a dinosaur dodges cacti. Make the speed increase over time and add a high score system."
+      }
+    ];
+  } else if (type === 'microbit') {
+    return [
+      {
+        title: "Digital Pet",
+        description: "An interactive pet that reacts to button presses.\nDisplays emotions on the LED screen.",
+        emoji: "🐶",
+        prompt: "Create a digital pet for micro:bit. Buttons A and B should feed or play with the pet. Use icons to show if it's happy, hungry, or sleepy. Add an alert if it needs attention."
+      },
+      {
+        title: "Step Counter",
+        description: "A wearable pedometer that counts your steps.\nUses the accelerometer to detect movement.",
+        emoji: "🚶",
+        prompt: "Build a step counter for micro:bit using the accelerometer. Display the step count on the screen and reset it when the device is shaken."
+      },
+      {
+        title: "Temperature Alarm",
+        description: "Monitors ambient temperature and alerts you.\nVisual and audio feedback for hot/cold.",
+        emoji: "🌡️",
+        prompt: "Build a temperature monitoring system for micro:bit. If the temperature goes above 30 degrees, show a 'Hot' icon and play a sound. If below 10, show 'Cold'."
+      }
+    ];
+  } else if (type === 'minecraft') {
+    return [
+      {
+        title: "Super Bridge Builder",
+        description: "Automatically builds a bridge as you walk.\nUses the Agent to place blocks.",
+        emoji: "🌉",
+        prompt: "Code a Minecraft mod where an Agent follows the player and automatically builds a glass bridge under their feet as they walk across gaps."
+      },
+      {
+        title: "Instant House",
+        description: "Builds a complete house structure with one command.\nIncludes doors, windows, and a roof.",
+        emoji: "🏠",
+        prompt: "Create a Minecraft Mod that builds a 5x5 house around the player instantly when they type 'build' in the chat. Use wood for walls and glass for windows."
+      },
+      {
+        title: "Mob Spawner Trap",
+        description: "Automates mob containment for farming.\nCreates a safe zone with traps.",
+        emoji: "🧟",
+        prompt: "Design a Minecraft mod that creates a 10x10 stone arena with lava traps and automatic mob spawning triggers for testing combat skills."
+      }
+    ];
+  } else if (type === 'blockly') {
+    return [
+      {
+        title: "Simple Calculator",
+        description: "A drag-and-drop calculator using logic blocks.",
+        emoji: "🧮",
+        prompt: "Create a calculator that can add, subtract, multiply, and divide two numbers using variables and math blocks."
+      },
+      {
+        title: "Magic 8-Ball",
+        description: "Ask a question and get a random answer!",
+        emoji: "🔮",
+        prompt: "Build a Magic 8-Ball program that picks a random answer from a list of strings when run."
+      },
+      {
+        title: "Story Generator",
+        description: "A fun text program that makes silly stories.",
+        emoji: "📖",
+        prompt: "Create a program that joins different text blocks together to make a funny story about a space hamster."
       }
     ];
   } else { // godot
@@ -711,10 +855,10 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot'): ExampleIdea
     const csvGames: ExampleIdea[] = GODOT_GAMES_DATA.map(game => {
       // Extract a short description from the first sentence of details, or use game name
       const firstSentence = game.details.split('.')[0] || game.name;
-      const shortDesc = firstSentence.length > 100 
+      const shortDesc = firstSentence.length > 100
         ? firstSentence.substring(0, 97) + '...'
         : firstSentence;
-      
+
       return {
         title: game.name,
         description: shortDesc + '\nClick to use the full detailed prompt.',

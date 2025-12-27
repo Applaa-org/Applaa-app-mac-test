@@ -1,0 +1,313 @@
+import { Eko, type LLMs } from '@jarvis-agent/core';
+import { BrowserAgent } from '@jarvis-agent/electron';
+import { readSettings } from '../../main/settings';
+import { getActiveBrowserView } from '../../ipc/handlers/chromium_handlers';
+import log from 'electron-log';
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const logger = log.scope('jarvis-automation');
+
+export class JarvisAutomation {
+    private eko: Eko | null = null;
+    private browserAgent: BrowserAgent | null = null;
+    private isInitialized = false;
+    private modelName: string = 'gemini-2.0-flash-exp'; // Default model
+    private apiKey: string | undefined = undefined;
+
+    async initialize() {
+        if (this.isInitialized) {
+            const settings = readSettings();
+            if (settings.selectedModel &&
+                (settings.selectedModel.provider === 'google' || settings.selectedModel.provider === 'gemini')) {
+                this.modelName = settings.selectedModel.name;
+            }
+            return;
+        }
+
+        try {
+            logger.info('Initializing Eko (Jarvis) with Gemini and existing BrowserView...');
+
+            // Get Gemini API key from settings
+            const settings = readSettings();
+            const geminiProvider = settings.providerSettings?.google;
+            const geminiApiKey = geminiProvider?.apiKey?.value;
+            this.apiKey = geminiApiKey;
+
+            if (!geminiApiKey) {
+                throw new Error('Google Gemini API key not found in settings. Please add it in Settings > LLM Providers.');
+            }
+
+            // Get the active BrowserView
+            const browserView = getActiveBrowserView();
+            if (!browserView) {
+                throw new Error('No active browser view. Please open the browser first.');
+            }
+
+            logger.info('Using existing BrowserView for automation');
+
+            // Create Browser Agent with the existing WebContentsView
+            // BrowserAgent from @jarvis-agent/electron accepts WebContentsView
+            this.browserAgent = new BrowserAgent(browserView);
+
+            // Determine model to use
+            if (settings.selectedModel &&
+                (settings.selectedModel.provider === 'google' || settings.selectedModel.provider === 'gemini')) {
+                this.modelName = settings.selectedModel.name;
+            }
+
+            logger.info(`Using Gemini model: ${this.modelName}`);
+
+            // Configure LLMs
+            const llms: LLMs = {
+                default: {
+                    provider: 'google',
+                    model: this.modelName,
+                    apiKey: geminiApiKey
+                }
+            };
+
+            // Create callback to stream progress to user
+            const callback = {
+                onMessage: async (message: any): Promise<void> => {
+                    // Log progress messages
+                    if (message.type === 'text') {
+                        logger.info(`[Eko] ${message.text}`);
+                    } else if (message.type === 'tool_use') {
+                        logger.info(`[Eko] Using tool: ${message.toolName}`);
+                    }
+                }
+            };
+
+            // Configure Eko with settings
+            this.eko = new Eko({
+                llms,
+                agents: [this.browserAgent],
+                callback
+            });
+
+            this.isInitialized = true;
+            logger.info('✅ Jarvis Automation initialized');
+        } catch (error) {
+            logger.error('Failed to initialize Jarvis Automation:', error);
+            throw error;
+        }
+    }
+
+    async generatePlan(instruction: string, modelOverride?: string): Promise<{
+        success: boolean;
+        plan: string;
+        message?: string;
+    }> {
+        // Ensure initialized to get API key
+        if (!this.isInitialized || !this.apiKey) {
+            await this.initialize();
+        }
+
+        try {
+            logger.info(`Generating plan for: "${instruction}"`);
+
+            const settings = readSettings();
+            const modelToUse = modelOverride || settings.planningModel?.name || 'gemini-2.0-flash-exp';
+            logger.info(`Using model for planning: ${modelToUse}`);
+
+            const genAI = new GoogleGenerativeAI(this.apiKey);
+            const model = genAI.getGenerativeModel({ model: modelToUse });
+
+            const prompt = `You are an expert browser automation planner. 
+User Request: "${instruction}"
+
+Create a clear, numbered step-by-step plan to achieve this using a web browser.
+Focus on high-level actions (Go to URL, Search, Click, Extract).
+Keep it concise.
+Return ONLY the plan as a numbered list.`;
+
+            const result = await model.generateContent(prompt);
+            const plan = result.response.text();
+
+            return {
+                success: true,
+                plan: plan
+            };
+
+        } catch (error: any) {
+            logger.error('Planning failed:', error);
+            return {
+                success: false,
+                plan: '',
+                message: error.message || String(error)
+            };
+        }
+    }
+
+    async transcribeAudio(audioBase64: string, mimeType: string = 'audio/webm'): Promise<{ success: boolean; text: string; message?: string }> {
+        if (!this.isInitialized || !this.apiKey) {
+            await this.initialize();
+        }
+
+        const tryTranscribe = async (modelName: string) => {
+            logger.info(`Transcribing audio with model: ${modelName}...`);
+            const genAI = new GoogleGenerativeAI(this.apiKey);
+            const model = genAI.getGenerativeModel({ model: modelName });
+
+            const result = await model.generateContent([
+                "Transcribe the following audio to text perfectly. Return ONLY the text, no usage notes.",
+                {
+                    inlineData: {
+                        data: audioBase64,
+                        mimeType: mimeType
+                    }
+                }
+            ]);
+            return result.response.text();
+        };
+
+        try {
+            // Try the user's configured model first (likely gemini-2.0-flash-exp)
+            // Ensure we don't pass an empty string
+            const primaryModel = this.modelName || "gemini-2.0-flash-exp";
+            const text = await tryTranscribe(primaryModel);
+            logger.info(`Transcription result: "${text}"`);
+
+            return {
+                success: true,
+                text: text.trim()
+            };
+        } catch (error: any) {
+            logger.warn(`Initial transcription with ${this.modelName} failed, trying fallback gemini-2.0-flash-exp...`, error.message);
+            try {
+                // Fallback to the known robust experimental model which supports audio
+                const text = await tryTranscribe("gemini-2.0-flash-exp");
+                return {
+                    success: true,
+                    text: text.trim()
+                };
+            } catch (fallbackError: any) {
+                logger.error('All transcription attempts failed:', fallbackError);
+                return {
+                    success: false,
+                    text: '',
+                    message: `Transcription Error: ${fallbackError.message || String(fallbackError)}. Please check your API key and Model selection.`
+                };
+            }
+        }
+    }
+
+    async execute(instruction: string): Promise<{
+        success: boolean;
+        message: string;
+        result?: any;
+    }> {
+        if (!this.eko || !this.isInitialized) {
+            throw new Error('Eko not initialized. Please call initialize() first.');
+        }
+
+        try {
+            logger.info(`Executing command: "${instruction}"`);
+
+            // Send progress update: Starting
+            const { BrowserWindow } = require('electron');
+            const mainWindow = BrowserWindow.getAllWindows()[0];
+            if (mainWindow) {
+                mainWindow.webContents.send('automation:progress', {
+                    type: 'status',
+                    message: '🚀 Starting automation...'
+                });
+
+                mainWindow.webContents.send('automation:create-tab');
+                logger.info('Requested new tab creation for automation');
+
+                // Wait for tab to be created and ready
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                mainWindow.webContents.send('automation:progress', {
+                    type: 'status',
+                    message: '🔍 Analyzing the page...'
+                });
+            }
+
+            // Run the instruction with Eko
+            const result = await this.eko.run(instruction);
+
+            logger.info('✅ Command completed successfully');
+
+            // Send progress update: Completed
+            if (mainWindow) {
+                mainWindow.webContents.send('automation:progress', {
+                    type: 'complete',
+                    message: '✅ Task completed successfully!'
+                });
+            }
+
+            // Extract thinking and explanation from result
+            let detailedMessage = `✅ Task completed successfully!\n\n`;
+
+            if (result && typeof result === 'object') {
+                const resultObj = result as any; // Type assertion for flexibility
+
+                // If result has thinking or explanation, include it
+                if (resultObj.thinking) {
+                    detailedMessage += `**Thinking Process:**\n${resultObj.thinking}\n\n`;
+                }
+                if (resultObj.steps && Array.isArray(resultObj.steps)) {
+                    detailedMessage += `**Steps Performed:**\n`;
+                    resultObj.steps.forEach((step: string, i: number) => {
+                        detailedMessage += `${i + 1}. ${step}\n`;
+                    });
+                    detailedMessage += `\n`;
+                }
+                if (resultObj.summary) {
+                    detailedMessage += `**Summary:** ${resultObj.summary}\n\n`;
+                } else {
+                    detailedMessage += `**Command:** "${instruction}"\n\n`;
+                }
+                detailedMessage += `_(AI Agent running on **${this.modelName}**)_`;
+            } else {
+                detailedMessage += `Successfully executed: "${instruction}"\n_(AI Agent running on **${this.modelName}**)_`;
+            }
+
+            return {
+                success: true,
+                message: detailedMessage,
+                result
+            };
+        } catch (error: any) {
+            logger.error('Command execution failed:', error);
+
+            return {
+                success: false,
+                message: `❌ Automation failed: ${error.message || String(error)}`
+            };
+        }
+    }
+
+    async extract(instruction: string): Promise<{
+        success: boolean;
+        data?: any;
+        message: string;
+    }> {
+        if (!this.eko || !this.isInitialized) {
+            throw new Error('Eko not initialized');
+        }
+
+        try {
+            logger.info(`Extracting data: "${instruction}"`);
+
+            const result = await this.eko.run(`Extract: ${instruction}`);
+
+            return {
+                success: true,
+                data: result,
+                message: 'Data extracted successfully'
+            };
+        } catch (error: any) {
+            logger.error('Data extraction failed:', error);
+
+            return {
+                success: false,
+                message: error.message || String(error)
+            };
+        }
+    }
+}
+
+export const jarvisAutomation = new JarvisAutomation();

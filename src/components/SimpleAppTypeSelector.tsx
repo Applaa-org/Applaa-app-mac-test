@@ -6,10 +6,10 @@
  */
 
 import React, { useCallback } from 'react';
-import { Globe, Smartphone, Gamepad2 } from 'lucide-react';
+import { Globe, Smartphone, Gamepad2, Code, Box } from 'lucide-react';
 
 interface SimpleAppTypeSelectorProps {
-  onSelection: (type: 'web' | 'expo' | 'flutter' | 'godot') => void;
+  onSelection: (type: 'web' | 'expo' | 'flutter' | 'godot' | 'minecraft' | 'blockly') => void;
   className?: string;
 }
 
@@ -25,6 +25,14 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
 
   const handleGodotSelect = useCallback(() => {
     onSelection('godot');
+  }, [onSelection]);
+
+  const handleMinecraftSelect = useCallback(() => {
+    onSelection('minecraft');
+  }, [onSelection]);
+
+  const handleBlocklySelect = useCallback(() => {
+    onSelection('blockly');
   }, [onSelection]);
 
   return (
@@ -116,8 +124,57 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
             <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-500 opacity-10 rounded-full transform translate-x-8 translate-y-8 group-hover:scale-110 transition-transform duration-300" />
           </div>
         </div>
+
+
+        {/* Minecraft Tile */}
+        <div
+          onClick={handleMinecraftSelect}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 to-yellow-50 border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-yellow-500 opacity-5 group-hover:opacity-10 transition-opacity duration-300" />
+          <div className="relative z-10">
+            <div className="mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/80 dark:bg-gray-800/80 flex items-center justify-center shadow-sm">
+                <Box className="h-8 w-8 text-green-700" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+                Minecraft
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                Code mods and automate your worlds in Minecraft Education.
+              </p>
+            </div>
+            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-br from-green-400 to-yellow-500 opacity-10 rounded-full transform translate-x-8 translate-y-8 group-hover:scale-110 transition-transform duration-300" />
+          </div>
+        </div>
+
+        {/* Blockly Tile */}
+        <div
+          onClick={handleBlocklySelect}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-purple-500 opacity-5 group-hover:opacity-10 transition-opacity duration-300" />
+          <div className="relative z-10">
+            <div className="mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/80 dark:bg-gray-800/80 flex items-center justify-center shadow-sm">
+                <Code className="h-8 w-8 text-indigo-600" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+                Blocklaa
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                Learn programming with drag-and-drop visual logic blocks.
+              </p>
+            </div>
+            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 opacity-10 rounded-full transform translate-x-8 translate-y-8 group-hover:scale-110 transition-transform duration-300" />
+          </div>
+        </div>
       </div>
-    
+
     </div>
   );
 }

@@ -42,17 +42,17 @@ function resolveBin(pkg: string, binName = pkg): string {
     const pkgJsonPath = require.resolve(`${pkg}/package.json`);
     const pkgDir = path.dirname(pkgJsonPath);
     const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-    
+
     const binField = pkgJson.bin;
     if (!binField) {
       throw new Error(`Package ${pkg} has no bin field`);
     }
-    
+
     const relPath = typeof binField === "string" ? binField : binField[binName];
     if (!relPath) {
       throw new Error(`Binary ${binName} not found in package ${pkg}`);
     }
-    
+
     return path.join(pkgDir, relPath);
   } catch (error) {
     logger.error(`Failed to resolve binary for ${pkg}:`, error);
@@ -66,22 +66,22 @@ function resolveBin(pkg: string, binName = pkg): string {
  * Use Electron's Node (22) — fine for most tools like expo/eas
  */
 export function runToolWithElectronNode(
-  pkg: string, 
-  args: string[], 
+  pkg: string,
+  args: string[],
   extraEnv: Record<string, string> = {},
   options: any = {}
 ) {
   try {
     const entry = resolveBin(pkg);
     const env = { ...process.env, ...extraEnv };
-    
+
     logger.info(`Running ${pkg} with Electron Node (${process.version})`);
-    
-    return spawn(process.execPath, [entry, ...args], { 
-      env, 
-      stdio: "pipe", 
+
+    return spawn(process.execPath, [entry, ...args], {
+      env,
+      stdio: "pipe",
       windowsHide: true,
-      ...options 
+      ...options
     });
   } catch (error) {
     logger.error(`Failed to run ${pkg} with Electron Node:`, error);
@@ -142,14 +142,14 @@ export async function ensurePnpmAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     // First check if pnpm is already available
     const checkProcess = spawn("pnpm", ["--version"], { shell: true, stdio: "ignore" });
-    
+
     checkProcess.on("close", (code) => {
       if (code === 0) {
         logger.info("✅ pnpm is available for workspace optimization");
         resolve(true);
       } else {
         logger.info("📦 Attempting to enable pnpm for workspace benefits...");
-        
+
         // Try multiple installation methods with shorter timeout
         const installStrategies = [
           // Method 1: Use corepack (modern Node.js) - but with timeout
@@ -166,25 +166,25 @@ export async function ensurePnpmAvailable(): Promise<boolean> {
             return proc;
           }
         ];
-        
+
         let strategyIndex = 0;
-        
+
         const tryNextStrategy = () => {
           if (strategyIndex >= installStrategies.length) {
             logger.warn("⚠️ Could not install pnpm, will use npm fallback (still functional)");
             resolve(false);
             return;
           }
-          
+
           const installProcess = installStrategies[strategyIndex]();
           strategyIndex++;
-          
+
           const timeout = setTimeout(() => {
             logger.warn(`⚠️ pnpm installation strategy ${strategyIndex} timed out, trying next...`);
             installProcess.kill();
             tryNextStrategy();
           }, strategyIndex === 1 ? 5000 : 10000);
-          
+
           installProcess.on("close", (installCode) => {
             clearTimeout(timeout);
             if (installCode === 0) {
@@ -195,18 +195,18 @@ export async function ensurePnpmAvailable(): Promise<boolean> {
               tryNextStrategy();
             }
           });
-          
+
           installProcess.on("error", () => {
             clearTimeout(timeout);
             logger.warn(`⚠️ pnpm installation strategy ${strategyIndex} errored, trying next...`);
             tryNextStrategy();
           });
         };
-        
+
         tryNextStrategy();
       }
     });
-    
+
     checkProcess.on("error", () => {
       logger.warn("⚠️ pnpm check failed, will use npm fallback");
       resolve(false);
@@ -303,7 +303,7 @@ export async function runPackageManagerCommand(
   options: any = {}
 ): Promise<ChildProcess> {
   let packageManager = await getBestPackageManager(cwd);
-  
+
   // 🚨 CRITICAL: Verify the package manager is actually available before using it
   if (packageManager === "pnpm") {
     try {
@@ -318,7 +318,7 @@ export async function runPackageManagerCommand(
           resolve(false);
         }, 2000);
       });
-      
+
       // If direct pnpm fails, try npx pnpm
       if (!isAvailable) {
         logger.info(`🔄 pnpm not in PATH, trying npx pnpm...`);
@@ -332,14 +332,14 @@ export async function runPackageManagerCommand(
             resolve(false);
           }, 3000);
         });
-        
+
         if (isAvailable) {
           logger.info(`✅ pnpm available via npx - workspace optimization enabled`);
           // Set a flag to use npx pnpm instead of direct pnpm
           (global as any).USE_NPX_PNPM = true;
         }
       }
-      
+
       if (!isAvailable) {
         logger.warn(`⚠️ pnpm not available (tried direct and npx), falling back to npm`);
         packageManager = "npm";
@@ -349,15 +349,15 @@ export async function runPackageManagerCommand(
       packageManager = "npm";
     }
   }
-  
+
   logger.info(`🚀 Using package manager: ${packageManager} in ${cwd}`);
-  
+
   // CDN optimization removed for MVP - keeping it simple
-  
+
   // 🚀 WORKSPACE OPTIMIZATION: Add package manager specific flags
   let finalCommand = command;
   let finalArgs = [...args];
-  
+
   if (packageManager === "pnpm") {
     // pnpm optimization flags for workspace
     if (command === "add") {
@@ -376,20 +376,20 @@ export async function runPackageManagerCommand(
       finalArgs = ["--prefer-offline", "--no-audit", "--no-fund", ...finalArgs];
     }
   }
-  
+
   // 🚀 WORKSPACE OPTIMIZATION: Use npx pnpm if needed
   if (packageManager === "pnpm" && (global as any).USE_NPX_PNPM) {
-    return spawn("npx", ["pnpm", finalCommand, ...finalArgs], { 
-      cwd, 
-      shell: true, 
-      ...options 
+    return spawn("npx", ["pnpm", finalCommand, ...finalArgs], {
+      cwd,
+      shell: true,
+      ...options
     });
   }
-  
-  return spawn(packageManager, [finalCommand, ...finalArgs], { 
-    cwd, 
-    shell: true, 
-    ...options 
+
+  return spawn(packageManager, [finalCommand, ...finalArgs], {
+    cwd,
+    shell: true,
+    ...options
   });
 }
 
@@ -408,7 +408,12 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
     // Create workspace structure
     const dirs = [
       path.join(workspaceRoot, "apps", "web"),
-      path.join(workspaceRoot, "apps", "mobile"), 
+      path.join(workspaceRoot, "apps", "mobile"),
+      path.join(workspaceRoot, "apps", "godot"),
+      path.join(workspaceRoot, "apps", "blockly"),
+      path.join(workspaceRoot, "apps", "arcade"),
+      path.join(workspaceRoot, "apps", "microbit"),
+      path.join(workspaceRoot, "apps", "minecraft"),
       path.join(workspaceRoot, "packages")
     ];
 
@@ -424,7 +429,7 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
       const yamlContent = [
         "packages:",
         "  - 'apps/web/*'",
-        "  - 'apps/mobile/*'", 
+        "  - 'apps/mobile/*'",
         "  - 'packages/*'",
         ""
       ].join("\n");
@@ -464,7 +469,7 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
           "react-native-safe-area-context": "4.14.0",
           "react-native-screens": "4.2.0",
           "react-native-svg": "15.8.0",
-          
+
           // 📱 Expo Ecosystem
           "expo": "~53.0.22",
           "expo-router": "~5.1.5",
@@ -498,7 +503,7 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
           "expo-dev-client": "~5.0.4",
           "expo-dev-menu": "~6.0.1",
           "@expo/ngrok": "^4.1.3",
-          
+
           // 🔐 Authentication & Security
           "expo-blur": "~14.1.5",
           "expo-secure-store": "~14.1.2",
@@ -506,11 +511,11 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
           "expo-auth-session": "~6.1.2",
           "expo-crypto": "~14.1.2",
           "expo-system-ui": "~4.1.2",
-          
+
           // 🤖 AI & ML Capabilities
           "onnxruntime-react-native": "^1.19.2",
           "openai": "^4.67.3",
-          
+
           // 🔧 Core Utilities (High Impact - Used by Most Apps)
           "fs-extra": "^11.2.0",
           "debug": "^4.3.4",
@@ -520,10 +525,10 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
           "minimatch": "^5.1.6",
           "lodash.debounce": "^4.0.8",
           "lodash.throttle": "^4.1.1",
-          
+
           // 🛠️ Development Tools
           "react-devtools-core": "^5.0.0",
-          
+
           // 📦 Metro Bundler (Expo Apps)
           "metro": "^0.80.0",
           "metro-config": "^0.80.0",
@@ -531,14 +536,14 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
           "metro-file-map": "^0.80.0",
           "metro-resolver": "^0.80.0",
           "metro-runtime": "^0.80.0",
-          
+
           // 🌐 Web App Dependencies
           "next": "15.1.0",
           "tailwindcss": "^3.4.1",
           "autoprefixer": "^10.4.20",
           "postcss": "^8.4.49",
           "lucide-react": "^0.468.0",
-          
+
           // 🎨 UI Components (shadcn/ui)
           "@radix-ui/react-slot": "^1.1.0",
           "@radix-ui/react-dialog": "^1.1.2",
@@ -552,7 +557,7 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
           "class-variance-authority": "^0.7.1",
           "clsx": "^2.1.1",
           "tailwind-merge": "^2.5.4",
-          
+
           // 🔗 Backend & Storage
           "@supabase/supabase-js": "^2.45.4",
           "react-native-url-polyfill": "^2.0.0",
@@ -566,21 +571,21 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
           "@babel/preset-env": "^7.25.0",
           "@babel/preset-react": "^7.25.0",
           "@babel/preset-typescript": "^7.25.0",
-          
+
           // 📝 TypeScript
           "typescript": "~5.3.3",
           "@types/react": "~19.0.0",
           "@types/react-native": "^0.73.0",
           "@types/react-dom": "~19.0.0",
           "@types/node": "^22",
-          
+
           // 🧪 Testing Framework
           "jest": "^29.7.0",
           "@testing-library/react-native": "^12.4.3",
           "@testing-library/jest-native": "^5.4.3",
           "react-test-renderer": "19.1.0",
           "@types/jest": "^29.5.12",
-          
+
           // 🔍 Linting & Code Quality
           "eslint": "^8",
           "eslint-config-next": "15.1.0",
@@ -597,18 +602,18 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
     // This ensures ALL common webapp and Expo dependencies are available from day 1
     const nodeModulesExists = fs.existsSync(path.join(workspaceRoot, "node_modules"));
     const lockFileExists = fs.existsSync(path.join(workspaceRoot, "pnpm-lock.yaml"));
-    
+
     if (!nodeModulesExists || !lockFileExists) {
       logger.info("📦 Installing comprehensive workspace dependencies...");
       await installWorkspaceDependencies(workspaceRoot);
     } else {
       logger.info("✅ Workspace dependencies already installed, skipping installation");
     }
-    
+
     // 🔗 ENSURE WORKSPACE LINKING (always run - it's fast)
     // Make sure apps can find workspace dependencies
     await ensureWorkspaceLinking(workspaceRoot);
-    
+
     logger.info(`✅ Workspace initialized with full dependency set at ${workspaceRoot}`);
     return true;
   } catch (error) {
@@ -627,20 +632,20 @@ export async function ensureExpoDependencies(projectPath: string): Promise<boole
       logger.warn("No package.json found, skipping dependency check");
       return false;
     }
-    
+
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
-    
+
     // Check which essential deps are missing
     const missingDeps = EXPO_ESSENTIAL_DEPS.filter(dep => !deps[dep]);
-    
+
     if (missingDeps.length === 0) {
       logger.info("✅ All essential Expo dependencies are present");
       return true;
     }
-    
+
     logger.info(`📦 Installing missing Expo dependencies: ${missingDeps.join(', ')}`);
-    
+
     // Install missing dependencies in parallel batches for speed
     const batchSize = 3;
     for (let i = 0; i < missingDeps.length; i += batchSize) {
@@ -650,7 +655,7 @@ export async function ensureExpoDependencies(projectPath: string): Promise<boole
         const child = await runPackageManagerCommand("add", batch, projectPath, {
           stdio: "pipe"
         });
-        
+
         child.on("close", (code: number) => {
           if (code === 0) {
             logger.info(`✅ Installed batch: ${batch.join(', ')}`);
@@ -659,11 +664,11 @@ export async function ensureExpoDependencies(projectPath: string): Promise<boole
             reject(new Error(`Failed to install batch: ${batch.join(', ')}`));
           }
         });
-        
+
         child.on("error", reject);
       });
     }
-    
+
     return true;
   } catch (error) {
     logger.error("Failed to ensure Expo dependencies:", error);
@@ -697,10 +702,10 @@ export async function verifyHermeticRuntime(): Promise<{
     isCommandAvailable("npm"),
     isCommandAvailable("yarn")
   ]);
-  
+
   const status = { pnpm, npm, yarn };
   logger.info(`Hermetic runtime status: ${JSON.stringify(status)}`);
-  
+
   return status;
 }
 
@@ -742,10 +747,10 @@ async function checkBuildDependencies(): Promise<{
     const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
     const javaHome = process.env.JAVA_HOME;
     const isMacOS = process.platform === 'darwin';
-    
+
     const android = !!(androidHome && javaHome);
     const ios = isMacOS && fs.existsSync('/Applications/Xcode.app');
-    
+
     return {
       android,
       ios,
@@ -780,14 +785,14 @@ export async function getHermeticStatus(): Promise<{
 }> {
   const status = await verifyHermeticRuntime();
   const pnpmAvailable = await ensurePnpmAvailable();
-  
+
   // Check if we're in a workspace environment
   const workspaceDetected = fs.existsSync(path.join(process.cwd(), "pnpm-workspace.yaml")) ||
-                           fs.existsSync(path.join(process.cwd(), "..", "pnpm-workspace.yaml"));
-  
+    fs.existsSync(path.join(process.cwd(), "..", "pnpm-workspace.yaml"));
+
   // Check build dependencies
   const buildDeps = await checkBuildDependencies();
-  
+
   return {
     initialized: true,
     packageManagers: [
@@ -815,20 +820,20 @@ export async function getHermeticStatus(): Promise<{
 async function installWorkspaceDependencies(root: string): Promise<void> {
   try {
     logger.info("🚀 Installing workspace dependencies for optimal performance...");
-    
+
     // Use the best available package manager
     const packageManager = await getBestPackageManager(root);
     logger.info(`📦 Using ${packageManager} for workspace dependency installation`);
-    
+
     // Install all dependencies at workspace root
     const installProcess = await runPackageManagerCommand("install", [], root, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 300000 // 5 minutes for comprehensive install
     });
-    
+
     await new Promise<void>((resolve, reject) => {
       let output = '';
-      
+
       installProcess.stdout?.on('data', (data) => {
         output += data.toString();
         // Log progress for large installs
@@ -836,14 +841,14 @@ async function installWorkspaceDependencies(root: string): Promise<void> {
           logger.info(`📥 ${data.toString().trim()}`);
         }
       });
-      
+
       installProcess.stderr?.on('data', (data) => {
         const errorMsg = data.toString();
         if (!errorMsg.includes('WARN') && !errorMsg.includes('deprecated')) {
           logger.warn(`⚠️ ${errorMsg.trim()}`);
         }
       });
-      
+
       installProcess.on('close', (code) => {
         if (code === 0) {
           logger.info("✅ Workspace dependencies installed successfully");
@@ -853,10 +858,10 @@ async function installWorkspaceDependencies(root: string): Promise<void> {
           reject(new Error(`Workspace dependency installation failed with code ${code}`));
         }
       });
-      
+
       installProcess.on('error', reject);
     });
-    
+
   } catch (error) {
     logger.error("❌ Failed to install workspace dependencies:", error);
     // Don't fail workspace initialization if dependency install fails
@@ -875,7 +880,7 @@ async function ensureWorkspaceLinking(workspaceRoot: string): Promise<void> {
     const expectedNpmrcContent = [
       "# Workspace configuration for shared dependencies",
       "shamefully-hoist=true",
-      "strict-peer-dependencies=false", 
+      "strict-peer-dependencies=false",
       "prefer-offline=true",
       "resolution-mode=highest",
       "# Enable workspace linking",
@@ -884,7 +889,7 @@ async function ensureWorkspaceLinking(workspaceRoot: string): Promise<void> {
       "# 🚀 CRITICAL: Enable hoisted node-linker for Metro bundler compatibility",
       "node-linker=hoisted"
     ].join("\n");
-    
+
     let needsNpmrcUpdate = true;
     if (fs.existsSync(npmrcPath)) {
       const existingContent = fs.readFileSync(npmrcPath, "utf8");
@@ -892,12 +897,12 @@ async function ensureWorkspaceLinking(workspaceRoot: string): Promise<void> {
         needsNpmrcUpdate = false;
       }
     }
-    
+
     if (needsNpmrcUpdate) {
       fs.writeFileSync(npmrcPath, expectedNpmrcContent, "utf8");
       logger.info("✅ Created/updated workspace .npmrc with dependency linking");
     }
-    
+
     // Update pnpm-workspace.yaml to ensure proper package resolution (only if needed)
     const workspaceYamlPath = path.join(workspaceRoot, "pnpm-workspace.yaml");
     const expectedYamlContent = [
@@ -906,11 +911,11 @@ async function ensureWorkspaceLinking(workspaceRoot: string): Promise<void> {
       "  - 'apps/mobile/*'",
       "  - 'packages/*'",
       "",
-      "# Shared dependency configuration", 
+      "# Shared dependency configuration",
       "shared-workspace-lockfile: true",
       "link-workspace-packages: true"
     ].join("\n");
-    
+
     let needsYamlUpdate = true;
     if (fs.existsSync(workspaceYamlPath)) {
       const existingContent = fs.readFileSync(workspaceYamlPath, "utf8");
@@ -918,12 +923,12 @@ async function ensureWorkspaceLinking(workspaceRoot: string): Promise<void> {
         needsYamlUpdate = false;
       }
     }
-    
+
     if (needsYamlUpdate) {
       fs.writeFileSync(workspaceYamlPath, expectedYamlContent, "utf8");
       logger.info("✅ Created/updated pnpm-workspace.yaml for dependency sharing");
     }
-    
+
   } catch (error) {
     logger.error("❌ Failed to setup workspace linking:", error);
     logger.warn("⚠️ Apps may need individual dependency installation");
@@ -937,39 +942,39 @@ async function ensureWorkspaceLinking(workspaceRoot: string): Promise<void> {
 export async function fixExpoProjectDependencies(projectPath: string): Promise<boolean> {
   try {
     logger.info("📱 Checking Expo project for compatibility issues...");
-    
+
     // Check if this is an Expo project
     const packageJsonPath = path.join(projectPath, 'package.json');
     if (!fs.existsSync(packageJsonPath)) {
       logger.warn("No package.json found, skipping Expo dependency fix");
       return false;
     }
-    
+
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     if (!packageJson.dependencies?.expo) {
       logger.info("Not an Expo project, skipping dependency fix");
       return true; // Not an error, just not applicable
     }
-    
+
     logger.info("🔧 Running 'expo install --fix' to ensure SDK compatibility...");
-    
+
     // Run expo install --fix to automatically fix all dependency versions
     const fixProcess = spawn('npx', ['expo', 'install', '--fix'], {
       cwd: projectPath,
       shell: true,
       stdio: ['pipe', 'pipe', 'pipe']
     });
-    
+
     await new Promise<void>((resolve, reject) => {
       let output = '';
       let errorOutput = '';
-      
+
       fixProcess.stdout?.on('data', (data) => {
         const text = data.toString();
         output += text;
         logger.info(`📦 ${text.trim()}`);
       });
-      
+
       fixProcess.stderr?.on('data', (data) => {
         const text = data.toString();
         errorOutput += text;
@@ -978,7 +983,7 @@ export async function fixExpoProjectDependencies(projectPath: string): Promise<b
           logger.warn(`⚠️ ${text.trim()}`);
         }
       });
-      
+
       fixProcess.on('close', (code) => {
         if (code === 0) {
           logger.info("✅ Expo dependencies fixed successfully");
@@ -988,13 +993,13 @@ export async function fixExpoProjectDependencies(projectPath: string): Promise<b
           reject(new Error(`expo install --fix failed: ${errorOutput}`));
         }
       });
-      
+
       fixProcess.on('error', (error) => {
         logger.error("❌ Failed to run expo install --fix:", error);
         reject(error);
       });
     });
-    
+
     return true;
   } catch (error) {
     logger.error("Failed to fix Expo project dependencies:", error);
@@ -1013,17 +1018,17 @@ export async function fixExpoGradleConfig(projectPath: string): Promise<boolean>
       logger.info("No android directory found, skipping gradle config fix");
       return true; // Not an error, just not applicable
     }
-    
+
     const gradlePropsPath = path.join(androidDir, 'gradle.properties');
     if (!fs.existsSync(gradlePropsPath)) {
       logger.warn("No gradle.properties found, skipping new architecture fix");
       return false;
     }
-    
+
     logger.info("🔧 Checking Expo gradle configuration...");
-    
+
     let gradleProps = fs.readFileSync(gradlePropsPath, 'utf8');
-    
+
     // Check if new architecture is enabled
     if (gradleProps.includes('newArchEnabled=true')) {
       logger.info("📝 Disabling new architecture for compatibility...");
@@ -1060,20 +1065,20 @@ export async function fixExpoProject(projectPath: string): Promise<{
 }> {
   try {
     logger.info("🚀 Starting comprehensive Expo project fix...");
-    
+
     // Fix dependencies first
     const dependenciesFixed = await fixExpoProjectDependencies(projectPath);
-    
+
     // Fix gradle configuration
     const gradleFixed = await fixExpoGradleConfig(projectPath);
-    
+
     const success = dependenciesFixed && gradleFixed;
     const message = success
       ? "✅ Expo project fixed successfully - ready for Android builds!"
       : "⚠️ Some fixes could not be applied - check logs for details";
-    
+
     logger.info(message);
-    
+
     return {
       success,
       dependenciesFixed,
@@ -1120,34 +1125,34 @@ interface PrerequisiteInstallResult {
  */
 async function checkPrerequisites(): Promise<PrerequisiteStatus[]> {
   const prerequisites: PrerequisiteStatus[] = [];
-  
+
   logger.info('🔍 Checking system prerequisites...');
-  
+
   // 1. SYSTEM LEVEL (Required for everything)
   prerequisites.push(await checkNodeJS());
   prerequisites.push(await checkGit());
-  
+
   // 2. DEVELOPMENT TOOLS (Required for development)
   prerequisites.push(await checkNPM());
   prerequisites.push(await checkPNPM());
-  
+
   // 3. ANDROID DEVELOPMENT (Required for Android builds)
   prerequisites.push(await checkJava());
   prerequisites.push(await checkAndroidSDK());
   prerequisites.push(await checkAndroidNDK());
   prerequisites.push(await checkAndroidBuildTools());
   prerequisites.push(await checkAndroidStudio());
-  
+
   // 4. IOS DEVELOPMENT (Required for iOS builds - macOS only)
   if (process.platform === 'darwin') {
     prerequisites.push(await checkXcode());
     prerequisites.push(await checkXcodeCommandLineTools());
     prerequisites.push(await checkCocoaPods());
   }
-  
+
   // 5. EXPO TOOLS (Required for Expo development)
   prerequisites.push(await checkExpoCLI());
-  
+
   return prerequisites;
 }
 
@@ -1171,44 +1176,44 @@ async function installPrerequisites(options: {
     logs: [],
     totalTime: 0
   };
-  
+
   logger.info('🚀 Starting hierarchical prerequisite installation...');
   result.logs.push('🚀 Starting hierarchical prerequisite installation...');
-  
+
   try {
     // PHASE 1: SYSTEM LEVEL (Must be installed first)
     if (!options.skipSystem) {
       result.logs.push('📋 Phase 1: Installing system prerequisites...');
       await installSystemPrerequisites(result, options.forceReinstall || false);
     }
-    
+
     // PHASE 2: DEVELOPMENT TOOLS (Depends on system)
     if (!options.skipDevelopment) {
       result.logs.push('📋 Phase 2: Installing development tools...');
       await installDevelopmentPrerequisites(result, options.forceReinstall || false);
     }
-    
+
     // PHASE 3: ANDROID DEVELOPMENT (Depends on system + development)
     if (!options.skipAndroid) {
       result.logs.push('📋 Phase 3: Installing Android development tools...');
       await installAndroidPrerequisites(result, options.forceReinstall || false);
     }
-    
+
     // PHASE 4: IOS DEVELOPMENT (Depends on system + development, macOS only)
     if (!options.skipIOS && process.platform === 'darwin') {
       result.logs.push('📋 Phase 4: Installing iOS development tools...');
       await installIOSPrerequisites(result, options.forceReinstall || false);
     }
-    
+
     // PHASE 5: EXPO TOOLS (Depends on everything)
     if (!options.skipExpo) {
       result.logs.push('📋 Phase 5: Installing Expo development tools...');
       await installExpoPrerequisites(result, options.forceReinstall || false);
     }
-    
+
     result.totalTime = performance.now() - startTime;
     result.success = result.failed.length === 0;
-    
+
     if (result.success) {
       result.logs.push(`✅ All prerequisites installed successfully in ${(result.totalTime / 1000).toFixed(1)}s`);
       logger.info(`✅ Prerequisites installation completed: ${result.installed.length} installed, ${result.skipped.length} skipped`);
@@ -1216,7 +1221,7 @@ async function installPrerequisites(options: {
       result.logs.push(`⚠️ Prerequisites installation completed with ${result.failed.length} failures`);
       logger.warn(`⚠️ Prerequisites installation completed with failures: ${result.failed.join(', ')}`);
     }
-    
+
   } catch (error) {
     result.success = false;
     result.totalTime = performance.now() - startTime;
@@ -1224,7 +1229,7 @@ async function installPrerequisites(options: {
     result.logs.push(`❌ ${errorMsg}`);
     logger.error(errorMsg, error);
   }
-  
+
   return result;
 }
 
@@ -1247,7 +1252,7 @@ async function installSystemPrerequisites(result: PrerequisiteInstallResult, for
       result.logs.push(`❌ Failed to install Node.js: ${error}`);
     }
   }
-  
+
   // Git (Required for version control)
   if (await isCommandAvailable('git')) {
     result.skipped.push('Git (already installed)');
@@ -1277,7 +1282,7 @@ async function installDevelopmentPrerequisites(result: PrerequisiteInstallResult
     result.failed.push('NPM (requires Node.js)');
     result.logs.push('❌ NPM not available - Node.js required');
   }
-  
+
   // PNPM (Optional but recommended for workspace optimization)
   if (await isCommandAvailable('pnpm')) {
     result.skipped.push('PNPM (already installed)');
@@ -1314,7 +1319,7 @@ async function installAndroidPrerequisites(result: PrerequisiteInstallResult, fo
       result.logs.push(`❌ Failed to install Java: ${error}`);
     }
   }
-  
+
   // Android Studio (Required for Android SDK)
   if (fs.existsSync('/Applications/Android Studio.app') || fs.existsSync('C:\\Program Files\\Android\\Android Studio')) {
     result.skipped.push('Android Studio (already installed)');
@@ -1330,7 +1335,7 @@ async function installAndroidPrerequisites(result: PrerequisiteInstallResult, fo
       result.logs.push(`❌ Failed to install Android Studio: ${error}`);
     }
   }
-  
+
   // Android SDK (Required for Android builds)
   const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
   if (androidHome && fs.existsSync(androidHome)) {
@@ -1368,7 +1373,7 @@ async function installIOSPrerequisites(result: PrerequisiteInstallResult, forceR
       result.logs.push(`❌ Failed to install Xcode Command Line Tools: ${error}`);
     }
   }
-  
+
   // CocoaPods (Required for iOS builds)
   if (await isCommandAvailable('pod')) {
     result.skipped.push('CocoaPods (already installed)');
@@ -1413,7 +1418,7 @@ async function installExpoPrerequisites(result: PrerequisiteInstallResult, force
 async function checkNodeJS(): Promise<PrerequisiteStatus> {
   const installed = await isCommandAvailable('node');
   let version: string | undefined;
-  
+
   if (installed) {
     try {
       const result = await new Promise<string>((resolve) => {
@@ -1427,7 +1432,7 @@ async function checkNodeJS(): Promise<PrerequisiteStatus> {
       // Ignore version check errors
     }
   }
-  
+
   return {
     name: 'Node.js',
     installed,
@@ -1442,7 +1447,7 @@ async function checkNodeJS(): Promise<PrerequisiteStatus> {
 async function checkGit(): Promise<PrerequisiteStatus> {
   const installed = await isCommandAvailable('git');
   let version: string | undefined;
-  
+
   if (installed) {
     try {
       const result = await new Promise<string>((resolve) => {
@@ -1456,7 +1461,7 @@ async function checkGit(): Promise<PrerequisiteStatus> {
       // Ignore version check errors
     }
   }
-  
+
   return {
     name: 'Git',
     installed,
@@ -1472,7 +1477,7 @@ async function checkJava(): Promise<PrerequisiteStatus> {
   const installed = await isCommandAvailable('java');
   let version: string | undefined;
   let path: string | undefined;
-  
+
   if (installed) {
     try {
       const result = await new Promise<string>((resolve) => {
@@ -1488,7 +1493,7 @@ async function checkJava(): Promise<PrerequisiteStatus> {
       // Ignore version check errors
     }
   }
-  
+
   return {
     name: 'Java (OpenJDK)',
     installed,
@@ -1504,7 +1509,7 @@ async function checkJava(): Promise<PrerequisiteStatus> {
 async function checkAndroidSDK(): Promise<PrerequisiteStatus> {
   const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
   const installed = !!(androidHome && fs.existsSync(androidHome));
-  
+
   return {
     name: 'Android SDK',
     installed,
@@ -1520,7 +1525,7 @@ async function checkAndroidNDK(): Promise<PrerequisiteStatus> {
   const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
   const ndkPath = androidHome ? path.join(androidHome, 'ndk') : '';
   const installed = !!(ndkPath && fs.existsSync(ndkPath));
-  
+
   return {
     name: 'Android NDK',
     installed,
@@ -1536,7 +1541,7 @@ async function checkAndroidBuildTools(): Promise<PrerequisiteStatus> {
   const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
   const buildToolsPath = androidHome ? path.join(androidHome, 'build-tools') : '';
   const installed = !!(buildToolsPath && fs.existsSync(buildToolsPath));
-  
+
   return {
     name: 'Android Build Tools',
     installed,
@@ -1549,9 +1554,9 @@ async function checkAndroidBuildTools(): Promise<PrerequisiteStatus> {
 }
 
 async function checkAndroidStudio(): Promise<PrerequisiteStatus> {
-  const installed = fs.existsSync('/Applications/Android Studio.app') || 
-                   fs.existsSync('C:\\Program Files\\Android\\Android Studio');
-  
+  const installed = fs.existsSync('/Applications/Android Studio.app') ||
+    fs.existsSync('C:\\Program Files\\Android\\Android Studio');
+
   return {
     name: 'Android Studio',
     installed,
@@ -1564,7 +1569,7 @@ async function checkAndroidStudio(): Promise<PrerequisiteStatus> {
 
 async function checkXcode(): Promise<PrerequisiteStatus> {
   const installed = fs.existsSync('/Applications/Xcode.app');
-  
+
   return {
     name: 'Xcode',
     installed,
@@ -1577,7 +1582,7 @@ async function checkXcode(): Promise<PrerequisiteStatus> {
 
 async function checkXcodeCommandLineTools(): Promise<PrerequisiteStatus> {
   const installed = await isCommandAvailable('xcode-select');
-  
+
   return {
     name: 'Xcode Command Line Tools',
     installed,
@@ -1591,7 +1596,7 @@ async function checkXcodeCommandLineTools(): Promise<PrerequisiteStatus> {
 async function checkCocoaPods(): Promise<PrerequisiteStatus> {
   const installed = await isCommandAvailable('pod');
   let version: string | undefined;
-  
+
   if (installed) {
     try {
       const result = await new Promise<string>((resolve) => {
@@ -1605,7 +1610,7 @@ async function checkCocoaPods(): Promise<PrerequisiteStatus> {
       // Ignore version check errors
     }
   }
-  
+
   return {
     name: 'CocoaPods',
     installed,
@@ -1620,7 +1625,7 @@ async function checkCocoaPods(): Promise<PrerequisiteStatus> {
 async function checkExpoCLI(): Promise<PrerequisiteStatus> {
   const installed = await isCommandAvailable('expo');
   let version: string | undefined;
-  
+
   if (installed) {
     try {
       const result = await new Promise<string>((resolve) => {
@@ -1634,7 +1639,7 @@ async function checkExpoCLI(): Promise<PrerequisiteStatus> {
       // Ignore version check errors
     }
   }
-  
+
   return {
     name: 'Expo CLI',
     installed,
@@ -1649,7 +1654,7 @@ async function checkExpoCLI(): Promise<PrerequisiteStatus> {
 async function checkNPM(): Promise<PrerequisiteStatus> {
   const installed = await isCommandAvailable('npm');
   let version: string | undefined;
-  
+
   if (installed) {
     try {
       const result = await new Promise<string>((resolve) => {
@@ -1663,7 +1668,7 @@ async function checkNPM(): Promise<PrerequisiteStatus> {
       // Ignore version check errors
     }
   }
-  
+
   return {
     name: 'NPM',
     installed,
@@ -1678,7 +1683,7 @@ async function checkNPM(): Promise<PrerequisiteStatus> {
 async function checkPNPM(): Promise<PrerequisiteStatus> {
   const installed = await isCommandAvailable('pnpm');
   let version: string | undefined;
-  
+
   if (installed) {
     try {
       const result = await new Promise<string>((resolve) => {
@@ -1692,7 +1697,7 @@ async function checkPNPM(): Promise<PrerequisiteStatus> {
       // Ignore version check errors
     }
   }
-  
+
   return {
     name: 'PNPM',
     installed,
@@ -1759,13 +1764,13 @@ async function installAndroidStudio(): Promise<void> {
 async function setupAndroidSDK(): Promise<void> {
   // This would typically be done through Android Studio SDK Manager
   // For now, we'll just set up environment variables
-  const androidHome = process.platform === 'darwin' 
+  const androidHome = process.platform === 'darwin'
     ? path.join(require('os').homedir(), 'Library', 'Android', 'sdk')
     : path.join(require('os').homedir(), 'Android', 'Sdk');
-  
+
   process.env.ANDROID_HOME = androidHome;
   process.env.ANDROID_SDK_ROOT = androidHome;
-  
+
   // Add to PATH
   const currentPath = process.env.PATH || '';
   process.env.PATH = `${androidHome}/tools:${androidHome}/platform-tools:${currentPath}`;
@@ -1797,7 +1802,7 @@ async function installExpoCLI(): Promise<void> {
 async function runCommand(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: 'pipe' });
-    
+
     child.on('close', (code) => {
       if (code === 0) {
         resolve();
@@ -1805,7 +1810,7 @@ async function runCommand(command: string, args: string[]): Promise<void> {
         reject(new Error(`Command failed with code ${code}`));
       }
     });
-    
+
     child.on('error', (error) => {
       reject(error);
     });

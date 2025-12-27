@@ -1,3 +1,6 @@
+import { ipcMain, BrowserWindow } from "electron";
+import { registerBrowserAgentHandlers } from "./handlers/browser_agent_handlers";
+import { registerTabHandlers } from "./handlers/tab_handlers";
 import { registerAppHandlers } from "./handlers/app_handlers";
 import { registerChatHandlers } from "./handlers/chat_handlers";
 import { registerChatStreamHandlers } from "./handlers/chat_stream_handlers";
@@ -76,6 +79,10 @@ import { registerPrerequisiteInstallerHandlers } from "./handlers/prerequisite_i
 import { registerGodotHandlers } from "./handlers/godot_handlers";
 import { registerGamesHandlers } from "./handlers/games_handlers";
 import { registerGameTemplatesHandlers } from "./handlers/game_templates_handlers";
+import { registerMinecraftHandlers } from "./handlers/minecraft_handlers";
+import { registerCreatorHandlers } from "./handlers/creator_handlers";
+import { registerChromiumHandlers } from "./handlers/chromium_handlers";
+import { registerAutomationHandlers } from "./handlers/automation_handlers";
 
 
 export function registerIpcHandlers() {
@@ -157,38 +164,62 @@ export function registerIpcHandlers() {
   registerParallelAppCreationHandlers();
   // Design generation handlers removed for MVP
   registerAssetStorageHandlers();
-  
+
   // 🚀 EAS Integration for Mobile App Deployment
   registerEASHandlers();
   registerURLHandlers();
-  
+
   // 🔨 Local Build System for APK/IPA generation
   registerLocalBuildHandlers();
-  
+
   // 🔍 Android Dependency Checker
   console.log('🔍 Registering Android dependency handlers...');
   registerAndroidDependencyHandlers();
-  
+
   // 🔧 Auto-Installer
   console.log('🔧 Registering auto-installer handlers...');
   registerAutoInstallerHandlers();
-  
+
   // 🚀 Prerequisite Installer
   console.log('🚀 Registering prerequisite installer handlers...');
   registerPrerequisiteInstallerHandlers();
-  
+
   // 🎮 Godot Engine Integration
   console.log('🎮 Registering Godot handlers...');
   registerGodotHandlers();
-  
+
   // 🎮 Custom Games Management
   console.log('🎮 Registering games handlers...');
   registerGamesHandlers();
-  
+
   // 🎮 Game Templates Management
   console.log('🎮 Registering game templates handlers...');
   registerGameTemplatesHandlers();
-  
+
+  // ⛏️ Minecraft Mod Builder
+  console.log('⛏️ Registering Minecraft handlers...');
+  registerMinecraftHandlers();
+
+  // 🤖 AI Creator Handlers
+  console.log('🤖 Registering creator handlers...');
+  registerCreatorHandlers();
+
+  // 🌐 Professional Chromium Browser
+  console.log('🌐 Registering Chromium browser handlers...');
+  registerChromiumHandlers();
+
+  // 🌐 Browser Agent (OLD - Disabled in favor of Chromium handlers)
+  // console.log('🌐 Registering browser agent handlers...');
+  // registerBrowserAgentHandlers();
+
+  // 📑 Browser Tabs
+  console.log('📑 Registering tab handlers...');
+  registerTabHandlers();
+
+  // 🤖 Gemini AI Browser Automation
+  console.log('🤖 Registering Gemini Automation handlers...');
+  registerAutomationHandlers();
+
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP
 }

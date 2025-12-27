@@ -6,7 +6,7 @@ import { readSettings } from "../main/settings";
 
 const logger = log.scope("workspace");
 
-export type AppKind = "web" | "mobile" | "godot";
+export type AppKind = "web" | "mobile" | "godot" | "blockly" | "arcade" | "microbit" | "minecraft";
 
 /**
  * Returns the workspace root directory where all apps/packages live.
@@ -36,17 +36,17 @@ function sanitizeAppName(name: string): string {
     .replace(/-+/g, "-")             // Collapse multiple hyphens
     .replace(/^-+/, "")              // Remove leading hyphens
     .replace(/-+$/, "");             // Remove trailing hyphens
-  
+
   // Ensure it's not empty
   if (!sanitized || sanitized.length === 0) {
     sanitized = "app";
   }
-  
+
   // Limit length to avoid path issues
   if (sanitized.length > 100) {
     sanitized = sanitized.substring(0, 100);
   }
-  
+
   return sanitized;
 }
 
@@ -67,12 +67,12 @@ export function getAppRelativePath(appName: string, kind: AppKind): string {
  */
 export async function ensureWorkspaceInitialized(): Promise<void> {
   const root = getWorkspaceRoot();
-  
+
   try {
     // Use hermetic runtime for workspace initialization
     const { initializeWorkspace } = await import("../lib/hermetic-runtime");
     const success = await initializeWorkspace(root);
-    
+
     if (success) {
       logger.info(`✅ Workspace initialized with hermetic runtime at ${root}`);
     } else {
@@ -95,6 +95,10 @@ async function fallbackWorkspaceInit(root: string): Promise<void> {
   fs.mkdirSync(path.join(root, "apps", "web"), { recursive: true });
   fs.mkdirSync(path.join(root, "apps", "mobile"), { recursive: true });
   fs.mkdirSync(path.join(root, "apps", "godot"), { recursive: true });
+  fs.mkdirSync(path.join(root, "apps", "blockly"), { recursive: true });
+  fs.mkdirSync(path.join(root, "apps", "arcade"), { recursive: true });
+  fs.mkdirSync(path.join(root, "apps", "microbit"), { recursive: true });
+  fs.mkdirSync(path.join(root, "apps", "minecraft"), { recursive: true });
   fs.mkdirSync(path.join(root, "packages"), { recursive: true });
 
   // pnpm-workspace.yaml
@@ -105,7 +109,7 @@ async function fallbackWorkspaceInit(root: string): Promise<void> {
       "  - 'apps/web/*'",
       "  - 'apps/mobile/*'",
       "  - 'packages/*'",
-      "" 
+      ""
     ].join("\n");
     fs.writeFileSync(workspaceYamlPath, yaml, "utf8");
     logger.info(`Created pnpm-workspace.yaml at ${workspaceYamlPath}`);
@@ -119,7 +123,7 @@ async function fallbackWorkspaceInit(root: string): Promise<void> {
       "strict-peer-dependencies=false",
       "prefer-offline=true",
       "resolution-mode=highest",
-      "" 
+      ""
     ].join("\n");
     fs.writeFileSync(npmrcPath, npmrc, "utf8");
     logger.info(`Created .npmrc at ${npmrcPath}`);

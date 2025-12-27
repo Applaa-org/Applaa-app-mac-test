@@ -66,6 +66,12 @@ import type {
   RevertVersionResponse,
   RevertVersionParams,
   RespondToAppInputParams,
+  ReadFileParams,
+  ReadFileResult,
+  WriteFileParams,
+  WriteFileResult,
+  LocalBuildResult,
+  LocalBuildStatus,
 } from "./ipc_types";
 import type { Template } from "../shared/templates";
 import type { OptimizePromptParams, OptimizePromptResponse } from "./handlers/prompt_optimization_handlers";
@@ -92,6 +98,32 @@ export interface GitHubDeviceFlowSuccessData {
   message?: string;
 }
 
+export interface StarterProjectRequest {
+  prompt: string;
+  frameworkId: 'makecode-arcade' | 'microbit' | 'minecraft-makecode' | 'blockly';
+}
+
+export interface StarterProject {
+  title: string;
+  type: 'ARCADE' | 'MICROBIT' | 'MINECRAFT' | 'BLOCKLY';
+  explanationForKid: string;
+  stepsToTry: string[];
+  payload: {
+    makecode?: {
+      target: 'arcade' | 'microbit' | 'minecraft';
+      preferredLanguage: 'blocks' | 'typescript';
+      typescript: string;
+      notes: string[];
+      sprites?: Array<{ name: string; data: string }>;
+    };
+    blockly?: {
+      workspaceJson: any;
+      generatedCode: { language: 'js' | 'py'; code: string };
+      variables: string[];
+    };
+  };
+}
+
 export interface GitHubDeviceFlowErrorData {
   error: string;
 }
@@ -110,11 +142,11 @@ class MockIpcRenderer {
   on(channel: string, listener: (...args: any[]) => void): void {
     // No-op in browser
   }
-  
+
   removeListener(channel: string, listener: (...args: any[]) => void): void {
     // No-op in browser
   }
-  
+
   async invoke(channel: string, ...args: any[]): Promise<any> {
     console.warn(`[IPC] Mock: Cannot invoke '${channel}' in browser environment`);
     // Return mock data for common channels
@@ -124,8 +156,8 @@ class MockIpcRenderer {
       case 'get-templates':
         return [];
       case 'get-user-settings':
-        return { 
-          theme: 'light', 
+        return {
+          theme: 'light',
           language: 'en',
           providerSettings: {
             openai: { apiKey: { value: '' } },
@@ -150,7 +182,7 @@ class MockIpcRenderer {
             envVarName: 'OPENAI_API_KEY'
           },
           {
-            id: 'anthropic', 
+            id: 'anthropic',
             name: 'Anthropic',
             provider: 'anthropic',
             envVarName: 'ANTHROPIC_API_KEY'
@@ -184,32 +216,32 @@ export class IpcClient {
   private appStreams: Map<number, AppStreamCallbacks>;
   private isElectron: boolean;
   private loggedMissingCallbacks?: Set<number>;
-  
+
   private constructor() {
     // Check if we're in an Electron environment
-  this.isElectron = typeof window !== 'undefined' && !!(
-           (window as any).electron && 
-           (window as any).electron.ipcRenderer);
-    
+    this.isElectron = typeof window !== 'undefined' && !!(
+      (window as any).electron &&
+      (window as any).electron.ipcRenderer);
+
     if (this.isElectron) {
-  this.ipcRenderer = (window as any).electron.ipcRenderer as IpcRenderer;
+      this.ipcRenderer = (window as any).electron.ipcRenderer as IpcRenderer;
     } else {
       console.warn('[IPC] Running in browser mode - IPC functionality will be mocked');
       this.ipcRenderer = new MockIpcRenderer();
     }
-    
+
     this.chatStreams = new Map();
     this.appStreams = new Map();
-    
+
     // Set up listeners for stream events only in Electron environment
     if (this.isElectron) {
       this.setupEventListeners();
     }
   }
-  
+
   private setupEventListeners(): void {
     if (!this.isElectron) return;
-    
+
     this.ipcRenderer.on("chat:response:chunk", (data) => {
       if (
         data &&
@@ -572,13 +604,13 @@ export class IpcClient {
       onEnd,
       onError,
     } = options;
-    
+
     // 🚨 FIX: Clear any existing callbacks for this chat to prevent stale references
     if (this.chatStreams.has(chatId)) {
       console.log(`[IPC] Clearing existing callbacks for chat ${chatId}`);
       this.chatStreams.delete(chatId);
     }
-    
+
     // Clear from logged missing callbacks if it exists
     if (this.loggedMissingCallbacks) {
       this.loggedMissingCallbacks.delete(chatId);
@@ -672,7 +704,7 @@ export class IpcClient {
     partialContent?: string;
     canResume: boolean;
   }> {
-    return this.invoke("chat:detect-interrupted", chatId);
+    return this.ipcRenderer.invoke("chat:detect-interrupted", chatId);
   }
 
   // 🚀 NEW: Resume interrupted streams
@@ -681,7 +713,7 @@ export class IpcClient {
     messageId: number;
     continuePrompt?: string;
   }): Promise<{ success: boolean; resumePrompt: string }> {
-    return this.invoke("chat:resume-interrupted", params);
+    return this.ipcRenderer.invoke("chat:resume-interrupted", params);
   }
 
   // Create a new chat for an app
@@ -1079,7 +1111,7 @@ export class IpcClient {
   ): Promise<void> {
     await this.ipcRenderer.invoke("vercel:disconnect", params);
   }
-  
+
   // --- Direct Vercel Deployment ---
   public async deployToVercel(params: {
     vercelToken: string;
@@ -1715,8 +1747,8 @@ export class IpcClient {
     return this.ipcRenderer.invoke("code:validate", params);
   }
 
-  public async autoFixProblem(params: { 
-    appId: number; 
+  public async autoFixProblem(params: {
+    appId: number;
     problem: {
       type: 'error' | 'warning' | 'info';
       category: 'syntax' | 'dependency' | 'runtime' | 'platform';
@@ -1734,8 +1766,8 @@ export class IpcClient {
     return this.ipcRenderer.invoke("code:auto-fix", params);
   }
 
-  public async autoFixAll(params: { 
-    appId: number; 
+  public async autoFixAll(params: {
+    appId: number;
     problems: Array<any>;
   }): Promise<{
     success: boolean;
@@ -2463,6 +2495,14 @@ export class IpcClient {
     return { success: false, message: 'Prompts feature disabled for MVP' };
   }
 
+  public async readFile(params: ReadFileParams): Promise<ReadFileResult> {
+    return this.ipcRenderer.invoke("app:read-file", params);
+  }
+
+  public async writeFile(params: WriteFileParams): Promise<WriteFileResult> {
+    return this.ipcRenderer.invoke("app:write-file", params);
+  }
+
   // Flutter Environment Management
   async flutterDoctor(): Promise<import('@/lib/mobile/types').FlutterDoctorResult> {
     return this.ipcRenderer.invoke('flutter:doctor');
@@ -3025,6 +3065,16 @@ export class IpcClient {
     return this.ipcRenderer.invoke("eas:check-app-readiness", params);
   }
 
+
+
+  public async listFiles(appId: number, path?: string): Promise<{ success: boolean; files: Array<{ name: string; path: string; isDirectory: boolean }>; error?: string }> {
+    return this.ipcRenderer.invoke("app:list-files", { appId, path });
+  }
+
+  async extractAssets(jarPath: string): Promise<{ success: boolean; assets: Array<{ name: string; path: string; type: 'structure' | 'model' | 'texture' | 'unknown'; relativePath: string }>; error?: string }> {
+    return this.ipcRenderer.invoke("minecraft:extract-assets", jarPath);
+  }
+
   public async checkEASKeystores(params: {
     appId: number;
   }): Promise<{ success: boolean; android?: boolean; ios?: boolean; both?: boolean; error?: string }> {
@@ -3355,14 +3405,14 @@ export class IpcClient {
   }
 
   // Game Templates Management Methods
-  public async listGameTemplates(params?: { appType?: 'web' | 'expo' | 'flutter' | 'godot' }): Promise<Array<{
+  public async listGameTemplates(params?: { appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' }): Promise<Array<{
     id: string;
     name: string;
     details: string;
     previewUrl?: string | null;
     imageUrl?: string | null;
     emoji?: string | null;
-    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
     isDefault?: boolean;
     displayOrder?: number;
     createdAt: Date;
@@ -3377,7 +3427,7 @@ export class IpcClient {
     previewUrl?: string;
     imageUrl?: string;
     emoji?: string;
-    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
     displayOrder?: number;
   }): Promise<{
     id: string;
@@ -3386,7 +3436,7 @@ export class IpcClient {
     previewUrl?: string | null;
     imageUrl?: string | null;
     emoji?: string | null;
-    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
     isDefault?: boolean;
     displayOrder?: number;
     createdAt: Date;
@@ -3402,7 +3452,7 @@ export class IpcClient {
     previewUrl?: string;
     imageUrl?: string;
     emoji?: string;
-    appType?: 'web' | 'expo' | 'flutter' | 'godot';
+    appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
     displayOrder?: number;
   }): Promise<{
     id: string;
@@ -3411,7 +3461,7 @@ export class IpcClient {
     previewUrl?: string | null;
     imageUrl?: string | null;
     emoji?: string | null;
-    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
     isDefault?: boolean;
     displayOrder?: number;
     createdAt: Date;
@@ -3422,6 +3472,181 @@ export class IpcClient {
 
   public async deleteGameTemplate(params: { id: string }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("game-templates:delete", params);
+  }
+
+  async generateStarterProject(request: StarterProjectRequest): Promise<StarterProject> {
+    return this.ipcRenderer.invoke("creator:generate-starter-project", request);
+  }
+
+  // Minecraft Mod Building
+  async checkMinecraftTools(): Promise<{
+    java: boolean;
+    gradle: boolean;
+    javaVersion?: string;
+    gradleVersion?: string;
+  }> {
+    return this.ipcRenderer.invoke("minecraft:check-tools", {});
+  }
+
+  async buildMinecraftMod(spec: any): Promise<{
+    success: boolean;
+    jarPath?: string;
+    error?: string;
+    logs: string[];
+  }> {
+    return this.ipcRenderer.invoke("minecraft:build-mod", spec);
+  }
+
+  async buildAndTestMod(spec: any): Promise<{
+    success: boolean;
+    message?: string;
+    jarPath?: string;
+    error?: string;
+    logs: string[];
+    restarted: boolean;
+  }> {
+    return this.ipcRenderer.invoke("minecraft:build-and-test", spec);
+  }
+
+  async installMinecraftTools(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("minecraft:install-tools");
+  }
+
+
+  onMinecraftInstallProgress(callback: (log: string) => void) {
+    this.ipcRenderer.on("minecraft:install-progress", (_: any, log: string) => callback(log));
+  }
+
+  // 🌐 Browser Agent
+  async testBrowserPing(): Promise<{ success: boolean; message?: string }> {
+    console.log('[IPC Client] Calling browser-agent:test-ping...');
+    return this.ipcRenderer.invoke("browser-agent:test-ping");
+  }
+
+  async navigateBrowser(params: { url: string }): Promise<{ success: boolean; url?: string; title?: string; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:navigate", params);
+  }
+
+  async setBrowserBounds(params: { x: number; y: number; width: number; height: number }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:set-bounds", params);
+  }
+
+  async getBrowserPageInfo(): Promise<{ success: boolean; url?: string; title?: string; canGoBack?: boolean; canGoForward?: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:get-page-info");
+  }
+
+  async goBackBrowser(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:go-back");
+  }
+
+  async goForwardBrowser(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:go-forward");
+  }
+
+  async reloadBrowser(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:reload");
+  }
+
+  async destroyBrowser(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:destroy");
+  }
+
+  async hideBrowser(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:hide");
+  }
+
+  async showBrowser(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:show");
+  }
+
+  async injectAnnotation(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:inject-annotation");
+  }
+
+  async toggleAnnotation(params: { enabled: boolean }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:toggle-annotation", params);
+  }
+
+  async clearAnnotationSelection(params: { selector: string }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:clear-selection", params);
+  }
+
+  async getBrowserCdpUrl(): Promise<{ success: boolean; port?: number; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:get-cdp-url");
+  }
+
+  async generateAutomationPlan(params: { prompt: string; context?: any }): Promise<{ success: boolean; plan?: any; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:generate-plan", params);
+  }
+
+  async executeAutomationPlan(params: { plan: any; port?: number }): Promise<{ success: boolean; result?: any; error?: string }> {
+    return this.ipcRenderer.invoke("browser-agent:execute-plan", params);
+  }
+
+  onAutomationProgress(callback: (update: any) => void) {
+    this.ipcRenderer.on("browser-agent:automation-progress", (update: any) => callback(update));
+  }
+
+  // 🤖 Gemini AI Browser Automation
+  async automationInit(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("automation:init");
+  }
+
+  async automationPlan(params: { instruction: string; model?: string }): Promise<{
+    success: boolean;
+    plan: string;
+    message?: string;
+  }> {
+    return this.ipcRenderer.invoke("automation:plan", params);
+  }
+
+  async automationTranscribe(params: { audioBase64: string; mimeType: string }): Promise<{
+    success: boolean;
+    text: string;
+    message?: string;
+  }> {
+    return this.ipcRenderer.invoke("automation:transcribe", params);
+  }
+
+  async automationExecute(params: { instruction: string }): Promise<{
+    success: boolean;
+    message: string;
+    actions?: any[];
+    steps?: string[];
+  }> {
+    return this.ipcRenderer.invoke("automation:execute", params);
+  }
+
+  async automationExtract(params: { instruction: string }): Promise<{
+    success: boolean;
+    data?: any;
+    message: string;
+  }> {
+    return this.ipcRenderer.invoke("automation:extract", params);
+  }
+
+  // ============================================================================
+  // TAB MANAGEMENT METHODS
+  // ============================================================================
+
+  async listTabs(): Promise<any[]> {
+    return this.ipcRenderer.invoke("tabs:list");
+  }
+
+  async createTab(params: { url: string; title: string }): Promise<number> {
+    return this.ipcRenderer.invoke("tabs:create", params);
+  }
+
+  async updateTab(params: { tabId: number;[key: string]: any }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("tabs:update", params);
+  }
+
+  async deleteTab(params: { tabId: number }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("tabs:delete", params);
+  }
+
+  async setActiveTab(params: { tabId: number }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("tabs:setActive", params);
   }
 }
 

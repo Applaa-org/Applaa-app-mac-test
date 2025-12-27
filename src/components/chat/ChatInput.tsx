@@ -23,6 +23,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useSettings } from "@/hooks/useSettings";
 import { IpcClient } from "@/ipc/ipc_client";
+import { useChatContext } from "@/contexts/ChatContext";
 import {
   chatInputValueAtom,
   chatMessagesAtom,
@@ -72,13 +73,14 @@ import { LexicalChatInput } from "./LexicalChatInput";
 const showTokenBarAtom = atom(false);
 
 export function ChatInput({ chatId }: { chatId?: number }) {
+  const { isBlockChat } = useChatContext();
   const posthog = usePostHog();
   const [inputValue, setInputValue] = useAtom(chatInputValueAtom);
   const { settings } = useSettings();
   const appId = useAtomValue(selectedAppIdAtom);
   const { refreshVersions } = useVersions(appId);
-  const { streamMessage, isStreaming, setIsStreaming, error, setError } =
-    useStreamChat({ hasChatId: false });
+  const { streamMessage, isStreaming, error, setError } =
+    useStreamChat({ hasChatId: !isBlockChat });
   const [showError, setShowError] = useState(true);
   const [isApproving, setIsApproving] = useState(false); // State for approving
   const [isRejecting, setIsRejecting] = useState(false); // State for rejecting
@@ -89,16 +91,16 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     selectedComponentPreviewAtom,
   );
   const { checkProblems } = useCheckProblems(appId);
-  
+
   // Input history for error recovery
   const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  
+
   // Prompt optimization disabled for app-specific chat
   // Only available in main home chat input
 
   // Voice input removed for MVP performance optimization
-  
+
   // Use the attachments hook
   const {
     attachments,
@@ -156,13 +158,13 @@ export function ChatInput({ chatId }: { chatId?: number }) {
 
   const handleSubmit = async () => {
     console.log("🚀 ChatInput handleSubmit called", { inputValue, chatId, isStreaming, attachments });
-    
+
     if (
       (!inputValue.trim() && attachments.length === 0) ||
       isStreaming ||
       !chatId
     ) {
-      console.log("❌ Submit blocked:", { 
+      console.log("❌ Submit blocked:", {
         noInput: !inputValue.trim() && attachments.length === 0,
         isStreaming,
         noChatId: !chatId
@@ -176,7 +178,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
 
     try {
       console.log("📤 Sending message:", { prompt: currentInput, chatId, attachments: attachments.length });
-      
+
       // Send message with attachments and clear them after sending
       await streamMessage({
         prompt: currentInput,
@@ -185,9 +187,9 @@ export function ChatInput({ chatId }: { chatId?: number }) {
         redo: false,
         selectedComponent,
       });
-      
+
       console.log("✅ Message sent successfully");
-      
+
       // Only clear input and attachments if stream started successfully
       // Add to history before clearing
       if (currentInput.trim()) {
@@ -197,7 +199,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
         });
         setHistoryIndex(-1);
       }
-      
+
       setInputValue("");
       clearAttachments();
       posthog.capture("chat:submit");
@@ -309,9 +311,8 @@ export function ChatInput({ chatId }: { chatId?: number }) {
       )}
       <div className="p-4" data-testid="chat-input-container">
         <div
-          className={`relative flex flex-col border border-border rounded-lg bg-(--background-lighter) shadow-sm ${
-            isDraggingOver ? "ring-2 ring-blue-500 border-blue-500" : ""
-          }`}
+          className={`relative flex flex-col border border-border rounded-lg bg-(--background-lighter) shadow-sm ${isDraggingOver ? "ring-2 ring-blue-500 border-blue-500" : ""
+            }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -388,9 +389,9 @@ export function ChatInput({ chatId }: { chatId?: number }) {
           <div className="pt-2 pb-2 border-t border-border">
             <div className="px-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ChatInputControls 
-                  showContextFilesPicker={true} 
-                  showImportButton={false} 
+                <ChatInputControls
+                  showContextFilesPicker={true}
+                  showImportButton={false}
                   showPlatformSelector={false}
                   inputValue={inputValue}
                   onInputChange={setInputValue}
@@ -409,9 +410,8 @@ export function ChatInput({ chatId }: { chatId?: number }) {
                     <Button
                       onClick={() => setShowTokenBar(!showTokenBar)}
                       variant="ghost"
-                      className={`has-[>svg]:px-2 ${
-                        showTokenBar ? "text-purple-500 bg-purple-100" : ""
-                      }`}
+                      className={`has-[>svg]:px-2 ${showTokenBar ? "text-purple-500 bg-purple-100" : ""
+                        }`}
                       size="sm"
                     >
                       <ChartColumnIncreasing size={14} />
@@ -462,10 +462,20 @@ function SuggestionButton({
 }
 
 function SummarizeInNewChatButton() {
+  const { isBlockChat } = useChatContext();
   const chatId = useAtomValue(selectedChatIdAtom);
   const appId = useAtomValue(selectedAppIdAtom);
-  const { streamMessage } = useStreamChat();
-  const navigate = useNavigate();
+  const { streamMessage } = useStreamChat({ hasChatId: !isBlockChat });
+
+  // Try to get navigate, but it might fail in BlockChat context
+  let navigate: ReturnType<typeof useNavigate> | null = null;
+  try {
+    navigate = useNavigate();
+  } catch (e) {
+    // Not in a valid route context (e.g., BlockChat), navigation won't work
+    console.log("Navigation not available in this context");
+  }
+
   const onClick = async () => {
     if (!appId) {
       console.error("No app id found");
@@ -473,8 +483,15 @@ function SummarizeInNewChatButton() {
     }
     try {
       const newChatId = await IpcClient.getInstance().createChat(appId);
-      // navigate to new chat
-      await navigate({ to: "/chat", search: { id: newChatId } });
+      // navigate to new chat (if navigation is available)
+      if (navigate) {
+        try {
+          await navigate({ to: "/chat", search: { id: newChatId } });
+        } catch (e) {
+          // Navigation might fail in BlockChat context, that's ok
+          console.log("Navigation skipped in BlockChat context");
+        }
+      }
       await streamMessage({
         prompt: "Summarize from chat-id=" + chatId,
         chatId: newChatId,
@@ -494,8 +511,9 @@ function SummarizeInNewChatButton() {
 }
 
 function RefactorFileButton({ path }: { path: string }) {
+  const { isBlockChat } = useChatContext();
   const chatId = useAtomValue(selectedChatIdAtom);
-  const { streamMessage } = useStreamChat();
+  const { streamMessage } = useStreamChat({ hasChatId: !isBlockChat });
   const onClick = () => {
     if (!chatId) {
       console.error("No chat id found");
@@ -606,16 +624,16 @@ function RefreshButton() {
 function BoostMyAppButton({ chatId }: { chatId?: number }) {
   const { streamMessage } = useStreamChat();
   const posthog = usePostHog();
-  
+
   const onClick = useCallback(async () => {
     if (!chatId) {
       console.error("No chat id found for Boost My App");
       return;
     }
-    
+
     console.log(`🚀 Boost My App clicked for chatId: ${chatId}`);
     posthog.capture("action:boost-my-app");
-    
+
     // Enhanced prompt with UI improvement focus
     const boostPrompt = `🚀 BOOST MY APP: Apply premium design enhancements to this application:
 
@@ -652,7 +670,7 @@ Continue building on what's already there while applying these premium design pa
       console.error("Failed to boost app:", error);
     }
   }, [chatId, streamMessage, posthog]);
-  
+
   return (
     <SuggestionButton
       onClick={onClick}
@@ -666,7 +684,7 @@ Continue building on what's already there while applying these premium design pa
 
 function RetryButton({ chatId }: { chatId?: number }) {
   const { streamMessage } = useStreamChat();
-  
+
   const onClick = () => {
     if (!chatId) {
       console.error("No chat id found for Retry");
@@ -679,7 +697,7 @@ function RetryButton({ chatId }: { chatId?: number }) {
       redo: true, // This is the key for retry functionality
     });
   };
-  
+
   return (
     <SuggestionButton onClick={onClick} tooltipText="Retry the last message">
       Retry
@@ -1010,24 +1028,21 @@ function ProposalSummary({
 
   if (sqlQueries.length) {
     parts.push(
-      `${sqlQueries.length} SQL ${
-        sqlQueries.length === 1 ? "query" : "queries"
+      `${sqlQueries.length} SQL ${sqlQueries.length === 1 ? "query" : "queries"
       }`,
     );
   }
 
   if (serverFunctions.length) {
     parts.push(
-      `${serverFunctions.length} Server ${
-        serverFunctions.length === 1 ? "Function" : "Functions"
+      `${serverFunctions.length} Server ${serverFunctions.length === 1 ? "Function" : "Functions"
       }`,
     );
   }
 
   if (packagesAdded.length) {
     parts.push(
-      `${packagesAdded.length} ${
-        packagesAdded.length === 1 ? "package" : "packages"
+      `${packagesAdded.length} ${packagesAdded.length === 1 ? "package" : "packages"
       }`,
     );
   }

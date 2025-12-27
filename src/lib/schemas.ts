@@ -193,6 +193,8 @@ export const UserSettingsSchema = z.object({
   autoApproveChanges: z.boolean().optional(),
   telemetryConsent: z.enum(["opted_in", "opted_out", "unset"]).optional(),
   telemetryUserId: z.string().optional(),
+  userId: z.string().optional(), // For analytics/Sentry user identification
+  analyticsConsent: z.enum(["granted", "denied", "unset"]).optional(), // For analytics consent
   hasRunBefore: z.boolean().optional(),
   enableApplaaPro: z.boolean().optional(),
   experiments: ExperimentsSchema.optional(),
@@ -205,7 +207,7 @@ export const UserSettingsSchema = z.object({
   enableSparkEditsMode: z.boolean().optional(),
   enableSparkContextMode: z.boolean().optional(),
   selectedTemplateId: z.string(),
-  selectedPlatform: z.enum(["web", "expo", "flutter"]).optional(),
+  selectedPlatform: z.enum(["web", "expo", "flutter", "godot", "arcade", "microbit", "minecraft"]).optional(),
   customAppsDirectory: z.string().optional(),
   enableSupabaseWriteSqlMigration: z.boolean().optional(),
   selectedChatMode: ChatModeSchema.optional(),
@@ -221,7 +223,7 @@ export const UserSettingsSchema = z.object({
   semanticContextEnabled: z.boolean().optional(),
   semanticCrossAppEnabled: z.boolean().optional(),
   semanticAutoIndexEnabled: z.boolean().optional(),
-  
+
   // AI Features Onboarding
   hasShownAIFeaturesDialog: z.boolean().optional(),
   aiTransformersInstalled: z.boolean().optional(),
@@ -265,10 +267,9 @@ export const UserSettingsSchema = z.object({
 
   ////////////////////////////////
   // DEPRECATED.
-  ////////////////////////////////
-  enableProSaverMode: z.boolean().optional(),
   dyadProBudget: DyadProBudgetSchema.optional(),
   runtimeMode: RuntimeModeSchema.optional(),
+  planningModel: LargeLanguageModelSchema.optional(),
 });
 
 /**

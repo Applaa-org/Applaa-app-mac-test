@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor, Gamepad2 } from "lucide-react";
+import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor, Gamepad2, Puzzle, Cpu, Box, Joystick } from "lucide-react";
 import { useAtom, useSetAtom } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import {
@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { selectedChatIdAtom } from "@/atoms/chatAtoms";
 import { useLoadApps } from "@/hooks/useLoadApps";
-import type { App } from "@/lib/schemas";
+import type { App } from "@/ipc/ipc_types";
 import { detectAppCategory, getCategoryLabel, getCategoryIcon, type AppCategory } from "@/utils/appTypeDetection";
 import { AppTypeFilter, type AppFilterType } from "@/components/AppTypeFilter";
 // Advanced features temporarily disabled for core stability
@@ -26,10 +26,14 @@ import { AppTypeFilter, type AppFilterType } from "@/components/AppTypeFilter";
 const getCategoryGradient = (category: AppCategory): string => {
   const gradients = {
     web: "bg-gradient-to-r from-blue-500 to-cyan-500",
-    mobile: "bg-gradient-to-r from-green-500 to-emerald-500", 
+    mobile: "bg-gradient-to-r from-green-500 to-emerald-500",
     flutter: "bg-gradient-to-r from-blue-600 to-indigo-600",
     capacitor: "bg-gradient-to-r from-orange-500 to-red-500",
-    game: "bg-gradient-to-r from-purple-500 to-pink-500"
+    game: "bg-gradient-to-r from-purple-500 to-pink-500",
+    blockly: "bg-gradient-to-r from-indigo-500 to-purple-500",
+    arcade: "bg-gradient-to-r from-teal-500 to-blue-500",
+    microbit: "bg-gradient-to-r from-red-500 to-pink-500",
+    minecraft: "bg-gradient-to-r from-green-600 to-lime-600"
   };
   return gradients[category] || gradients.web;
 };
@@ -41,7 +45,11 @@ const getCategoryIconComponent = (category: AppCategory) => {
     mobile: <Smartphone {...iconProps} />,
     flutter: <Smartphone {...iconProps} />,
     capacitor: <Zap {...iconProps} />,
-    game: <Gamepad2 {...iconProps} />
+    game: <Gamepad2 {...iconProps} />,
+    blockly: <Puzzle {...iconProps} />,
+    arcade: <Joystick {...iconProps} />,
+    microbit: <Cpu {...iconProps} />,
+    minecraft: <Box {...iconProps} />
   };
   return icons[category] || icons.web;
 };
@@ -50,7 +58,7 @@ const getCategoryIconComponent = (category: AppCategory) => {
 const getAppIconAndGradient = (app: App) => {
   const category = detectAppCategory(app);
   const iconProps = { size: 14, className: "text-white" };
-  
+
   const appStyles = {
     web: {
       icon: <Globe {...iconProps} />,
@@ -67,9 +75,29 @@ const getAppIconAndGradient = (app: App) => {
     capacitor: {
       icon: <Zap {...iconProps} />,
       gradient: "from-orange-500 to-red-500"
+    },
+    game: {
+      icon: <Gamepad2 {...iconProps} />,
+      gradient: "from-purple-500 to-pink-500"
+    },
+    blockly: {
+      icon: <Puzzle {...iconProps} />,
+      gradient: "from-indigo-500 to-purple-500"
+    },
+    arcade: {
+      icon: <Joystick {...iconProps} />,
+      gradient: "from-teal-500 to-blue-500"
+    },
+    microbit: {
+      icon: <Cpu {...iconProps} />,
+      gradient: "from-red-500 to-pink-500"
+    },
+    minecraft: {
+      icon: <Box {...iconProps} />,
+      gradient: "from-green-600 to-lime-600"
     }
   };
-  
+
   return appStyles[category] || appStyles.web;
 };
 
@@ -82,17 +110,23 @@ export function AppList({ show }: { show?: boolean }) {
   // const { isAuthenticated } = useSupabaseAuth();
   const [showCloudSync, setShowCloudSync] = useState(false);
   const [appFilter, setAppFilter] = useState<AppFilterType>("web");
-  
+
   // Temporary fallback values
   const isAuthenticated = false;
-  
+
   // Ensure apps is always an array to prevent hook inconsistencies
   const stableApps = React.useMemo(() => apps || [], [apps]);
-  
+
   // Filter apps based on selected filter type
   const filteredApps = React.useMemo(() => {
     return stableApps.filter(app => {
       const category = detectAppCategory(app);
+
+      // Handle the "learn" filter which aggregates multiple educational types
+      if (appFilter === 'learn') {
+        return ['blockly', 'arcade', 'microbit', 'minecraft'].includes(category);
+      }
+
       return category === appFilter; // Only show apps matching the selected filter
     });
   }, [stableApps, appFilter]);
@@ -101,20 +135,24 @@ export function AppList({ show }: { show?: boolean }) {
   // IMPORTANT: Hooks must be called unconditionally before any early returns
   const groupedApps = React.useMemo(() => {
     if (!filteredApps.length) return {} as Record<AppCategory, App[]>;
-    
+
     const groups: Record<AppCategory, App[]> = {
       web: [],
       mobile: [],
       flutter: [],
       capacitor: [],
-      game: []
+      game: [],
+      blockly: [],
+      arcade: [],
+      microbit: [],
+      minecraft: []
     };
-    
+
     filteredApps.forEach(app => {
       const category = detectAppCategory(app);
       groups[category].push(app);
     });
-    
+
     return Object.entries(groups).reduce((acc, [category, categoryApps]) => {
       if (categoryApps.length > 0) {
         acc[category as AppCategory] = categoryApps;
@@ -131,11 +169,18 @@ export function AppList({ show }: { show?: boolean }) {
   const handleAppClick = (id: number) => {
     setSelectedAppId(id);
     setSelectedChatId(null);
-    
+
     // 🚀 OPTIMIZATION: Trigger background dependency check for existing apps
     // This ensures dependencies are ready when user clicks preview
     triggerBackgroundDependencyCheck(id);
-    
+
+    // Redirect Blocklaa apps to dedicated editor page
+    const app = apps.find(a => a.id === id);
+    if (app && (app.appType === 'blockly' || detectAppCategory(app) === 'blockly')) {
+      navigate({ to: '/blockly', search: { id } });
+      return;
+    }
+
     navigate({
       to: "/",
       search: { appId: id },
@@ -147,10 +192,10 @@ export function AppList({ show }: { show?: boolean }) {
     try {
       const { IpcClient } = await import("@/ipc/ipc_client");
       const ipcClient = IpcClient.getInstance();
-      
+
       // Check if dependencies are needed (non-blocking)
       const { needed } = await ipcClient.checkDependenciesNeeded({ appId });
-      
+
       if (needed) {
         console.log(`📦 [BACKGROUND] Starting dependency installation for app ${appId}`);
         // Install in background (fire and forget)
@@ -168,34 +213,33 @@ export function AppList({ show }: { show?: boolean }) {
     // We'll eventually need a create app workflow
   };
 
-  
+
 
   const renderAppItem = (app: App) => {
     const { icon, gradient } = getAppIconAndGradient(app);
-    
+
     return (
       <SidebarMenuItem key={app.id} className="mb-2 mx-2">
-      <Button
-        variant="ghost"
-        onClick={() => handleAppClick(app.id)}
-          className={`justify-start w-full text-left p-3 rounded-xl border transition-all duration-200 hover:shadow-md ${
-          selectedAppId === app.id
-              ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border-blue-200 dark:border-blue-700 shadow-md"
-              : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750"
-        }`}
-        data-testid={`app-list-item-${app.name}`}
-      >
+        <Button
+          variant="ghost"
+          onClick={() => handleAppClick(app.id)}
+          className={`justify-start w-full text-left p-3 rounded-xl border transition-all duration-200 hover:shadow-md ${selectedAppId === app.id
+            ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border-blue-200 dark:border-blue-700 shadow-md"
+            : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750"
+            }`}
+          data-testid={`app-list-item-${app.name}`}
+        >
           <div className="flex items-center gap-3 w-full">
             <div className={`w-8 h-8 bg-gradient-to-r ${gradient} rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm`}>
               {icon}
             </div>
-                      <div className="flex flex-col flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <span className="truncate font-medium text-gray-900 dark:text-gray-100">
-                {app.name}
-              </span>
-              {/* Backup status temporarily disabled for core stability */}
-              {/* isAuthenticated && (
+            <div className="flex flex-col flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+                  {app.name}
+                </span>
+                {/* Backup status temporarily disabled for core stability */}
+                {/* isAuthenticated && (
                 <BackupStatusIndicator
                   appId={app.id}
                   isBackupEnabled={true}
@@ -203,17 +247,17 @@ export function AppList({ show }: { show?: boolean }) {
                   lastBackup={new Date(app.updatedAt)}
                 />
               ) */}
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {formatDistanceToNow(new Date(app.createdAt), {
+                  addSuffix: true,
+                })}
+              </span>
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {formatDistanceToNow(new Date(app.createdAt), {
-                addSuffix: true,
-              })}
-            </span>
           </div>
-        </div>
-      </Button>
-    </SidebarMenuItem>
-  );
+        </Button>
+      </SidebarMenuItem>
+    );
   };
 
   return (
@@ -235,11 +279,11 @@ export function AppList({ show }: { show?: boolean }) {
             </div>
             <span className="font-medium">New App</span>
           </Button>
-          
+
           {/* App Type Filter */}
-          <AppTypeFilter 
-            onChange={setAppFilter} 
-            defaultValue={appFilter} 
+          <AppTypeFilter
+            onChange={setAppFilter}
+            defaultValue={appFilter}
           />
 
           {/* Cloud Sync Button - Only show when authenticated */}

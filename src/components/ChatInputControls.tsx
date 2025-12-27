@@ -21,7 +21,7 @@ export function ChatInputControls({
   showPlatformSelector?: boolean;
   inputValue?: string;
   onInputChange?: (value: string) => void;
-  appType?: 'web' | 'expo' | 'flutter' | 'mobile';
+  appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
   disabled?: boolean;
 }) {
   return (
@@ -40,7 +40,7 @@ export function ChatInputControls({
           />
         )}
       </div>
-      
+
       {/* Right group: App Type, Spark, and Import App */}
       <div className="flex items-center gap-0.5">
         <ChatModeSelector />
@@ -48,7 +48,7 @@ export function ChatInputControls({
         {/* 🚀 MVP: Import option hidden for simplicity - can be re-enabled post-MVP */}
         {/* {showImportButton && <ImportAppIcon />} */}
       </div>
-      
+
       {/* <ProModeSelector /> - Hidden for MVP */}
       {/* SmartContextFilesPicker removed for MVP */}
     </div>

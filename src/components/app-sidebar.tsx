@@ -1,13 +1,14 @@
-import { 
-  Sparkles, 
-  MessageSquareCode, 
-  Sliders, 
-  HelpCircle, 
+import {
+  Sparkles,
+  MessageSquareCode,
+  Sliders,
+  HelpCircle,
   Zap,
   BookOpenText,
   User,
   LogIn,
-  Target
+  Target,
+  Bot
 } from "lucide-react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
@@ -43,6 +44,11 @@ const items = [
     title: "Apps",
     to: "/",
     icon: Sparkles, // AI magic for app creation
+  },
+  {
+    title: "Buddy",
+    to: "/browser-agent",
+    icon: Bot, // Applaa Buddy - AI browser automation
   },
   // 🚀 MVP: Chat tab removed - chat is integrated within each app context
   // {
@@ -87,14 +93,14 @@ export function AppSidebar() {
   const expandedByHover = useRef(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false); // State for dialog
   const [isDropdownOpen] = useAtom(dropdownOpenAtom);
-  
+
   // Authentication state
   // Advanced features temporarily disabled for core stability
   const { isAuthenticated, user, isLoading: isAuthLoading } = useWordPressAuth();
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const navigate = useNavigate();
-  
+
   // Authentication state is now managed by useSupabaseAuth hook
 
   useEffect(() => {
@@ -122,6 +128,7 @@ export function AppSidebar() {
   const isSettingsRoute = routerState.location.pathname.startsWith("/settings");
   const isHubRoute = routerState.location.pathname.startsWith("/hub");
   const isDocsRoute = routerState.location.pathname.startsWith("/docs");
+  const isBrowserAgentRoute = routerState.location.pathname.startsWith("/browser-agent");
 
   let selectedItem: string | null = null;
   if (hoverState === "start-hover:app") {
@@ -141,12 +148,14 @@ export function AppSidebar() {
       selectedItem = "Hub";
     } else if (isDocsRoute) {
       selectedItem = "Docs";
+    } else if (isBrowserAgentRoute) {
+      selectedItem = "Agent";
     }
   }
 
   // Determine if sidebar should be expanded (18rem) or collapsed (5rem)
   const shouldExpand = selectedItem === "Apps" || selectedItem === "Settings";
-  
+
   return (
     <Sidebar
       collapsible="icon"
@@ -208,7 +217,7 @@ export function AppSidebar() {
                 </div>
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                   {isAuthLoading ? "..." : isAuthenticated ? (
-                    user?.display_name 
+                    user?.display_name
                       ? user.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
                       : user?.username?.[0].toUpperCase() || "U"
                   ) : "Sign In"}
@@ -283,9 +292,8 @@ function AppIcons({
                 >
                   <Link
                     to={item.to}
-                    className={`flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                      isActive ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20" : ""
-                    }`}
+                    className={`flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 ${isActive ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20" : ""
+                      }`}
                     onMouseEnter={() => {
                       if (item.title === "Apps") {
                         onHoverChange("start-hover:app");
@@ -297,18 +305,16 @@ function AppIcons({
                     }}
                   >
                     <div className="flex flex-col items-center gap-1">
-                      <div className={`p-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 ${
-                        isActive 
-                          ? "bg-gradient-to-r from-blue-500 to-blue-600" 
-                          : "bg-gradient-to-r from-gray-500 to-gray-600"
-                      }`}>
+                      <div className={`p-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 ${isActive
+                        ? "bg-gradient-to-r from-blue-500 to-blue-600"
+                        : "bg-gradient-to-r from-gray-500 to-gray-600"
+                        }`}>
                         <item.icon className="h-5 w-5 text-white" />
                       </div>
-                      <span className={`text-xs font-medium whitespace-nowrap ${
-                        isActive 
-                          ? "text-blue-700 dark:text-blue-300" 
-                          : "text-gray-700 dark:text-gray-300"
-                      }`}>
+                      <span className={`text-xs font-medium whitespace-nowrap ${isActive
+                        ? "text-blue-700 dark:text-blue-300"
+                        : "text-gray-700 dark:text-gray-300"
+                        }`}>
                         {item.title}
                       </span>
                     </div>

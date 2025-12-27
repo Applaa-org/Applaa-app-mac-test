@@ -12,38 +12,38 @@ export interface UniversalFramework {
   platforms: Platform[];
   language: ProgrammingLanguage;
   description: string;
-  
+
   // Framework Detection
   keywords: string[];
   aliases: string[];
-  
+
   // Technical Requirements
   prerequisites: string[];
   dependencies: string[];
   devDependencies: string[];
   globalTools: string[];
-  
+
   // Project Structure
   scaffolding: ProjectScaffolding;
   configFiles: ConfigFile[];
-  
+
   // Development Workflow
   commands: FrameworkCommands;
   hotReload: boolean;
   buildProcess: BuildConfiguration;
-  
+
   // Guidance & Documentation
   gettingStarted: string[];
   commonPatterns: CodePattern[];
   troubleshooting: TroubleshootingTip[];
-  
+
   // Integration
   popularity: number;
   maturity: 'experimental' | 'stable' | 'mature';
   lastUpdated: string;
 }
 
-export type FrameworkCategory = 
+export type FrameworkCategory =
   | 'web-frontend' | 'web-backend' | 'web-fullstack'
   | 'mobile-native' | 'mobile-hybrid' | 'mobile-cross-platform'
   | 'desktop-native' | 'desktop-cross-platform'
@@ -55,15 +55,16 @@ export type FrameworkCategory =
   | 'blockchain' | 'web3'
   | 'testing' | 'automation' | 'devops'
   | 'ui-library' | 'component-library'
-  | 'static-site' | 'jamstack';
+  | 'static-site' | 'jamstack'
+  | 'educational' | 'visual-blocks';
 
-export type Platform = 
+export type Platform =
   | 'web' | 'ios' | 'android' | 'windows' | 'macos' | 'linux'
   | 'server' | 'cloud' | 'edge' | 'iot' | 'embedded'
   | 'browser-extension' | 'pwa' | 'desktop-app'
   | 'smart-tv' | 'watch' | 'ar' | 'vr';
 
-export type ProgrammingLanguage = 
+export type ProgrammingLanguage =
   | 'javascript' | 'typescript' | 'python' | 'rust' | 'go' | 'java'
   | 'kotlin' | 'swift' | 'dart' | 'c#' | 'c++' | 'c' | 'php'
   | 'ruby' | 'elixir' | 'clojure' | 'scala' | 'haskell' | 'f#'
@@ -560,7 +561,389 @@ class Post(models.Model):
     popularity: 85,
     maturity: 'mature',
     lastUpdated: '2024-01-12'
+  },
+
+  // MAKECODE ARCADE
+  {
+    id: 'makecode-arcade',
+    name: 'MakeCode Arcade',
+    category: 'educational',
+    platforms: ['web', 'pwa'],
+    language: 'typescript',
+    description: 'Create retro games with blocks and JavaScript/TypeScript',
+    keywords: ['arcade', 'makecode arcade', 'retro games', 'blocks', 'pixel art'],
+    aliases: ['arcade-makecode', 'makecode-game'],
+    prerequisites: ['node'],
+    dependencies: [],
+    devDependencies: [],
+    globalTools: [],
+    scaffolding: {
+      structure: {
+        'main.ts': 'file',
+        'pxt.json': 'file',
+        'assets': 'directory',
+        'images.g.jres': 'file',
+        'images.g.ts': 'file'
+      },
+      entryPoint: 'main.ts',
+      configurationFiles: ['pxt.json'],
+      initialFiles: [
+        {
+          path: 'main.ts',
+          content: `// Build a retro game with Applaa 🚀
+game.splash("Hello Arcade!")
+
+let mySprite = sprites.create(img\`
+    . . . . . . . . . . . . . . . . 
+    . . . . . . . . . . . . . . . . 
+    . . . . . . 8 8 8 8 . . . . . . 
+    . . . . . 8 1 1 1 1 8 . . . . . 
+    . . . . 8 1 1 1 1 1 1 8 . . . . 
+    . . . . 8 1 1 1 1 1 1 8 . . . . 
+    . . . . 8 1 1 1 1 1 1 8 . . . . 
+    . . . . 8 1 1 1 1 1 1 8 . . . . 
+    . . . . 8 1 1 1 1 1 1 8 . . . . 
+    . . . . 8 1 1 1 1 1 1 8 . . . . 
+    . . . . . 8 1 1 1 1 8 . . . . . 
+    . . . . . . 8 8 8 8 . . . . . . 
+    . . . . . . . . . . . . . . . . 
+    . . . . . . . . . . . . . . . . 
+    . . . . . . . . . . . . . . . . 
+    . . . . . . . . . . . . . . . . 
+\`, SpriteKind.Player)
+
+controller.moveSprite(mySprite)`,
+          template: true
+        }
+      ]
+    },
+    configFiles: [
+      {
+        name: 'pxt.json',
+        path: 'pxt.json',
+        content: {
+          name: "My Arcade Game",
+          dependencies: {
+            "device": "*"
+          },
+          targetVersions: {
+            "target": "1.12.30"
+          },
+          preferredEditor: "ts"
+        },
+        required: true
+      }
+    ],
+    commands: {
+      install: 'echo "No install needed for MakeCode"',
+      dev: 'echo "Run in internal MakeCode editor"',
+      build: 'echo "Export via MakeCode"',
+      test: 'echo "Simulate in editor"'
+    },
+    hotReload: true,
+    buildProcess: {
+      outputDir: 'built',
+      assetHandling: 'bundle',
+      optimizations: ['tree-shaking'],
+      targets: [
+        {
+          platform: 'web',
+          format: 'es',
+          configuration: { target: 'pxt-arcade' }
+        }
+      ]
+    },
+    gettingStarted: [
+      'MakeCode Arcade is great for 2D retro games',
+      'Use sprites, tiles, and sound effects',
+      'Events like onOverlap handle collisions',
+      'Pixels are 160x120 resolution'
+    ],
+    commonPatterns: [
+      {
+        name: 'Sprite Creation',
+        description: 'Create and move a character',
+        code: `let player = sprites.create(img\`...\`, SpriteKind.Player)
+controller.moveSprite(player)`,
+        explanation: 'Standard way to handle characters'
+      }
+    ],
+    troubleshooting: [],
+    popularity: 80,
+    maturity: 'stable',
+    lastUpdated: '2024-02-01'
+  },
+
+  // MICRO:BIT
+  {
+    id: 'microbit',
+    name: 'micro:bit',
+    category: 'embedded',
+    platforms: ['embedded', 'iot'],
+    language: 'typescript',
+    description: 'Code the BBC micro:bit with blocks, TS, or Python',
+    keywords: ['microbit', 'bbc', 'embedded', 'robotics', 'iot'],
+    aliases: ['makecode-microbit'],
+    prerequisites: [],
+    dependencies: [],
+    devDependencies: [],
+    globalTools: [],
+    scaffolding: {
+      structure: {
+        'main.ts': 'file',
+        'pxt.json': 'file'
+      },
+      entryPoint: 'main.ts',
+      configurationFiles: ['pxt.json'],
+      initialFiles: [
+        {
+          path: 'main.ts',
+          content: `// Build a micro:bit project with Applaa 🚀
+basic.showString("Hello!")
+basic.showIcon(IconNames.Heart)
+
+input.onButtonPressed(Button.A, function() {
+    basic.showNumber(0)
+})`,
+          template: true
+        }
+      ]
+    },
+    configFiles: [
+      {
+        name: 'pxt.json',
+        path: 'pxt.json',
+        content: {
+          name: "My micro:bit App",
+          dependencies: {
+            "core": "*",
+            "radio": "*",
+            "microphone": "*"
+          },
+          targetVersions: {
+            "target": "6.0.0"
+          }
+        },
+        required: true
+      }
+    ],
+    commands: {
+      install: '',
+      dev: '',
+      build: '',
+      test: ''
+    },
+    hotReload: false,
+    buildProcess: {
+      outputDir: 'built',
+      assetHandling: 'copy',
+      optimizations: [],
+      targets: [
+        {
+          platform: 'embedded',
+          format: 'hex',
+          configuration: { board: 'v2' }
+        }
+      ]
+    },
+    gettingStarted: [
+      'Use basic.showIcon to display patterns',
+      'input.onButtonPressed handles hardware interaction',
+      'The micro:bit has an accelerometer, compass, and light sensor',
+      'V2 includes a built-in microphone and speaker'
+    ],
+    commonPatterns: [],
+    troubleshooting: [],
+    popularity: 85,
+    maturity: 'mature',
+    lastUpdated: '2024-02-01'
+  },
+
+  // MINECRAFT MAKECODE
+  {
+    id: 'minecraft-makecode',
+    name: 'Minecraft MakeCode',
+    category: 'visual-blocks',
+    platforms: ['windows', 'macos', 'ios', 'android'],
+    language: 'typescript',
+    description: 'Mod Minecraft Education with blocks and JavaScript',
+    keywords: ['minecraft', 'minecraft education', 'modding', 'makecode minecraft'],
+    aliases: ['minecraft-mod', 'makecode-minecraft'],
+    prerequisites: ['minecraft-education-edition'],
+    dependencies: [],
+    devDependencies: [],
+    globalTools: [],
+    scaffolding: {
+      structure: {
+        'main.ts': 'file',
+        'pxt.json': 'file'
+      },
+      entryPoint: 'main.ts',
+      configurationFiles: ['pxt.json'],
+      initialFiles: [
+        {
+          path: 'main.ts',
+          content: `// Mod Minecraft with Applaa 🚀
+player.onChat("jump", function () {
+    player.teleport(pos(0, 10, 0))
+    mobs.spawn(CHICKEN, pos(0, 15, 0))
+})`,
+          template: true
+        }
+      ]
+    },
+    configFiles: [
+      {
+        name: 'pxt.json',
+        path: 'pxt.json',
+        content: {
+          name: "My Minecraft Mod",
+          dependencies: {
+            "core": "*"
+          }
+        },
+        required: true
+      }
+    ],
+    commands: {
+      install: '',
+      dev: '',
+      build: '',
+      test: ''
+    },
+    hotReload: true,
+    buildProcess: {
+      outputDir: 'built',
+      assetHandling: 'bundle',
+      optimizations: [],
+      targets: [
+        {
+          platform: 'cloud',
+          format: 'es',
+          configuration: {}
+        }
+      ]
+    },
+    gettingStarted: [
+      'Use player.onChat to trigger mod logic',
+      'The Agent can automate building and mining',
+      'position(0,0,0) is relative to the player',
+      'Requires Minecraft Education Edition'
+    ],
+    commonPatterns: [],
+    troubleshooting: [],
+    popularity: 75,
+    maturity: 'stable',
+    lastUpdated: '2024-02-01'
+  },
+
+  // BLOCKLY
+  {
+    id: 'blockly',
+    name: 'Blocklaa',
+    category: 'visual-blocks',
+    platforms: ['web'],
+    language: 'javascript',
+    description: 'Visual programming with drag-and-drop logic blocks',
+    keywords: ['blockly', 'blocks', 'visual', 'logic', 'scratch', 'drag and drop'],
+    aliases: ['google-blockly', 'visual-blocks'],
+    prerequisites: [],
+    dependencies: ['blockly'],
+    devDependencies: [],
+    globalTools: [],
+    scaffolding: {
+      structure: {
+        'index.html': 'file',
+        'workspace.json': 'file',
+        'generated.js': 'file'
+      },
+      entryPoint: 'index.html',
+      configurationFiles: ['workspace.json'],
+      initialFiles: [
+        {
+          path: 'workspace.json',
+          content: `{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "text_print",
+        "id": "start_block",
+        "x": 50,
+        "y": 50,
+        "fields": {
+          "TEXT": "Hello from Applaa!"
+        }
+      }
+    ]
   }
+}`,
+          template: true
+        },
+        {
+          path: 'index.html',
+          content: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Blockly Workspace</title>
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+</head>
+<body>
+  <div id="blocklyDiv" style="height: 480px; width: 600px;"></div>
+  <button onclick="runCode()">Run Code</button>
+  <div id="output"></div>
+</body>
+</html>`,
+          template: true
+        }
+      ]
+    },
+    configFiles: [
+      {
+        name: 'workspace.json',
+        path: 'workspace.json',
+        content: {
+          blocks: {
+            languageVersion: 0,
+            blocks: []
+          }
+        },
+        required: true
+      }
+    ],
+    commands: {
+      install: 'npm install blockly',
+      dev: 'echo "Open index.html in browser"',
+      build: 'echo "Export workspace JSON"',
+      test: 'echo "Run in browser"'
+    },
+    hotReload: true,
+    buildProcess: {
+      outputDir: 'dist',
+      assetHandling: 'bundle',
+      optimizations: [],
+      targets: [
+        {
+          platform: 'web',
+          format: 'es',
+          configuration: {}
+        }
+      ]
+    },
+    gettingStarted: [
+      'Drag blocks from the toolbox to the workspace',
+      'Connect blocks together to create logic',
+      'Use variables to store values',
+      'Add loops to repeat actions',
+      'Run your code to see it in action'
+    ],
+    commonPatterns: [],
+    troubleshooting: [],
+    popularity: 90,
+    maturity: 'mature',
+    lastUpdated: '2024-02-01'
+  },
 
   // TODO: Add more frameworks
   // - Vue.js, Angular, Svelte (Web Frontend)
@@ -579,20 +962,20 @@ class Post(models.Model):
 export class FrameworkDetectionEngine {
   static detectFramework(userPrompt: string): UniversalFramework | null {
     const promptLower = userPrompt.toLowerCase();
-    
+
     for (const framework of UNIVERSAL_FRAMEWORKS) {
       // Check direct name matches
       if (promptLower.includes(framework.name.toLowerCase())) {
         return framework;
       }
-      
+
       // Check keyword matches
       for (const keyword of framework.keywords) {
         if (promptLower.includes(keyword.toLowerCase())) {
           return framework;
         }
       }
-      
+
       // Check alias matches
       for (const alias of framework.aliases) {
         if (promptLower.includes(alias.toLowerCase())) {
@@ -600,34 +983,34 @@ export class FrameworkDetectionEngine {
         }
       }
     }
-    
+
     return null;
   }
-  
+
   static suggestFrameworks(userPrompt: string, limit: number = 5): UniversalFramework[] {
     const promptLower = userPrompt.toLowerCase();
     const suggestions: { framework: UniversalFramework; score: number }[] = [];
-    
+
     for (const framework of UNIVERSAL_FRAMEWORKS) {
       let score = 0;
-      
+
       // Category relevance
       if (promptLower.includes('mobile') && framework.category.includes('mobile')) score += 3;
       if (promptLower.includes('web') && framework.category.includes('web')) score += 3;
       if (promptLower.includes('desktop') && framework.category.includes('desktop')) score += 3;
       if (promptLower.includes('game') && framework.category.includes('game')) score += 3;
-      
+
       // Language preference
       if (promptLower.includes(framework.language)) score += 2;
-      
+
       // Popularity boost
       score += framework.popularity / 100;
-      
+
       if (score > 0) {
         suggestions.push({ framework, score });
       }
     }
-    
+
     return suggestions
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
@@ -641,8 +1024,8 @@ export class FrameworkDetectionEngine {
  */
 export class UniversalProjectGenerator {
   static async generateProject(
-    framework: UniversalFramework, 
-    projectName: string, 
+    framework: UniversalFramework,
+    projectName: string,
     userPrompt: string
   ): Promise<{
     success: boolean;
@@ -653,19 +1036,19 @@ export class UniversalProjectGenerator {
     try {
       // 1. Create project directory
       const projectPath = await this.createProjectDirectory(projectName);
-      
+
       // 2. Generate project structure
       await this.createProjectStructure(framework, projectPath);
-      
+
       // 3. Generate configuration files
       await this.createConfigurationFiles(framework, projectPath, projectName);
-      
+
       // 4. Install dependencies (if possible)
       await this.installDependencies(framework, projectPath);
-      
+
       // 5. Generate next steps
       const nextSteps = this.generateNextSteps(framework, userPrompt);
-      
+
       return {
         success: true,
         projectPath,
@@ -680,19 +1063,19 @@ export class UniversalProjectGenerator {
       };
     }
   }
-  
+
   private static async createProjectDirectory(projectName: string): Promise<string> {
     // Implementation would create the directory
     return `/path/to/${projectName}`;
   }
-  
+
   private static async createProjectStructure(
-    framework: UniversalFramework, 
+    framework: UniversalFramework,
     projectPath: string
   ): Promise<void> {
     // Implementation would create directories and files based on framework.scaffolding
   }
-  
+
   private static async createConfigurationFiles(
     framework: UniversalFramework,
     projectPath: string,
@@ -700,14 +1083,14 @@ export class UniversalProjectGenerator {
   ): Promise<void> {
     // Implementation would generate config files with proper project name substitution
   }
-  
+
   private static async installDependencies(
     framework: UniversalFramework,
     projectPath: string
   ): Promise<void> {
     // Implementation would run the install command for the framework
   }
-  
+
   private static generateNextSteps(
     framework: UniversalFramework,
     userPrompt: string
@@ -717,16 +1100,16 @@ export class UniversalProjectGenerator {
       `Run '${framework.commands.dev}' to start development`,
       ...framework.gettingStarted
     ];
-    
+
     // Add context-specific steps based on user prompt
     if (userPrompt.toLowerCase().includes('api')) {
       steps.push('Create your API endpoints in the appropriate directory');
     }
-    
+
     if (userPrompt.toLowerCase().includes('database')) {
       steps.push('Set up your database connection and models');
     }
-    
+
     return steps;
   }
 }

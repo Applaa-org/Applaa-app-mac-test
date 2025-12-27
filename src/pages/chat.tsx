@@ -30,7 +30,7 @@ export default function ChatPage() {
   const navigate = useNavigate();
   const { streamMessage } = useStreamChat({ hasChatId: false });
   const hasAutoSubmitted = useRef(false);
-  
+
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
   const [isResizing, setIsResizing] = useState(false);
   const [leftPanelView, setLeftPanelView] = useState<"chat" | "code">("chat");
@@ -52,19 +52,19 @@ export default function ChatPage() {
         try {
           // First try to find the chat in the already loaded chats
           let currentChat = chats.find(chat => chat.id === chatId);
-          
+
           // If not found in loaded chats, get it directly from the database
           if (!currentChat) {
             console.log(`🔍 [ChatPage] Chat ${chatId} not found in loaded chats, fetching directly...`);
             const { IpcClient } = await import("@/ipc/ipc_client");
             const ipcClient = IpcClient.getInstance();
             const chatData = await ipcClient.getChat(chatId);
-            
+
             // Get all chats to find the appId (since getChat doesn't return appId directly)
             const allChats = await ipcClient.getChats();
             currentChat = allChats.find(chat => chat.id === chatId);
           }
-          
+
           if (currentChat && currentChat.appId !== selectedAppId) {
             console.log(`🔄 [ChatPage] Syncing selectedAppId: ${selectedAppId} -> ${currentChat.appId} for chatId: ${chatId}`);
             setSelectedAppId(currentChat.appId);
@@ -84,7 +84,7 @@ export default function ChatPage() {
     if (initialPrompt && chatId && !hasAutoSubmitted.current) {
       console.log(`🚀 [ChatPage] Auto-submitting initial prompt for chatId: ${chatId}`);
       hasAutoSubmitted.current = true;
-      
+
       // Parse attachments if provided
       let attachments: FileAttachment[] = [];
       if (initialAttachments) {
@@ -94,7 +94,7 @@ export default function ChatPage() {
           console.error("Failed to parse initial attachments:", error);
         }
       }
-      
+
       // Wait 100ms to ensure ChatPanel is mounted and callbacks are registered
       // This matches Dyad's proven pattern and avoids race conditions
       setTimeout(() => {
@@ -104,7 +104,7 @@ export default function ChatPage() {
           attachments
         }).then(() => {
           console.log(`✅ [ChatPage] Initial prompt submitted successfully for chatId: ${chatId}`);
-          
+
           // Clean up URL to remove initialPrompt/initialAttachments params
           navigate({
             to: "/chat",
@@ -119,11 +119,11 @@ export default function ChatPage() {
   }, [initialPrompt, chatId, streamMessage, navigate, initialAttachments]);
 
   useEffect(() => {
-    
+
     if (!chatId && chats.length && !loading) {
       // Not a real navigation, just a redirect, when the user navigates to /chat
       // without a chatId, we redirect to the first chat
-      
+
       setSelectedAppId(chats[0].appId);
       navigate({ to: "/chat", search: { id: chats[0].id }, replace: true });
     }
@@ -155,6 +155,27 @@ export default function ChatPage() {
     }
   }, [previewMode]);
 
+  // 🚀 GAME MODE: Auto-collapse chat for game apps to give full screen focus
+  const isGameApp = app && ['blockly', 'arcade', 'godot', 'microbit', 'minecraft'].includes(app.appType || '');
+
+  useEffect(() => {
+    if (isGameApp && isLeftPanelOpen) {
+      setIsLeftPanelOpen(false);
+    }
+  }, [isGameApp]); // Only run when app type changes/loads
+
+  // Sync state to Panel ref
+  useEffect(() => {
+    const panel = leftPanelRef.current;
+    if (panel) {
+      if (isLeftPanelOpen) {
+        panel.expand();
+      } else {
+        panel.collapse();
+      }
+    }
+  }, [isLeftPanelOpen]);
+
   // Show popup when preview becomes ready (only once)
   useEffect(() => {
     if (isPreviewReady && !showPreviewReadyPopup && !isAlreadyRendered) {
@@ -168,7 +189,14 @@ export default function ChatPage() {
 
   return (
     <PanelGroup autoSaveId="persistence" direction="horizontal">
-      <Panel id="left-panel" minSize={30} ref={leftPanelRef} collapsible>
+      <Panel
+        id="left-panel"
+        minSize={30}
+        ref={leftPanelRef}
+        collapsible
+        onCollapse={() => setIsLeftPanelOpen(false)}
+        onExpand={() => setIsLeftPanelOpen(true)}
+      >
         <div className="h-full w-full flex flex-col">
           {/* Toggle Header */}
           <div className="flex items-center border-b border-border bg-background px-4 py-1">
@@ -199,7 +227,7 @@ export default function ChatPage() {
               </button>
             </div>
           </div>
-          
+
           {/* Content Area */}
           <div className="flex-1 overflow-hidden">
             {leftPanelView === "chat" ? (
@@ -227,13 +255,13 @@ export default function ChatPage() {
             !isResizing && "transition-all duration-100 ease-in-out",
           )}
         >
-          <PreviewPanel 
+          <PreviewPanel
             isLeftPanelOpen={isLeftPanelOpen}
             onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
           />
         </Panel>
       </>
-      
+
       {/* Preview Ready Popup */}
       <PreviewReadyPopup
         isOpen={showPreviewReadyPopup}

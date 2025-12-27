@@ -27,11 +27,12 @@ import { CustomAppsDirectorySelector } from "@/components/CustomAppsDirectorySel
 import { NeonIntegration } from "@/components/NeonIntegration";
 import { CloudServicesSettings } from "@/components/settings/CloudServicesSettings";
 import { CacheDebugPanel } from "@/components/settings/CacheDebugPanel";
+import { PlanningModelSelector } from "@/components/PlanningModelSelector";
 
 // Temporary Pro Toggle for Development
 function DevProToggle() {
   const { settings, updateSettings } = useSettings();
-  
+
   const togglePro = () => {
     updateSettings({
       enableApplaaPro: !settings?.enableApplaaPro,
@@ -64,7 +65,7 @@ export default function SettingsPage() {
   const { settings, updateSettings } = useSettings();
   const router = useRouter();
   const location = useLocation();
-  
+
   // Check if we're on a provider settings route
   const isProviderRoute = location.pathname.includes('/providers/');
 
@@ -112,7 +113,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <GeneralSettings appVersion={appVersion} />
           {/* AI Settings removed for MVP */}
-          
+
           <div
             id="provider-settings"
             className="bg-white dark:bg-gray-800 rounded-xl shadow-sm"
@@ -121,7 +122,7 @@ export default function SettingsPage() {
           </div>
 
           <WorkflowSettings />
-          
+
           {/* Smart Suggestions removed for MVP */}
 
           {/* Usage Analytics removed for MVP */}
@@ -327,11 +328,10 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
                 className={`
                 px-4 py-1.5 text-sm font-medium rounded-md
                 transition-all duration-200
-                ${
-                  theme === option
+                ${theme === option
                     ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                }
+                  }
               `}
               >
                 {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -341,7 +341,7 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
         </div>
 
         <CustomAppsDirectorySelector />
-        
+
         {/* Temporary Pro Toggle for Development */}
         <DevProToggle />
       </div>
@@ -406,6 +406,10 @@ export function AISettings() {
 
       <div className="mt-4">
         <ThinkingBudgetSelector />
+      </div>
+
+      <div className="mt-4">
+        <PlanningModelSelector />
       </div>
 
       <div className="mt-4">

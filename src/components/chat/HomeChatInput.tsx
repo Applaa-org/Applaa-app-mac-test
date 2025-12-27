@@ -32,7 +32,7 @@ export function HomeChatInput({
   placeholder?: string;
   showPlatformSelector?: boolean;
   showSparkSelector?: boolean;
-  appType?: 'web' | 'expo' | 'flutter' | 'mobile';
+  appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
 }) {
   const posthog = usePostHog();
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
@@ -87,9 +87,8 @@ export function HomeChatInput({
     <>
       <div className="p-4" data-testid="home-chat-input-container">
         <div
-          className={`relative flex flex-col space-y-2 border border-border rounded-lg bg-(--background-lighter) shadow-sm ${
-            isDraggingOver ? "ring-2 ring-blue-500 border-blue-500" : ""
-          }`}
+          className={`relative flex flex-col space-y-2 border border-border rounded-lg bg-(--background-lighter) shadow-sm ${isDraggingOver ? "ring-2 ring-blue-500 border-blue-500" : ""
+            }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -148,8 +147,8 @@ export function HomeChatInput({
           </div>
           <div className="pt-2 pb-2 border-t border-border">
             <div className="px-2">
-              <ChatInputControls 
-                showImportButton={true} 
+              <ChatInputControls
+                showImportButton={true}
                 showPlatformSelector={showPlatformSelector}
                 inputValue={inputValue}
                 onInputChange={setInputValue}

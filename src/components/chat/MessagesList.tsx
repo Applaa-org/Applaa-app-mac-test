@@ -32,13 +32,13 @@ function getLatestAppCode(messages: Message[]): string {
   const latestAssistantMessage = [...messages]
     .reverse()
     .find((msg) => msg.role === 'assistant');
-  
+
   if (!latestAssistantMessage) return '';
-  
+
   // Look for code blocks in the content
   const codeBlockRegex = /```(?:typescript|javascript|tsx|jsx)?\n([\s\S]*?)```/g;
   const matches = latestAssistantMessage.content.match(codeBlockRegex);
-  
+
   return matches ? matches.join('\n\n') : latestAssistantMessage.content;
 }
 
@@ -47,7 +47,7 @@ function getLatestUserPrompt(messages: Message[]): string {
   const latestUserMessage = [...messages]
     .reverse()
     .find((msg) => msg.role === 'user');
-  
+
   return latestUserMessage?.content || '';
 }
 
@@ -57,11 +57,14 @@ function getAppType(appId: number | null): 'web' | 'mobile' {
   return 'web';
 }
 
+import { useChatContext } from "@/contexts/ChatContext";
+
 export const MessagesList = forwardRef<HTMLDivElement, MessagesListProps>(
   function MessagesList({ messages, messagesEndRef, chatId }, ref) {
+    const { isBlockChat } = useChatContext();
     const appId = useAtomValue(selectedAppIdAtom);
     const { versions, revertVersion } = useVersions(appId);
-    const { streamMessage, isStreaming } = useStreamChat();
+    const { streamMessage, isStreaming } = useStreamChat({ hasChatId: !isBlockChat });
     const { isAnyProviderSetup } = useLanguageModelProviders();
     const { settings } = useSettings();
     const setMessages = useSetAtom(chatMessagesAtom);
@@ -264,7 +267,7 @@ export const MessagesList = forwardRef<HTMLDivElement, MessagesListProps>(
         )}
 
         {/* PromoMessage temporarily disabled per branding request */}
-        
+
         {/* 🤖 Applaa Buddy - Personal AI Robot Widget - DISABLED FOR TESTING */}
         {/* {messages.length > 0 && (
           <ApplaaBuddyWidget
@@ -280,7 +283,7 @@ export const MessagesList = forwardRef<HTMLDivElement, MessagesListProps>(
             }}
           />
         )} */}
-        
+
         <div ref={messagesEndRef} />
       </div>
     );

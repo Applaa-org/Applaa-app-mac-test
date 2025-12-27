@@ -5,7 +5,7 @@ import type { OptimizePromptParams, OptimizePromptResponse } from "../ipc/handle
 import { useSettings } from "./useSettings";
 import { showError } from "../lib/toast";
 
-export function usePromptOptimization(appType?: 'web' | 'expo' | 'flutter' | 'mobile') {
+export function usePromptOptimization(appType?: "web" | "expo" | "flutter" | "godot" | "arcade" | "microbit" | "minecraft" | "blockly" | "mobile") {
   const { settings } = useSettings();
   const [originalPrompt, setOriginalPrompt] = useState<string>("");
   const [isOptimized, setIsOptimized] = useState<boolean>(false);
@@ -21,7 +21,7 @@ export function usePromptOptimization(appType?: 'web' | 'expo' | 'flutter' | 'mo
         selectedModel: settings.selectedModel,
         appType: appType === 'expo' || appType === 'flutter' ? 'mobile' : appType,
       };
-      
+
       // Add timestamp to ensure fresh requests
       console.log(`[Optimization] Processing prompt at ${new Date().toISOString()}:`, prompt);
 
@@ -33,7 +33,7 @@ export function usePromptOptimization(appType?: 'web' | 'expo' | 'flutter' | 'mo
     onError: (error: Error) => {
       // Provide more helpful error messages
       let errorMessage = error.message || "Failed to optimize prompt";
-      
+
       if (errorMessage.includes("not compatible")) {
         // Model compatibility issue - show a more helpful message
         showError(errorMessage);

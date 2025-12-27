@@ -22,7 +22,7 @@ interface GameTemplate {
   previewUrl?: string | null;
   imageUrl?: string | null;
   emoji?: string | null;
-  appType: 'web' | 'expo' | 'flutter' | 'applaa';
+  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
   displayOrder?: number;
 }
 
@@ -39,7 +39,7 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
   const [previewUrl, setPreviewUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [emoji, setEmoji] = useState('');
-  const [appType, setAppType] = useState<'web' | 'expo' | 'flutter' | 'applaa'>('applaa');
+  const [appType, setAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly'>('godot');
   const [displayOrder, setDisplayOrder] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,9 +59,9 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!template) return;
-    
+
     if (!name.trim() || !details.trim()) {
       showError(new Error('Please fill in name and details'));
       return;
@@ -100,7 +100,7 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
       });
 
       showSuccess('Game template updated successfully!');
-      
+
       onTemplateUpdated?.();
       onOpenChange(false);
     } catch (error) {
@@ -152,7 +152,11 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
                   <SelectItem value="web">Web</SelectItem>
                   <SelectItem value="expo">Expo</SelectItem>
                   <SelectItem value="flutter">Flutter</SelectItem>
-                  <SelectItem value="applaa">Applaa</SelectItem>
+                  <SelectItem value="godot">Applaa (Godot)</SelectItem>
+                  <SelectItem value="arcade">MakeCode Arcade</SelectItem>
+                  <SelectItem value="microbit">Applaa:bit</SelectItem>
+                  <SelectItem value="minecraft">Minecraft</SelectItem>
+                  <SelectItem value="blockly">Blocklaa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
