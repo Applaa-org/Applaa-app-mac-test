@@ -233,14 +233,22 @@ export const PreviewHeader = ({
     testId: string,
     badge?: React.ReactNode,
   ) => {
+    const isActive = previewMode === mode && isPreviewOpen;
+    
     const buttonContent = (
       <button
         data-testid={testId}
         ref={ref}
-        className={BUTTON_CLASS_NAME}
+        className={`${BUTTON_CLASS_NAME} ${
+          isActive 
+            ? "text-foreground font-semibold" 
+            : "text-muted-foreground hover:text-foreground"
+        }`}
         onClick={() => selectPanel(mode)}
       >
-        {icon}
+        <span className={isActive ? "text-foreground" : ""}>
+          {icon}
+        </span>
         {!isCompact && <span>{text}</span>}
         {badge}
       </button>
@@ -263,9 +271,9 @@ export const PreviewHeader = ({
   return (
     <TooltipProvider>
       <div className="flex items-center justify-between px-1 py-2 mt-1 border-b border-border">
-        <div className="relative flex rounded-md p-0.5 gap-0.5">
+        <div className="relative flex rounded-md p-0.5 gap-0.5 bg-[var(--background)] dark:bg-gray-800/50">
           <motion.div
-            className="absolute top-0.5 bottom-0.5 bg-[var(--background-lightest)] shadow rounded-md"
+            className="absolute top-0.5 bottom-0.5 bg-white dark:bg-gray-700 border-2 border-orange-500 dark:border-orange-400 shadow-sm rounded-md"
             animate={{
               left: indicatorStyle.left,
               width: indicatorStyle.width,

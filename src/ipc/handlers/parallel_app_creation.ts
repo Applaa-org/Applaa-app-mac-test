@@ -823,14 +823,14 @@ async function fixPackageJsonVersions(packageJsonPath: string, appId: number): P
 
     // 🚀 WORKSPACE COMPATIBILITY: Ensure versions match our template
     const workspaceCompatibleVersions = {
-      "expo": "~53.0.0",
+      "expo": "~54.0.0",
       "expo-router": "~4.0.0", 
-      "react": "19.1.0",
-      "react-native": "0.79.4",
-      "react-dom": "19.1.0",
-      "@types/react": "~19.0.0",
-      "@types/react-dom": "~19.0.0",
-      "@types/react-native": "^0.79.0",
+      "react": "18.3.1",
+      "react-native": "0.81.0",
+      "react-dom": "18.3.1",
+      "@types/react": "~18.3.0",
+      "@types/react-dom": "~18.3.0",
+      "@types/react-native": "^0.81.0",
       "typescript": "~5.3.3"
     };
 

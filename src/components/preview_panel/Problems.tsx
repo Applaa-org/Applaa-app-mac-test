@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { useCheckProblems } from "@/hooks/useCheckProblems";
 import { useChats } from "@/hooks/useChats";
+import { useAutoErrorFix } from "@/hooks/useAutoErrorFix";
 import { createProblemFixPrompt } from "@/shared/problem_prompt";
 import { showError } from "@/lib/toast";
 
@@ -27,7 +28,9 @@ interface ProblemItemProps {
 }
 
 const ProblemItem = ({ problem }: ProblemItemProps) => {
-  const isGodotError = problem.code >= 9997;
+  // Only check for specific Godot error codes (9997, 9998, 9999)
+  // TypeScript errors can have codes >= 9997, so we need to be specific
+  const isGodotError = problem.code === 9997 || problem.code === 9998 || problem.code === 9999;
   return (
     <div className="flex items-start gap-3 p-3 border-b border-border hover:bg-[var(--background-darkest)] transition-colors">
       <div className="flex-shrink-0 mt-0.5">
@@ -125,6 +128,7 @@ interface ProblemsSummaryProps {
 
 const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
   const { streamMessage, isStreaming } = useStreamChat();
+  const { isAutoFixing } = useAutoErrorFix();
   const { problems } = problemReport;
   const totalErrors = problems.length;
   const [isFixingAll, setIsFixingAll] = useState(false);
@@ -162,7 +166,7 @@ const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
       console.error("No chat found for Fix All - appId:", appId, "chats:", chats);
       return;
     }
-    if (isFixingAll || isStreaming) {
+    if (isFixingAll || isStreaming || isAutoFixing) {
       console.log("Fix All already in progress, ignoring duplicate click");
       return;
     }
@@ -201,7 +205,7 @@ const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
       const { showError } = await import("@/lib/toast");
       showError(`Failed to start Fix All: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [chatId, appId, chats, isFixingAll, isStreaming, streamMessage, problemReport]);
+  }, [chatId, appId, chats, isFixingAll, isStreaming, isAutoFixing, streamMessage, problemReport]);
 
   if (problems.length === 0) {
     return (
@@ -236,16 +240,23 @@ const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
           size="sm"
           variant="default"
           onClick={handleFixAll}
-          disabled={isFixingAll || isStreaming || !chatId}
-          className="h-7 px-3 text-xs"
+          disabled={isFixingAll || isStreaming || isAutoFixing || !chatId}
+          className="h-7 px-3 text-xs relative"
           data-testid="fix-all-button"
         >
-          {isFixingAll || isStreaming ? (
-            <Loader2 size={14} className="mr-1 animate-spin" />
+          {isFixingAll || isStreaming || isAutoFixing ? (
+            <>
+              <Loader2 size={14} className="mr-1.5 animate-spin" />
+              <span>Fixing...</span>
+              {/* ✅ ADD: Small pulsing indicator */}
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+            </>
           ) : (
-            <Wrench size={14} className="mr-1" />
+            <>
+              <Wrench size={14} className="mr-1" />
+              <span>Fix All</span>
+            </>
           )}
-          {isFixingAll || isStreaming ? "Fixing..." : "Fix All"}
         </Button>
       </div>
     </div>

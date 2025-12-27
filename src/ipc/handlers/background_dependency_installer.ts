@@ -194,8 +194,8 @@ async function fixPackageJsonVersions(packageJsonPath: string, appId: number): P
         fix: "^1.23.1"
       },
       "@types/react-native": {
-        invalid: ["~0.79.0"],
-        fix: "^0.73.0"
+        invalid: ["~0.79.0", "~0.80.0"],
+        fix: "^0.81.0"
       },
       "expo-battery": {
         invalid: ["~7.0.1"],
@@ -206,8 +206,8 @@ async function fixPackageJsonVersions(packageJsonPath: string, appId: number): P
         fix: "~5.3.3"
       },
       "react-native": {
-        invalid: ["0.79.5"],
-        fix: "0.76.3"
+        invalid: ["0.79.5", "0.79.4", "0.76.3"],
+        fix: "0.81.0"
       }
     };
 

@@ -19,14 +19,14 @@ const dyadEngineUrl = process.env.DYAD_ENGINE_URL;
 const dyadGatewayUrl = process.env.DYAD_GATEWAY_URL;
 
 const AUTO_MODELS = [
+  {
+    provider: "google",
+    name: "gemini-2.5-pro",
+  },
   // Prefer Azure router model if Azure credentials are present
   {
     provider: "azure-openai",
     name: "model-router",
-  },
-  {
-    provider: "google",
-    name: "gemini-2.5-flash",
   },
   {
     provider: "anthropic",

@@ -56,6 +56,9 @@ const DEFAULT_SETTINGS: UserSettings = {
 
   // Chat Stream Performance defaults (disabled for Dyad-like performance)
   enableStreamAutosave: false,
+  
+  // Game Window defaults (enabled by default to match current behavior)
+  enableGameWindowDuringStream: true,
 };
 
 // Use different settings file for packaged apps to avoid loading dev settings

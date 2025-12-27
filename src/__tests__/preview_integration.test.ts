@@ -79,7 +79,7 @@ describe('Preview Integration', () => {
 
       mockFs.readFileSync.mockReturnValue(JSON.stringify({
         dependencies: {
-          'expo': '~53.0.0',
+          'expo': '~54.0.0',
           'expo-router': '~4.0.0'
         }
       }));

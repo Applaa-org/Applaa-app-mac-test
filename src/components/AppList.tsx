@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor, Gamepad2 } from "lucide-react";
-import { useAtom, useSetAtom } from "jotai";
+import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor, Gamepad2, Loader2 } from "lucide-react";
+import { useAtom, useSetAtom, useAtomValue } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
+import { currentStreamingAppIdAtom } from "@/atoms/chatAtoms";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -17,6 +18,7 @@ import { useLoadApps } from "@/hooks/useLoadApps";
 import type { App } from "@/lib/schemas";
 import { detectAppCategory, getCategoryLabel, getCategoryIcon, type AppCategory } from "@/utils/appTypeDetection";
 import { AppTypeFilter, type AppFilterType } from "@/components/AppTypeFilter";
+import { showWarning } from "@/lib/toast";
 // Advanced features temporarily disabled for core stability
 // import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 // import { CloudSyncPanel } from "@/components/cloud/CloudSyncPanel";
@@ -78,6 +80,8 @@ export function AppList({ show }: { show?: boolean }) {
   const [selectedAppId, setSelectedAppId] = useAtom(selectedAppIdAtom);
   const setSelectedChatId = useSetAtom(selectedChatIdAtom);
   const { apps, loading, error } = useLoadApps();
+  // ✅ ADD: Track which app is currently streaming
+  const currentStreamingAppId = useAtomValue(currentStreamingAppIdAtom);
   // Advanced features temporarily disabled for core stability
   // const { isAuthenticated } = useSupabaseAuth();
   const [showCloudSync, setShowCloudSync] = useState(false);
@@ -129,6 +133,12 @@ export function AppList({ show }: { show?: boolean }) {
   }
 
   const handleAppClick = (id: number) => {
+    // Prevent switching if the current app is building/streaming
+    if (currentStreamingAppId !== null && currentStreamingAppId === selectedAppId && id !== selectedAppId) {
+      showWarning("Please wait for the current app to finish building before switching to another app.");
+      return;
+    }
+    
     setSelectedAppId(id);
     setSelectedChatId(null);
     
@@ -173,6 +183,9 @@ export function AppList({ show }: { show?: boolean }) {
   const renderAppItem = (app: App) => {
     const { icon, gradient } = getAppIconAndGradient(app);
     
+    // ✅ ADD: Check if this app is currently streaming
+    const isThisAppStreaming = currentStreamingAppId === app.id;
+    
     return (
       <SidebarMenuItem key={app.id} className="mb-2 mx-2">
       <Button
@@ -186,31 +199,42 @@ export function AppList({ show }: { show?: boolean }) {
         data-testid={`app-list-item-${app.name}`}
       >
           <div className="flex items-center gap-3 w-full">
-            <div className={`w-8 h-8 bg-gradient-to-r ${gradient} rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm`}>
-              {icon}
+            <div className={`w-8 h-8 bg-gradient-to-r ${gradient} rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm relative`}>
+              {/* ✅ ADD: Show loader overlay when streaming */}
+              {isThisAppStreaming ? (
+                <Loader2 size={16} className="animate-spin text-blue-500 absolute inset-0 m-auto" />
+              ) : (
+                icon
+              )}
             </div>
-                      <div className="flex flex-col flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <span className="truncate font-medium text-gray-900 dark:text-gray-100">
-                {app.name}
+            <div className="flex flex-col flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className={`truncate font-medium ${
+                  isThisAppStreaming 
+                    ? 'text-blue-600 dark:text-blue-400' 
+                    : 'text-gray-900 dark:text-gray-100'
+                }`}>
+                  {app.name}
+                </span>
+                {/* ✅ ADD: Small loader indicator next to name when streaming */}
+                {isThisAppStreaming && (
+                  <Loader2 size={12} className="animate-spin text-blue-500 flex-shrink-0" />
+                )}
+              </div>
+              <span className={`text-xs ${
+                isThisAppStreaming 
+                  ? 'text-blue-500 dark:text-blue-400' 
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}>
+                {isThisAppStreaming 
+                  ? 'Building...' 
+                  : formatDistanceToNow(new Date(app.createdAt), {
+                      addSuffix: true,
+                    })
+                }
               </span>
-              {/* Backup status temporarily disabled for core stability */}
-              {/* isAuthenticated && (
-                <BackupStatusIndicator
-                  appId={app.id}
-                  isBackupEnabled={true}
-                  syncStatus="synced" // This would come from actual sync status
-                  lastBackup={new Date(app.updatedAt)}
-                />
-              ) */}
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {formatDistanceToNow(new Date(app.createdAt), {
-                addSuffix: true,
-              })}
-            </span>
           </div>
-        </div>
       </Button>
     </SidebarMenuItem>
   );

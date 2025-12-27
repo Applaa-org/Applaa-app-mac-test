@@ -135,11 +135,11 @@ export function HomeChatInput({
             />
 
             {/* File attachment dropdown */}
-            <FileAttachmentDropdown
+            {/* <FileAttachmentDropdown
               className="mt-1 mr-1"
               onFileSelect={handleFileSelect}
               disabled={isStreaming}
-            />
+            /> */}
 
             <div className="flex items-center gap-1">
               {/* 🎤 Voice Input - REMOVED for MVP performance optimization */}

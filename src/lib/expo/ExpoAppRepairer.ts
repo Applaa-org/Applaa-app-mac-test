@@ -29,18 +29,18 @@ const logger: Logger = {
 };
 
 /**
- * Current recommended versions for Expo SDK 53
+ * Current recommended versions for Expo SDK 54
  */
 const RECOMMENDED_VERSIONS = {
   // Core Expo
-  'expo': '~53.0.0',
+  'expo': '~54.0.0',
   'expo-router': '~4.0.0',
   'expo-linking': '~7.0.0',
   
   // React & React Native
-  'react': '18.2.0',
+  'react': '18.3.1',
   'react-dom': '18.3.1',
-  'react-native': '0.79.4',
+  'react-native': '0.81.0',
   'react-native-web': '~0.19.13',
   
   // Essential Expo packages

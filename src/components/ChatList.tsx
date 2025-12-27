@@ -3,12 +3,12 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { formatDistanceToNow } from "date-fns";
 import { PlusCircle, MoreVertical, Trash2, Edit3 } from "lucide-react";
-import { useAtom } from "jotai";
-import { selectedChatIdAtom } from "@/atoms/chatAtoms";
+import { useAtom, useAtomValue } from "jotai";
+import { selectedChatIdAtom, currentStreamingAppIdAtom } from "@/atoms/chatAtoms";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { dropdownOpenAtom } from "@/atoms/uiAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
-import { showError, showSuccess } from "@/lib/toast";
+import { showError, showSuccess, showWarning } from "@/lib/toast";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -32,6 +32,7 @@ export function ChatList({ show }: { show?: boolean }) {
   const [selectedChatId, setSelectedChatId] = useAtom(selectedChatIdAtom);
   const [selectedAppId, setSelectedAppId] = useAtom(selectedAppIdAtom);
   const [, setIsDropdownOpen] = useAtom(dropdownOpenAtom);
+  const currentStreamingAppId = useAtomValue(currentStreamingAppIdAtom);
   const { chats, loading, refreshChats } = useChats(selectedAppId);
   const routerState = useRouterState();
   const isChatRoute = routerState.location.pathname === "/chat";
@@ -68,6 +69,12 @@ export function ChatList({ show }: { show?: boolean }) {
     chatId: number;
     appId: number;
   }) => {
+    // Prevent switching if the current app is building/streaming
+    if (currentStreamingAppId !== null && currentStreamingAppId === selectedAppId && appId !== selectedAppId) {
+      showWarning("Please wait for the current app to finish building before switching to another app.");
+      return;
+    }
+    
     setSelectedChatId(chatId);
     setSelectedAppId(appId);
     navigate({

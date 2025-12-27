@@ -522,215 +522,6 @@ async function buildIOSIPA(appPath: string, logs: string[], appId: number): Prom
       }
     }
     
-    // Find the .xcworkspace file
-    const workspaceFiles = fs.readdirSync(iosPath).filter(file => file.endsWith('.xcworkspace'));
-    if (workspaceFiles.length === 0) {
-      // Check if there's a .xcodeproj file as fallback
-      const projectFiles = fs.readdirSync(iosPath).filter(file => file.endsWith('.xcodeproj'));
-      if (projectFiles.length === 0) {
-        logs.push("❌ No .xcworkspace or .xcodeproj file found in iOS directory");
-        logs.push("💡 This usually means CocoaPods installation failed during prebuild");
-        logs.push("💡 Common solutions:");
-        logs.push("   - Install Xcode from the App Store");
-        logs.push("   - Run 'sudo xcode-select --install' to install command line tools");
-        logs.push("   - Make sure Xcode is properly configured");
-      resolve({
-        success: false,
-          error: "No .xcworkspace or .xcodeproj file found. CocoaPods installation likely failed. Please install Xcode and try again.",
-          logs
-        });
-        return;
-      } else {
-        logs.push(`⚠️ Found .xcodeproj file instead of .xcworkspace: ${projectFiles[0]}`);
-        logs.push("💡 This means CocoaPods didn't run successfully, but we can try building with the project file");
-        // We'll use the .xcodeproj file instead
-        const projectFile = projectFiles[0];
-        const projectPath = path.join(iosPath, projectFile);
-        
-        try {
-          // Try to build with the .xcodeproj file directly
-          const schemeName = await detectSchemeNameFromProject(projectPath, logs);
-          if (!schemeName) {
-            resolve({
-              success: false,
-              error: "Could not detect scheme name from project file",
-        logs
-      });
-      return;
-    }
-    
-          logs.push(`📋 Using scheme: ${schemeName} (from .xcodeproj)`);
-          
-          // Create export options plist
-          const exportOptionsPath = await createExportOptionsPlist(iosPath, logs);
-          
-          // Step 1: Create archive using .xcodeproj
-          logs.push("📦 Creating archive using .xcodeproj...");
-          const archivePath = path.join(iosPath, `${schemeName}.xcarchive`);
-          
-          const archiveResult = await runXcodeBuild([
-            '-project', projectPath,
-            '-scheme', schemeName,
-      '-configuration', 'Release',
-            '-archivePath', archivePath,
-      'archive'
-          ], iosPath, logs);
-          
-          if (!archiveResult.success) {
-            resolve({
-              success: false,
-              error: `Archive creation failed: ${archiveResult.error}`,
-              logs
-            });
-            return;
-          }
-          
-          // Step 2: Export IPA from archive
-          logs.push("📱 Exporting IPA from archive...");
-          const exportPath = path.join(iosPath, 'export');
-          
-          // Clean up any existing export directory
-          if (fs.existsSync(exportPath)) {
-            fs.rmSync(exportPath, { recursive: true, force: true });
-            logs.push("🧹 Cleaned up existing export directory");
-          }
-          
-          const exportResult = await runXcodeBuild([
-            '-exportArchive',
-            '-archivePath', archivePath,
-            '-exportPath', exportPath,
-            '-exportOptionsPlist', exportOptionsPath
-          ], iosPath, logs);
-          
-          if (!exportResult.success) {
-            // Try alternative export method if first attempt fails
-            logs.push("⚠️ First export attempt failed, trying alternative method...");
-            
-            // Create a simpler export options plist
-            const simpleExportOptionsPath = path.join(iosPath, 'SimpleExportOptions.plist');
-            const simplePlistContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>development</string>
-    <key>compileBitcode</key>
-    <false/>
-    <key>stripSwiftSymbols</key>
-    <true/>
-    <key>thinning</key>
-    <string>&lt;none&gt;</string>
-</dict>
-</plist>`;
-            
-            fs.writeFileSync(simpleExportOptionsPath, simplePlistContent);
-            
-            const retryResult = await runXcodeBuild([
-              '-exportArchive',
-              '-archivePath', archivePath,
-              '-exportPath', exportPath,
-              '-exportOptionsPlist', simpleExportOptionsPath
-            ], iosPath, logs);
-            
-            if (!retryResult.success) {
-              resolve({
-                success: false,
-                error: `IPA export failed after retry: ${retryResult.error}`,
-                logs
-              });
-              return;
-            }
-          }
-          
-        // Look for the generated IPA file
-        const ipaPath = findGeneratedIPA(appPath);
-        if (ipaPath) {
-          logs.push(`✅ IPA build completed successfully!`);
-          logs.push(`🍎 IPA location: ${ipaPath}`);
-          
-          // Save IPA path to database
-          try {
-              await db.update(apps)
-              .set({
-                localIpaPath: ipaPath,
-                localIpaBuiltAt: new Date(),
-                lastDeploymentAt: new Date(),
-                deploymentStatus: 'deployed'
-              })
-                .where(eq(apps.id, appId));
-                logs.push(`💾 IPA path saved to database`);
-          } catch (error: any) {
-            logs.push(`⚠️ Failed to save IPA path: ${error.message}`);
-          }
-          
-          resolve({
-            success: true,
-            buildPath: ipaPath,
-            buildType: 'ipa',
-            logs
-          });
-            return;
-        } else {
-          logs.push(`⚠️ Build completed but IPA file not found`);
-            logs.push(`🔍 Searched in: ${path.join(iosPath, 'export')}`);
-            logs.push(`💡 Make sure your app has proper code signing configured`);
-          resolve({
-            success: false,
-              error: "Build completed but IPA file not found. Check code signing configuration.",
-            logs
-          });
-            return;
-          }
-        } catch (error: any) {
-          logs.push(`❌ Build process error: ${error.message}`);
-          
-          // Check for specific Xcode-related errors
-          if (error.message.includes('xcode-select: error: tool \'xcodebuild\' requires Xcode')) {
-            logs.push(`💡 Xcode Issue Detected:`);
-            logs.push(`   You have Xcode Command Line Tools installed, but not the full Xcode app.`);
-            logs.push(`   iOS builds require the full Xcode application.`);
-            logs.push(`   Solutions:`);
-            logs.push(`   1. Install Xcode from the Mac App Store (free)`);
-            logs.push(`   2. After installation, run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`);
-            logs.push(`   3. Accept the Xcode license: sudo xcodebuild -license accept`);
-            resolve({
-              success: false,
-              error: "Xcode app required for iOS builds. Please install Xcode from the Mac App Store and configure it properly.",
-              logs
-            });
-            return;
-          } else if (error.message.includes('SDK "iphoneos" cannot be located')) {
-            logs.push(`💡 Xcode SDK Issue Detected:`);
-            logs.push(`   The iOS SDK cannot be found. This usually means:`);
-            logs.push(`   1. Xcode is not properly installed`);
-            logs.push(`   2. Xcode needs to be opened and configured`);
-            logs.push(`   3. Command line tools are not properly linked`);
-            logs.push(`   Solutions:`);
-            logs.push(`   1. Open Xcode app and complete the setup wizard`);
-            logs.push(`   2. Run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`);
-            logs.push(`   3. Run: sudo xcodebuild -license accept`);
-            resolve({
-              success: false,
-              error: "iOS SDK not found. Please install and configure Xcode properly.",
-              logs
-            });
-            return;
-      } else {
-            logs.push(`💡 Common issues:`);
-            logs.push(`   - Make sure Xcode is installed and up to date`);
-            logs.push(`   - Check that your app has proper code signing`);
-            logs.push(`   - Ensure the iOS directory was generated by Expo`);
-        resolve({
-          success: false,
-              error: error.message,
-          logs
-        });
-            return;
-          }
-        }
-      }
-    }
-    
     const workspaceFile = workspaceFiles[0];
     const workspacePath = path.join(iosPath, workspaceFile);
     
@@ -759,6 +550,7 @@ async function buildIOSIPA(appPath: string, logs: string[], appId: number): Prom
         '-workspace', workspacePath,
         '-scheme', schemeName,
         '-configuration', 'Release',
+        '-destination', 'generic/platform=iOS',
         '-archivePath', archivePath,
         'archive'
       ], iosPath, logs);
@@ -1248,7 +1040,83 @@ async function runXcodeBuild(args: string[], cwd: string, logs: string[]): Promi
       if (code === 0) {
         resolve({ success: true, output });
       } else {
-        resolve({ success: false, error: errorOutput || `Process exited with code ${code}` });
+        // Extract meaningful error from output (xcodebuild errors are often in stdout)
+        const combinedOutput = output + '\n' + errorOutput;
+        
+        // Try to extract the actual error message
+        const errorLines = combinedOutput.split('\n');
+        const errorMessages: string[] = [];
+        
+        // Look for common error patterns
+        let archiveFailedIndex = -1;
+        
+        for (let i = 0; i < errorLines.length; i++) {
+          const line = errorLines[i];
+          
+          // Check for error: patterns (most common)
+          if (line.includes('error:') || line.includes('ERROR:') || line.includes('failed:')) {
+            errorMessages.push(line.trim());
+            // Also include the next few lines for context
+            for (let j = 1; j <= 5 && i + j < errorLines.length; j++) {
+              const nextLine = errorLines[i + j].trim();
+              if (nextLine && !nextLine.startsWith('note:') && !nextLine.startsWith('warning:') && !nextLine.includes('^')) {
+                errorMessages.push(nextLine);
+              }
+            }
+          }
+          
+          // Check for ARCHIVE FAILED and remember its position
+          if (line.includes('ARCHIVE FAILED') || line.includes('** ARCHIVE FAILED **')) {
+            archiveFailedIndex = i;
+            errorMessages.push(line.trim());
+            // Get the build command that failed
+            if (i + 1 < errorLines.length) {
+              errorMessages.push(errorLines[i + 1].trim());
+            }
+          }
+          
+          // Check for other common error patterns
+          if (line.includes('CodeSign') && line.includes('error')) {
+            errorMessages.push(line.trim());
+          }
+          if (line.includes('Compile') && line.includes('error')) {
+            errorMessages.push(line.trim());
+          }
+          if (line.includes('Ld') && line.includes('error')) {
+            errorMessages.push(line.trim());
+          }
+          if (line.includes('codesign') && (line.includes('error') || line.includes('failed'))) {
+            errorMessages.push(line.trim());
+          }
+        }
+        
+        // If ARCHIVE FAILED was found, look backwards for the actual error
+        if (archiveFailedIndex > 0 && errorMessages.length <= 2) {
+          // Look backwards up to 50 lines to find the actual error
+          for (let i = archiveFailedIndex - 1; i >= Math.max(0, archiveFailedIndex - 50); i--) {
+            const line = errorLines[i].trim();
+            if (line.includes('error:') || line.includes('ERROR:') || line.includes('failed:')) {
+              errorMessages.unshift(line); // Add to beginning
+              // Include surrounding context
+              for (let j = 1; j <= 3 && i + j < errorLines.length; j++) {
+                const nextLine = errorLines[i + j].trim();
+                if (nextLine && !nextLine.startsWith('note:') && !nextLine.startsWith('warning:')) {
+                  if (!errorMessages.includes(nextLine)) {
+                    errorMessages.push(nextLine);
+                  }
+                }
+              }
+              break; // Found the error, stop looking
+            }
+          }
+        }
+        
+        // If we found specific errors, use them; otherwise use the full output
+        const errorMessage = errorMessages.length > 0 
+          ? errorMessages.join('\n')
+          : (errorOutput || output || `Process exited with code ${code}`);
+        
+        resolve({ success: false, error: errorMessage });
       }
     });
 

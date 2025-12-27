@@ -11,12 +11,13 @@ export function createProblemFixPrompt(problemReport: ProblemReport, appCategory
   }
 
   const totalProblems = problems.length;
-  const hasGodotErrors = problems.some(p => p.code >= 9997);
+  // Only check for specific Godot error codes (9997, 9998, 9999)
+  const hasGodotErrors = problems.some(p => p.code === 9997 || p.code === 9998 || p.code === 9999);
   const errorType = hasGodotErrors ? "error" : "TypeScript compile-time error";
   let prompt = `Fix these ${totalProblems} ${errorType}${totalProblems === 1 ? "" : "s"}:\n\n`;
 
   problems.forEach((problem, index) => {
-    const codePrefix = problem.code >= 9997 ? "GODOT" : "TS";
+    const codePrefix = (problem.code === 9997 || problem.code === 9998 || problem.code === 9999) ? "GODOT" : "TS";
     prompt += `${index + 1}. ${problem.file}:${problem.line}:${problem.column} - ${problem.message} (${codePrefix}${problem.code})\n`;
     if (problem.snippet) {
       prompt += `\`\`\`\n${problem.snippet}\n\`\`\`\n`;

@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/button';
 import QRCode from 'qrcode';
 import { useCheckProblems } from '@/hooks/useCheckProblems';
 import { PreviewWithDevTools } from '@/components/shared/PreviewWithDevTools';
+import { isStreamingAtom } from '@/atoms/chatAtoms';
+import { useAutoErrorFix } from '@/hooks/useAutoErrorFix';
 
 interface ExpoStatus {
   isRunning: boolean;
@@ -40,6 +42,47 @@ interface DeviceOption {
   width: number;
   height: number;
   platform: 'android' | 'ios';
+}
+
+// ✅ FIX: Streaming build indicator with timeout warning
+function StreamingBuildIndicator() {
+  const [streamingDuration, setStreamingDuration] = useState(0);
+  const isStreaming = useAtomValue(isStreamingAtom);
+  
+  useEffect(() => {
+    if (!isStreaming) {
+      setStreamingDuration(0);
+      return;
+    }
+    
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setStreamingDuration(Date.now() - startTime);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isStreaming]);
+  
+  return (
+    <div className="text-center mt-10 max-w-md px-8">
+      <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+        Building Your App...
+      </h2>
+      <p className="text-gray-600 dark:text-gray-400 mb-4">
+        AI is generating your mobile app code
+      </p>
+      <p className="text-sm text-gray-500 dark:text-gray-500">
+        Preview will be available once code generation completes
+      </p>
+      {/* ✅ FIX: Add timeout warning if streaming for too long */}
+      {streamingDuration > 60000 && (
+        <p className="text-xs text-orange-500 mt-2">
+          Taking longer than expected. Check terminal for errors.
+        </p>
+      )}
+    </div>
+  );
 }
 
 // Complete device list matching Expo Snack
@@ -81,9 +124,14 @@ const DEVICES: DeviceOption[] = [
 export function SnackPoweredPreview() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const setPreviewMode = useSetAtom(previewModeAtom);
+  const isStreaming = useAtomValue(isStreamingAtom);
   
   // ✅ Integrate with existing Problems system
   const { problemReport, checkProblems, isChecking } = useCheckProblems(selectedAppId);
+  
+  // ✅ CRITICAL: Enable auto-fix for Expo apps - this hook will automatically fix problems when streaming stops
+  // The hook is called here to ensure it's active for Expo apps
+  useAutoErrorFix();
   
   // State
   const [activeTab, setActiveTab] = useState<PreviewTab>('android');
@@ -280,6 +328,38 @@ export function SnackPoweredPreview() {
           attempts++;
           const status = await ipcClient.simpleExpoStatus();
           
+          // ✅ FIX: Check terminal output for tunnel failure
+          const terminalOutput = status.terminalOutput || '';
+          if (terminalOutput.includes('ngrok tunnel took too long') ||
+              terminalOutput.includes('Tunnel mode failed') ||
+              terminalOutput.includes('using LAN mode instead')) {
+            console.log('🔍 Tunnel failed detected in terminal output');
+            // Don't wait for tunnel URL - use LAN immediately if available
+            if (status.lanUrl || status.webUrl) {
+              const previewUrlToUse = status.webUrl || status.lanUrl;
+              if (previewUrlToUse) {
+                setPreviewUrl(previewUrlToUse);
+                setExpoStatus({
+                  isRunning: status.isRunning,
+                  webUrl: status.webUrl,
+                  lanUrl: status.lanUrl,
+                  tunnelUrl: status.tunnelUrl,
+                  qrUrl: status.qrUrl
+                });
+                setConnectionStatus('connected');
+                hasStartedRef.current = true;
+                console.log('✅ Preview URL ready (LAN fallback):', previewUrlToUse);
+                
+                const qrUrl = status.qrUrl || status.lanUrl;
+                if (qrUrl) {
+                  await generateQRCode(qrUrl);
+                }
+                setStartupProgress('');
+                return true;
+              }
+            }
+          }
+          
           // Update progress message
           if (attempts <= 5) {
             setStartupProgress(`Initializing Expo... (${attempts}s)`);
@@ -298,14 +378,14 @@ export function SnackPoweredPreview() {
             lanUrl: status.lanUrl || 'empty'
           });
           
-          // ✅ FIX: Check for ANY URL (tunnel, QR, LAN, or web) - prioritize tunnel URL
-          const availableUrl = status.tunnelUrl || status.qrUrl || status.lanUrl || status.webUrl;
+          // ✅ IMPROVED: Prioritize URLs - webUrl for preview, lanUrl/qrUrl for mobile
+          const availableUrl = status.tunnelUrl || status.webUrl || status.lanUrl || status.qrUrl;
           
           if (availableUrl) {
             setStartupProgress('Preview ready! Loading...');
             
-            // Use tunnel URL for preview if available, otherwise fall back to web URL
-            const previewUrlToUse = status.tunnelUrl || status.webUrl || status.lanUrl || status.qrUrl;
+            // ✅ FIX: Use webUrl for iframe preview, tunnelUrl/qrUrl for mobile
+            const previewUrlToUse = status.webUrl || status.tunnelUrl || status.lanUrl || status.qrUrl;
             setPreviewUrl(previewUrlToUse);
             
             setExpoStatus({
@@ -325,7 +405,7 @@ export function SnackPoweredPreview() {
               web: status.webUrl
             });
             
-            // ✅ FIX: Generate QR code for tunnel or LAN URL
+            // ✅ FIX: Generate QR code - prefer tunnel, fallback to LAN
             const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
             if (qrUrl) {
               console.log('📱 Generating QR code for:', qrUrl);
@@ -375,11 +455,48 @@ export function SnackPoweredPreview() {
     } catch (error) {
       console.error('❌ Failed to start:', error);
       setStartupProgress('');
-      setExpoStatus(prev => ({
-        ...prev,
-        buildStatus: 'error',
-        error: error instanceof Error ? error.message : 'Failed to start'
-      }));
+      
+      // Try to get terminal output for better error context
+      try {
+        const status = await ipcClient.simpleExpoStatus();
+        const lastOutput = status.terminalOutput?.slice(-1000) || '';
+        
+        // Build detailed error message
+        let errorMessage = error instanceof Error ? error.message : 'Failed to start Expo server';
+        
+        // Add context from terminal output if available
+        if (lastOutput) {
+          // Extract key error lines
+          const errorLines = lastOutput
+            .split('\n')
+            .filter(line => 
+              line.toLowerCase().includes('error') || 
+              line.toLowerCase().includes('failed') ||
+              line.toLowerCase().includes('cannot') ||
+              line.toLowerCase().includes('missing')
+            )
+            .slice(-5) // Last 5 error lines
+            .join('\n');
+          
+          if (errorLines) {
+            errorMessage += `\n\nRecent errors:\n${errorLines}`;
+          }
+        }
+        
+        setExpoStatus(prev => ({
+          ...prev,
+          buildStatus: 'error',
+          error: errorMessage,
+          terminalOutput: status.terminalOutput || prev.terminalOutput
+        }));
+      } catch (statusError) {
+        // Fallback if status check fails
+        setExpoStatus(prev => ({
+          ...prev,
+          buildStatus: 'error',
+          error: error instanceof Error ? error.message : 'Failed to start Expo server'
+        }));
+      }
     } finally {
       setIsLoading(false);
       startingRef.current = false;
@@ -722,37 +839,42 @@ export function SnackPoweredPreview() {
         {/* ✅ SCENARIO A: Show START button when preview not started (ignore validation) */}
         {!hasStartedRef.current && !isLoading ? (
           <div className="flex items-center justify-center h-full dark:from-gray-900 dark:to-gray-800">
-            <div className="text-center max-w-md px-8">
-              {/* App Icon */}
-              
-              
-              <h2 className="text-2xl mt-8 font-bold text-gray-900 dark:text-white mb-3">
-                Ready to Preview
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-8">
-                Click start to build and preview your app
-              </p>
-              
-              {/* START Button */}
-              <button
-                onClick={() => {
-                  restartExpoPreview();
-                }}
-                className="group relative px-8 py-2 bg-primary text-white rounded-md font-medium text-md shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-              >
-                <span className="flex items-center gap-3">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Start Preview
-                </span>
-              </button>
-              
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-6">
-                First build may take 30-60 seconds
-              </p>
-            </div>
+            {isStreaming ? (
+              <StreamingBuildIndicator />
+            ) : (
+              // Show "Ready to Preview" when not streaming
+              <div className="text-center max-w-md px-8">
+                {/* App Icon */}
+                
+                
+                <h2 className="text-2xl mt-8 font-bold text-gray-900 dark:text-white mb-3">
+                  Ready to Preview
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-8">
+                  Click start to build and preview your app
+                </p>
+                
+                {/* START Button */}
+                <button
+                  onClick={() => {
+                    restartExpoPreview();
+                  }}
+                  className="group relative px-8 py-2 bg-primary text-white rounded-md font-medium text-md shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  <span className="flex items-center gap-3">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Start Preview
+                  </span>
+                </button>
+                
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-6">
+                  First build may take 30-60 seconds
+                </p>
+              </div>
+            )}
           </div>
         ) : validationStatus === 'has-errors' && problemReport ? (
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">

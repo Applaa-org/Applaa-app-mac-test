@@ -329,11 +329,11 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                   <div>
                     <div className="text-[10px] uppercase tracking-wide text-gray-600">Building a</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {selectedAppType === 'web' ? 'Web App' : selectedAppType === 'expo' ? 'Expo Mobile App' : selectedAppType === 'flutter' ? 'Flutter Mobile App' : 'Applaa Game'}
+                      {selectedAppType === 'web' ? 'Web App' : selectedAppType === 'expo' ? 'Mobile App' : selectedAppType === 'flutter' ? 'Flutter Mobile App' : 'Applaa Game'}
                     </div>
                     <div className="mt-1">
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                        {selectedAppType === 'web' ? 'Framework: React (default)' : selectedAppType === 'expo' ? 'Framework: Expo' : selectedAppType === 'flutter' ? 'Framework: Flutter' : 'Engine: Applaa'}
+                        {selectedAppType === 'web' ? 'Framework: React (default)' : selectedAppType === 'expo' ? 'Mobile Apps' : selectedAppType === 'flutter' ? 'Framework: Flutter' : 'Engine: Applaa'}
                       </span>
                     </div>
                   </div>
@@ -377,6 +377,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               />
             )}
           </div>
+
+          {/* Your Deployed Apps - Filtered by selected app type */}
+          <YourDeployedApps className="mt-12" filterByAppType={selectedAppType} maxApps={3} />
 
           {/* Inspiration Ideas - Game Templates */}
           <div className="max-w-4xl mx-auto">

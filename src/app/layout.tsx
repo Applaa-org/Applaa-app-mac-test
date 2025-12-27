@@ -19,6 +19,7 @@ import { isGamePopupOpenAtom } from "@/atoms/gamePopupAtom";
 import { useRandomGame } from "@/hooks/useRandomGame";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
 import type { GameOption } from "@/hooks/useRandomGame";
+import { useSettings } from "@/hooks/useSettings";
  
 
 export default function RootLayout({
@@ -31,6 +32,7 @@ export default function RootLayout({
   // 🚀 OPTIMIZATION: Background dependency installation for opened apps
   useBackgroundDependencyInstaller();
   const previewMode = useAtomValue(previewModeAtom);
+  const { settings } = useSettings();
   
   // Game popup state - moved to main layout to be independent of preview refreshes
   const [isGamePopupOpen, setIsGamePopupOpen] = useAtom(isGamePopupOpenAtom);
@@ -49,8 +51,11 @@ export default function RootLayout({
   }, [currentGame]);
   
   // Show game popup immediately when streaming starts (only once per session)
+  // Only show if the setting is enabled
   useEffect(() => {
-    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current) {
+    const shouldShowGameWindow = settings?.enableGameWindowDuringStream !== false; // default to true if not set
+    
+    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current && shouldShowGameWindow) {
       setIsGamePopupOpen(true);
       popupOpenedForCurrentStream.current = true;
     }
@@ -59,7 +64,7 @@ export default function RootLayout({
     if (!isStreaming) {
       popupOpenedForCurrentStream.current = false;
     }
-  }, [isStreaming, isGamePopupOpen, setIsGamePopupOpen]);
+  }, [isStreaming, isGamePopupOpen, setIsGamePopupOpen, settings?.enableGameWindowDuringStream]);
   
   // 🚀 PERFORMANCE: Delay non-essential features to improve startup time
   // Semantic context removed for MVP

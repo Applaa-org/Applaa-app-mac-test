@@ -14,7 +14,7 @@ import { CodeView } from "./CodeView";
 import { PreviewIframe } from "./PreviewIframe";
 import { Problems } from "./Problems";
 import { ConfigurePanel } from "./ConfigurePanel";
-import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench, AlertTriangle, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench, AlertTriangle, X, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Console } from "./Console";
@@ -80,8 +80,6 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [, setAppUrlObj] = useAtom(appUrlAtom);
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
-  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
-  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading, isBuilding: isGodotBuilding } = useGodotProjectStatus();
   const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
   const gameCreationPrompt = useAtomValue(gameCreationPromptAtom);
@@ -104,6 +102,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     }
     return false;
   }, [app?.appType, app?.files]);
+  
+  // ✅ FIX: Only call Godot hooks if it's actually a Godot app
+  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
+  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading, isBuilding: isGodotBuilding } = useGodotProjectStatus();
   
   // Check if Godot engine is installed
   const { data: godotEngine } = useQuery({
@@ -248,15 +250,27 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowProblemsPanel(!showProblemsPanel)}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium hover:bg-[var(--background)] transition-colors ${
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
               showProblemsPanel ? 'bg-[var(--background-lightest)]' : ''
+            } ${
+              // ✅ FIX: Red background when there are problems
+              problemReport?.problems?.length 
+                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30' 
+                : 'hover:bg-[var(--background)]'
             }`}
             title="Toggle Problems Panel"
           >
-            <AlertTriangle size={16} />
-            <span>Problems</span>
+            {/* ✅ FIX: Show loader when fix is running AND there are problems */}
+            {isStreaming && problemReport?.problems?.length ? (
+              <Loader2 size={14} className="animate-spin text-red-500" />
+            ) : (
+              <AlertTriangle size={16} className={problemReport?.problems?.length ? 'text-red-500' : ''} />
+            )}
+            <span className={problemReport?.problems?.length ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>
+              Problems
+            </span>
             {problemReport?.problems?.length ? (
-              <span className="ml-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+              <span className="ml-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 font-semibold">
                 {problemReport.problems.length}
               </span>
             ) : undefined}

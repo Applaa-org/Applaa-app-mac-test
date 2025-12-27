@@ -79,7 +79,7 @@ describe('Intelligent Preview System', () => {
     mockFs.readFileSync.mockReturnValue(JSON.stringify({
       name: 'test-app',
       dependencies: {
-        'expo': '~53.0.0',
+        'expo': '~54.0.0',
         'expo-router': '~4.0.0'
       }
     }));

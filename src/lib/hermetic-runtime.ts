@@ -457,16 +457,16 @@ export async function initializeWorkspace(workspaceRoot: string): Promise<boolea
         description: "Applaa Workspace - Shared dependencies for all web and mobile apps",
         dependencies: {
           // 🌐 Core React & React Native
-          "react": "19.1.0",
-          "react-dom": "19.1.0",
-          "react-native": "0.76.3",
+          "react": "18.3.1",
+          "react-dom": "18.3.1",
+          "react-native": "0.81.0",
           "react-native-web": "~0.19.13",
           "react-native-safe-area-context": "4.14.0",
           "react-native-screens": "4.2.0",
           "react-native-svg": "15.8.0",
           
           // 📱 Expo Ecosystem
-          "expo": "~53.0.22",
+          "expo": "~54.0.0",
           "expo-router": "~5.1.5",
           "@expo/vector-icons": "^15.0.0",
           "expo-status-bar": "~2.0.0",
@@ -931,8 +931,8 @@ async function ensureWorkspaceLinking(workspaceRoot: string): Promise<void> {
 }
 
 /**
- * 📱 EXPO BUILD FIX: Ensure Expo project has compatible dependencies for SDK 53
- * This fixes common build issues with React Native 0.79.x compatibility
+ * 📱 EXPO BUILD FIX: Ensure Expo project has compatible dependencies for SDK 54
+ * This fixes common build issues with React Native 0.81.x compatibility
  */
 export async function fixExpoProjectDependencies(projectPath: string): Promise<boolean> {
   try {
