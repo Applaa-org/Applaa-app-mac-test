@@ -369,6 +369,8 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
 }
 
 export function WorkflowSettings() {
+  const { settings, updateSettings } = useSettings();
+  
   return (
     <div
       id="workflow-settings"
@@ -389,6 +391,24 @@ export function WorkflowSettings() {
         <AutoFixProblemsSwitch />
         <div className="text-sm text-gray-500 dark:text-gray-400">
           This will automatically fix TypeScript errors.
+        </div>
+      </div>
+
+      <div className="space-y-1 mt-4">
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="enable-game-window-during-stream"
+            checked={settings?.enableGameWindowDuringStream !== false}
+            onCheckedChange={(checked) => {
+              updateSettings({
+                enableGameWindowDuringStream: checked,
+              });
+            }}
+          />
+          <Label htmlFor="enable-game-window-during-stream">Show Game Window During Chat Streaming</Label>
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Display a game window while chat is streaming to keep you entertained.
         </div>
       </div>
     </div>
