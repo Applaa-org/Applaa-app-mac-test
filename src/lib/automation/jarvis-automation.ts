@@ -14,28 +14,34 @@ export class JarvisAutomation {
     private modelName: string = 'gemini-3-flash'; // Default model
     private apiKey: string | undefined = undefined;
 
+    async initializeAI() {
+        if (this.apiKey) return;
+
+        const settings = readSettings();
+        const geminiApiKey = settings.providerSettings?.google?.apiKey?.value;
+        this.apiKey = geminiApiKey;
+
+        if (!geminiApiKey) {
+            throw new Error('Google Gemini API key not found in settings. Please add it in Settings > LLM Providers.');
+        }
+
+        // Determine model to use
+        if (settings.selectedModel &&
+            (settings.selectedModel.provider === 'google' || settings.selectedModel.provider === 'gemini')) {
+            this.modelName = settings.selectedModel.name;
+        }
+    }
+
     async initialize() {
         if (this.isInitialized) {
-            const settings = readSettings();
-            if (settings.selectedModel &&
-                (settings.selectedModel.provider === 'google' || settings.selectedModel.provider === 'gemini')) {
-                this.modelName = settings.selectedModel.name;
-            }
+            await this.initializeAI();
             return;
         }
 
         try {
             logger.info('Initializing Eko (Jarvis) with Gemini and existing BrowserView...');
 
-            // Get Gemini API key from settings
-            const settings = readSettings();
-            const geminiProvider = settings.providerSettings?.google;
-            const geminiApiKey = geminiProvider?.apiKey?.value;
-            this.apiKey = geminiApiKey;
-
-            if (!geminiApiKey) {
-                throw new Error('Google Gemini API key not found in settings. Please add it in Settings > LLM Providers.');
-            }
+            await this.initializeAI();
 
             // Get the active BrowserView
             const browserView = getActiveBrowserView();
@@ -46,14 +52,7 @@ export class JarvisAutomation {
             logger.info('Using existing BrowserView for automation');
 
             // Create Browser Agent with the existing WebContentsView
-            // BrowserAgent from @jarvis-agent/electron accepts WebContentsView
             this.browserAgent = new BrowserAgent(browserView);
-
-            // Determine model to use
-            if (settings.selectedModel &&
-                (settings.selectedModel.provider === 'google' || settings.selectedModel.provider === 'gemini')) {
-                this.modelName = settings.selectedModel.name;
-            }
 
             logger.info(`Using Gemini model: ${this.modelName}`);
 
@@ -62,14 +61,13 @@ export class JarvisAutomation {
                 default: {
                     provider: 'google',
                     model: this.modelName,
-                    apiKey: geminiApiKey
+                    apiKey: this.apiKey!
                 }
             };
 
             // Create callback to stream progress to user
             const callback = {
                 onMessage: async (message: any): Promise<void> => {
-                    // Log progress messages
                     if (message.type === 'text') {
                         logger.info(`[Eko] ${message.text}`);
                     } else if (message.type === 'tool_use') {
@@ -98,10 +96,8 @@ export class JarvisAutomation {
         plan: string;
         message?: string;
     }> {
-        // Ensure initialized to get API key
-        if (!this.isInitialized || !this.apiKey) {
-            await this.initialize();
-        }
+        // Ensure AI is initialized (doesn't need browser)
+        await this.initializeAI();
 
         try {
             logger.info(`Generating plan for: "${instruction}"`);
@@ -140,9 +136,7 @@ Return ONLY the plan as a numbered list.`;
     }
 
     async transcribeAudio(audioBase64: string, mimeType: string = 'audio/webm'): Promise<{ success: boolean; text: string; message?: string }> {
-        if (!this.isInitialized || !this.apiKey) {
-            await this.initialize();
-        }
+        await this.initializeAI();
 
         const tryTranscribe = async (modelName: string) => {
             logger.info(`Transcribing audio with model: ${modelName}...`);

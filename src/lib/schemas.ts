@@ -260,6 +260,9 @@ export const UserSettingsSchema = z.object({
     lastLogin: z.string().optional(),
   }).optional(),
 
+  // Web Search Feature
+  enableWebSearch: z.boolean().optional(),
+
   ////////////////////////////////
   // E2E TESTING ONLY.
   ////////////////////////////////
@@ -317,10 +320,15 @@ export type SuggestedAction =
   | RebuildAction
   | RestartAction
   | RefreshAction
-  | BoostMyAppAction;
+  | BoostMyAppAction
+  | RetryAction;
 
 export interface RestartAppAction {
   id: "restart-app";
+}
+
+export interface RetryAction {
+  id: "retry";
 }
 
 export interface SummarizeInNewChatAction {

@@ -1,4 +1,4 @@
-import { SendIcon, StopCircleIcon } from "lucide-react";
+import { SendIcon, StopCircleIcon, Mic, MicOff, Loader2 } from "lucide-react";
 import { useCallback } from "react";
 
 import { useSettings } from "@/hooks/useSettings";
@@ -13,7 +13,8 @@ import { usePostHog } from "posthog-js/react";
 import { HomeSubmitOptions } from "@/pages/home";
 import { ChatInputControls } from "../ChatInputControls";
 import { LexicalChatInput } from "./LexicalChatInput";
-// Voice input removed for MVP performance optimization
+import { useGeminiSpeech } from "@/hooks/useGeminiSpeech";
+
 // Prompt optimization removed for MVP simplicity
 import {
   Tooltip,
@@ -21,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+
 export function HomeChatInput({
   onSubmit,
   placeholder,
@@ -39,12 +41,17 @@ export function HomeChatInput({
   const { settings } = useSettings();
   const { isStreaming } = useStreamChat({
     hasChatId: false,
-  }); // eslint-disable-line @typescript-eslint/no-unused-vars
+  });
 
-  // Use the prompt optimization hook
-  // Prompt optimization removed for MVP simplicity
-
-  // Voice input disabled for MVP
+  const {
+    isListening,
+    isProcessing,
+    toggleListening
+  } = useGeminiSpeech({
+    onTranscript: (text) => {
+      setInputValue(inputValue + (inputValue && !inputValue.endsWith(" ") ? " " : "") + text);
+    }
+  });
 
   // Use the attachments hook
   const {
@@ -58,11 +65,6 @@ export function HomeChatInput({
     clearAttachments,
     handlePaste,
   } = useAttachments();
-
-  // Handler for optimizing the prompt
-  // Optimization handlers removed for MVP simplicity
-
-  // Voice input disabled for MVP
 
   // Custom submit function that wraps the provided onSubmit
   const handleCustomSubmit = () => {
@@ -121,9 +123,21 @@ export function HomeChatInput({
             />
 
             <div className="flex items-center gap-1">
-              {/* 🎤 Voice Input - REMOVED for MVP performance optimization */}
-
-              {/* Boost feature removed - reverted to simple Keep Going functionality */}
+              <button
+                onClick={toggleListening}
+                disabled={isStreaming || isProcessing}
+                className={`px-2 py-2 mt-1 mr-1 rounded-lg transition-colors ${isListening ? "text-red-500 bg-red-50" : "text-(--sidebar-accent-fg) hover:bg-(--background-darkest)"
+                  }`}
+                title={isListening ? "Stop listening" : "Start voice input"}
+              >
+                {isProcessing ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : isListening ? (
+                  <MicOff size={20} />
+                ) : (
+                  <Mic size={20} />
+                )}
+              </button>
 
               {/* Send/Cancel button */}
               {isStreaming ? (
@@ -158,8 +172,6 @@ export function HomeChatInput({
             </div>
           </div>
         </div>
-
-        {/* Voice input now enabled with browser-based Web Speech API */}
       </div>
     </>
   );

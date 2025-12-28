@@ -16,9 +16,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { ipcClient } from '@/ipc/ipc_client';
-
-// Removed BuddyMode logic from UI as requested
+import { useGeminiSpeech } from '@/hooks/useGeminiSpeech';
 
 interface BuddyInputProps {
     value: string;
@@ -39,81 +37,16 @@ export function BuddyInput({
     onVoiceInput,
     isLoading,
 }: BuddyInputProps) {
-    const [isListening, setIsListening] = useState(false);
-    const [isProcessingAudio, setIsProcessingAudio] = useState(false);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
-
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-
-            mediaRecorderRef.current = mediaRecorder;
-            audioChunksRef.current = [];
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
-            };
-
-            mediaRecorder.onstop = async () => {
-                setIsProcessingAudio(true);
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-
-                // Convert Blob to Base64
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = async () => {
-                    const base64Audio = reader.result?.toString().split(',')[1];
-                    if (base64Audio) {
-                        try {
-                            const result = await ipcClient.automationTranscribe({
-                                audioBase64: base64Audio,
-                                mimeType: 'audio/webm'
-                            });
-
-                            if (result.success && result.text) {
-                                onChange(value + (value && !value.endsWith(' ') ? ' ' : '') + result.text);
-                                // Notify parent that voice input was used
-                                onVoiceInput?.();
-                            } else {
-                                console.error('Transcription failed:', result.message);
-                            }
-                        } catch (error) {
-                            console.error('Transcription error:', error);
-                        }
-                    }
-                    setIsProcessingAudio(false);
-
-                    // Stop all tracks
-                    stream.getTracks().forEach(track => track.stop());
-                };
-            };
-
-            mediaRecorder.start();
-            setIsListening(true);
-        } catch (error) {
-            console.error('Error accessing microphone:', error);
-            alert('Could not access microphone. Please check permissions.');
+    const {
+        isListening,
+        isProcessing: isProcessingAudio,
+        toggleListening
+    } = useGeminiSpeech({
+        onTranscript: (text) => {
+            onChange(value + (value && !value.endsWith(' ') ? ' ' : '') + text);
+            onVoiceInput?.();
         }
-    };
-
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && isListening) {
-            mediaRecorderRef.current.stop();
-            setIsListening(false);
-        }
-    };
-
-    const toggleListening = () => {
-        if (isListening) {
-            stopRecording();
-        } else {
-            startRecording();
-        }
-    };
+    });
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {

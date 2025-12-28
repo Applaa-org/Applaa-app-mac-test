@@ -101,7 +101,8 @@ export async function getModelClient(
       const hasApplaaPro = settings.enableApplaaPro === true;
       const isEngineEnabled = hasApplaaPro && (
         settings.enableProSmartFilesContextMode ||
-        settings.enableProLazyEditsMode
+        settings.enableProLazyEditsMode ||
+        settings.enableWebSearch
       );
       const provider = isEngineEnabled
         ? createDyadEngine({
@@ -114,6 +115,7 @@ export async function getModelClient(
                 ? false
                 : (hasApplaaPro && settings.enableProLazyEditsMode),
             enableSmartFilesContext: hasApplaaPro && settings.enableProSmartFilesContextMode,
+            enableWebSearch: settings.enableWebSearch ?? true, // Enabled by default
           },
           settings,
         })

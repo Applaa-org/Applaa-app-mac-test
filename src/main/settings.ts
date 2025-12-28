@@ -60,6 +60,9 @@ const DEFAULT_SETTINGS: UserSettings = {
 
   // Chat Stream Performance defaults (disabled for Dyad-like performance)
   enableStreamAutosave: false,
+
+  // Web Search Feature (enabled by default for Applaa)
+  enableWebSearch: true,
 };
 
 // Use different settings file for packaged apps to avoid loading dev settings
