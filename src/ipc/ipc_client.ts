@@ -3588,6 +3588,19 @@ export class IpcClient {
   }> {
     return this.ipcRenderer.invoke("applaa-automation:status");
   }
+
+  /**
+   * Generate preview image for a deployed app
+   */
+  public async generatePreviewImage(params: {
+    appId: number;
+  }): Promise<{
+    success: boolean;
+    previewImageUrl?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("preview-image:generate", params);
+  }
 }
 
 // Export singleton instance

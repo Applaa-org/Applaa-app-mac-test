@@ -207,6 +207,7 @@ const validInvokeChannels = [
   "chrome-devtools:status",
   "applaa-automation:execute-task",
   "applaa-automation:status",
+  "preview-image:generate",
     "app:repair",
     "app:check-repair-needed",
     "problems:add-runtime",

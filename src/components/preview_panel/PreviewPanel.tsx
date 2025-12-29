@@ -290,7 +290,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             </span>
           </button>
           
-          <button
+          {/* <button
             onClick={() => setShowConfigurePanel(!showConfigurePanel)}
             className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium hover:bg-[var(--background)] transition-colors ${
               showConfigurePanel ? 'bg-[var(--background-lightest)]' : ''
@@ -299,7 +299,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
           >
             <Wrench size={16} />
             <span>Configure</span>
-          </button>
+          </button> */}
         </div>
       </div>
       <div className="flex-1 overflow-hidden">

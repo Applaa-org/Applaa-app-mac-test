@@ -72,6 +72,92 @@ export function registerURLHandlers() {
         logger.warn('Failed to sync app to Supabase (non-critical):', error);
       }
       
+      // Generate preview image for deployed apps (non-blocking, background task)
+      if ((urlType === 'vercel' || urlType === 'eas-deployment') && url) {
+        try {
+          // Load Vault secrets first (including SCREENSHOT_API_KEY)
+          const { loadVaultSecretsIntoEnv } = await import('../../lib/vault');
+          try {
+            await loadVaultSecretsIntoEnv();
+            logger.info('Vault secrets loaded for preview image generation');
+          } catch (vaultError) {
+            logger.warn('Failed to load Vault secrets (non-critical):', vaultError);
+          }
+          
+          // Trigger preview generation in background (don't wait for it)
+          const { generateAppPreviewImage } = await import('../../services/preview-image-service');
+          const { syncAppToSupabase } = await import('../../lib/supabase');
+          const { getWordPressUserDisplayName } = await import('../../lib/supabase');
+          
+          const app = await db.query.apps.findFirst({
+            where: eq(apps.id, appId),
+          });
+          
+          if (app) {
+            // Run in background without blocking
+            generateAppPreviewImage(appId, app.name, url)
+              .then(async (previewImageUrl) => {
+                if (previewImageUrl) {
+                  logger.info(`✅ Preview image generated for app ${appId}: ${previewImageUrl}`);
+                  
+                  // Sync preview image URL to Supabase
+                  const userDisplayName = getWordPressUserDisplayName();
+                  if (userDisplayName) {
+                    try {
+                      await syncAppToSupabase({
+                        id: app.id,
+                        name: app.name,
+                        path: app.path,
+                        appType: app.appType,
+                        status: app.status,
+                        githubOrg: app.githubOrg,
+                        githubRepo: app.githubRepo,
+                        githubBranch: app.githubBranch,
+                        githubRepoUrl: app.githubRepoUrl,
+                        vercelProjectId: app.vercelProjectId,
+                        vercelProjectName: app.vercelProjectName,
+                        vercelTeamId: app.vercelTeamId,
+                        vercelDeploymentUrl: app.vercelDeploymentUrl,
+                        supabaseProjectId: app.supabaseProjectId,
+                        neonProjectId: app.neonProjectId,
+                        neonDevelopmentBranchId: app.neonDevelopmentBranchId,
+                        neonPreviewBranchId: app.neonPreviewBranchId,
+                        easBuildUrl: app.easBuildUrl,
+                        easDeploymentUrl: app.easDeploymentUrl,
+                        easProjectId: app.easProjectId,
+                        easBuildId: app.easBuildId,
+                        localApkPath: (app && typeof app === 'object' && app.localApkPath) ? app.localApkPath : null,
+                        localAabPath: (app && typeof app === 'object' && app.localAabPath) ? app.localAabPath : null,
+                        localIpaPath: (app && typeof app === 'object' && app.localIpaPath) ? app.localIpaPath : null,
+                        localApkBuiltAt: (app && typeof app === 'object' && app.localApkBuiltAt) ? Number(app.localApkBuiltAt) : null,
+                        localAabBuiltAt: (app && typeof app === 'object' && app.localAabBuiltAt) ? Number(app.localAabBuiltAt) : null,
+                        localIpaBuiltAt: (app && typeof app === 'object' && app.localIpaBuiltAt) ? Number(app.localIpaBuiltAt) : null,
+                        deploymentStatus: app.deploymentStatus,
+                        lastDeploymentAt: app.lastDeploymentAt ? Number(app.lastDeploymentAt) : null,
+                        deploymentNotes: app.deploymentNotes,
+                        showInHub: app.showInHub === true || app.showInHub === 1 || (typeof app.showInHub === 'boolean' && app.showInHub),
+                        previewImageUrl: previewImageUrl, // Include preview image URL
+                      }, userDisplayName);
+                      logger.info(`✅ Preview image URL synced to Supabase for app ${appId}`);
+                    } catch (syncError) {
+                      logger.error(`Failed to sync preview image URL to Supabase:`, syncError);
+                    }
+                  } else {
+                    logger.warn('No WordPress user display name, skipping Supabase sync for preview image');
+                  }
+                } else {
+                  logger.warn(`Preview image generation returned null for app ${appId}`);
+                }
+              })
+              .catch((error) => {
+                logger.warn(`Background preview image generation failed for app ${appId}:`, error);
+              });
+          }
+        } catch (error) {
+          logger.warn('Failed to trigger preview image generation (non-critical):', error);
+        }
+      }
+      
       return { success: true };
     } catch (error: any) {
       logger.error(`❌ Failed to save ${urlType} URL: ${error.message}`);
