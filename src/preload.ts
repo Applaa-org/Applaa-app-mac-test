@@ -166,6 +166,7 @@ const validInvokeChannels = [
   "open-flutter-android",
   "check-problems",
   "security:review",
+  "visual-editing:apply-changes",
   "restart-dyad",
   "get-templates",
   "portal:migrate-create",

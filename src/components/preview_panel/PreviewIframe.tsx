@@ -25,6 +25,7 @@ import {
   Upload,
   Github,
   Globe,
+  Pen,
 } from "lucide-react";
 import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
@@ -39,7 +40,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useStreamChat } from "@/hooks/useStreamChat";
-import { selectedComponentPreviewAtom } from "@/atoms/previewAtoms";
+import { selectedComponentPreviewAtom, visualEditingEnabledAtom, selectedVisualElementAtom, type VisualEditingElement } from "@/atoms/previewAtoms";
+import { VisualEditingToolbar } from "./VisualEditingToolbar";
+import { useApplaaPro } from "@/hooks/useApplaaPro";
 import { AutoErrorFixBanner } from "./AutoErrorFixBanner";
 import { ComponentSelection } from "@/ipc/ipc_types";
 import { StreamingGameSelector } from "@/components/StreamingGameSelector";
@@ -221,6 +224,11 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPicking, setIsPicking] = useState(false);
   
+  // Visual Editing state
+  const { isPro } = useApplaaPro();
+  const [visualEditingEnabled, setVisualEditingEnabled] = useAtom(visualEditingEnabledAtom);
+  const [selectedVisualElement, setSelectedVisualElement] = useAtom(selectedVisualElementAtom);
+  
   // Publish state
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishProgress, setPublishProgress] = useState("");
@@ -276,6 +284,155 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     }
   }, [selectedAppId]);
 
+  // Inject visual editing script into iframe when enabled
+  useEffect(() => {
+    if (!visualEditingEnabled || !iframeRef.current?.contentWindow) {
+      return;
+    }
+
+    const iframe = iframeRef.current;
+    const handleLoad = () => {
+      if (!iframe.contentWindow) return;
+
+      try {
+        const script = `
+          (function() {
+            if (window.__visualEditing) return;
+            
+            let overlay = null;
+            let selectedElement = null;
+            
+            function createOverlay() {
+              overlay = document.createElement('div');
+              overlay.style.cssText = \`
+                position: fixed;
+                pointer-events: none;
+                z-index: 999999;
+                border: 2px solid #9333ea;
+                background: rgba(147, 51, 234, 0.1);
+                display: none;
+              \`;
+              document.body.appendChild(overlay);
+            }
+            
+            function highlightElement(el) {
+              if (!overlay || !el) return;
+              const rect = el.getBoundingClientRect();
+              overlay.style.display = 'block';
+              overlay.style.top = rect.top + 'px';
+              overlay.style.left = rect.left + 'px';
+              overlay.style.width = rect.width + 'px';
+              overlay.style.height = rect.height + 'px';
+            }
+            
+            function getSelector(el) {
+              if (el.id) return '#' + el.id;
+              if (el.className && typeof el.className === 'string') {
+                const classes = el.className.split(' ').filter(c => c).slice(0, 1);
+                if (classes.length > 0) return '.' + classes[0];
+              }
+              return el.tagName.toLowerCase();
+            }
+            
+            function handleMouseMove(e) {
+              if (!window.__visualEditing.active) return;
+              highlightElement(e.target);
+            }
+            
+            function handleClick(e) {
+              if (!window.__visualEditing.active) return;
+              e.preventDefault();
+              e.stopPropagation();
+              selectedElement = e.target;
+              highlightElement(selectedElement);
+              
+              const computedStyle = window.getComputedStyle(selectedElement);
+              const styles = {
+                marginLeft: computedStyle.marginLeft,
+                marginTop: computedStyle.marginTop,
+                paddingLeft: computedStyle.paddingLeft,
+                paddingTop: computedStyle.paddingTop,
+                borderWidth: computedStyle.borderWidth,
+                borderRadius: computedStyle.borderRadius,
+                borderColor: computedStyle.borderColor,
+                backgroundColor: computedStyle.backgroundColor,
+                fontSize: computedStyle.fontSize,
+                fontWeight: computedStyle.fontWeight,
+                color: computedStyle.color,
+              };
+              
+              // Send element info to parent
+              window.parent.postMessage({
+                type: 'visual-editing-element-selected',
+                element: {
+                  tagName: selectedElement.tagName.toLowerCase(),
+                  className: selectedElement.className || '',
+                  id: selectedElement.id || '',
+                  selector: getSelector(selectedElement),
+                  styles: styles
+                }
+              }, '*');
+            }
+            
+            function activate() {
+              window.__visualEditing.active = true;
+              createOverlay();
+              document.addEventListener('mousemove', handleMouseMove, true);
+              document.addEventListener('click', handleClick, true);
+              document.body.style.cursor = 'crosshair';
+            }
+            
+            function deactivate() {
+              window.__visualEditing.active = false;
+              if (overlay) overlay.style.display = 'none';
+              document.removeEventListener('mousemove', handleMouseMove, true);
+              document.removeEventListener('click', handleClick, true);
+              document.body.style.cursor = '';
+            }
+            
+            window.__visualEditing = { activate, deactivate, active: false };
+            window.__visualEditing.activate();
+            window.parent.postMessage({ type: 'visual-editing-ready' }, '*');
+          })();
+        `;
+
+        try {
+          (iframe.contentWindow as any).eval(script);
+        } catch (evalError: any) {
+          // Cross-origin iframe - cannot inject script via eval
+          // This is expected for cross-origin iframes and safe to ignore
+          if (evalError?.name === 'SecurityError' || evalError?.message?.includes('cross-origin')) {
+            console.debug('Cannot inject visual editing script (cross-origin iframe):', evalError);
+          } else {
+            console.error('Failed to inject visual editing script:', evalError);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to inject visual editing script:', error);
+      }
+    };
+
+    iframe.addEventListener('load', handleLoad);
+    if (iframe.contentDocument?.readyState === 'complete') {
+      handleLoad();
+    }
+
+    return () => {
+      iframe.removeEventListener('load', handleLoad);
+      // Deactivate visual editing when component unmounts
+      try {
+        const iframeWindow = iframe.contentWindow as any;
+        if (iframeWindow?.__visualEditing) {
+          iframeWindow.__visualEditing.deactivate();
+        }
+      } catch (error) {
+        // Cross-origin iframe - cannot access contentWindow
+        // This is expected for some iframes and safe to ignore
+        console.debug('Cannot access iframe contentWindow (cross-origin):', error);
+      }
+    };
+  }, [visualEditingEnabled]);
+
   // 🚫 DISABLED: Console error monitoring to match Dyad's approach
   // Add message listener for iframe errors and navigation events
   // useEffect(() => {
@@ -298,6 +455,26 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         console.log("Component picked:", event.data);
         setSelectedComponentPreview(parseComponentSelection(event.data));
         setIsPicking(false);
+        return;
+      }
+
+      // Handle visual editing element selection
+      if (event.data?.type === "visual-editing-element-selected") {
+        const elementData = event.data.element;
+        const visualElement: VisualEditingElement = {
+          id: Date.now().toString(),
+          tagName: elementData.tagName,
+          className: elementData.className,
+          elementId: elementData.id,
+          styles: elementData.styles || {},
+          selector: elementData.selector || (elementData.id ? `#${elementData.id}` : elementData.className ? `.${elementData.className.split(' ')[0]}` : elementData.tagName),
+        };
+        setSelectedVisualElement(visualElement);
+        return;
+      }
+
+      if (event.data?.type === "visual-editing-ready") {
+        console.log("Visual editing script ready");
         return;
       }
 
@@ -764,6 +941,32 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               onChange={setScreenSize}
             />
           )}
+
+          {/* Visual Editing Toggle - Available for all users, web apps only */}
+          {!isGodotApp && !expoUrl && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      setVisualEditingEnabled(!visualEditingEnabled);
+                      if (visualEditingEnabled) {
+                        setSelectedVisualElement(null);
+                      }
+                    }}
+                    className={`godot-button godot-button-icon ${visualEditingEnabled ? "godot-button-primary" : ""}`}
+                    disabled={loading || !selectedAppId}
+                    title={visualEditingEnabled ? "Disable Visual Editing" : "Enable Visual Editing"}
+                  >
+                    <Pen size={16} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{visualEditingEnabled ? "Disable" : "Enable"} Visual Editing</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
 
@@ -936,6 +1139,26 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           </ScreenSizeWrapper>
         )}
       </div>
+
+      {/* Visual Editing Toolbar */}
+      {visualEditingEnabled && selectedVisualElement && (
+        <VisualEditingToolbar
+          onClose={() => {
+            setSelectedVisualElement(null);
+            // Deactivate visual editing in iframe
+            try {
+              const iframeWindow = iframeRef.current?.contentWindow as any;
+              if (iframeWindow?.__visualEditing) {
+                iframeWindow.__visualEditing.deactivate();
+              }
+            } catch (error) {
+              // Cross-origin iframe - cannot access contentWindow
+              // This is expected for some iframes and safe to ignore
+              console.debug('Cannot access iframe contentWindow (cross-origin):', error);
+            }
+          }}
+        />
+      )}
 
       {/* AutoPush Dropdown */}
       {showPublishDialog && selectedAppId && (

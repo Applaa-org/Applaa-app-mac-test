@@ -1716,6 +1716,22 @@ export class IpcClient {
     return this.ipcRenderer.invoke("security:review", params);
   }
 
+  public async applyVisualEditingChanges(params: {
+    appId: number;
+    changes: Array<{
+      property: string;
+      value: string;
+      file: string;
+      selector: string;
+      line?: number;
+    }>;
+  }): Promise<{
+    success: boolean;
+    results: Array<{ file: string; success: boolean; error?: string }>;
+  }> {
+    return this.ipcRenderer.invoke("visual-editing:apply-changes", params);
+  }
+
   // Template methods
   public async getTemplates(): Promise<Template[]> {
     return this.ipcRenderer.invoke("get-templates");
