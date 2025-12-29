@@ -5,6 +5,7 @@ import { GameOption } from '@/hooks/useRandomGame';
 import { StreamingGameSelector } from '@/components/StreamingGameSelector';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { useSettings } from '@/hooks/useSettings';
+import { ScreenSizeToggle, type ScreenSize, getScreenSizeDimensions } from '@/components/preview_panel/ScreenSizeToggle';
 
 interface GamePopupWindowProps {
   isOpen: boolean;
@@ -22,10 +23,33 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
   const [previousSize, setPreviousSize] = useState({ width: 800, height: 600 });
   const [size, setSize] = useState({ width: 800, height: 600 });
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
+  const [screenSize, setScreenSize] = useState<ScreenSize>('desktop');
   const popupRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hasShownConfirmationRef = useRef(false);
   
   const { updateSettings } = useSettings();
+  
+  // Show confirmation dialog when game window opens (only once per open)
+  useEffect(() => {
+    if (isOpen && !hasShownConfirmationRef.current) {
+      setShowCloseConfirmation(true);
+      hasShownConfirmationRef.current = true;
+    }
+    
+    // Reset flag when window closes
+    if (!isOpen) {
+      hasShownConfirmationRef.current = false;
+    }
+  }, [isOpen]);
+  
+  // Update size when screen size changes (only if not maximized and not manually resized)
+  useEffect(() => {
+    if (!isMaximized) {
+      const dimensions = getScreenSizeDimensions(screenSize);
+      setSize({ width: dimensions.width, height: dimensions.height });
+    }
+  }, [screenSize, isMaximized]);
   
   // Use a stable game state that only updates when the game actually changes
   const [stableGame, setStableGame] = useState(game);
@@ -104,25 +128,28 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
   };
 
   const handleClose = () => {
-    // Show the confirmation dialog (this will hide the game window)
-    setShowCloseConfirmation(true);
+    // Just close the window without showing confirmation
+    onClose();
   };
 
-  const handleConfirmClose = async (enableGameWindow: boolean) => {
+  const handleConfirm = async (enableGameWindow: boolean) => {
     // Update the setting based on user's choice
     await updateSettings({
       enableGameWindowDuringStream: enableGameWindow,
     });
     
-    // Close the confirmation dialog and the game window
+    // Close the confirmation dialog
     setShowCloseConfirmation(false);
-    onClose();
+    
+    // If user selected "No", close the game window
+    if (!enableGameWindow) {
+      onClose();
+    }
+    // If user selected "Yes", keep the game window open (do nothing)
   };
 
-  // Don't render game window if confirmation dialog is showing
-  const shouldRenderGameWindow = isOpen && !showCloseConfirmation;
-  
-  if (!isOpen && !showCloseConfirmation) return null;
+  // Render game window when open (confirmation dialog can show on top)
+  if (!isOpen) return null;
 
   const content = (
     <div
@@ -148,6 +175,14 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Screen Size Toggle */}
+          <div onClick={(e) => e.stopPropagation()} className="relative z-[10001]">
+            <ScreenSizeToggle
+              value={screenSize}
+              onChange={setScreenSize}
+            />
+          </div>
+          
           {/* Game Selector */}
           <div onClick={(e) => e.stopPropagation()} className="relative z-[10001]">
             <StreamingGameSelector 
@@ -228,16 +263,16 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
 
   return (
     <>
-      {shouldRenderGameWindow && createPortal(content, document.body)}
+      {isOpen && createPortal(content, document.body)}
       <ConfirmationDialog
         isOpen={showCloseConfirmation}
         title="Game Window Preference"
-        message="Do you want to play a game while app is being created? You can change this setting later from Settings."
+        message="Do you want to play game while app is building?"
         confirmText="Yes"
         cancelText="No"
         confirmButtonClass="bg-green-600 hover:bg-green-700 focus:ring-green-500"
-        onConfirm={() => handleConfirmClose(true)}
-        onCancel={() => handleConfirmClose(false)}
+        onConfirm={() => handleConfirm(true)}
+        onCancel={() => handleConfirm(false)}
       />
     </>
   );

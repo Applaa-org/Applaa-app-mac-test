@@ -44,7 +44,8 @@ export type PreviewMode =
   | "code"
   | "problems"
   | "publish"
-  | "testing";
+  | "testing"
+  | "security";
 
 const BUTTON_CLASS_NAME =
   "no-app-region-drag cursor-pointer relative flex items-center gap-1 px-2 py-1 rounded-md text-[13px] font-medium z-10 hover:bg-[var(--background)]";

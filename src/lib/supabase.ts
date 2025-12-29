@@ -82,6 +82,7 @@ export interface Database {
           last_deployment_at: string | null;
           deployment_notes: string | null;
           show_in_hub: boolean | null;
+          preview_image_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -119,6 +120,7 @@ export interface Database {
           last_deployment_at?: string | null;
           deployment_notes?: string | null;
           show_in_hub?: boolean | null;
+          preview_image_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -156,6 +158,7 @@ export interface Database {
           last_deployment_at?: string | null;
           deployment_notes?: string | null;
           show_in_hub?: boolean | null;
+          preview_image_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -744,6 +747,7 @@ export async function syncAppToSupabase(
     lastDeploymentAt?: number | null;
     deploymentNotes?: string | null;
     showInHub?: boolean | null;
+    previewImageUrl?: string | null;
   },
   userDisplayName: string
 ) {
@@ -841,6 +845,7 @@ export async function syncAppToSupabase(
       last_deployment_at: safeTimestampToISO(appData.lastDeploymentAt),
       deployment_notes: appData.deploymentNotes || null,
       show_in_hub: appData.showInHub === true || appData.showInHub === 1,
+      preview_image_url: appData.previewImageUrl || null,
     };
     
     // Debug: Log show_in_hub value being sent to Supabase

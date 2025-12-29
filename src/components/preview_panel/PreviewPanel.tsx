@@ -14,7 +14,7 @@ import { CodeView } from "./CodeView";
 import { PreviewIframe } from "./PreviewIframe";
 import { Problems } from "./Problems";
 import { ConfigurePanel } from "./ConfigurePanel";
-import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench, AlertTriangle, X, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench, AlertTriangle, X, Loader2, Shield } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Console } from "./Console";
@@ -22,6 +22,7 @@ import { useRunApp } from "@/hooks/useRunApp";
 import { PublishPanel } from "./PublishPanel";
 import { TestingPanel } from "./TestingPanel";
 import { SnackPoweredPreview } from "../expo/SnackPoweredPreview";
+import { SecurityPanel } from "./SecurityPanel";
 import { useMemo } from "react";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
@@ -277,6 +278,19 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
           </button>
           
           <button
+            onClick={() => setPreviewMode(previewMode === "security" ? "preview" : "security")}
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
+              previewMode === "security" ? 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30' : 'hover:bg-[var(--background)]'
+            }`}
+            title="Security Review"
+          >
+            <Shield size={16} className={previewMode === "security" ? 'text-purple-500' : ''} />
+            <span className={previewMode === "security" ? 'text-purple-600 dark:text-purple-400 font-semibold' : ''}>
+              Security
+            </span>
+          </button>
+          
+          {/* <button
             onClick={() => setShowConfigurePanel(!showConfigurePanel)}
             className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium hover:bg-[var(--background)] transition-colors ${
               showConfigurePanel ? 'bg-[var(--background-lightest)]' : ''
@@ -285,7 +299,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
           >
             <Wrench size={16} />
             <span>Configure</span>
-          </button>
+          </button> */}
         </div>
       </div>
       <div className="flex-1 overflow-hidden">
@@ -467,6 +481,8 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                   <CodeView loading={loading} app={app} />
                 ) : previewMode === "testing" ? (
                   <TestingPanel />
+                ) : previewMode === "security" ? (
+                  <SecurityPanel />
                 ) : (
                   <Problems />
                 )}

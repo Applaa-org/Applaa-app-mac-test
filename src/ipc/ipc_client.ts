@@ -1694,6 +1694,44 @@ export class IpcClient {
     return this.ipcRenderer.invoke("check-problems", params);
   }
 
+  public async runSecurityReview(params: {
+    appId: number;
+  }): Promise<{
+    issues: Array<{
+      id: string;
+      level: 'high' | 'medium' | 'low';
+      issue: string;
+      description: string;
+      file?: string;
+      line?: number;
+      column?: number;
+      fixable: boolean;
+      relevantFiles?: string[];
+    }>;
+    lastReviewed: number;
+    highCount: number;
+    mediumCount: number;
+    lowCount: number;
+  }> {
+    return this.ipcRenderer.invoke("security:review", params);
+  }
+
+  public async applyVisualEditingChanges(params: {
+    appId: number;
+    changes: Array<{
+      property: string;
+      value: string;
+      file: string;
+      selector: string;
+      line?: number;
+    }>;
+  }): Promise<{
+    success: boolean;
+    results: Array<{ file: string; success: boolean; error?: string }>;
+  }> {
+    return this.ipcRenderer.invoke("visual-editing:apply-changes", params);
+  }
+
   // Template methods
   public async getTemplates(): Promise<Template[]> {
     return this.ipcRenderer.invoke("get-templates");
@@ -3549,6 +3587,19 @@ export class IpcClient {
     available: boolean;
   }> {
     return this.ipcRenderer.invoke("applaa-automation:status");
+  }
+
+  /**
+   * Generate preview image for a deployed app
+   */
+  public async generatePreviewImage(params: {
+    appId: number;
+  }): Promise<{
+    success: boolean;
+    previewImageUrl?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("preview-image:generate", params);
   }
 }
 
