@@ -49,6 +49,37 @@ This app has a Postgres database automatically provisioned. The connection strin
 
 **The database is ALREADY running. Just connect to it using the DATABASE_URL.**
 
+## 🚨 **CRITICAL: UNIQUE TABLE NAMES (MANDATORY)**
+
+**ALWAYS generate unique table names to avoid conflicts between apps:**
+
+When creating database tables, you MUST append a unique random string to the table name:
+- ✅ GOOD: \`todos_a3f9k2m1\`, \`posts_x7b4n8p2\`, \`products_q5w9e3r1\`
+- ❌ BAD: \`todos\`, \`posts\`, \`products\` (will cause conflicts when multiple apps use the same database)
+
+**How to generate unique table names:**
+1. Generate a random alphanumeric string (8-12 characters): e.g., \`a3f9k2m1\`, \`x7b4n8p2\`, \`q5w9e3r1\`
+2. Append it to your base table name: \`todos_a3f9k2m1\`
+3. Use this unique name consistently in:
+   - CREATE TABLE statements
+   - API endpoint paths (\`/api/todos_a3f9k2m1\`)
+   - All SQL queries and indexes
+   - TypeScript interfaces can keep generic names (e.g., \`Todo\`), but API calls must use the unique table name
+
+**Example pattern:**
+\\\`\\\`\\\`typescript
+// Generate unique table name
+const randomString = Math.random().toString(36).substring(2, 10); // 8 characters
+const tableName = \`todos_\${randomString}\`; // e.g., "todos_a3f9k2m1"
+\\\`\\\`\\\`
+
+**CRITICAL RULES:**
+- Each app MUST have its own unique table names
+- The random string should be generated once per app and reused consistently throughout the codebase
+- Use lowercase alphanumeric characters only (a-z, 0-9)
+- Keep the random string length between 8-12 characters for uniqueness
+- Store the table name in a constant at the top of your API file for consistency
+
 ### **How to Detect Database Availability**
 
 1. **Check for DATABASE_URL in .env.local file:**
@@ -98,20 +129,26 @@ The backend **automatically creates CRUD endpoints** for ANY table you create!
 - \`PUT ${apiUrl}/{tableName}/:id\` - Update a row
 - \`DELETE ${apiUrl}/{tableName}/:id\` - Delete a row
 
-**Examples:**
-- If you create a \`tasks\` table → Use \`${apiUrl}/tasks\`
-- If you create a \`posts\` table → Use \`${apiUrl}/posts\`
-- If you create a \`messages\` table → Use \`${apiUrl}/messages\`
-- If you create a \`products\` table → Use \`${apiUrl}/products\`
+**Examples (with unique table names):**
+- If you create a \`tasks_a3f9k2m1\` table → Use \`${apiUrl}/tasks_a3f9k2m1\`
+- If you create a \`posts_x7b4n8p2\` table → Use \`${apiUrl}/posts_x7b4n8p2\`
+- If you create a \`messages_q5w9e3r1\` table → Use \`${apiUrl}/messages_q5w9e3r1\`
+- If you create a \`products_m8n2p4k6\` table → Use \`${apiUrl}/products_m8n2p4k6\`
 
 **IMPORTANT:**
 - The table name in your SQL MUST match the endpoint name
-- If you create \`CREATE TABLE tasks\` → Use \`/api/tasks\` endpoint
-- If you create \`CREATE TABLE todos\` → Use \`/api/todos\` endpoint
+- If you create \`CREATE TABLE tasks_a3f9k2m1\` → Use \`/api/tasks_a3f9k2m1\` endpoint
+- If you create \`CREATE TABLE todos_x7b4n8p2\` → Use \`/api/todos_x7b4n8p2\` endpoint
 - The backend automatically handles CRUD for any table name!
+- **ALWAYS use unique table names with random strings to avoid conflicts**
 
 <applaa-write path="src/lib/api.ts" description="Frontend API client for main backend">
 const API_URL = '${apiUrl}';
+
+// CRITICAL: Generate unique table name to avoid conflicts
+// This ensures each app has its own unique tables
+const randomString = Math.random().toString(36).substring(2, 10); // 8 characters
+const TABLE_NAME = \`tasks_\${randomString}\`; // e.g., "tasks_a3f9k2m1"
 
 // Define your data interface based on your table structure
 export interface Task {
@@ -123,16 +160,16 @@ export interface Task {
   created_at: string;
 }
 
-// GET all tasks (or todos, posts, messages, etc. - use your table name)
+// GET all tasks (or todos, posts, messages, etc. - use your unique table name)
 export async function getTasks(): Promise<Task[]> {
-  const response = await fetch(\`\${API_URL}/tasks\`);
+  const response = await fetch(\`\${API_URL}/\${TABLE_NAME}\`);
   if (!response.ok) throw new Error('Failed to fetch tasks');
   return response.json();
 }
 
 // CREATE a new task
 export async function createTask(title: string, completed: boolean = false): Promise<Task> {
-  const response = await fetch(\`\${API_URL}/tasks\`, {
+  const response = await fetch(\`\${API_URL}/\${TABLE_NAME}\`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, completed }),
@@ -143,7 +180,7 @@ export async function createTask(title: string, completed: boolean = false): Pro
 
 // UPDATE a task
 export async function updateTask(id: number, updates: { title?: string; completed?: boolean }): Promise<Task> {
-  const response = await fetch(\`\${API_URL}/tasks/\${id}\`, {
+  const response = await fetch(\`\${API_URL}/\${TABLE_NAME}/\${id}\`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
@@ -154,13 +191,14 @@ export async function updateTask(id: number, updates: { title?: string; complete
 
 // DELETE a task
 export async function deleteTask(id: number): Promise<void> {
-  const response = await fetch(\`\${API_URL}/tasks/\${id}\`, {
+  const response = await fetch(\`\${API_URL}/\${TABLE_NAME}/\${id}\`, {
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('Failed to delete task');
 }
 
-// NOTE: Replace "tasks" with your actual table name (e.g., "todos", "posts", "messages", "products")
+// NOTE: The TABLE_NAME constant must match the table name in your CREATE TABLE statement
+// Example: If TABLE_NAME is "tasks_a3f9k2m1", your SQL must be: CREATE TABLE IF NOT EXISTS tasks_a3f9k2m1 (...)
 // The backend automatically handles CRUD for any table name you use!
 </applaa-write>
 
@@ -170,12 +208,14 @@ export async function deleteTask(id: number): Promise<void> {
 
 When the app was created, the backend automatically detected the app type and created the necessary database tables!
 
-**App Type Detection:**
-- If app name contains "todo", "task" → \`todos\` table created
-- If app name contains "chat", "message" → \`conversations\`, \`messages\` tables created
-- If app name contains "blog", "post" → \`posts\`, \`categories\` tables created
-- If app name contains "shop", "store" → \`products\`, \`orders\` tables created
-- If app name contains "note", "notebook" → \`notebooks\`, \`notes\` tables created
+**App Type Detection (with unique table names):**
+- If app name contains "todo", "task" → \`todos_{randomString}\` table created (e.g., \`todos_a3f9k2m1\`)
+- If app name contains "chat", "message" → \`conversations_{randomString}\`, \`messages_{randomString}\` tables created
+- If app name contains "blog", "post" → \`posts_{randomString}\`, \`categories_{randomString}\` tables created
+- If app name contains "shop", "store" → \`products_{randomString}\`, \`orders_{randomString}\` tables created
+- If app name contains "note", "notebook" → \`notebooks_{randomString}\`, \`notes_{randomString}\` tables created
+
+**Remember: Always append a unique random string to table names to avoid conflicts!**
 
 **You can just start coding - the database is ready!**
 
@@ -215,11 +255,13 @@ export interface Todo {
 }
 \\\`\\\`\\\`
 
-**You MUST also output this schema tag:**
+**You MUST also output this schema tag (with unique table name):**
 
 \\\`\\\`\\\`xml
 <applaa-create-tables>
-CREATE TABLE IF NOT EXISTS todos (
+-- Generate unique table name to avoid conflicts
+-- Example: todos_a3f9k2m1 (where a3f9k2m1 is a random 8-character string)
+CREATE TABLE IF NOT EXISTS todos_a3f9k2m1 (
   id SERIAL PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   description TEXT,
@@ -230,10 +272,12 @@ CREATE TABLE IF NOT EXISTS todos (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_todos_created_at ON todos(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority);
+CREATE INDEX IF NOT EXISTS idx_todos_a3f9k2m1_created_at ON todos_a3f9k2m1(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_todos_a3f9k2m1_priority ON todos_a3f9k2m1(priority);
 </applaa-create-tables>
 \\\`\\\`\\\`
+
+**CRITICAL:** The table name in the SQL (e.g., \`todos_a3f9k2m1\`) MUST match the TABLE_NAME constant in your API client file!
 
 **The system will automatically execute this SQL and create the tables!**
 
@@ -262,39 +306,43 @@ CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority);
    - TypeScript: \`dueDate\`
    - SQL: \`due_date\`
 
-#### **Multiple Tables Example:**
+#### **Multiple Tables Example (with unique names):**
 
 If generating a blog app:
 
 \\\`\\\`\\\`xml
 <applaa-create-tables>
-CREATE TABLE IF NOT EXISTS categories (
+-- Generate unique random string for this app (e.g., x7b4n8p2)
+-- All tables for this app should use the same random string suffix
+CREATE TABLE IF NOT EXISTS categories_x7b4n8p2 (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   slug VARCHAR(100) UNIQUE NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS posts (
+CREATE TABLE IF NOT EXISTS posts_x7b4n8p2 (
   id SERIAL PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   slug VARCHAR(255) UNIQUE NOT NULL,
   content TEXT,
   excerpt TEXT,
   author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+  category_id INTEGER REFERENCES categories_x7b4n8p2(id) ON DELETE SET NULL,
   status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
   published_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id);
-CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category_id);
-CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
-CREATE INDEX IF NOT EXISTS idx_posts_published_at ON posts(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_x7b4n8p2_author ON posts_x7b4n8p2(author_id);
+CREATE INDEX IF NOT EXISTS idx_posts_x7b4n8p2_category ON posts_x7b4n8p2(category_id);
+CREATE INDEX IF NOT EXISTS idx_posts_x7b4n8p2_status ON posts_x7b4n8p2(status);
+CREATE INDEX IF NOT EXISTS idx_posts_x7b4n8p2_published_at ON posts_x7b4n8p2(published_at DESC);
 </applaa-create-tables>
 \\\`\\\`\\\`
+
+**IMPORTANT:** Use the same random string for all related tables in the same app (e.g., \`categories_x7b4n8p2\` and \`posts_x7b4n8p2\` both use \`x7b4n8p2\`).
 
 #### **When to Generate Schemas:**
 
@@ -507,11 +555,12 @@ export async function getPosts() {
 }
 \\\`\\\`\\\`
 
-**YOU MUST OUTPUT:**
+**YOU MUST OUTPUT (with unique table name):**
 
 \\\`\\\`\\\`xml
 <applaa-create-schema>
-CREATE TABLE IF NOT EXISTS posts (
+-- Generate unique table name (e.g., posts_q5w9e3r1)
+CREATE TABLE IF NOT EXISTS posts_q5w9e3r1 (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
@@ -519,10 +568,12 @@ CREATE TABLE IF NOT EXISTS posts (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
-CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_q5w9e3r1_user_id ON posts_q5w9e3r1(user_id);
+CREATE INDEX IF NOT EXISTS idx_posts_q5w9e3r1_created_at ON posts_q5w9e3r1(created_at DESC);
 </applaa-create-schema>
 \\\`\\\`\\\`
+
+**CRITICAL:** The table name \`posts_q5w9e3r1\` must match the TABLE_NAME constant in your API client!
 
 **RULES FOR SCHEMA GENERATION:**
 
@@ -603,9 +654,10 @@ When user says "create a todo app" or "I need a blog", AI AUTOMATICALLY generate
 **Example: User says "create a todo app"**
 
 AI IMMEDIATELY creates (without asking):
-1. ✅ \`src/lib/api.ts\` - Frontend API client (calls ${apiUrl}/todos)
+1. ✅ \`src/lib/api.ts\` - Frontend API client (calls ${apiUrl}/todos_{randomString} with unique table name)
 2. ✅ \`src/hooks/useTodos.ts\` - React hook for state management
 3. ✅ \`src/components/TodoList.tsx\` - UI component using the hook
+4. ✅ Database schema with unique table name (e.g., \`todos_a3f9k2m1\`)
 
 **User then just runs:**
 \\\`\\\`\\\`bash
@@ -633,13 +685,13 @@ Database (Postgres)
 
 AI should AUTO-GENERATE frontend integration code when it detects these keywords:
 
-**Database Keywords & Auto-Setup Templates:**
-- "todo app", "task manager" → Template: **todo** → Creates: \`todos\` table
-- "chat app", "messaging" → Template: **chat** → Creates: \`conversations\`, \`messages\`, \`conversation_participants\`
-- "blog", "posts" → Template: **blog** → Creates: \`posts\`, \`categories\`, \`comments\`
-- "e-commerce", "shop" → Template: **ecommerce** → Creates: \`products\`, \`orders\`, \`cart_items\`, \`order_items\`
-- "notes", "notepad" → Template: **notes** → Creates: \`notebooks\`, \`notes\`
-- "user profiles", "accounts" → Use existing \`users\` table (already created)
+**Database Keywords & Auto-Setup Templates (with unique table names):**
+- "todo app", "task manager" → Template: **todo** → Creates: \`todos_{randomString}\` table
+- "chat app", "messaging" → Template: **chat** → Creates: \`conversations_{randomString}\`, \`messages_{randomString}\`, \`conversation_participants_{randomString}\`
+- "blog", "posts" → Template: **blog** → Creates: \`posts_{randomString}\`, \`categories_{randomString}\`, \`comments_{randomString}\`
+- "e-commerce", "shop" → Template: **ecommerce** → Creates: \`products_{randomString}\`, \`orders_{randomString}\`, \`cart_items_{randomString}\`, \`order_items_{randomString}\`
+- "notes", "notepad" → Template: **notes** → Creates: \`notebooks_{randomString}\`, \`notes_{randomString}\`
+- "user profiles", "accounts" → Use existing \`users\` table (already created, no random string needed)
 
 **Auto-Generation Flow:**
 1. 🔍 Detect: User wants database feature
@@ -677,23 +729,23 @@ POST ${apiUrl}/apps/:appId/setup/notes
 
 **Note:** These tables are created by the main backend automatically. You don't need to create them in your app.
 
-**Todo App Backend Endpoints:**
-- \`GET /api/todos\` - List all todos
-- \`POST /api/todos\` - Create todo (body: {title, completed})
-- \`PUT /api/todos/:id\` - Update todo (body: {title?, completed?})
-- \`DELETE /api/todos/:id\` - Delete todo
+**Todo App Backend Endpoints (with unique table names):**
+- \`GET /api/todos_{randomString}\` - List all todos (e.g., \`/api/todos_a3f9k2m1\`)
+- \`POST /api/todos_{randomString}\` - Create todo (body: {title, completed})
+- \`PUT /api/todos_{randomString}/:id\` - Update todo (body: {title?, completed?})
+- \`DELETE /api/todos_{randomString}/:id\` - Delete todo
 
-**Blog App Backend Endpoints:**
-- \`GET /api/posts\` - List all posts
-- \`POST /api/posts\` - Create post (body: {title, content})
-- \`PUT /api/posts/:id\` - Update post
-- \`DELETE /api/posts/:id\` - Delete post
+**Blog App Backend Endpoints (with unique table names):**
+- \`GET /api/posts_{randomString}\` - List all posts (e.g., \`/api/posts_x7b4n8p2\`)
+- \`POST /api/posts_{randomString}\` - Create post (body: {title, content})
+- \`PUT /api/posts_{randomString}/:id\` - Update post
+- \`DELETE /api/posts_{randomString}/:id\` - Delete post
 
-**E-commerce App Backend Endpoints:**
-- \`GET /api/products\` - List all products
-- \`POST /api/products\` - Create product (body: {name, description, price, stock})
-- \`PUT /api/products/:id\` - Update product
-- \`DELETE /api/products/:id\` - Delete product
+**E-commerce App Backend Endpoints (with unique table names):**
+- \`GET /api/products_{randomString}\` - List all products (e.g., \`/api/products_q5w9e3r1\`)
+- \`POST /api/products_{randomString}\` - Create product (body: {name, description, price, stock})
+- \`PUT /api/products_{randomString}/:id\` - Update product
+- \`DELETE /api/products_{randomString}/:id\` - Delete product
 
 **🎯 Remember: Just create the frontend API client - the backend handles everything else!**
 

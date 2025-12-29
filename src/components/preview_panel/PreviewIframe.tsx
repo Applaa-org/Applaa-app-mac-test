@@ -284,17 +284,28 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     }
   }, [selectedAppId]);
 
-  // Inject visual editing script into iframe when enabled
+  // Inject visual editing script into iframe (always inject, activate based on state)
   useEffect(() => {
-    if (!visualEditingEnabled || !iframeRef.current?.contentWindow) {
-      return;
-    }
+    if (!iframeRef.current) return;
 
     const iframe = iframeRef.current;
-    const handleLoad = () => {
-      if (!iframe.contentWindow) return;
+    
+    const injectVisualEditingScript = () => {
+      if (!iframe.contentWindow || !iframe.contentDocument) return;
 
       try {
+        // Check if script already exists
+        const existingScript = (iframe.contentWindow as any).__visualEditing;
+        if (existingScript) {
+          // Script already injected, just activate/deactivate based on state
+          if (visualEditingEnabled) {
+            existingScript.activate();
+          } else {
+            existingScript.deactivate();
+          }
+          return;
+        }
+
         const script = `
           (function() {
             if (window.__visualEditing) return;
@@ -303,6 +314,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             let selectedElement = null;
             
             function createOverlay() {
+              if (overlay) return;
               overlay = document.createElement('div');
               overlay.style.cssText = \`
                 position: fixed;
@@ -319,8 +331,8 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               if (!overlay || !el) return;
               const rect = el.getBoundingClientRect();
               overlay.style.display = 'block';
-              overlay.style.top = rect.top + 'px';
-              overlay.style.left = rect.left + 'px';
+              overlay.style.top = (rect.top + window.scrollY) + 'px';
+              overlay.style.left = (rect.left + window.scrollX) + 'px';
               overlay.style.width = rect.width + 'px';
               overlay.style.height = rect.height + 'px';
             }
@@ -375,32 +387,42 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             }
             
             function activate() {
+              if (window.__visualEditing.active) return;
               window.__visualEditing.active = true;
               createOverlay();
               document.addEventListener('mousemove', handleMouseMove, true);
               document.addEventListener('click', handleClick, true);
               document.body.style.cursor = 'crosshair';
+              document.body.style.userSelect = 'none';
             }
             
             function deactivate() {
+              if (!window.__visualEditing.active) return;
               window.__visualEditing.active = false;
               if (overlay) overlay.style.display = 'none';
               document.removeEventListener('mousemove', handleMouseMove, true);
               document.removeEventListener('click', handleClick, true);
               document.body.style.cursor = '';
+              document.body.style.userSelect = '';
             }
             
             window.__visualEditing = { activate, deactivate, active: false };
-            window.__visualEditing.activate();
             window.parent.postMessage({ type: 'visual-editing-ready' }, '*');
           })();
         `;
 
         try {
           (iframe.contentWindow as any).eval(script);
+          
+          // Activate if visual editing is enabled
+          setTimeout(() => {
+            const script = (iframe.contentWindow as any).__visualEditing;
+            if (script && visualEditingEnabled) {
+              script.activate();
+            }
+          }, 50);
         } catch (evalError: any) {
           // Cross-origin iframe - cannot inject script via eval
-          // This is expected for cross-origin iframes and safe to ignore
           if (evalError?.name === 'SecurityError' || evalError?.message?.includes('cross-origin')) {
             console.debug('Cannot inject visual editing script (cross-origin iframe):', evalError);
           } else {
@@ -412,14 +434,44 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       }
     };
 
+    const handleLoad = () => {
+      // Wait a bit for iframe to be fully ready
+      setTimeout(() => {
+        injectVisualEditingScript();
+      }, 200);
+    };
+
+    // Inject script when iframe loads
     iframe.addEventListener('load', handleLoad);
-    if (iframe.contentDocument?.readyState === 'complete') {
+    
+    // If iframe is already loaded, inject immediately
+    if (iframe.contentDocument?.readyState === 'complete' || iframe.contentDocument?.readyState === 'interactive') {
       handleLoad();
     }
 
+    // Handle when visualEditingEnabled changes after script is injected
+    const checkAndUpdate = () => {
+      try {
+        const iframeWindow = iframe.contentWindow as any;
+        if (iframeWindow?.__visualEditing) {
+          if (visualEditingEnabled) {
+            iframeWindow.__visualEditing.activate();
+          } else {
+            iframeWindow.__visualEditing.deactivate();
+          }
+        }
+      } catch (error) {
+        // Cross-origin - ignore
+      }
+    };
+
+    // Check periodically and when visualEditingEnabled changes
+    const interval = setInterval(checkAndUpdate, 500);
+
     return () => {
+      clearInterval(interval);
       iframe.removeEventListener('load', handleLoad);
-      // Deactivate visual editing when component unmounts
+      // Deactivate visual editing when component unmounts or visual editing is disabled
       try {
         const iframeWindow = iframe.contentWindow as any;
         if (iframeWindow?.__visualEditing) {
@@ -427,7 +479,6 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         }
       } catch (error) {
         // Cross-origin iframe - cannot access contentWindow
-        // This is expected for some iframes and safe to ignore
         console.debug('Cannot access iframe contentWindow (cross-origin):', error);
       }
     };
