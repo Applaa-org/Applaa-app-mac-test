@@ -5,6 +5,7 @@ import { GameOption } from '@/hooks/useRandomGame';
 import { StreamingGameSelector } from '@/components/StreamingGameSelector';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { useSettings } from '@/hooks/useSettings';
+import { ScreenSizeToggle, type ScreenSize, getScreenSizeDimensions } from '@/components/preview_panel/ScreenSizeToggle';
 
 interface GamePopupWindowProps {
   isOpen: boolean;
@@ -22,10 +23,19 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
   const [previousSize, setPreviousSize] = useState({ width: 800, height: 600 });
   const [size, setSize] = useState({ width: 800, height: 600 });
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
+  const [screenSize, setScreenSize] = useState<ScreenSize>('desktop');
   const popupRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const { updateSettings } = useSettings();
+  
+  // Update size when screen size changes (only if not maximized and not manually resized)
+  useEffect(() => {
+    if (!isMaximized) {
+      const dimensions = getScreenSizeDimensions(screenSize);
+      setSize({ width: dimensions.width, height: dimensions.height });
+    }
+  }, [screenSize, isMaximized]);
   
   // Use a stable game state that only updates when the game actually changes
   const [stableGame, setStableGame] = useState(game);
@@ -148,6 +158,14 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Screen Size Toggle */}
+          <div onClick={(e) => e.stopPropagation()} className="relative z-[10001]">
+            <ScreenSizeToggle
+              value={screenSize}
+              onChange={setScreenSize}
+            />
+          </div>
+          
           {/* Game Selector */}
           <div onClick={(e) => e.stopPropagation()} className="relative z-[10001]">
             <StreamingGameSelector 

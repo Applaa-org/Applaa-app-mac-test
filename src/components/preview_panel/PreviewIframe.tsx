@@ -52,6 +52,50 @@ import {
 import { useRunApp } from "@/hooks/useRunApp";
 import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
 import { useGodotExport } from "@/hooks/useGodotExport";
+import { ScreenSizeToggle, type ScreenSize, getScreenSizeDimensions } from "./ScreenSizeToggle";
+import { cn } from "@/lib/utils";
+
+// Screen size wrapper component
+function ScreenSizeWrapper({ 
+  children, 
+  screenSize, 
+  isGodotApp,
+  expoUrl 
+}: { 
+  children: React.ReactNode; 
+  screenSize: ScreenSize; 
+  isGodotApp: boolean;
+  expoUrl?: string;
+}) {
+  // Don't apply screen size constraints for games or Expo apps
+  if (isGodotApp || expoUrl) {
+    return <>{children}</>;
+  }
+
+  const dimensions = getScreenSizeDimensions(screenSize);
+  
+  return (
+    <div 
+      className="flex items-center justify-center h-full bg-gray-100 dark:bg-gray-900 p-4 overflow-auto"
+      style={{
+        // Add some padding for visual spacing
+      }}
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-all duration-200"
+        style={{
+          width: `${dimensions.width}px`,
+          height: `${dimensions.height}px`,
+          maxWidth: '100%',
+          maxHeight: '100%',
+         
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 interface ErrorBannerProps {
   error: string | undefined;
@@ -186,6 +230,9 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     vercelDeploymentUrl?: string;
   }>({});
   const [currentApp, setCurrentApp] = useState<any>(null);
+  
+  // Screen size state (only for web apps, not games)
+  const [screenSize, setScreenSize] = useState<ScreenSize>('desktop');
   
   // Global persistent publish state
   const [publishState, setPublishState] = useAtom(globalPublishStateAtom);
@@ -709,6 +756,14 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               </button>
             )}
           </div>
+          
+          {/* Screen Size Toggle - Only for web apps (not games, not Expo) */}
+          {!isGodotApp && !expoUrl && (
+            <ScreenSizeToggle
+              value={screenSize}
+              onChange={setScreenSize}
+            />
+          )}
         </div>
       </div>
 
@@ -800,73 +855,85 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               // Show regular app preview during streaming (only if not building)
               <div className="flex-1 relative">
                 {!appUrl && !expoUrl && !currentGodotExportUrl && !godotExportUrl ? (
-                  <div className="godot-loading">
-                    <div className="godot-spinner"></div>
+                  <div className={cn("flex flex-col items-center justify-center h-full", isGodotApp && "godot-loading")}>
+                    {isGodotApp ? (
+                      <div className="godot-spinner"></div>
+                    ) : (
+                      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                    )}
                     <p className="mt-4">Loading your app...</p>
                   </div>
                 ) : (
-                  <div className="godot-iframe-wrapper h-full">
-                    <iframe
-                      data-testid="preview-iframe-element"
-                      onLoad={(e) => {
-                        const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                        console.log(`✅ Preview iframe loaded successfully: ${url}`);
-                        setErrorMessage(undefined);
-                      }}
-                      onError={(e) => {
-                        const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                        console.error(`❌ Preview iframe failed to load: ${url}`, e);
-                        setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
-                      }}
-                      ref={iframeRef}
-                      key={reloadKey}
-                      title={`Preview for App ${selectedAppId}`}
-                      className="w-full h-full border-none"
-                      src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
-                      allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
-                    />
-                  </div>
+                  <ScreenSizeWrapper screenSize={screenSize} isGodotApp={isGodotApp} expoUrl={expoUrl}>
+                    <div className={cn("h-full", isGodotApp && "godot-iframe-wrapper")}>
+                      <iframe
+                        data-testid="preview-iframe-element"
+                        onLoad={(e) => {
+                          const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                          console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                          setErrorMessage(undefined);
+                        }}
+                        onError={(e) => {
+                          const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                          console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                          setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
+                        }}
+                        ref={iframeRef}
+                        key={reloadKey}
+                        title={`Preview for App ${selectedAppId}`}
+                        className="w-full h-full border-none"
+                        src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
+                        allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
+                      />
+                    </div>
+                  </ScreenSizeWrapper>
                 )}
               </div>
             )}
           </div>
         ) : !appUrl && !expoUrl && !godotExportUrl && !currentGodotExportUrl ? (
-          <div className="godot-loading">
-            <div className="godot-spinner"></div>
+          <div className={cn("flex flex-col items-center justify-center h-full", isGodotApp && "godot-loading")}>
+            {isGodotApp ? (
+              <div className="godot-spinner"></div>
+            ) : (
+              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            )}
             <p className="mt-4">Loading your app...</p>
           </div>
         ) : (
-          <div className="godot-iframe-wrapper h-full">
-            <iframe
-              data-testid="preview-iframe-element"
-              onLoad={(e) => {
-                const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                console.log(`✅ Preview iframe loaded successfully: ${url}`);
-                setErrorMessage(undefined);
-                
-                // Try to access iframe content for debugging (may fail due to CORS)
-                try {
-                  const iframe = iframeRef.current;
-                  if (iframe && iframe.contentWindow) {
-                    console.log('Iframe contentWindow accessible');
+          <ScreenSizeWrapper screenSize={screenSize} isGodotApp={isGodotApp} expoUrl={expoUrl}>
+            <div className={cn("h-full", isGodotApp && "godot-iframe-wrapper")}>
+              <iframe
+                data-testid="preview-iframe-element"
+                onLoad={(e) => {
+                  const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                  console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                  setErrorMessage(undefined);
+                  
+                  // Try to access iframe content for debugging (may fail due to CORS)
+                  try {
+                    const iframe = iframeRef.current;
+                    if (iframe && iframe.contentWindow) {
+                      console.log('Iframe contentWindow accessible');
+                    }
+                  } catch (err) {
+                    console.log('Cannot access iframe content (CORS):', err);
                   }
-                } catch (err) {
-                  console.log('Cannot access iframe content (CORS):', err);
-                }
-              }}
-              onError={(e) => {
-                const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                console.error(`❌ Preview iframe failed to load: ${url}`, e);
-                setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
-              }}
-              ref={iframeRef}
-              key={reloadKey}
-              title={`Preview for App ${selectedAppId}`}
-              className="w-full h-full border-none"
-              src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
-              allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
-            />
-          </div>
+                }}
+                onError={(e) => {
+                  const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                  console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                  setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
+                }}
+                ref={iframeRef}
+                key={reloadKey}
+                title={`Preview for App ${selectedAppId}`}
+                className="w-full h-full border-none"
+                src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
+                allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
+              />
+            </div>
+          </ScreenSizeWrapper>
         )}
       </div>
 
