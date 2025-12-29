@@ -17,6 +17,7 @@ import {
   PanelLeftOpen,
   PanelLeftClose,
   QrCode,
+  Shield,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -44,7 +45,8 @@ export type PreviewMode =
   | "code"
   | "problems"
   | "publish"
-  | "testing";
+  | "testing"
+  | "security";
 
 const BUTTON_CLASS_NAME =
   "no-app-region-drag cursor-pointer relative flex items-center gap-1 px-2 py-1 rounded-md text-[13px] font-medium z-10 hover:bg-[var(--background)]";
@@ -71,6 +73,7 @@ export const PreviewHeader = ({
   const publishRef = useRef<HTMLButtonElement>(null);
   const testingRef = useRef<HTMLButtonElement>(null);
   const designRef = useRef<HTMLButtonElement>(null);
+  const securityRef = useRef<HTMLButtonElement>(null);
 
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -306,6 +309,13 @@ export const PreviewHeader = ({
             <Globe size={14} />,
             "Publish",
             "publish-mode-button",
+          )}
+          {renderButton(
+            "security",
+            securityRef,
+            <Shield size={14} />,
+            "Security",
+            "security-mode-button",
           )}
           {/* {renderButton(
             "testing",

@@ -1694,6 +1694,28 @@ export class IpcClient {
     return this.ipcRenderer.invoke("check-problems", params);
   }
 
+  public async runSecurityReview(params: {
+    appId: number;
+  }): Promise<{
+    issues: Array<{
+      id: string;
+      level: 'high' | 'medium' | 'low';
+      issue: string;
+      description: string;
+      file?: string;
+      line?: number;
+      column?: number;
+      fixable: boolean;
+      relevantFiles?: string[];
+    }>;
+    lastReviewed: number;
+    highCount: number;
+    mediumCount: number;
+    lowCount: number;
+  }> {
+    return this.ipcRenderer.invoke("security:review", params);
+  }
+
   // Template methods
   public async getTemplates(): Promise<Template[]> {
     return this.ipcRenderer.invoke("get-templates");

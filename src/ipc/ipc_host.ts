@@ -80,6 +80,7 @@ import { registerBackendDeployHandlers } from "./handlers/backend_deploy_handler
 import { registerDatabaseHandlers } from "./handlers/database_handlers";
 import { registerVaultHandlers } from "./handlers/vault_handlers";
 import { registerApplaaAutomationHandlers } from "./handlers/applaa_automation_handlers";
+import { registerSecurityHandlers } from "./handlers/security_handlers";
 
 
 export function registerIpcHandlers() {
@@ -208,6 +209,10 @@ export function registerIpcHandlers() {
   // 🤖 Applaa Automation handlers
   console.log('🤖 Registering Applaa automation handlers...');
   registerApplaaAutomationHandlers();
+  
+  // 🔒 Security Review handlers
+  console.log('🔒 Registering Security review handlers...');
+  registerSecurityHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP
