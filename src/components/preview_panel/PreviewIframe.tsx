@@ -291,7 +291,17 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     const iframe = iframeRef.current;
     
     const injectVisualEditingScript = () => {
-      if (!iframe.contentWindow || !iframe.contentDocument) return;
+      if (!iframe.contentWindow) return;
+      
+      // Check if we can access the iframe document (might be cross-origin)
+      let canAccessDocument = false;
+      try {
+        canAccessDocument = !!iframe.contentDocument;
+      } catch (e) {
+        // Cross-origin iframe - cannot access document
+        console.debug('Cannot access iframe document (cross-origin):', e);
+        return;
+      }
 
       try {
         // Check if script already exists
@@ -331,10 +341,17 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               if (!overlay || !el) return;
               const rect = el.getBoundingClientRect();
               overlay.style.display = 'block';
-              overlay.style.top = (rect.top + window.scrollY) + 'px';
-              overlay.style.left = (rect.left + window.scrollX) + 'px';
+              // position: fixed is relative to viewport, no scroll offset needed
+              overlay.style.top = rect.top + 'px';
+              overlay.style.left = rect.left + 'px';
               overlay.style.width = rect.width + 'px';
               overlay.style.height = rect.height + 'px';
+            }
+            
+            function handleScroll() {
+              if (selectedElement && window.__visualEditing.active) {
+                highlightElement(selectedElement);
+              }
             }
             
             function getSelector(el) {
@@ -392,6 +409,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               createOverlay();
               document.addEventListener('mousemove', handleMouseMove, true);
               document.addEventListener('click', handleClick, true);
+              window.addEventListener('scroll', handleScroll, true);
               document.body.style.cursor = 'crosshair';
               document.body.style.userSelect = 'none';
             }
@@ -402,6 +420,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               if (overlay) overlay.style.display = 'none';
               document.removeEventListener('mousemove', handleMouseMove, true);
               document.removeEventListener('click', handleClick, true);
+              window.removeEventListener('scroll', handleScroll, true);
               document.body.style.cursor = '';
               document.body.style.userSelect = '';
             }
@@ -411,18 +430,37 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           })();
         `;
 
+        // Try to inject script using script tag first (more reliable)
         try {
-          (iframe.contentWindow as any).eval(script);
+          if (iframe.contentDocument) {
+            const scriptElement = iframe.contentDocument.createElement('script');
+            scriptElement.textContent = script;
+            if (iframe.contentDocument.head) {
+              iframe.contentDocument.head.appendChild(scriptElement);
+            } else if (iframe.contentDocument.body) {
+              iframe.contentDocument.body.appendChild(scriptElement);
+            } else {
+              // Fallback to eval if DOM not ready
+              (iframe.contentWindow as any).eval(script);
+            }
+          } else {
+            // Fallback to eval
+            (iframe.contentWindow as any).eval(script);
+          }
           
           // Activate if visual editing is enabled
           setTimeout(() => {
-            const script = (iframe.contentWindow as any).__visualEditing;
-            if (script && visualEditingEnabled) {
-              script.activate();
+            try {
+              const script = (iframe.contentWindow as any).__visualEditing;
+              if (script && visualEditingEnabled) {
+                script.activate();
+              }
+            } catch (e) {
+              console.debug('Failed to activate visual editing:', e);
             }
-          }, 50);
+          }, 100);
         } catch (evalError: any) {
-          // Cross-origin iframe - cannot inject script via eval
+          // Cross-origin iframe - cannot inject script
           if (evalError?.name === 'SecurityError' || evalError?.message?.includes('cross-origin')) {
             console.debug('Cannot inject visual editing script (cross-origin iframe):', evalError);
           } else {
@@ -435,18 +473,45 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     };
 
     const handleLoad = () => {
-      // Wait a bit for iframe to be fully ready
-      setTimeout(() => {
-        injectVisualEditingScript();
-      }, 200);
+      // Wait for iframe to be fully ready
+      const checkReady = () => {
+        try {
+          if (iframe.contentDocument) {
+            const readyState = iframe.contentDocument.readyState;
+            if (readyState === 'complete' || readyState === 'interactive') {
+              // Additional small delay to ensure DOM is fully ready
+              setTimeout(() => {
+                injectVisualEditingScript();
+              }, 100);
+            } else {
+              // Wait a bit more
+              setTimeout(checkReady, 100);
+            }
+          } else {
+            // Try again after a delay
+            setTimeout(checkReady, 200);
+          }
+        } catch (e) {
+          // Cross-origin - cannot check readyState
+          setTimeout(() => {
+            injectVisualEditingScript();
+          }, 300);
+        }
+      };
+      checkReady();
     };
 
     // Inject script when iframe loads
     iframe.addEventListener('load', handleLoad);
     
     // If iframe is already loaded, inject immediately
-    if (iframe.contentDocument?.readyState === 'complete' || iframe.contentDocument?.readyState === 'interactive') {
-      handleLoad();
+    try {
+      if (iframe.contentDocument?.readyState === 'complete' || iframe.contentDocument?.readyState === 'interactive') {
+        handleLoad();
+      }
+    } catch (e) {
+      // Cross-origin - try anyway after delay
+      setTimeout(handleLoad, 500);
     }
 
     // Handle when visualEditingEnabled changes after script is injected

@@ -138,8 +138,14 @@ export function GamePopupWindow({ isOpen, onClose, game, onGameChange }: GamePop
       enableGameWindowDuringStream: enableGameWindow,
     });
     
-    // Close the confirmation dialog (keep the game window open)
+    // Close the confirmation dialog
     setShowCloseConfirmation(false);
+    
+    // If user selected "No", close the game window
+    if (!enableGameWindow) {
+      onClose();
+    }
+    // If user selected "Yes", keep the game window open (do nothing)
   };
 
   // Render game window when open (confirmation dialog can show on top)
