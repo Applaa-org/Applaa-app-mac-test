@@ -146,6 +146,7 @@ const validInvokeChannels = [
   "import-app",
   "check-ai-rules",
   "select-app-folder",
+  "clone-website",
   "select-directory",
   "get-apps-base-path",
   "check-app-name",
