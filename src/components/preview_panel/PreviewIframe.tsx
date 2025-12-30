@@ -1061,7 +1061,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           {/* Visual Editing Toggle - Available for all users, web apps only */}
           {!isGodotApp && !expoUrl && (
             <TooltipProvider>
-              <Tooltip>
+              {/* <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => {
@@ -1080,7 +1080,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 <TooltipContent>
                   <p>{visualEditingEnabled ? "Disable" : "Enable"} Visual Editing</p>
                 </TooltipContent>
-              </Tooltip>
+              </Tooltip> */}
             </TooltipProvider>
           )}
         </div>
