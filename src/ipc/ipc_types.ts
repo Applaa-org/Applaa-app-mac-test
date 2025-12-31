@@ -71,6 +71,22 @@ export interface CreateAppResult {
   chatId: number;
 }
 
+export interface CloneWebsiteParams {
+  url: string;
+  appName: string;
+}
+
+export interface CloneWebsiteResult {
+  app: {
+    id: number;
+    name: string;
+    path: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  chatId: number;
+}
+
 export interface Message {
   id: number;
   role: "user" | "assistant";

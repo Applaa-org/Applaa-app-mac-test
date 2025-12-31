@@ -83,6 +83,7 @@ import { registerApplaaAutomationHandlers } from "./handlers/applaa_automation_h
 import { registerSecurityHandlers } from "./handlers/security_handlers";
 import { registerVisualEditingHandlers } from "./handlers/visual_editing_handlers";
 import { registerPreviewImageHandlers } from "./handlers/preview_image_handlers";
+import { registerWebCloneHandlers } from "./handlers/web_clone_handlers";
 
 
 export function registerIpcHandlers() {
@@ -223,6 +224,10 @@ export function registerIpcHandlers() {
   // 📸 Preview Image handlers
   console.log('📸 Registering Preview Image handlers...');
   registerPreviewImageHandlers();
+  
+  // 🌐 Website Cloning handlers
+  console.log('🌐 Registering Website Cloning handlers...');
+  registerWebCloneHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

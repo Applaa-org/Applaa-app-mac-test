@@ -13,6 +13,8 @@ import type {
   ChatProblemsEvent,
   CreateAppParams,
   CreateAppResult,
+  CloneWebsiteParams,
+  CloneWebsiteResult,
   ListAppsResponse,
   NodeSystemInfo,
   Message,
@@ -313,6 +315,11 @@ export class IpcClient {
   // Create a new app with an initial chat
   public async createApp(params: CreateAppParams): Promise<CreateAppResult> {
     return this.ipcRenderer.invoke("create-app", params);
+  }
+
+  // Clone a website and create a new app
+  public async cloneWebsite(params: CloneWebsiteParams): Promise<CloneWebsiteResult> {
+    return this.ipcRenderer.invoke("clone-website", params);
   }
 
   public async generateAppNames(params: {
