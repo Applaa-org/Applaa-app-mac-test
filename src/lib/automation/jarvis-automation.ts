@@ -46,7 +46,9 @@ export class JarvisAutomation {
             // Get the active BrowserView
             const browserView = getActiveBrowserView();
             if (!browserView) {
-                throw new Error('No active browser view. Please open the browser first.');
+                // Don't throw error - just log warning and defer initialization
+                logger.warn('No active browser view available yet. Jarvis will initialize when browser is opened.');
+                return; // Exit gracefully without initializing
             }
 
             logger.info('Using existing BrowserView for automation');
@@ -87,7 +89,8 @@ export class JarvisAutomation {
             logger.info('✅ Jarvis Automation initialized');
         } catch (error) {
             logger.error('Failed to initialize Jarvis Automation:', error);
-            throw error;
+            // Don't re-throw - just log the error and continue
+            logger.warn('Jarvis automation will retry initialization when needed');
         }
     }
 
@@ -191,8 +194,18 @@ Return ONLY the plan as a numbered list.`;
         message: string;
         result?: any;
     }> {
+        // Auto-initialize if not already initialized
         if (!this.eko || !this.isInitialized) {
-            throw new Error('Eko not initialized. Please call initialize() first.');
+            logger.info('Jarvis not initialized, initializing now...');
+            await this.initialize();
+
+            // Check again after initialization attempt
+            if (!this.eko || !this.isInitialized) {
+                return {
+                    success: false,
+                    message: '❌ Failed to initialize Jarvis automation. Please ensure a browser view is open and try again.'
+                };
+            }
         }
 
         try {
@@ -262,8 +275,18 @@ Return ONLY the plan as a numbered list.`;
         data?: any;
         message: string;
     }> {
+        // Auto-initialize if not already initialized
         if (!this.eko || !this.isInitialized) {
-            throw new Error('Eko not initialized');
+            logger.info('Jarvis not initialized, initializing now...');
+            await this.initialize();
+
+            // Check again after initialization attempt
+            if (!this.eko || !this.isInitialized) {
+                return {
+                    success: false,
+                    message: 'Failed to initialize Jarvis automation. Please ensure a browser view is open and try again.'
+                };
+            }
         }
 
         try {
