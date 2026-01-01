@@ -87,7 +87,13 @@ export function registerProblemsHandlers() {
             fullResponse: "",
             appPath,
           });
-          problems = problemReport.problems || [];
+          // ✅ FIX: Mark all TypeScript errors as auto-fixable (AI can fix syntax errors)
+          problems = (problemReport.problems || []).map((p: any) => ({
+            ...p,
+            severity: 'error' as const,
+            autoFixable: true, // All TypeScript syntax errors can be auto-fixed by AI
+            source: 'typescript',
+          }));
         } catch (tscError) {
           logger.warn("TypeScript checking failed:", tscError);
         }

@@ -244,6 +244,9 @@ export const UserSettingsSchema = z.object({
   // Chat Stream Performance Settings
   enableStreamAutosave: z.boolean().optional(),
 
+  // Game Window Settings
+  enableGameWindowDuringStream: z.boolean().optional(),
+
   // WordPress Authentication Settings
   wordpressAuth: z.object({
     isAuthenticated: z.boolean(),

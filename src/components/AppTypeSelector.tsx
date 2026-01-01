@@ -112,7 +112,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Smartphone className="h-4 w-4 text-green-500" />
-                    <span>Expo SDK 53 + React Native</span>
+                    <span>Expo SDK 54 + React Native</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-green-500" />
@@ -203,7 +203,7 @@ export function AppTypeSelector({ onAppTypeSelected, onCancel }: AppTypeSelector
                 </>
               ) : selectedType === 'mobile' ? (
                 <>
-                  <strong>Expo Mobile Template:</strong> Cross-platform app with Expo SDK 53, Gluestack UI, bottom navigation, and native device features
+                  <strong>Expo Mobile Template:</strong> Cross-platform app with Expo SDK 54, Gluestack UI, bottom navigation, and native device features
                 </>
               ) : (
                 <>

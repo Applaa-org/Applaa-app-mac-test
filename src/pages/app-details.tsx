@@ -16,6 +16,8 @@ import {
   MessageCircle,
   Pencil,
   Folder,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   Popover,
@@ -33,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { GitHubConnector } from "@/components/GitHubConnector";
 import { SupabaseConnector } from "@/components/SupabaseConnector";
+import { DatabaseSettings } from "@/components/DatabaseSettings";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
@@ -66,6 +69,7 @@ export default function AppDetailsPage() {
 
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [newCopyAppName, setNewCopyAppName] = useState("");
+  const [isAppUpgradesOpen, setIsAppUpgradesOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -373,17 +377,39 @@ export default function AppDetailsPage() {
             className="cursor-pointer w-full py-5 flex justify-center items-center gap-2"
             size="lg"
           >
-            Open in Chat
+            Continue with your app
             <MessageCircle className="h-4 w-4" />
           </Button>
           <div className="border border-gray-200 rounded-md p-4">
             <GitHubConnector appId={appId} folderName={selectedApp.path} />
           </div>
-          {appId && <SupabaseConnector appId={appId} />}
-          {/* Always render Capacitor controls placeholder so the section is visible quickly */}
-          {appId && <CapacitorControls appId={appId} />}
-          {appId && <FlutterControls appId={appId} />}
-          <AppUpgrades appId={appId} />
+          {/* {appId && <SupabaseConnector appId={appId} />} */}
+          {/* {appId && <DatabaseSettings appId={appId} />} */}
+          
+          {/* App Upgrades Section - Collapsible */}
+          <div className="mt-4">
+            <button
+              onClick={() => setIsAppUpgradesOpen(!isAppUpgradesOpen)}
+              className="flex items-center justify-between w-full text-left p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                App Upgrades
+              </h3>
+              {isAppUpgradesOpen ? (
+                <ChevronUp className="h-5 w-5 text-gray-500" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-500" />
+              )}
+            </button>
+            {isAppUpgradesOpen && (
+              <div className="mt-2">
+                {/* Always render Capacitor controls placeholder so the section is visible quickly */}
+                {appId && <CapacitorControls appId={appId} />}
+                {appId && <FlutterControls appId={appId} />}
+                <AppUpgrades appId={appId} hideHeading={true} />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Rename Dialog */}

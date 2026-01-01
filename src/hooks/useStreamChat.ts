@@ -10,6 +10,7 @@ import {
   chatMessagesAtom,
   chatStreamCountAtom,
   isStreamingAtom,
+  currentStreamingAppIdAtom,
 } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { isPreviewOpenAtom } from "@/atoms/viewAtoms";
@@ -39,6 +40,7 @@ export function useStreamChat({
   const [, setMessages] = useAtom(chatMessagesAtom);
   const [error, setError] = useAtom(chatErrorAtom);
   const [isStreaming, setIsStreaming] = useAtom(isStreamingAtom); // Simple writable atom
+  const setCurrentStreamingAppId = useSetAtom(currentStreamingAppIdAtom);
   
   const setIsPreviewOpen = useSetAtom(isPreviewOpenAtom);
   const [selectedAppId] = useAtom(selectedAppIdAtom);
@@ -98,6 +100,10 @@ export function useStreamChat({
       
       // 🚨 DYAD PATTERN: Direct setIsStreaming (no complex state management)
       setIsStreaming(true);
+      // ✅ ADD: Track which app is streaming (for app list loader)
+      if (selectedAppId) {
+        setCurrentStreamingAppId(selectedAppId);
+      }
 
       let hasIncrementedStreamCount = false;
       let streamStarted = false;
@@ -125,7 +131,6 @@ export function useStreamChat({
               
               // 🚨 SIMPLIFIED: Always update messages - React is smart enough to batch updates
               // The "optimization" of comparing messages was causing silent streaming issues
-              console.log(`🔄 Updating messages: ${updatedMessages.length} messages`);
               setMessages(updatedMessages);
             },
             onEnd: (response: ChatResponseEnd) => {
@@ -170,6 +175,7 @@ export function useStreamChat({
 
               // 🚨 DYAD PATTERN: Direct streaming state reset
               setIsStreaming(false);
+              setCurrentStreamingAppId(null);
               
               refreshChats();
               refreshApp();
@@ -182,6 +188,7 @@ export function useStreamChat({
 
               // 🚨 DYAD PATTERN: Direct streaming state reset on error
               setIsStreaming(false);
+              setCurrentStreamingAppId(null);
               
               refreshChats();
               refreshApp();
@@ -199,6 +206,7 @@ export function useStreamChat({
             if (!streamStarted) {
               // 🚨 DYAD PATTERN: Direct streaming state reset on timeout
               setIsStreaming(false);
+              setCurrentStreamingAppId(null);
               reject(new Error("Stream failed to start within timeout"));
             }
           }, 10000);
@@ -207,6 +215,7 @@ export function useStreamChat({
           console.error("[CHAT] Exception during streaming setup:", error);
           // 🚨 DYAD PATTERN: Direct streaming state reset on exception
           setIsStreaming(false);
+          setCurrentStreamingAppId(null);
           setError(error instanceof Error ? error.message : String(error));
           reject(error);
         }

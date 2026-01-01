@@ -25,7 +25,7 @@ export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
       id: 'snake-game',
       name: 'Snake Game',
       imageUrl: 'https://app.applaa.com/wp-content/uploads/2025/11/as-1-298x300.png', // TODO: Replace with actual Snake Game image URL
-      gameUrl: 'https://applaa-snake-2.vercel.app/'
+      gameUrl: 'https://centipede-arcade.applaa.com/'
     },
     {
       id: 'typing-invader',
@@ -41,10 +41,10 @@ export function FeaturedGames({ className = '' }: FeaturedGamesProps) {
     }
   ];
 
-  const handlePlayGame = (url: string) => {
-    if (!url) return;
+  const handlePlayGame = (game: Game) => {
+    if (!game?.gameUrl) return;
     // Open game directly in the user's default browser without using an iframe/modal
-    window.open(url, '_blank');
+    window.open(game.gameUrl, '_blank');
   };
 
   return (

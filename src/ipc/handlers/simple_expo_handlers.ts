@@ -10,7 +10,7 @@ import { apps } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { execAsync } from "../utils/runShellCommand";
 import log from "electron-log";
-import { unifiedInstallDependencies, areDependenciesInstalled } from "./unified_dependency_manager";
+import { unifiedInstallDependencies, areDependenciesInstalled, getInstallationErrorDetails } from "./unified_dependency_manager";
 import { spawnNode, checkNodeToolsAvailability } from "../../lib/node-runtime";
 import { findMissingDependencies } from "./dependency_validator";
 
@@ -121,22 +121,32 @@ export function registerSimpleExpoHandlers() {
     }
   };
 
-  // Enhanced port finder: guaranteed port allocation
-  const findAvailablePort = async (basePort: number = 8081, maxTries = 20): Promise<number> => {
-    log.log(`🔍 Scanning for available port starting from ${basePort}...`);
+  // Enhanced port finder: guaranteed port allocation with kill fallback
+  const findAvailablePort = async (basePort: number = 8081, maxTries = 19): Promise<number> => {
+    log.log(`🔍 Scanning for available port starting from ${basePort} (up to ${basePort + maxTries - 1})...`);
     
     for (let i = 0; i < maxTries; i++) {
       const port = basePort + i;
+      
+      // Try to kill any process using this port first
+      log.log(`🔫 Attempting to kill process on port ${port}...`);
+      const killed = await killProcessOnPort(port);
+      
+      // Wait a moment for port to be freed (longer wait for preferred port)
+      const waitTime = port === basePort ? 2000 : 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      
+      // Check if port is now available
       // eslint-disable-next-line no-await-in-loop
       const isAvailable = await new Promise<boolean>((resolve) => {
         const server = net.createServer();
         server.once("error", () => {
-          log.log(`❌ Port ${port} is occupied`);
+          log.log(`❌ Port ${port} is still occupied${killed ? ' (kill attempted)' : ''}`);
           resolve(false);
         });
         server.once("listening", () => {
           server.close(() => {
-            log.log(`✅ Port ${port} is available`);
+            log.log(`✅ Port ${port} is available${killed ? ' (reclaimed)' : ''}`);
             resolve(true);
           });
         });
@@ -144,34 +154,11 @@ export function registerSimpleExpoHandlers() {
       });
       
       if (isAvailable) {
-        log.log(`🎯 Selected port ${port} for Expo Metro server`);
+        const isPreferred = port === basePort;
+        log.log(`🎯 Selected port ${port} for Expo Metro server${isPreferred ? ' (preferred)' : ' (fallback)'}`);
         return port;
-      } else if (port === basePort) {
-        // Try to kill process on preferred port (8081) only - dedicate it to Applaa
-        log.log(`🔫 Port ${port} occupied, attempting to reclaim for Applaa...`);
-        // eslint-disable-next-line no-await-in-loop
-        const killed = await killProcessOnPort(port);
-        if (killed) {
-          // Wait a moment for port to be freed
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          // eslint-disable-next-line no-await-in-loop
-          const nowAvailable = await new Promise<boolean>((resolve) => {
-            const server = net.createServer();
-            server.once("error", () => resolve(false));
-            server.once("listening", () => {
-              server.close(() => resolve(true));
-            });
-            server.listen(port, "0.0.0.0");
-          });
-          
-          if (nowAvailable) {
-            log.log(`🎉 Successfully reclaimed port ${port} for Applaa!`);
-            return port;
-          } else {
-            log.warn(`⚠️ Failed to reclaim port ${port}, continuing search...`);
-          }
-        }
+      } else {
+        log.warn(`⚠️ Port ${port} unavailable, trying next port...`);
       }
     }
     
@@ -224,6 +211,34 @@ export function registerSimpleExpoHandlers() {
       }
     } catch {}
     return url.replace(/^https?:\/\//i, 'exp://');
+  };
+
+  // ✅ FIX: Helper to construct URLs when detection fails
+  const constructExpoUrls = (port: number): {
+    webUrl: string;
+    lanUrl?: string;
+    qrUrl?: string;
+  } => {
+    const webUrl = `http://localhost:${port}`;
+    
+    // Try to get LAN IP
+    const interfaces = os.networkInterfaces();
+    let lanIp: string | undefined;
+    
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          lanIp = iface.address;
+          break;
+        }
+      }
+      if (lanIp) break;
+    }
+    
+    const lanUrl = lanIp ? `http://${lanIp}:${port}` : undefined;
+    const qrUrl = lanUrl ? toExpUrl(lanUrl) : undefined;
+    
+    return { webUrl, lanUrl, qrUrl };
   };
 
   // Helper: Poll .expo/packager-info.json for tunnel URL (.exp.direct / expo.dev / tunnels.expo.dev)
@@ -335,11 +350,11 @@ export function registerSimpleExpoHandlers() {
       const appPath = getDyadAppPath(appData[0].path);
       log.log(`Updating packages in: ${appPath}`);
       
-      // Update to expected versions based on Expo SDK 53
+      // Update to expected versions based on Expo SDK 54
       const updateCommands = [
-        "npx expo install expo@53.0.22",
+        "npx expo install expo@54.0.0",
         "npx expo install expo-router@~5.1.5", 
-        "npx expo install react-native@0.79.5",
+        "npx expo install react-native@0.81.0",
         "npx expo install typescript@~5.8.3",
         "npm install" // Final install to resolve dependencies
       ];
@@ -371,7 +386,7 @@ export function registerSimpleExpoHandlers() {
       return {
         success: true,
         output: updateOutput,
-        message: "Package versions updated to match Expo SDK 53"
+        message: "Package versions updated to match Expo SDK 54"
       };
       
     } catch (error) {
@@ -548,6 +563,21 @@ export function registerSimpleExpoHandlers() {
         log.log("📦 Fixing package.json and installing dependencies...");
         expoStatus.terminalOutput += "📦 Fixing package.json and installing dependencies...\n";
         
+        // CRITICAL: Delete package-lock.json if it exists to prevent invalid versions from being locked
+        const packageLockPath = path.join(appPath, 'package-lock.json');
+        if (fs.existsSync(packageLockPath)) {
+          log.log("🗑️ Removing package-lock.json to allow fresh dependency resolution...");
+          expoStatus.terminalOutput += "🗑️ Removing package-lock.json to allow fresh dependency resolution...\n";
+          try {
+            fs.unlinkSync(packageLockPath);
+            log.log("✅ package-lock.json removed");
+            expoStatus.terminalOutput += "✅ package-lock.json removed\n";
+          } catch (lockError) {
+            log.warn("⚠️ Could not remove package-lock.json:", lockError);
+            expoStatus.terminalOutput += `⚠️ Could not remove package-lock.json: ${lockError.message}\n`;
+          }
+        }
+        
         // Fix common invalid package versions before installing
         try {
           if (fs.existsSync(packageJsonPath)) {
@@ -555,15 +585,73 @@ export function registerSimpleExpoHandlers() {
             let packageJson = JSON.parse(packageContent);
             let needsFixing = false;
             
+            // Ensure dependencies and devDependencies exist
+            if (!packageJson.dependencies) {
+              packageJson.dependencies = {};
+            }
+            if (!packageJson.devDependencies) {
+              packageJson.devDependencies = {};
+            }
+            
+            // CRITICAL: Add npm overrides to force correct versions for transitive dependencies
+            // This overrides ANY package's request for these invalid versions, even transitive deps
+            if (!packageJson.overrides) {
+              packageJson.overrides = {};
+              needsFixing = true;
+            }
+            
+            const requiredOverrides = {
+              "@react-navigation/core": "^7.0.0",
+              "@react-navigation/native": "^7.0.0",
+              "@react-navigation/bottom-tabs": "^7.0.0",
+              "@react-navigation/native-stack": "^7.0.0",
+              "@react-navigation/stack": "^7.0.0"
+            };
+            
+            let overridesAdded = false;
+            for (const [pkg, version] of Object.entries(requiredOverrides)) {
+              if (!packageJson.overrides[pkg] || packageJson.overrides[pkg] !== version) {
+                packageJson.overrides[pkg] = version;
+                overridesAdded = true;
+                needsFixing = true;
+                log.log(`🔧 Added override: ${pkg} -> ${version}`);
+                expoStatus.terminalOutput += `🔧 Added npm override: ${pkg}@${version}\n`;
+              }
+            }
+            
+            if (overridesAdded) {
+              expoStatus.terminalOutput += `✅ npm overrides configured to force correct React Navigation versions\n`;
+            }
+            
             // Fix common invalid versions
             const fixes = {
+              "@react-navigation/core": {
+                invalid: ["^7.13.5", "7.13.5", "~7.13.5", "7.13", "^7.13", ">=7.13.5", "7.13.5.0"],
+                fix: "^7.0.0" // Fix invalid v7 version to valid v7.0.0 (expo-router 5.x requires v7)
+              },
+              "@react-navigation/native": {
+                invalid: ["^7.13.5", "7.13.5"],
+                fix: "^7.0.0"
+              },
+              "@react-navigation/bottom-tabs": {
+                invalid: ["^7.13.5", "7.13.5"],
+                fix: "^7.0.0"
+              },
+              "@react-navigation/native-stack": {
+                invalid: ["^7.13.5", "7.13.5"],
+                fix: "^7.0.0"
+              },
+              "@react-navigation/stack": {
+                invalid: ["^7.13.5", "7.13.5"],
+                fix: "^7.0.0"
+              },
               "@react-native-async-storage/async-storage": {
                 invalid: ["1.25.0"],
                 fix: "^1.23.1"
               },
               "@types/react-native": {
-                invalid: ["~0.79.0"],
-                fix: "^0.73.0"
+                invalid: ["~0.79.0", "~0.80.0"],
+                fix: "^0.81.0"
               },
               "expo-battery": {
                 invalid: ["~7.0.1"],
@@ -576,31 +664,142 @@ export function registerSimpleExpoHandlers() {
             };
             
             // Check and fix dependencies
+            log.log(`🔍 Checking package.json for invalid versions...`);
+            expoStatus.terminalOutput += `🔍 Checking package.json for invalid versions...\n`;
+            
+            // Log all dependencies for debugging
+            const allDeps = { ...packageJson.dependencies || {}, ...packageJson.devDependencies || {} };
+            const reactNavPackages = Object.keys(allDeps).filter(k => k.includes('react-navigation'));
+            if (reactNavPackages.length > 0) {
+              expoStatus.terminalOutput += `Found React Navigation packages: ${reactNavPackages.join(', ')}\n`;
+              reactNavPackages.forEach(pkg => {
+                expoStatus.terminalOutput += `  ${pkg}: ${allDeps[pkg]}\n`;
+              });
+            } else {
+              expoStatus.terminalOutput += `⚠️ No React Navigation packages found in package.json (may be transitive dependency)\n`;
+            }
+            
             for (const [pkg, config] of Object.entries(fixes)) {
-              const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
-              if (allDeps[pkg] && config.invalid.includes(allDeps[pkg])) {
-                if (packageJson.dependencies && packageJson.dependencies[pkg]) {
-                  packageJson.dependencies[pkg] = config.fix;
-                  needsFixing = true;
-                  log.log(`🔧 Fixed ${pkg}: ${allDeps[pkg]} -> ${config.fix}`);
-                }
-                if (packageJson.devDependencies && packageJson.devDependencies[pkg]) {
-                  packageJson.devDependencies[pkg] = config.fix;
-                  needsFixing = true;
-                  log.log(`🔧 Fixed ${pkg}: ${allDeps[pkg]} -> ${config.fix}`);
-                }
+              const currentVersion = allDeps[pkg];
+              
+              if (currentVersion) {
+                log.log(`Found ${pkg}: ${currentVersion}`);
+                expoStatus.terminalOutput += `  Checking ${pkg}: ${currentVersion}\n`;
+                
+                // Check if version matches any invalid pattern (flexible matching)
+                const matchesInvalid = config.invalid.some(inv => {
+                  // First check exact match (handles most cases)
+                  if (currentVersion === inv || currentVersion.trim() === inv.trim()) {
+                    return true;
+                  }
+                  
+                  // Normalize both versions by removing version prefixes
+                  // Use global flag to replace all prefix characters
+                  const normalize = (v: string) => v.replace(/^[\^~=<>]+/g, '').trim();
+                  const normalizedInv = normalize(inv);
+                  const normalizedCurrent = normalize(currentVersion);
+                  
+                  // Check exact match (after normalization)
+                  if (normalizedCurrent === normalizedInv) {
+                    return true;
+                  }
+                  
+                  // Check if current version starts with invalid version number
+                  if (normalizedCurrent.startsWith(normalizedInv)) {
+                    return true;
+                  }
+                  
+                  // Check if current version contains the invalid version number (without prefix)
+                  if (currentVersion.includes(normalizedInv)) {
+                    return true;
+                  }
+                  
+                  // Also check if normalized current starts with any part of normalized invalid
+                  if (normalizedInv && normalizedCurrent.startsWith(normalizedInv.split('.')[0])) {
+                    // Check if it's the same major version
+                    const invMajor = normalizedInv.split('.')[0];
+                    const currentMajor = normalizedCurrent.split('.')[0];
+                    if (invMajor === currentMajor && normalizedCurrent.includes(normalizedInv)) {
+                      return true;
+                    }
+                  }
+                  
+                  return false;
+                });
+                
+                if (matchesInvalid) {
+                  if (packageJson.dependencies && packageJson.dependencies[pkg]) {
+                    const oldVersion = packageJson.dependencies[pkg];
+                    packageJson.dependencies[pkg] = config.fix;
+                    needsFixing = true;
+                    log.log(`🔧 Fixed ${pkg}: ${oldVersion} -> ${config.fix}`);
+                    expoStatus.terminalOutput += `🔧 Fixed ${pkg}: ${oldVersion} -> ${config.fix}\n`;
+                  }
+                  if (packageJson.devDependencies && packageJson.devDependencies[pkg]) {
+                    const oldVersion = packageJson.devDependencies[pkg];
+                    packageJson.devDependencies[pkg] = config.fix;
+                    needsFixing = true;
+                    log.log(`🔧 Fixed ${pkg}: ${oldVersion} -> ${config.fix}`);
+                    expoStatus.terminalOutput += `🔧 Fixed ${pkg}: ${oldVersion} -> ${config.fix}\n`;
+                  }
+                 } else {
+                   log.log(`✓ ${pkg} version ${currentVersion} is valid`);
+                   expoStatus.terminalOutput += `    ✓ ${pkg} version is valid\n`;
+                 }
               }
             }
             
             // Write back the fixed package.json
             if (needsFixing) {
+              const fixedContent = JSON.stringify(packageJson, null, 2);
+              fs.writeFileSync(packageJsonPath, fixedContent, 'utf8');
+              
+              // Verify the fix was written
+              const verifyContent = fs.readFileSync(packageJsonPath, 'utf8');
+              const verifyJson = JSON.parse(verifyContent);
+              const verifyDeps = { ...verifyJson.dependencies, ...verifyJson.devDependencies };
+              
+              log.log("✅ package.json fixed and verified");
+              expoStatus.terminalOutput += "✅ package.json fixed and verified\n";
+              
+              // Log what was actually fixed
+              for (const [pkg, config] of Object.entries(fixes)) {
+                if (verifyDeps[pkg]) {
+                  log.log(`Verified ${pkg}: ${verifyDeps[pkg]}`);
+                  expoStatus.terminalOutput += `  ✓ ${pkg}: ${verifyDeps[pkg]}\n`;
+                }
+              }
+              
+              // Log overrides if they exist
+              if (verifyJson.overrides) {
+                expoStatus.terminalOutput += `📋 npm overrides active:\n`;
+                Object.entries(verifyJson.overrides).forEach(([pkg, version]) => {
+                  expoStatus.terminalOutput += `  ${pkg}: ${version}\n`;
+                });
+              }
+            } else {
+              log.log("ℹ️ No package.json fixes needed");
+              expoStatus.terminalOutput += "ℹ️ No package.json fixes needed\n";
+            }
+            
+            // CRITICAL: If @react-navigation/core is missing but other react-navigation packages exist,
+            // add it explicitly with correct version to prevent transitive dependency issues
+            const hasReactNavNative = allDeps['@react-navigation/native'];
+            const hasReactNavCore = allDeps['@react-navigation/core'];
+            if (hasReactNavNative && !hasReactNavCore) {
+              log.log("⚠️ @react-navigation/native found but @react-navigation/core missing - adding explicitly");
+              expoStatus.terminalOutput += "⚠️ Adding @react-navigation/core explicitly to prevent transitive dependency issues\n";
+              if (!packageJson.dependencies) {
+                packageJson.dependencies = {};
+              }
+              packageJson.dependencies['@react-navigation/core'] = '^6.1.18';
               fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8');
-              log.log("✅ package.json fixed");
-              expoStatus.terminalOutput += "✅ package.json fixed\n";
+              expoStatus.terminalOutput += "✅ Added @react-navigation/core@^6.1.18 to package.json\n";
             }
           }
         } catch (fixError) {
-          log.warn("⚠️ Could not fix package.json:", fixError);
+          log.error("❌ Could not fix package.json:", fixError);
+          expoStatus.terminalOutput += `❌ Error fixing package.json: ${fixError.message}\n`;
         }
         
         const installSuccess = await unifiedInstallDependencies(appPath, appId, 'expo-preview');
@@ -608,7 +807,38 @@ export function registerSimpleExpoHandlers() {
         if (!installSuccess) {
           log.error("❌ Unified dependency installation failed");
           expoStatus.terminalOutput += "❌ Unified dependency installation failed\n";
-          throw new Error("Failed to install dependencies with unified manager");
+          
+          // Get detailed error information
+          const errorDetails = getInstallationErrorDetails(appPath);
+          if (errorDetails) {
+            expoStatus.terminalOutput += "\n" + errorDetails + "\n";
+          } else {
+            expoStatus.terminalOutput += "⚠️ All installation strategies failed. Check the app logs for detailed error messages.\n";
+          }
+          
+          expoStatus.terminalOutput += "\n💡 Common issues:\n";
+          expoStatus.terminalOutput += "   - Missing or invalid package.json\n";
+          expoStatus.terminalOutput += "   - Network connectivity issues\n";
+          expoStatus.terminalOutput += "   - npm/node version incompatibilities\n";
+          expoStatus.terminalOutput += "   - Disk space or permission issues\n";
+          
+          // Check if package.json exists and is readable
+          if (fs.existsSync(packageJsonPath)) {
+            try {
+              const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+              const packageJson = JSON.parse(packageContent);
+              if (!packageJson.dependencies && !packageJson.devDependencies) {
+                expoStatus.terminalOutput += "\n⚠️ Warning: package.json has no dependencies listed\n";
+              }
+            } catch (parseError) {
+              expoStatus.terminalOutput += `\n⚠️ Warning: package.json appears to be invalid JSON\n`;
+              log.error("Package.json parse error:", parseError);
+            }
+          } else {
+            expoStatus.terminalOutput += `\n⚠️ Error: package.json not found at ${packageJsonPath}\n`;
+          }
+          
+          throw new Error("Failed to install dependencies. All installation strategies failed. Check terminal output for details.");
         }
         
         log.log("✅ Dependencies installed successfully with unified manager");
@@ -739,18 +969,46 @@ export function registerSimpleExpoHandlers() {
       }
 
       // NON-INTERACTIVE PORT SELECTION: pick the first free port starting at 8081
+      // ✅ FIX: More aggressive port cleanup before selection
       log.log("🎯 Selecting a free Metro port starting at 8081 (non-interactive)...");
-      const net = require('net');
-      const isPortFree = (port: number) => new Promise<boolean>((resolve) => {
-        const s = net.createServer();
-        s.once('listening', () => s.close(() => resolve(true)));
-        s.once('error', () => resolve(false));
-        s.listen(port, '0.0.0.0');
-      });
-      let finalPort = 8081;
-      while (!(await isPortFree(finalPort)) && finalPort < 8100) {
-        finalPort += 1;
+      
+      // ✅ CRITICAL: Kill processes on multiple ports before checking
+      const portsToClean = [8081, 8082, 8083, 8084, 8085];
+      for (const port of portsToClean) {
+        try {
+          await killProcessOnPort(port);
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait for cleanup
+        } catch (e) {
+          // Ignore errors - port might not be in use
+        }
       }
+      
+      let finalPort = await findAvailablePort(8081, 19); // Try ports 8081-8099
+      
+      // ✅ ADD: Verify port is actually free before starting
+      try {
+        const testServer = net.createServer();
+        await new Promise<void>((resolve, reject) => {
+          testServer.listen(finalPort, () => {
+            testServer.close(() => resolve());
+          });
+          testServer.on('error', (err: any) => {
+            if (err.code === 'EADDRINUSE') {
+              log.warn(`⚠️ Port ${finalPort} still in use, trying next port...`);
+              reject(err);
+            } else {
+              reject(err);
+            }
+          });
+        });
+        log.log(`✅ Port ${finalPort} verified as free`);
+      } catch (portError: any) {
+        log.warn(`⚠️ Port ${finalPort} conflict detected, finding alternative...`);
+        // Try next port
+        finalPort = await findAvailablePort(finalPort + 1, 19);
+        log.log(`✅ Using alternative port ${finalPort}`);
+      }
+      
       log.log(`✅ Using Metro port ${finalPort} (auto-selected)`);
       
       const portMessage = `Using port ${finalPort}\n`;
@@ -885,6 +1143,56 @@ export function registerSimpleExpoHandlers() {
           log.log(`🔍 Tunnel/QR Debug Output: ${data.slice(0, 500)}`);
         }
 
+        // ✅ FIX: Detect "using LAN mode" message and extract URL
+        if (output.includes('using LAN mode') || output.includes('LAN mode instead')) {
+          log.log('🔍 LAN mode detected in output - extracting URL...');
+          
+          // Try to find LAN URL in the output
+          const lanPatterns = [
+            /(?:LAN|Network)[:\s]+(https?:\/\/[\d\.]+:\d+)/i,
+            /(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d\.]+:\d+)/i,
+            /(?:running|available)[^\n]*(https?:\/\/[\d\.]+:\d+)/i
+          ];
+          
+          for (const pattern of lanPatterns) {
+            const match = output.match(pattern);
+            if (match && match[1]) {
+              expoStatus.lanUrl = match[1];
+              expoStatus.qrUrl = toExpUrl(match[1]);
+              if (!expoStatus.webUrl) {
+                // Extract port from LAN URL and create localhost version
+                const portMatch = match[1].match(/:(\d+)/);
+                if (portMatch) {
+                  expoStatus.webUrl = `http://localhost:${portMatch[1]}`;
+                }
+              }
+              log.log(`✅ LAN URL extracted from output: ${expoStatus.lanUrl}`);
+              break;
+            }
+          }
+        }
+
+        // ✅ FIX: Better detection of Metro bundler running message
+        if (output.includes('Metro bundler') && output.includes('running')) {
+          // Extract port from the message
+          const portMatch = output.match(/:(\d+)/);
+          if (portMatch) {
+            const port = parseInt(portMatch[1], 10);
+            if (!expoStatus.webUrl) {
+              expoStatus.webUrl = `http://localhost:${port}`;
+              log.log(`✅ Web URL set from Metro message: ${expoStatus.webUrl}`);
+            }
+            if (!expoStatus.lanUrl) {
+              const computedLan = getLanUrl(port);
+              if (computedLan) {
+                expoStatus.lanUrl = computedLan;
+                expoStatus.qrUrl = toExpUrl(computedLan);
+                log.log(`✅ LAN URL computed from Metro port: ${expoStatus.lanUrl}`);
+              }
+            }
+          }
+        }
+
         // 🎯 STEP 1: Enhanced tunnel URL detection (both HTTP and exp:// formats)
         const tunnelMatches = [
           // HTTP/HTTPS tunnel URLs
@@ -956,10 +1264,12 @@ export function registerSimpleExpoHandlers() {
           }
         }
 
-        // 🎯 STEP 3: LAN URL patterns (mobile device access)
+        // 🎯 STEP 3: Enhanced LAN URL patterns (mobile device access)
         const lanMatches = [
-          output.match(/(?:LAN|Network):\s+(https?:\/\/[\d\.]+:\d+)/i),
-          output.match(/(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d\.]+:\d+)/i)
+          output.match(/(?:LAN|Network)[:\s]+(https?:\/\/[\d\.]+:\d+)/i),
+          output.match(/(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d\.]+:\d+)/i),
+          output.match(/(?:running on|available at)[^\n]*(https?:\/\/[\d\.]+:\d+)/i),  // ✅ ADD THIS
+          output.match(/Metro[^\n]*(https?:\/\/[\d\.]+:\d+)/i)  // ✅ ADD THIS
         ].filter(Boolean);
         
         if (lanMatches.length > 0 && lanMatches[0]) {
@@ -969,9 +1279,9 @@ export function registerSimpleExpoHandlers() {
             log.log(`📱 LAN URL: ${newLanUrl}`);
             // Use LAN URL for QR only if no tunnel is available
             if (!expoStatus.tunnelUrl && !hasFoundQR) {
-              expoStatus.qrUrl = newLanUrl;
+              expoStatus.qrUrl = toExpUrl(newLanUrl);
               hasFoundQR = true;
-              log.log(`📱 Using LAN URL for QR (no tunnel available): ${newLanUrl}`);
+              log.log(`📱 Using LAN URL for QR (no tunnel available): ${expoStatus.qrUrl}`);
             }
           }
         }
@@ -1061,30 +1371,92 @@ export function registerSimpleExpoHandlers() {
         log.warn("Expo Error:", output);
         expoStatus.terminalOutput += output;
         
-        // ✅ FIX: Detect tunnel creation failures
+        // ✅ FIX 1: Detect ngrok tunnel timeout specifically
+        if (output.includes('ngrok tunnel took too long') || 
+            output.includes('CommandError: ngrok tunnel took too long')) {
+          log.warn('🚨 ngrok tunnel timeout detected - falling back to LAN mode');
+          expoStatus.terminalOutput += '\n⚠️ Tunnel timeout - using LAN mode instead\n';
+          
+          // ✅ CRITICAL: When tunnel fails, immediately set LAN URL
+          if (!expoStatus.lanUrl) {
+            const portMatch = expoStatus.webUrl?.match(/:(\d+)/);
+            const port = portMatch ? parseInt(portMatch[1], 10) : finalPort;
+            const computedLan = getLanUrl(port);
+            if (computedLan) {
+              expoStatus.lanUrl = computedLan;
+              expoStatus.qrUrl = toExpUrl(computedLan);
+              expoStatus.webUrl = expoStatus.webUrl || `http://localhost:${port}`;
+              log.log(`✅ Tunnel failed, using LAN URL: ${expoStatus.lanUrl}`);
+              log.log(`✅ QR URL set: ${expoStatus.qrUrl}`);
+            }
+          }
+        }
+        
+        // ✅ FIX 2: Detect "Tunnel mode failed, using LAN mode" message
+        if (output.includes('Tunnel mode failed') || 
+            output.includes('using LAN mode instead') ||
+            output.includes('Tunnel mode unavailable')) {
+          log.warn('🚨 Tunnel mode failed - LAN mode active');
+          
+          // Ensure LAN URL is set
+          if (!expoStatus.lanUrl) {
+            const portMatch = expoStatus.webUrl?.match(/:(\d+)/);
+            const port = portMatch ? parseInt(portMatch[1], 10) : finalPort;
+            const computedLan = getLanUrl(port);
+            if (computedLan) {
+              expoStatus.lanUrl = computedLan;
+              expoStatus.qrUrl = toExpUrl(computedLan);
+              log.log(`✅ LAN URL set after tunnel failure: ${expoStatus.lanUrl}`);
+            }
+          }
+          
+          // Also ensure webUrl is set
+          if (!expoStatus.webUrl) {
+            const portMatch = expoStatus.lanUrl?.match(/:(\d+)/);
+            const port = portMatch ? parseInt(portMatch[1], 10) : finalPort;
+            expoStatus.webUrl = `http://localhost:${port}`;
+            log.log(`✅ Web URL set: ${expoStatus.webUrl}`);
+          }
+        }
+        
+        // ✅ FIX 3: Enhanced tunnel error detection (keep existing but improve)
         const tunnelErrorPatterns = [
           /tunnel.*failed/i,
           /ngrok.*error/i,
           /tunnel.*timeout/i,
+          /ngrok tunnel took too long/i,  // ✅ ADD THIS
           /Unable to create tunnel/i,
           /Tunnel creation failed/i,
           /@expo\/ngrok.*not found/i,
-          /ngrok.*not installed/i
+          /ngrok.*not installed/i,
+          /Tunnel mode failed/i,  // ✅ ADD THIS
+          /Tunnel mode unavailable/i  // ✅ ADD THIS
         ];
         
         for (const pattern of tunnelErrorPatterns) {
           if (pattern.test(output)) {
-            log.error(`🚨 Tunnel creation error detected: ${output.substring(0, 300)}`);
-            // If tunnel fails, fall back to LAN mode
-            if (currentStartOptions.useTunnel && !expoStatus.lanUrl) {
-              // Try to get port from webUrl or use default 8081
-              const portMatch = expoStatus.webUrl?.match(/:(\d+)/);
-              const port = portMatch ? parseInt(portMatch[1], 10) : 8081;
-              const computedLan = getLanUrl(port);
-              if (computedLan) {
-                expoStatus.lanUrl = computedLan;
-                expoStatus.qrUrl = toExpUrl(computedLan);
-                log.warn(`⚠️ Tunnel failed, falling back to LAN: ${expoStatus.qrUrl}`);
+            log.error(`🚨 Tunnel error detected: ${output.substring(0, 300)}`);
+            
+            // ✅ IMPROVED: Always set LAN URL when tunnel fails
+            if (currentStartOptions.useTunnel) {
+              const portMatch = expoStatus.webUrl?.match(/:(\d+)/) || 
+                               expoStatus.lanUrl?.match(/:(\d+)/);
+              const port = portMatch ? parseInt(portMatch[1], 10) : finalPort;
+              
+              // Set web URL if missing
+              if (!expoStatus.webUrl) {
+                expoStatus.webUrl = `http://localhost:${port}`;
+                log.log(`✅ Set web URL after tunnel failure: ${expoStatus.webUrl}`);
+              }
+              
+              // Set LAN URL if missing
+              if (!expoStatus.lanUrl) {
+                const computedLan = getLanUrl(port);
+                if (computedLan) {
+                  expoStatus.lanUrl = computedLan;
+                  expoStatus.qrUrl = toExpUrl(computedLan);
+                  log.log(`✅ Set LAN URL after tunnel failure: ${expoStatus.lanUrl}`);
+                }
               }
             }
             break;
@@ -1093,21 +1465,28 @@ export function registerSimpleExpoHandlers() {
         
         // ✅ FIX: Detect common Metro/Expo errors that prevent startup
         const errorPatterns = [
-          /Error:.*Cannot find module/i,
-          /Error:.*Module not found/i,
-          /Failed to compile/i,
-          /Metro bundler.*error/i,
-          /Unable to resolve module/i,
-          /TypeError:.*is not a function/i,
-          /SyntaxError:/i,
-          /ReferenceError:/i
+          { pattern: /Error:.*Cannot find module/i, severity: 'critical', message: 'Missing module dependency' },
+          { pattern: /Error:.*Module not found/i, severity: 'critical', message: 'Module not found' },
+          { pattern: /Failed to compile/i, severity: 'error', message: 'Compilation failed' },
+          { pattern: /Metro bundler.*error/i, severity: 'error', message: 'Metro bundler error' },
+          { pattern: /Unable to resolve module/i, severity: 'critical', message: 'Unable to resolve module' },
+          { pattern: /TypeError:.*is not a function/i, severity: 'error', message: 'Type error in code' },
+          { pattern: /SyntaxError:/i, severity: 'error', message: 'Syntax error in code' },
+          { pattern: /ReferenceError:/i, severity: 'error', message: 'Reference error in code' },
+          { pattern: /EADDRINUSE|port.*already in use/i, severity: 'critical', message: 'Port already in use' },
+          { pattern: /ENOENT.*package\.json/i, severity: 'critical', message: 'package.json not found' }
         ];
         
-        for (const pattern of errorPatterns) {
+        for (const { pattern, severity, message } of errorPatterns) {
           if (pattern.test(output)) {
-            log.error(`🚨 Metro build error detected: ${output.substring(0, 200)}`);
-            // Don't set buildStatus to error here - let it timeout naturally
-            // But log it so we can see what's wrong
+            log.error(`🚨 ${severity.toUpperCase()}: ${message}`);
+            log.error(`Error output: ${output.substring(0, 300)}`);
+            
+            // For critical errors, update status immediately
+            if (severity === 'critical') {
+              expoStatus.buildStatus = 'error';
+              expoStatus.terminalOutput += `\n❌ ${message}\n`;
+            }
             break;
           }
         }
@@ -1115,6 +1494,35 @@ export function registerSimpleExpoHandlers() {
 
       expoProcess.on("close", (code: number) => {
         log.log(`Expo process closed with code: ${code}`);
+        
+        // If process exits with error code, log detailed diagnostics
+        if (code !== 0 && code !== null) {
+          const lastOutput = expoStatus.terminalOutput.slice(-2000); // Last 2000 chars for context
+          log.error(`🚨 Expo process exited with code ${code}`);
+          log.error(`Last terminal output:\n${lastOutput}`);
+          
+          // Detect common error patterns and provide specific guidance
+          if (lastOutput.includes('Cannot find module') || lastOutput.includes('Module not found')) {
+            log.error('❌ Missing dependencies detected. The app may need npm install.');
+            expoStatus.terminalOutput += '\n❌ Error: Missing dependencies detected\n';
+          }
+          if (lastOutput.includes('EADDRINUSE') || lastOutput.includes('port') || lastOutput.includes('already in use')) {
+            log.error('❌ Port conflict detected. Port may be in use by another process.');
+            expoStatus.terminalOutput += '\n❌ Error: Port conflict - another process may be using the port\n';
+          }
+          if ((lastOutput.includes('tunnel') || lastOutput.includes('ngrok')) && (lastOutput.includes('failed') || lastOutput.includes('error'))) {
+            log.error('❌ Tunnel creation failed. Try starting without tunnel mode.');
+            expoStatus.terminalOutput += '\n❌ Error: Tunnel creation failed - try without tunnel mode\n';
+          }
+          if (lastOutput.includes('SyntaxError') || lastOutput.includes('ReferenceError') || lastOutput.includes('TypeError')) {
+            log.error('❌ JavaScript error detected in app code.');
+            expoStatus.terminalOutput += '\n❌ Error: JavaScript error in app code\n';
+          }
+          
+          // Update status to reflect error
+          expoStatus.buildStatus = 'error';
+        }
+        
         expoStatus.isRunning = false;
         expoProcess = null;
         // Clear fallback timer if process closes
@@ -1123,32 +1531,72 @@ export function registerSimpleExpoHandlers() {
 
       expoProcess.on("error", (error: Error) => {
         log.error("Expo process error:", error);
+        log.error("Error details:", {
+          message: error.message,
+          code: (error as any).code,
+          signal: (error as any).signal,
+          name: error.name,
+          stack: error.stack?.split('\n').slice(0, 5).join('\n') // First 5 stack lines
+        });
+        
+        // Log last terminal output for context
+        const lastOutput = expoStatus.terminalOutput.slice(-500);
+        if (lastOutput) {
+          log.error("Last terminal output before error:", lastOutput);
+        }
+        
         expoStatus.isRunning = false;
+        expoStatus.buildStatus = 'error';
+        expoStatus.terminalOutput += `\n❌ Process error: ${error.message}\n`;
         throw error;
       });
 
   // ✅ FIX: Fallback mechanism - if Metro is running but no URL detected after 10s, use localhost:port
       fallbackTimerRef = setTimeout(() => {
-        if (expoStatus.isRunning && (!expoStatus.webUrl || expoStatus.webUrl === '') && (!expoStatus.tunnelUrl || expoStatus.tunnelUrl === '')) {
-          // Metro is running but no URL was detected - try localhost fallback
-          const fallbackUrl = `http://localhost:${finalPort}`;
-          log.warn(`⚠️ No URL detected from Metro output after 10s, using fallback: ${fallbackUrl}`);
-          expoStatus.webUrl = fallbackUrl;
+        if (expoStatus.isRunning && (!expoStatus.webUrl || expoStatus.webUrl === '')) {
+          // ✅ IMPROVED: Use helper function
+          const urls = constructExpoUrls(finalPort);
+          expoStatus.webUrl = urls.webUrl;
           
-          // Also set LAN URL if available
-          if (expoStatus.lanUrl) {
-            log.log(`📱 Using computed LAN URL: ${expoStatus.lanUrl}`);
-          } else if (computedLan) {
-            expoStatus.lanUrl = computedLan;
-            log.log(`📱 Using computed LAN URL: ${computedLan}`);
+          if (urls.lanUrl) {
+            expoStatus.lanUrl = urls.lanUrl;
+            log.log(`📱 Fallback: Constructed LAN URL ${urls.lanUrl}`);
           }
           
-          log.log(`✅ Fallback URL set: ${fallbackUrl} - Status will be updated on next poll`);
+          if (urls.qrUrl) {
+            expoStatus.qrUrl = urls.qrUrl;
+            log.log(`📱 Fallback: Constructed QR URL ${urls.qrUrl}`);
+          }
+          
+          log.warn(`⚠️ No URL detected from Metro output after 10s, using constructed URLs`);
+          log.log(`✅ Fallback URLs set - Status will be updated on next poll`);
+        } else if (expoStatus.isRunning && expoStatus.webUrl && !expoStatus.lanUrl) {
+          // ✅ ADD: If webUrl exists but lanUrl doesn't, construct it
+          const portMatch = expoStatus.webUrl.match(/:(\d+)/);
+          if (portMatch) {
+            const port = parseInt(portMatch[1], 10);
+            const urls = constructExpoUrls(port);
+            if (urls.lanUrl) {
+              expoStatus.lanUrl = urls.lanUrl;
+              expoStatus.qrUrl = urls.qrUrl;
+              log.log(`📱 Fallback: Constructed LAN/QR URLs from webUrl`);
+            }
+          }
         }
       }, 10000); // 10 second fallback (reduced from 15s for faster response)
 
   // Wait a bit for initial output
   await new Promise(resolve => setTimeout(resolve, 3000));
+      
+  // Verify process is still running after initial wait
+  if (!expoProcess || expoProcess.killed || (expoProcess.exitCode !== null && expoProcess.exitCode !== 0)) {
+    const exitCode = expoProcess?.exitCode ?? 'unknown';
+    log.error(`❌ Expo process exited early with code: ${exitCode}`);
+    log.error(`Terminal output so far:\n${expoStatus.terminalOutput.slice(-1000)}`);
+    expoStatus.isRunning = false;
+    expoStatus.buildStatus = 'error';
+    throw new Error(`Expo process exited immediately with code ${exitCode}. Check terminal output for details.`);
+  }
       
   // Clear fallback timer if we return early (shouldn't happen, but safety)
   // Note: Timer will be cleared when process closes or URL is set

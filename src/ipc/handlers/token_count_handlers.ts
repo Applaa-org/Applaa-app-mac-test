@@ -9,10 +9,16 @@ import {
   SUPABASE_AVAILABLE_SYSTEM_PROMPT,
   SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT,
 } from "../../prompts/supabase_prompt";
+import {
+  POSTGRES_AVAILABLE_SYSTEM_PROMPT,
+  POSTGRES_NOT_AVAILABLE_SYSTEM_PROMPT,
+} from "../../prompts/postgres_prompt";
 import { getDyadAppPath } from "../../paths/paths";
 import log from "electron-log";
 import { extractCodebase } from "../../utils/codebase";
 import { getSupabaseContext } from "../../supabase_admin/supabase_context";
+import fs from "node:fs";
+import * as path from "path";
 
 import { TokenCountParams } from "../ipc_types";
 import { TokenCountResult } from "../ipc_types";
@@ -132,6 +138,20 @@ export function registerTokenCountHandlers() {
       });
       let supabaseContext = "";
 
+      // Check for Postgres database availability
+      let hasPostgres = false;
+      if (appPath) {
+        try {
+          const envPath = path.join(appPath, ".env");
+          if (fs.existsSync(envPath)) {
+            const envContent = fs.readFileSync(envPath, "utf-8");
+            hasPostgres = envContent.includes("DATABASE_URL=");
+          }
+        } catch (error) {
+          // Ignore errors
+        }
+      }
+
       if (chat.app?.supabaseProjectId) {
         systemPrompt += "\n\n" + SUPABASE_AVAILABLE_SYSTEM_PROMPT;
         supabaseContext = await getSupabaseContext({
@@ -139,9 +159,17 @@ export function registerTokenCountHandlers() {
         });
       } else if (
         // Neon projects don't need Supabase.
-        !chat.app?.neonProjectId
+        !chat.app?.neonProjectId &&
+        !hasPostgres
       ) {
         systemPrompt += "\n\n" + SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT;
+      }
+
+      // Add Postgres prompt if available (and not using Supabase/Neon)
+      if (hasPostgres && !chat.app?.supabaseProjectId && !chat.app?.neonProjectId) {
+        systemPrompt += "\n\n" + POSTGRES_AVAILABLE_SYSTEM_PROMPT;
+      } else if (!hasPostgres && !chat.app?.supabaseProjectId && !chat.app?.neonProjectId) {
+        systemPrompt += "\n\n" + POSTGRES_NOT_AVAILABLE_SYSTEM_PROMPT;
       }
 
       const systemPromptTokens = estimateTokens(systemPrompt + (supabaseContext || ""));

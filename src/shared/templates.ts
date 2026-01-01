@@ -45,7 +45,7 @@ export const localTemplatesData: Template[] = [
   {
     id: "expo-base-master",
     title: "Mobile Template",
-    description: "React Native mobile app with Expo SDK 53, Gluestack UI, and NativeWind.",
+    description: "React Native mobile app with Expo SDK 54, Gluestack UI, and NativeWind.",
     imageUrl: "/assets/mobile-template-icon.svg",
     isOfficial: true,
   },

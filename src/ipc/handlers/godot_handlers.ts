@@ -358,6 +358,65 @@ export async function createTestWebExport(
         let score = 0;
         const canvasWidth = ${windowWidth};
         const canvasHeight = ${windowHeight};
+
+        // --- Applaa localStorage stats wiring (preview) ---
+        const STORAGE_KEY = 'applaa-game-data-' + encodeURIComponent('${escapedGameName}');
+        let playerName = 'Player 1';
+        let highScore = 0;
+
+        try {
+          const raw = window.localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const data = JSON.parse(raw);
+            highScore = data.highScore || 0;
+            playerName = data.lastPlayerName || playerName;
+            console.log('[Applaa Preview] Loaded stats from localStorage:', { highScore, playerName });
+          }
+        } catch (e) {
+          console.warn('[Applaa Preview] Failed to load stats from localStorage:', e);
+        }
+
+        function saveGameStats() {
+          try {
+            const newHighScore = Math.max(highScore, score);
+            highScore = newHighScore;
+
+            const data = {
+              gameId: STORAGE_KEY,
+              gameName: '${escapedGameName}',
+              scores: [
+                {
+                  playerName,
+                  score,
+                  timestamp: Date.now(),
+                },
+              ],
+              highScore: newHighScore,
+              lastPlayerName: playerName,
+            };
+
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            console.log('[Applaa Preview] Saved stats to localStorage:', data);
+          } catch (e) {
+            console.warn('[Applaa Preview] Failed to save stats to localStorage:', e);
+          }
+        }
+
+        // Watch for gameOver / gameWon flags in generated code and save once
+        let hasSavedStats = false;
+        function watchAndSaveStats() {
+          try {
+            if (!hasSavedStats && typeof gameWon !== 'undefined' && typeof gameOver !== 'undefined' && (gameWon || gameOver)) {
+              hasSavedStats = true;
+              saveGameStats();
+            }
+          } catch (e) {
+            // Ignore if gameWon/gameOver are not defined yet
+          }
+          requestAnimationFrame(watchAndSaveStats);
+        }
+        watchAndSaveStats();
+        // --- end Applaa localStorage stats wiring (preview) ---
         
         ${gameCode}
         

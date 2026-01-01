@@ -357,3 +357,32 @@ export function getDyadCommandTags(fullResponse: string): string[] {
 
   return commands;
 }
+
+/**
+ * Extract schema creation tags from AI response
+ * <applaa-create-tables>SQL HERE</applaa-create-tables>
+ */
+export function getSchemaCreationTags(fullResponse: string): {
+  sql: string;
+  tables: string[];
+}[] {
+  const schemaRegex = /<applaa-create-tables>([\s\S]*?)<\/applaa-create-tables>/gi;
+  let match;
+  const schemas: { sql: string; tables: string[] }[] = [];
+
+  while ((match = schemaRegex.exec(fullResponse)) !== null) {
+    const sql = match[1].trim();
+    
+    // Extract table names from CREATE TABLE statements
+    const tableNames: string[] = [];
+    const createTableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
+    let tableMatch;
+    while ((tableMatch = createTableRegex.exec(sql)) !== null) {
+      tableNames.push(tableMatch[1]);
+    }
+
+    schemas.push({ sql, tables: tableNames });
+  }
+
+  return schemas;
+}

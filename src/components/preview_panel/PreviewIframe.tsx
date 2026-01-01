@@ -25,6 +25,7 @@ import {
   Upload,
   Github,
   Globe,
+  Pen,
 } from "lucide-react";
 import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
@@ -39,7 +40,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useStreamChat } from "@/hooks/useStreamChat";
-import { selectedComponentPreviewAtom } from "@/atoms/previewAtoms";
+import { selectedComponentPreviewAtom, visualEditingEnabledAtom, selectedVisualElementAtom, type VisualEditingElement } from "@/atoms/previewAtoms";
+import { VisualEditingToolbar } from "./VisualEditingToolbar";
+import { useApplaaPro } from "@/hooks/useApplaaPro";
 import { AutoErrorFixBanner } from "./AutoErrorFixBanner";
 import { ComponentSelection } from "@/ipc/ipc_types";
 import { StreamingGameSelector } from "@/components/StreamingGameSelector";
@@ -52,6 +55,50 @@ import {
 import { useRunApp } from "@/hooks/useRunApp";
 import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
 import { useGodotExport } from "@/hooks/useGodotExport";
+import { ScreenSizeToggle, type ScreenSize, getScreenSizeDimensions } from "./ScreenSizeToggle";
+import { cn } from "@/lib/utils";
+
+// Screen size wrapper component
+function ScreenSizeWrapper({ 
+  children, 
+  screenSize, 
+  isGodotApp,
+  expoUrl 
+}: { 
+  children: React.ReactNode; 
+  screenSize: ScreenSize; 
+  isGodotApp: boolean;
+  expoUrl?: string;
+}) {
+  // Don't apply screen size constraints for games or Expo apps
+  if (isGodotApp || expoUrl) {
+    return <>{children}</>;
+  }
+
+  const dimensions = getScreenSizeDimensions(screenSize);
+  
+  return (
+    <div 
+      className="flex items-center justify-center h-full bg-gray-100 dark:bg-gray-900 p-4 overflow-auto"
+      style={{
+        // Add some padding for visual spacing
+      }}
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-all duration-200"
+        style={{
+          width: `${dimensions.width}px`,
+          height: `${dimensions.height}px`,
+          maxWidth: '100%',
+          maxHeight: '100%',
+         
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 interface ErrorBannerProps {
   error: string | undefined;
@@ -146,10 +193,12 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   const gameCreationPrompt = useAtomValue(gameCreationPromptAtom);
   const { streamMessage } = useStreamChat({ hasChatId: false });
   
-  // Check if this is a Godot app and if it's building
+  // ✅ FIX: Check if this is a Godot app first, then conditionally use hooks
+  const isGodotApp = !!(godotExportUrl);
+  
+  // ✅ FIX: Only call Godot hooks if it's actually a Godot app
   // Use the hook's exportUrl to get current status (prop might be stale)
   const { hasExport: hasGodotExport, exportUrl: currentGodotExportUrl, isLoading: isGodotExportLoading } = useGodotExport();
-  const isGodotApp = !!(godotExportUrl || currentGodotExportUrl);
   const { isBuilding: isGodotBuilding, isLoading: isGodotProjectLoading, hasProject: hasGodotProject } = useGodotProjectStatus();
   
   // 🚫 DISABLED: Auto-error detection to match Dyad's approach
@@ -175,6 +224,11 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPicking, setIsPicking] = useState(false);
   
+  // Visual Editing state
+  const { isPro } = useApplaaPro();
+  const [visualEditingEnabled, setVisualEditingEnabled] = useAtom(visualEditingEnabledAtom);
+  const [selectedVisualElement, setSelectedVisualElement] = useAtom(selectedVisualElementAtom);
+  
   // Publish state
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishProgress, setPublishProgress] = useState("");
@@ -184,6 +238,9 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     vercelDeploymentUrl?: string;
   }>({});
   const [currentApp, setCurrentApp] = useState<any>(null);
+  
+  // Screen size state (only for web apps, not games)
+  const [screenSize, setScreenSize] = useState<ScreenSize>('desktop');
   
   // Global persistent publish state
   const [publishState, setPublishState] = useAtom(globalPublishStateAtom);
@@ -227,6 +284,271 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     }
   }, [selectedAppId]);
 
+  // Inject visual editing script into iframe (always inject, activate based on state)
+  useEffect(() => {
+    if (!iframeRef.current) return;
+
+    const iframe = iframeRef.current;
+    
+    const injectVisualEditingScript = () => {
+      if (!iframe.contentWindow) return;
+      
+      // Check if we can access the iframe document (might be cross-origin)
+      let canAccessDocument = false;
+      try {
+        canAccessDocument = !!iframe.contentDocument;
+      } catch (e) {
+        // Cross-origin iframe - cannot access document
+        console.debug('Cannot access iframe document (cross-origin):', e);
+        return;
+      }
+
+      try {
+        // Check if script already exists
+        const existingScript = (iframe.contentWindow as any).__visualEditing;
+        if (existingScript) {
+          // Script already injected, just activate/deactivate based on state
+          if (visualEditingEnabled) {
+            existingScript.activate();
+          } else {
+            existingScript.deactivate();
+          }
+          return;
+        }
+
+        const script = `
+          (function() {
+            if (window.__visualEditing) return;
+            
+            let overlay = null;
+            let selectedElement = null;
+            
+            function createOverlay() {
+              if (overlay) return;
+              overlay = document.createElement('div');
+              overlay.style.cssText = \`
+                position: fixed;
+                pointer-events: none;
+                z-index: 999999;
+                border: 2px solid #9333ea;
+                background: rgba(147, 51, 234, 0.1);
+                display: none;
+              \`;
+              document.body.appendChild(overlay);
+            }
+            
+            function highlightElement(el) {
+              if (!overlay || !el) return;
+              const rect = el.getBoundingClientRect();
+              overlay.style.display = 'block';
+              // position: fixed is relative to viewport, no scroll offset needed
+              overlay.style.top = rect.top + 'px';
+              overlay.style.left = rect.left + 'px';
+              overlay.style.width = rect.width + 'px';
+              overlay.style.height = rect.height + 'px';
+            }
+            
+            function handleScroll() {
+              if (selectedElement && window.__visualEditing.active) {
+                highlightElement(selectedElement);
+              }
+            }
+            
+            function getSelector(el) {
+              if (el.id) return '#' + el.id;
+              if (el.className && typeof el.className === 'string') {
+                const classes = el.className.split(' ').filter(c => c).slice(0, 1);
+                if (classes.length > 0) return '.' + classes[0];
+              }
+              return el.tagName.toLowerCase();
+            }
+            
+            function handleMouseMove(e) {
+              if (!window.__visualEditing.active) return;
+              highlightElement(e.target);
+            }
+            
+            function handleClick(e) {
+              if (!window.__visualEditing.active) return;
+              e.preventDefault();
+              e.stopPropagation();
+              selectedElement = e.target;
+              highlightElement(selectedElement);
+              
+              const computedStyle = window.getComputedStyle(selectedElement);
+              const styles = {
+                marginLeft: computedStyle.marginLeft,
+                marginTop: computedStyle.marginTop,
+                paddingLeft: computedStyle.paddingLeft,
+                paddingTop: computedStyle.paddingTop,
+                borderWidth: computedStyle.borderWidth,
+                borderRadius: computedStyle.borderRadius,
+                borderColor: computedStyle.borderColor,
+                backgroundColor: computedStyle.backgroundColor,
+                fontSize: computedStyle.fontSize,
+                fontWeight: computedStyle.fontWeight,
+                color: computedStyle.color,
+              };
+              
+              // Send element info to parent
+              window.parent.postMessage({
+                type: 'visual-editing-element-selected',
+                element: {
+                  tagName: selectedElement.tagName.toLowerCase(),
+                  className: selectedElement.className || '',
+                  id: selectedElement.id || '',
+                  selector: getSelector(selectedElement),
+                  styles: styles
+                }
+              }, '*');
+            }
+            
+            function activate() {
+              if (window.__visualEditing.active) return;
+              window.__visualEditing.active = true;
+              createOverlay();
+              document.addEventListener('mousemove', handleMouseMove, true);
+              document.addEventListener('click', handleClick, true);
+              window.addEventListener('scroll', handleScroll, true);
+              document.body.style.cursor = 'crosshair';
+              document.body.style.userSelect = 'none';
+            }
+            
+            function deactivate() {
+              if (!window.__visualEditing.active) return;
+              window.__visualEditing.active = false;
+              if (overlay) overlay.style.display = 'none';
+              document.removeEventListener('mousemove', handleMouseMove, true);
+              document.removeEventListener('click', handleClick, true);
+              window.removeEventListener('scroll', handleScroll, true);
+              document.body.style.cursor = '';
+              document.body.style.userSelect = '';
+            }
+            
+            window.__visualEditing = { activate, deactivate, active: false };
+            window.parent.postMessage({ type: 'visual-editing-ready' }, '*');
+          })();
+        `;
+
+        // Try to inject script using script tag first (more reliable)
+        try {
+          if (iframe.contentDocument) {
+            const scriptElement = iframe.contentDocument.createElement('script');
+            scriptElement.textContent = script;
+            if (iframe.contentDocument.head) {
+              iframe.contentDocument.head.appendChild(scriptElement);
+            } else if (iframe.contentDocument.body) {
+              iframe.contentDocument.body.appendChild(scriptElement);
+            } else {
+              // Fallback to eval if DOM not ready
+              (iframe.contentWindow as any).eval(script);
+            }
+          } else {
+            // Fallback to eval
+            (iframe.contentWindow as any).eval(script);
+          }
+          
+          // Activate if visual editing is enabled
+          setTimeout(() => {
+            try {
+              const script = (iframe.contentWindow as any).__visualEditing;
+              if (script && visualEditingEnabled) {
+                script.activate();
+              }
+            } catch (e) {
+              console.debug('Failed to activate visual editing:', e);
+            }
+          }, 100);
+        } catch (evalError: any) {
+          // Cross-origin iframe - cannot inject script
+          if (evalError?.name === 'SecurityError' || evalError?.message?.includes('cross-origin')) {
+            console.debug('Cannot inject visual editing script (cross-origin iframe):', evalError);
+          } else {
+            console.error('Failed to inject visual editing script:', evalError);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to inject visual editing script:', error);
+      }
+    };
+
+    const handleLoad = () => {
+      // Wait for iframe to be fully ready
+      const checkReady = () => {
+        try {
+          if (iframe.contentDocument) {
+            const readyState = iframe.contentDocument.readyState;
+            if (readyState === 'complete' || readyState === 'interactive') {
+              // Additional small delay to ensure DOM is fully ready
+              setTimeout(() => {
+                injectVisualEditingScript();
+              }, 100);
+            } else {
+              // Wait a bit more
+              setTimeout(checkReady, 100);
+            }
+          } else {
+            // Try again after a delay
+            setTimeout(checkReady, 200);
+          }
+        } catch (e) {
+          // Cross-origin - cannot check readyState
+          setTimeout(() => {
+            injectVisualEditingScript();
+          }, 300);
+        }
+      };
+      checkReady();
+    };
+
+    // Inject script when iframe loads
+    iframe.addEventListener('load', handleLoad);
+    
+    // If iframe is already loaded, inject immediately
+    try {
+      if (iframe.contentDocument?.readyState === 'complete' || iframe.contentDocument?.readyState === 'interactive') {
+        handleLoad();
+      }
+    } catch (e) {
+      // Cross-origin - try anyway after delay
+      setTimeout(handleLoad, 500);
+    }
+
+    // Handle when visualEditingEnabled changes after script is injected
+    const checkAndUpdate = () => {
+      try {
+        const iframeWindow = iframe.contentWindow as any;
+        if (iframeWindow?.__visualEditing) {
+          if (visualEditingEnabled) {
+            iframeWindow.__visualEditing.activate();
+          } else {
+            iframeWindow.__visualEditing.deactivate();
+          }
+        }
+      } catch (error) {
+        // Cross-origin - ignore
+      }
+    };
+
+    // Check periodically and when visualEditingEnabled changes
+    const interval = setInterval(checkAndUpdate, 500);
+
+    return () => {
+      clearInterval(interval);
+      iframe.removeEventListener('load', handleLoad);
+      // Deactivate visual editing when component unmounts or visual editing is disabled
+      try {
+        const iframeWindow = iframe.contentWindow as any;
+        if (iframeWindow?.__visualEditing) {
+          iframeWindow.__visualEditing.deactivate();
+        }
+      } catch (error) {
+        // Cross-origin iframe - cannot access contentWindow
+        console.debug('Cannot access iframe contentWindow (cross-origin):', error);
+      }
+    };
+  }, [visualEditingEnabled]);
+
   // 🚫 DISABLED: Console error monitoring to match Dyad's approach
   // Add message listener for iframe errors and navigation events
   // useEffect(() => {
@@ -249,6 +571,26 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         console.log("Component picked:", event.data);
         setSelectedComponentPreview(parseComponentSelection(event.data));
         setIsPicking(false);
+        return;
+      }
+
+      // Handle visual editing element selection
+      if (event.data?.type === "visual-editing-element-selected") {
+        const elementData = event.data.element;
+        const visualElement: VisualEditingElement = {
+          id: Date.now().toString(),
+          tagName: elementData.tagName,
+          className: elementData.className,
+          elementId: elementData.id,
+          styles: elementData.styles || {},
+          selector: elementData.selector || (elementData.id ? `#${elementData.id}` : elementData.className ? `.${elementData.className.split(' ')[0]}` : elementData.tagName),
+        };
+        setSelectedVisualElement(visualElement);
+        return;
+      }
+
+      if (event.data?.type === "visual-editing-ready") {
+        console.log("Visual editing script ready");
         return;
       }
 
@@ -707,6 +1049,40 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               </button>
             )}
           </div>
+          
+          {/* Screen Size Toggle - Only for web apps (not games, not Expo) */}
+          {!isGodotApp && !expoUrl && (
+            <ScreenSizeToggle
+              value={screenSize}
+              onChange={setScreenSize}
+            />
+          )}
+
+          {/* Visual Editing Toggle - Available for all users, web apps only */}
+          {!isGodotApp && !expoUrl && (
+            <TooltipProvider>
+              {/* <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      setVisualEditingEnabled(!visualEditingEnabled);
+                      if (visualEditingEnabled) {
+                        setSelectedVisualElement(null);
+                      }
+                    }}
+                    className={`godot-button godot-button-icon ${visualEditingEnabled ? "godot-button-primary" : ""}`}
+                    disabled={loading || !selectedAppId}
+                    title={visualEditingEnabled ? "Disable Visual Editing" : "Enable Visual Editing"}
+                  >
+                    <Pen size={16} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{visualEditingEnabled ? "Disable" : "Enable"} Visual Editing</p>
+                </TooltipContent>
+              </Tooltip> */}
+            </TooltipProvider>
+          )}
         </div>
       </div>
 
@@ -798,75 +1174,107 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               // Show regular app preview during streaming (only if not building)
               <div className="flex-1 relative">
                 {!appUrl && !expoUrl && !currentGodotExportUrl && !godotExportUrl ? (
-                  <div className="godot-loading">
-                    <div className="godot-spinner"></div>
+                  <div className={cn("flex flex-col items-center justify-center h-full", isGodotApp && "godot-loading")}>
+                    {isGodotApp ? (
+                      <div className="godot-spinner"></div>
+                    ) : (
+                      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                    )}
                     <p className="mt-4">Loading your app...</p>
                   </div>
                 ) : (
-                  <div className="godot-iframe-wrapper h-full">
-                    <iframe
-                      data-testid="preview-iframe-element"
-                      onLoad={(e) => {
-                        const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                        console.log(`✅ Preview iframe loaded successfully: ${url}`);
-                        setErrorMessage(undefined);
-                      }}
-                      onError={(e) => {
-                        const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                        console.error(`❌ Preview iframe failed to load: ${url}`, e);
-                        setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
-                      }}
-                      ref={iframeRef}
-                      key={reloadKey}
-                      title={`Preview for App ${selectedAppId}`}
-                      className="w-full h-full border-none"
-                      src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
-                      allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
-                    />
-                  </div>
+                  <ScreenSizeWrapper screenSize={screenSize} isGodotApp={isGodotApp} expoUrl={expoUrl}>
+                    <div className={cn("h-full", isGodotApp && "godot-iframe-wrapper")}>
+                      <iframe
+                        data-testid="preview-iframe-element"
+                        onLoad={(e) => {
+                          const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                          console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                          setErrorMessage(undefined);
+                        }}
+                        onError={(e) => {
+                          const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                          console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                          setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
+                        }}
+                        ref={iframeRef}
+                        key={reloadKey}
+                        title={`Preview for App ${selectedAppId}`}
+                        className="w-full h-full border-none"
+                        src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
+                        allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
+                      />
+                    </div>
+                  </ScreenSizeWrapper>
                 )}
               </div>
             )}
           </div>
         ) : !appUrl && !expoUrl && !godotExportUrl && !currentGodotExportUrl ? (
-          <div className="godot-loading">
-            <div className="godot-spinner"></div>
+          <div className={cn("flex flex-col items-center justify-center h-full", isGodotApp && "godot-loading")}>
+            {isGodotApp ? (
+              <div className="godot-spinner"></div>
+            ) : (
+              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            )}
             <p className="mt-4">Loading your app...</p>
           </div>
         ) : (
-          <div className="godot-iframe-wrapper h-full">
-            <iframe
-              data-testid="preview-iframe-element"
-              onLoad={(e) => {
-                const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                console.log(`✅ Preview iframe loaded successfully: ${url}`);
-                setErrorMessage(undefined);
-                
-                // Try to access iframe content for debugging (may fail due to CORS)
-                try {
-                  const iframe = iframeRef.current;
-                  if (iframe && iframe.contentWindow) {
-                    console.log('Iframe contentWindow accessible');
+          <ScreenSizeWrapper screenSize={screenSize} isGodotApp={isGodotApp} expoUrl={expoUrl}>
+            <div className={cn("h-full", isGodotApp && "godot-iframe-wrapper")}>
+              <iframe
+                data-testid="preview-iframe-element"
+                onLoad={(e) => {
+                  const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                  console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                  setErrorMessage(undefined);
+                  
+                  // Try to access iframe content for debugging (may fail due to CORS)
+                  try {
+                    const iframe = iframeRef.current;
+                    if (iframe && iframe.contentWindow) {
+                      console.log('Iframe contentWindow accessible');
+                    }
+                  } catch (err) {
+                    console.log('Cannot access iframe content (CORS):', err);
                   }
-                } catch (err) {
-                  console.log('Cannot access iframe content (CORS):', err);
-                }
-              }}
-              onError={(e) => {
-                const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                console.error(`❌ Preview iframe failed to load: ${url}`, e);
-                setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
-              }}
-              ref={iframeRef}
-              key={reloadKey}
-              title={`Preview for App ${selectedAppId}`}
-              className="w-full h-full border-none"
-              src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
-              allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
-            />
-          </div>
+                }}
+                onError={(e) => {
+                  const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                  console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                  setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
+                }}
+                ref={iframeRef}
+                key={reloadKey}
+                title={`Preview for App ${selectedAppId}`}
+                className="w-full h-full border-none"
+                src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
+                allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
+              />
+            </div>
+          </ScreenSizeWrapper>
         )}
       </div>
+
+      {/* Visual Editing Toolbar */}
+      {visualEditingEnabled && selectedVisualElement && (
+        <VisualEditingToolbar
+          onClose={() => {
+            setSelectedVisualElement(null);
+            // Deactivate visual editing in iframe
+            try {
+              const iframeWindow = iframeRef.current?.contentWindow as any;
+              if (iframeWindow?.__visualEditing) {
+                iframeWindow.__visualEditing.deactivate();
+              }
+            } catch (error) {
+              // Cross-origin iframe - cannot access contentWindow
+              // This is expected for some iframes and safe to ignore
+              console.debug('Cannot access iframe contentWindow (cross-origin):', error);
+            }
+          }}
+        />
+      )}
 
       {/* AutoPush Dropdown */}
       {showPublishDialog && selectedAppId && (

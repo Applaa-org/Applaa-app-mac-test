@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { createPortal } from "react-dom";
 
 import { formatDistanceToNow } from "date-fns";
 import { PlusCircle, MoreVertical, Trash2, Edit3 } from "lucide-react";
-import { useAtom } from "jotai";
-import { selectedChatIdAtom } from "@/atoms/chatAtoms";
+import { useAtom, useAtomValue } from "jotai";
+import { selectedChatIdAtom, currentStreamingAppIdAtom } from "@/atoms/chatAtoms";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { dropdownOpenAtom } from "@/atoms/uiAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { showError, showSuccess } from "@/lib/toast";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -32,6 +34,7 @@ export function ChatList({ show }: { show?: boolean }) {
   const [selectedChatId, setSelectedChatId] = useAtom(selectedChatIdAtom);
   const [selectedAppId, setSelectedAppId] = useAtom(selectedAppIdAtom);
   const [, setIsDropdownOpen] = useAtom(dropdownOpenAtom);
+  const currentStreamingAppId = useAtomValue(currentStreamingAppIdAtom);
   const { chats, loading, refreshChats } = useChats(selectedAppId);
   const routerState = useRouterState();
   const isChatRoute = routerState.location.pathname === "/chat";
@@ -45,6 +48,9 @@ export function ChatList({ show }: { show?: boolean }) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteChatId, setDeleteChatId] = useState<number | null>(null);
   const [deleteChatTitle, setDeleteChatTitle] = useState("");
+  
+  // Building warning dialog state
+  const [showBuildingWarning, setShowBuildingWarning] = useState(false);
 
   // Update selectedChatId when route changes
   useEffect(() => {
@@ -68,6 +74,12 @@ export function ChatList({ show }: { show?: boolean }) {
     chatId: number;
     appId: number;
   }) => {
+    // Prevent switching if the current app is building/streaming
+    if (currentStreamingAppId !== null && currentStreamingAppId === selectedAppId && appId !== selectedAppId) {
+      setShowBuildingWarning(true);
+      return;
+    }
+    
     setSelectedChatId(chatId);
     setSelectedAppId(appId);
     navigate({
@@ -273,6 +285,21 @@ export function ChatList({ show }: { show?: boolean }) {
         onConfirmDelete={handleConfirmDelete}
         chatTitle={deleteChatTitle}
       />
+      
+      {/* Building Warning Dialog - Rendered via portal to center in main app area */}
+      {createPortal(
+        <ConfirmationDialog
+          isOpen={showBuildingWarning}
+          title="App is Building"
+          message="Please wait for the current app to finish building before switching to another app."
+          confirmText="OK"
+          cancelText=""
+          confirmButtonClass="bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
+          onConfirm={() => setShowBuildingWarning(false)}
+          onCancel={() => setShowBuildingWarning(false)}
+        />,
+        document.body
+      )}
     </>
   );
 }

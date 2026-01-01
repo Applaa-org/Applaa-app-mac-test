@@ -119,6 +119,52 @@ function EnterKeyPlugin({ onSubmit }: { onSubmit: () => void }) {
   return null;
 }
 
+// Plugin to auto-resize the contenteditable element based on content
+function AutoResizePlugin() {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    const updateHeight = () => {
+      const editorElement = editor.getRootElement();
+      if (!editorElement) return;
+
+      // The root element is the contenteditable div itself in Lexical
+      const contentEditable = editorElement;
+      
+      // Reset height to auto to get the correct scrollHeight
+      contentEditable.style.height = 'auto';
+      
+      // Calculate the scroll height and set new height
+      const scrollHeight = contentEditable.scrollHeight;
+      // Max height for ~16 rows (assuming ~24px per line): 16 * 24 = 384px
+      const maxHeight = 384;
+      const minHeight = 80;
+      const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+      
+      contentEditable.style.height = `${newHeight}px`;
+      contentEditable.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
+    };
+
+    // Update height on editor updates
+    const removeUpdateListener = editor.registerUpdateListener(() => {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        setTimeout(updateHeight, 0);
+      });
+    });
+
+    // Initial height calculation after a short delay to ensure DOM is ready
+    const timeoutId = setTimeout(updateHeight, 100);
+
+    return () => {
+      removeUpdateListener();
+      clearTimeout(timeoutId);
+    };
+  }, [editor]);
+
+  return null;
+}
+
 // Plugin to clear editor content
 function ClearEditorPlugin({
   shouldClear,
@@ -363,7 +409,7 @@ export function LexicalChatInput({
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
-              className="flex-1 p-4 focus:outline-none overflow-y-auto min-h-[80px] max-h-[240px] resize-none text-base leading-relaxed spell-check-enabled"
+              className="flex-1 p-4 focus:outline-none resize-none text-base leading-relaxed spell-check-enabled"
               aria-placeholder={placeholder}
               placeholder={
                 <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none select-none">
@@ -375,6 +421,9 @@ export function LexicalChatInput({
               spellCheck={true} // ✅ Enable spell checking with right-click corrections
               style={{
                 WebkitUserSelect: 'text',
+                minHeight: '80px',
+                maxHeight: '384px',
+                overflowY: 'auto',
               } as React.CSSProperties}
             />
           }
@@ -390,7 +439,7 @@ export function LexicalChatInput({
         />
         <OnChangePlugin onChange={handleEditorChange} />
         <HistoryPlugin />
-
+        <AutoResizePlugin />
         <EnterKeyPlugin onSubmit={handleSubmit} />
         <ExternalValueSyncPlugin value={value} />
         <ClearEditorPlugin

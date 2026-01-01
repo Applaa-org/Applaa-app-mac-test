@@ -131,13 +131,13 @@ export class ExpoTemplateCreator {
         logger.info('📦 AI features detected - dependencies will be installed automatically');
       }
 
-      // 8. 📱 EXPO BUILD FIX: Apply automatic fixes for SDK 53 compatibility
-      logger.info('📱 [EXPO-FIX] Applying automatic build fixes for SDK 53 compatibility...');
+      // 8. 📱 EXPO BUILD FIX: Apply automatic fixes for SDK 54 compatibility
+      logger.info('📱 [EXPO-FIX] Applying automatic build fixes for SDK 54 compatibility...');
       try {
         const { fixExpoProjectDependencies } = await import('../../lib/hermetic-runtime');
         const dependenciesFixed = await fixExpoProjectDependencies(params.fullAppPath);
         if (dependenciesFixed) {
-          logger.info('✅ [EXPO-FIX] Dependencies automatically fixed for SDK 53 compatibility');
+          logger.info('✅ [EXPO-FIX] Dependencies automatically fixed for SDK 54 compatibility');
         } else {
           logger.warn('⚠️ [EXPO-FIX] Could not fix dependencies automatically, user may need to run expo install --fix');
         }

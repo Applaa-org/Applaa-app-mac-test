@@ -2,9 +2,34 @@ import { useQuery } from "@tanstack/react-query";
 import { useAtomValue } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
+import { useMemo } from "react";
 
 export function useGodotProjectStatus() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
+  
+  // ✅ FIX: Check if this is actually a Godot app before enabling
+  const { data: app } = useQuery({
+    queryKey: ["app", selectedAppId],
+    queryFn: async () => {
+      if (!selectedAppId) return null;
+      const ipcClient = IpcClient.getInstance();
+      return await ipcClient.getApp(selectedAppId);
+    },
+    enabled: !!selectedAppId,
+  });
+
+  const isGodotApp = useMemo(() => {
+    if (!app) return false;
+    if (app.appType === 'godot') return true;
+    if (app.files && app.files.length > 0) {
+      return app.files.some(file => 
+        file.includes('godot-project') || 
+        file.includes('project.godot') ||
+        file.includes('game_spec.json')
+      );
+    }
+    return false;
+  }, [app]);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["godot-project-status", selectedAppId],
@@ -14,15 +39,13 @@ export function useGodotProjectStatus() {
       const result = await ipcClient.getGodotProjectStatus({ appId: selectedAppId });
       return result;
     },
-    enabled: !!selectedAppId,
-    // Poll every 2 seconds if project doesn't exist yet or is still building
+    // ✅ FIX: Only enable for Godot apps
+    enabled: !!selectedAppId && isGodotApp,
     refetchInterval: (query) => {
       const data = query.state.data;
-      // If project exists AND is not building, stop polling
       if (data?.hasProject && !data?.isBuilding) {
         return false;
       }
-      // Otherwise, check every 2 seconds
       return 2000;
     },
     retry: 2,

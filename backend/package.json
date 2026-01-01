@@ -1,0 +1,30 @@
+{
+  "name": "applaa-backend",
+  "version": "0.1.0",
+  "description": "Local Postgres backend for Applaa app databases (dev/local-first architecture)",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "build": "tsc && cp -r src/migrations dist/ 2>/dev/null || true",
+    "start": "node dist/index.js",
+    "migrate:core": "ts-node src/db/migrate-core.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.7.4",
+    "@types/pg": "^8.11.6",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
+
+

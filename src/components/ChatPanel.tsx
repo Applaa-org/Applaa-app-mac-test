@@ -21,10 +21,7 @@ export function ChatPanel({
   // 🚨 CRITICAL: Check if streaming to prevent race conditions
   const isStreaming = useAtomValue(isStreamingAtom);
   
-  // Debug messages changes
-  useEffect(() => {
-    console.log(`📋 ChatPanel: Messages updated for chatId ${chatId}: ${messages.length} messages`);
-  }, [messages, chatId]);
+
   const [isVersionPaneOpen, setIsVersionPaneOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const streamCount = useAtomValue(chatStreamCountAtom);

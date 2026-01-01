@@ -113,7 +113,7 @@ export function getCategoryLabel(category: AppCategory): string {
     case 'web':
       return 'Web Apps';
     case 'mobile':
-      return 'Mobile Apps (Expo)';
+      return 'Mobile Apps';
     case 'flutter':
       return 'Flutter Apps';
     case 'capacitor':

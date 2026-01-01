@@ -8,7 +8,7 @@ import { AppUpgrade } from "@/ipc/ipc_types";
 import { useLoadApp } from "@/hooks/useLoadApp";
 import { MobileUpgradeComparison } from "./MobileUpgradeComparison";
 
-export function AppUpgrades({ appId }: { appId: number | null }) {
+export function AppUpgrades({ appId, hideHeading = false }: { appId: number | null; hideHeading?: boolean }) {
   const queryClient = useQueryClient();
   const { app } = useLoadApp(appId ?? null);
 
@@ -103,10 +103,12 @@ export function AppUpgrades({ appId }: { appId: number | null }) {
 
   if (isLoading) {
     return (
-      <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
-          App Upgrades
-        </h3>
+      <div className={hideHeading ? "" : "mt-6"}>
+        {!hideHeading && (
+          <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
+            App Upgrades
+          </h3>
+        )}
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     );
@@ -114,10 +116,12 @@ export function AppUpgrades({ appId }: { appId: number | null }) {
 
   if (queryError) {
     return (
-      <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
-          App Upgrades
-        </h3>
+      <div className={hideHeading ? "" : "mt-6"}>
+        {!hideHeading && (
+          <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
+            App Upgrades
+          </h3>
+        )}
         <Alert variant="destructive">
           <AlertTitle>Error loading upgrades</AlertTitle>
           <AlertDescription>{queryError.message}</AlertDescription>
@@ -165,21 +169,23 @@ export function AppUpgrades({ appId }: { appId: number | null }) {
   };
 
   return (
-    <div className="mt-6">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          App Upgrades
-        </h3>
-        <Button
-          onClick={handleRefresh}
-          variant="ghost"
-          size="sm"
-          className="text-xs"
-        >
-          <RefreshCw className="h-3 w-3 mr-1" />
-          Refresh
-        </Button>
-      </div>
+    <div className={hideHeading ? "" : "mt-6"}>
+      {!hideHeading && (
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            App Upgrades
+          </h3>
+          <Button
+            onClick={handleRefresh}
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Refresh
+          </Button>
+        </div>
+      )}
       
       {/* Show mobile upgrade comparison if mobile upgrades are available */}
       {mobileUpgrades.length > 0 && (
