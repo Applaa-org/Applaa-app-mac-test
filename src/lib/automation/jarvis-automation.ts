@@ -4,7 +4,8 @@
 import { readSettings } from '../../main/settings';
 import { getActiveBrowserView } from '../../ipc/handlers/chromium_handlers';
 import log from 'electron-log';
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+// DISABLED - Package not needed since Jarvis is disabled
+// const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const logger = log.scope('jarvis-automation');
 

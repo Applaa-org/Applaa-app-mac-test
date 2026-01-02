@@ -163,6 +163,11 @@ export class MinecraftSandbox {
      * Connect a test bot to the server
      */
     private async connectBot(): Promise<void> {
+        // DISABLED - mineflayer package not installed
+        logger.warn('Test bot connection disabled - mineflayer package not installed');
+        return;
+
+        /* DISABLED CODE
         try {
             logger.info('🤖 Connecting test bot...');
 
@@ -196,6 +201,7 @@ export class MinecraftSandbox {
             logger.error('Failed to connect bot:', error);
             // Don't throw - bot is optional
         }
+        */
     }
 
     /**
