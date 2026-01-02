@@ -6,6 +6,8 @@ import { IpcClient } from '@/ipc/ipc_client';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderOpen, FileJson } from 'lucide-react';
+import { ModCostDisplay } from './ModCostDisplay';
+import { calculateModCost } from '@/services/mod-cost-calculator';
 
 interface MinecraftModPreviewProps {
     app: any;
@@ -185,6 +187,20 @@ export const MinecraftModPreview: React.FC<MinecraftModPreviewProps> = ({ app })
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
+                {/* Cost Breakdown - Show kids the value! */}
+                <ModCostDisplay
+                    breakdown={calculateModCost({
+                        textureCount: 2,  // Estimate: sword + effect textures
+                        textureProvider: 'dall-e-3',
+                        modelCount: 1,    // Estimate: custom sword model
+                        modelProvider: 'meshy',
+                        soundCount: 2,    // Estimate: swing + hit sounds
+                        soundProvider: 'elevenlabs',
+                        codeProvider: 'gemini-flash',
+                    })}
+                    showDetails={true}
+                />
 
                 {/* Build Success */}
                 {jarPath && (
