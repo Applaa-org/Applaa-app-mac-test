@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Monitor, Smartphone, Gamepad2, GraduationCap } from "lucide-react";
+import { Monitor, Smartphone, Gamepad2, GraduationCap, Box } from "lucide-react";
 
-export type AppFilterType = "web" | "mobile" | "game" | "learn";
+export type AppFilterType = "web" | "mobile" | "game" | "minecraft" | "learn";
 
 interface AppTypeFilterProps {
   onChange: (filterType: AppFilterType) => void;
@@ -16,7 +16,7 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
   // Load from localStorage on initial mount
   useEffect(() => {
     const savedFilter = localStorage.getItem("applaa-app-filter") as AppFilterType | null;
-    if (savedFilter && ["web", "mobile", "game", "learn"].includes(savedFilter)) {
+    if (savedFilter && ["web", "mobile", "game", "minecraft", "learn"].includes(savedFilter)) {
       setSelectedFilter(savedFilter);
       onChange(savedFilter);
     }
@@ -77,6 +77,20 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
           >
             <Smartphone className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">Mobile</span>
+          </Label>
+        </div>
+
+        <div className="flex items-center flex-1 min-w-0">
+          <RadioGroupItem value="minecraft" id="filter-minecraft" className="sr-only peer" />
+          <Label
+            htmlFor="filter-minecraft"
+            className={`flex items-center gap-1 px-1.5 py-1 text-xs rounded-md cursor-pointer transition-colors flex-1 justify-center
+              ${selectedFilter === "minecraft"
+                ? "bg-lime-600 text-white"
+                : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <Box className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">Minecraft</span>
           </Label>
         </div>
 

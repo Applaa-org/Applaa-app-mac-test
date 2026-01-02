@@ -122,9 +122,9 @@ export function AppList({ show }: { show?: boolean }) {
     return stableApps.filter(app => {
       const category = detectAppCategory(app);
 
-      // Handle the "learn" filter which aggregates multiple educational types
+      // Handle the "learn" filter which aggregates educational types (excluding minecraft)
       if (appFilter === 'learn') {
-        return ['blockly', 'arcade', 'microbit', 'minecraft'].includes(category);
+        return ['blockly', 'arcade', 'microbit'].includes(category);
       }
 
       return category === appFilter; // Only show apps matching the selected filter
