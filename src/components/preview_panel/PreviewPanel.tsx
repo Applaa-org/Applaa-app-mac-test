@@ -34,7 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 // DesignTab removed for MVP
 import { MakeCodeEditor, type MakeCodeType } from "../makecode/MakeCodeEditor";
 import { BlocklyEditor } from "../blockly/BlocklyEditor";
-import { MinecraftModPreview } from "../minecraft/MinecraftModPreview";
+import { MinecraftModPreview } from "../minecraft/MinecraftModPreview.simplified";
 
 interface ConsoleHeaderProps {
   isOpen: boolean;
