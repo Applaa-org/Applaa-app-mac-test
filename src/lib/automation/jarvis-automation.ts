@@ -1,5 +1,6 @@
-import { Eko, type LLMs } from '@jarvis-agent/core';
-import { BrowserAgent } from '@jarvis-agent/electron';
+// TEMPORARILY DISABLED - Missing dependencies
+// import { Eko, type LLMs } from '@jarvis-agent/core';
+// import { BrowserAgent } from '@jarvis-agent/electron';
 import { readSettings } from '../../main/settings';
 import { getActiveBrowserView } from '../../ipc/handlers/chromium_handlers';
 import log from 'electron-log';
@@ -8,8 +9,8 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const logger = log.scope('jarvis-automation');
 
 export class JarvisAutomation {
-    private eko: Eko | null = null;
-    private browserAgent: BrowserAgent | null = null;
+    private eko: any | null = null; // Changed from Eko to any
+    private browserAgent: any | null = null; // Changed from BrowserAgent to any
     private isInitialized = false;
     private modelName: string = 'gemini-3-flash'; // Default model
     private apiKey: string | undefined = undefined;
@@ -33,6 +34,11 @@ export class JarvisAutomation {
     }
 
     async initialize() {
+        // TEMPORARILY DISABLED - Missing @jarvis-agent dependencies
+        logger.warn('Jarvis automation is temporarily disabled due to missing dependencies');
+        return;
+
+        /* DISABLED CODE
         if (this.isInitialized) {
             await this.initializeAI();
             return;
@@ -54,12 +60,12 @@ export class JarvisAutomation {
             logger.info('Using existing BrowserView for automation');
 
             // Create Browser Agent with the existing WebContentsView
-            this.browserAgent = new BrowserAgent(browserView);
+            // DISABLED: this.browserAgent = new BrowserAgent(browserView);
 
             logger.info(`Using Gemini model: ${this.modelName}`);
 
             // Configure LLMs
-            const llms: LLMs = {
+            const llms: any = {
                 default: {
                     provider: 'google',
                     model: this.modelName,
@@ -79,19 +85,20 @@ export class JarvisAutomation {
             };
 
             // Configure Eko with settings
-            this.eko = new Eko({
-                llms,
+            // DISABLED: this.eko = new Eko({
+            llms,
                 agents: [this.browserAgent],
-                callback
-            });
+                    callback
+        });
 
-            this.isInitialized = true;
-            logger.info('✅ Jarvis Automation initialized');
-        } catch (error) {
-            logger.error('Failed to initialize Jarvis Automation:', error);
-            // Don't re-throw - just log the error and continue
-            logger.warn('Jarvis automation will retry initialization when needed');
-        }
+        this.isInitialized = true;
+        logger.info('✅ Jarvis Automation initialized');
+    } catch(error) {
+        logger.error('Failed to initialize Jarvis Automation:', error);
+        // Don't re-throw - just log the error and continue
+        logger.warn('Jarvis automation will retry initialization when needed');
+    }
+        */
     }
 
     async generatePlan(instruction: string, modelOverride?: string): Promise<{
