@@ -9,7 +9,7 @@ import {
   TextStreamPart,
 } from "ai";
 import { db } from "../../db";
-import { chats, messages } from "../../db/schema";
+import { chats, messages, apps } from "../../db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   constructSystemPrompt,
@@ -104,6 +104,11 @@ export async function preWarmAppCache(appId: number, appPath: string): Promise<v
   try {
     logger.log(`🚀 Pre-warming cache for app ${appId}`);
 
+    // Fetch app from database to get appType
+    const appFromDb = await db.query.apps.findFirst({
+      where: eq(apps.id, appId),
+    });
+
     // Extract codebase and build system prompt in background
     const extracted = await extractCodebase({
       appPath,
@@ -114,6 +119,7 @@ export async function preWarmAppCache(appId: number, appPath: string): Promise<v
       aiRules: await readAiRules(appPath),
       chatMode: 'build', // Default mode
       appPath: appPath,
+      appType: appFromDb?.appType, // Pass appType from database
     });
 
     const cacheKey = `${appId}-${JSON.stringify({ messages: [], files: [] })}`;
