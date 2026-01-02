@@ -266,6 +266,23 @@ export const UserSettingsSchema = z.object({
   // Web Search Feature
   enableWebSearch: z.boolean().optional(),
 
+  // Asset Generation Providers (for Minecraft mods, etc.)
+  assetProviders: z.object({
+    textures: z.object({
+      provider: z.enum(['dall-e-3', 'stable-diffusion', 'none']).optional(),
+      apiKey: SecretSchema.optional(), // For Stability AI
+      // Note: DALL-E uses the existing OpenAI API key from providerSettings
+    }).optional(),
+    models: z.object({
+      provider: z.enum(['meshy', 'tripo', 'none']).optional(),
+      apiKey: SecretSchema.optional(),
+    }).optional(),
+    sounds: z.object({
+      provider: z.enum(['elevenlabs', 'audiocraft', 'none']).optional(),
+      apiKey: SecretSchema.optional(),
+    }).optional(),
+  }).optional(),
+
   ////////////////////////////////
   // E2E TESTING ONLY.
   ////////////////////////////////
