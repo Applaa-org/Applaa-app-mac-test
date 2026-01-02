@@ -187,7 +187,8 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
     }
 
     if (onChatSubmit) {
-      await onChatSubmit(options);
+      // Pass the selectedAppType to the parent handler
+      await onChatSubmit({ ...options, appType: selectedAppType });
     }
   }, [onChatSubmit, selectedAppType]);
 
