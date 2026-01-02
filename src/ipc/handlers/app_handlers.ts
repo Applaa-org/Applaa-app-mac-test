@@ -680,10 +680,26 @@ export function registerAppHandlers() {
         const pathValidationStart = performance.now();
         updateProgress(10, "Validating app path...");
         await ensureWorkspaceInitialized();
-        const appRelPath = getAppRelativePath(
-          params.name,
-          (params.appType === 'mobile' || params.framework === 'expo') ? 'mobile' : 'web'
-        );
+
+        // Determine app type (same logic as create-app handler)
+        let appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft';
+        if (params.appType && ['mobile', 'web', 'godot', 'blockly', 'arcade', 'microbit', 'minecraft'].includes(params.appType)) {
+          appType = params.appType as any;
+        } else if (params.framework === 'expo' || params.framework === 'flutter') {
+          appType = 'mobile';
+        } else if (params.framework === 'blockly') {
+          appType = 'blockly';
+        } else if (params.framework === 'makecode-arcade') {
+          appType = 'arcade';
+        } else if (params.framework === 'microbit') {
+          appType = 'microbit';
+        } else if (params.framework === 'minecraft-makecode') {
+          appType = 'minecraft';
+        } else {
+          appType = 'web';
+        }
+
+        const appRelPath = getAppRelativePath(params.name, appType);
         const fullAppPath = getDyadAppPath(appRelPath);
         if (fs.existsSync(fullAppPath)) {
           throw new Error(`App already exists at: ${fullAppPath}`);
@@ -698,11 +714,6 @@ export function registerAppHandlers() {
 
         const dbCreateStart = performance.now();
         updateProgress(20, "Creating app database entry...");
-        const appType = (params.appType === 'mobile' || params.appType === 'web')
-          ? params.appType
-          : (params.framework === 'expo' || params.framework === 'flutter')
-            ? 'mobile'
-            : 'web';
 
         const info = db.$client
           .prepare("INSERT INTO apps (name, display_name, path, app_type) VALUES (?, ?, ?, ?)")
@@ -899,7 +910,7 @@ export function registerAppHandlers() {
 
       const appRelPath2 = getAppRelativePath(
         params.name,
-        appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
+        appType // Pass the full appType instead of mapping to web/mobile/godot
       );
       const fullAppPath = getDyadAppPath(appRelPath2);
       if (fs.existsSync(fullAppPath)) {
