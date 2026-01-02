@@ -3648,6 +3648,31 @@ export class IpcClient {
   async setActiveTab(params: { tabId: number }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("tabs:setActive", params);
   }
+
+  // ============================================================================
+  // MINECRAFT MOD DEVELOPMENT METHODS
+  // ============================================================================
+
+  async minecraftCheckPrerequisites(): Promise<{
+    mcreator: {
+      installed: boolean;
+      version?: string;
+      path?: string;
+    };
+    java: {
+      installed: boolean;
+      version?: string;
+    };
+  }> {
+    return this.ipcRenderer.invoke("minecraft:check-prerequisites");
+  }
+
+  async minecraftOpenInMCreator(params: {
+    appPath: string;
+    mcreatorPath: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("minecraft:open-in-mcreator", params);
+  }
 }
 
 // Export singleton instance
