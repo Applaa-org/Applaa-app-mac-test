@@ -80,6 +80,7 @@ import { registerGodotHandlers } from "./handlers/godot_handlers";
 import { registerGamesHandlers } from "./handlers/games_handlers";
 import { registerGameTemplatesHandlers } from "./handlers/game_templates_handlers";
 import { registerMinecraftHandlers } from "./handlers/minecraft_handlers";
+import { registerMinecraftSandboxHandlers } from "./handlers/minecraft_sandbox_handlers";
 import { registerCreatorHandlers } from "./handlers/creator_handlers";
 import { registerChromiumHandlers } from "./handlers/chromium_handlers";
 import { registerAutomationHandlers } from "./handlers/automation_handlers";
@@ -199,6 +200,10 @@ export function registerIpcHandlers() {
   // ⛏️ Minecraft Mod Builder
   console.log('⛏️ Registering Minecraft handlers...');
   registerMinecraftHandlers();
+
+  // ⛏️ Minecraft Sandbox (PrismarineJS)
+  console.log('⛏️ Registering Minecraft sandbox handlers...');
+  registerMinecraftSandboxHandlers();
 
   // 🤖 AI Creator Handlers
   console.log('🤖 Registering creator handlers...');

@@ -3673,6 +3673,42 @@ export class IpcClient {
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("minecraft:open-in-mcreator", params);
   }
+
+  // ============================================================================
+  // MINECRAFT SANDBOX METHODS (PrismarineJS)
+  // ============================================================================
+
+  async minecraftSandboxStart(params?: {
+    modPath?: string;
+    port?: number;
+  }): Promise<{ port: number; ready: boolean }> {
+    return this.ipcRenderer.invoke("minecraft-sandbox:start", params || {});
+  }
+
+  async minecraftSandboxStop(): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("minecraft-sandbox:stop");
+  }
+
+  async minecraftSandboxStatus(): Promise<{
+    running: boolean;
+    port: number;
+    version: string;
+    playersOnline: number;
+  }> {
+    return this.ipcRenderer.invoke("minecraft-sandbox:status");
+  }
+
+  async minecraftSandboxLoadMod(modPath: string): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("minecraft-sandbox:load-mod", modPath);
+  }
+
+  async minecraftSandboxTestItem(itemName: string): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("minecraft-sandbox:test-item", { itemName });
+  }
 }
 
 // Export singleton instance
