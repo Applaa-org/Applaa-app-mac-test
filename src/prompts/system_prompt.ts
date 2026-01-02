@@ -1578,6 +1578,7 @@ export const constructSystemPrompt = ({
   appName,
   appDescription,
   appContent,
+  appType,
 }: {
   aiRules: string | undefined;
   chatMode?: "build" | "ask";
@@ -1585,12 +1586,18 @@ export const constructSystemPrompt = ({
   appName?: string;
   appDescription?: string;
   appContent?: string;
+  appType?: string;
 }) => {
   let systemPrompt: string;
 
   if (chatMode === "ask") {
     systemPrompt = ASK_MODE_SYSTEM_PROMPT;
-  } else if (appPath && isExpoApp(appPath)) {
+  } else if (appType === 'minecraft' || (appPath && isMinecraftModApp(appPath))) {
+    // Use Minecraft Mod-specific system prompt
+    // Check appType first (from database), then fall back to file detection
+    systemPrompt = MINECRAFT_MOD_SYSTEM_PROMPT;
+    logger.log(`Using Minecraft Mod system prompt for app at: ${appPath}`);
+  } else if (appType === 'expo' || (appPath && isExpoApp(appPath))) {
     // Use Expo-specific system prompt for mobile apps
     systemPrompt = EXPO_SYSTEM_PROMPT;
 
@@ -1617,18 +1624,14 @@ export const constructSystemPrompt = ({
 
     systemPrompt = asyncStorageWarning + systemPrompt;
     logger.log(`Using Expo system prompt for app at: ${appPath}`);
-  } else if (appPath && isGodotApp(appPath)) {
+  } else if (appType === 'godot' || (appPath && isGodotApp(appPath))) {
     // Use Godot-specific system prompt for game apps
     systemPrompt = GODOT_SYSTEM_PROMPT;
     logger.log(`Using Godot system prompt for app at: ${appPath}`);
-  } else if (appPath && isMakeCodeApp(appPath)) {
+  } else if (appType === 'arcade' || appType === 'microbit' || (appPath && isMakeCodeApp(appPath))) {
     // Use MakeCode-specific system prompt for educational apps
     systemPrompt = MAKECODE_SYSTEM_PROMPT;
     logger.log(`Using MakeCode system prompt for app at: ${appPath}`);
-  } else if (appPath && isMinecraftModApp(appPath)) {
-    // Use Minecraft Mod-specific system prompt
-    systemPrompt = MINECRAFT_MOD_SYSTEM_PROMPT;
-    logger.log(`Using Minecraft Mod system prompt for app at: ${appPath}`);
   } else {
     // Default to web system prompt
     systemPrompt = BUILD_SYSTEM_PROMPT;

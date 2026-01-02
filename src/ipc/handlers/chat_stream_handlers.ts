@@ -17,13 +17,13 @@ import {
   readAiRules,
 } from "../../prompts/system_prompt";
 import { detectAppType } from "../utils/preview_integration";
-import { 
+import {
   optimizeForProvider,
-  costOptimizationService 
+  costOptimizationService
 } from "../utils/cost_optimization_service";
-import { 
+import {
   createCacheableSystemPrompt,
-  getCachingConfig 
+  getCachingConfig
 } from "../utils/prompt_caching";
 import {
   SUPABASE_AVAILABLE_SYSTEM_PROMPT,
@@ -103,32 +103,32 @@ export async function preWarmAppCache(appId: number, appPath: string): Promise<v
 
   try {
     logger.log(`🚀 Pre-warming cache for app ${appId}`);
-    
+
     // Extract codebase and build system prompt in background
     const extracted = await extractCodebase({
       appPath,
       chatContext: { messages: [], files: [] }, // Minimal context for pre-warming
     });
-    
+
     const baseSystemPrompt = constructSystemPrompt({
       aiRules: await readAiRules(appPath),
       chatMode: 'build', // Default mode
       appPath: appPath,
     });
-    
+
     const cacheKey = `${appId}-${JSON.stringify({ messages: [], files: [] })}`;
     const now = Date.now();
-    
+
     systemPromptCache.set(cacheKey, {
       systemPrompt: baseSystemPrompt,
       codebaseInfo: extracted.formattedOutput,
       codebaseHash: require('crypto').createHash('md5').update(extracted.formattedOutput).digest('hex'),
       timestamp: now,
     });
-    
+
     activeAppsCache.add(appId);
     logger.log(`✅ Pre-warmed cache for app ${appId}`);
-    
+
   } catch (error) {
     logger.warn(`⚠️ Failed to pre-warm cache for app ${appId}:`, error);
   }
@@ -224,13 +224,13 @@ const lastAutosaveLength = new Map<number, number>();
 
 function startPeriodicPersistence(chatId: number, placeholderMessageId: number) {
   const settings = readSettings();
-  
+
   // Only start autosave if explicitly enabled
   if (!settings.enableStreamAutosave) {
     logger.log(`⏸️ Auto-save disabled for chat ${chatId} (settings.enableStreamAutosave=false)`);
     return;
   }
-  
+
   // Clear any existing timer
   const existingTimer = persistenceTimers.get(chatId);
   if (existingTimer) {
@@ -248,14 +248,14 @@ function startPeriodicPersistence(chatId: number, placeholderMessageId: number) 
     const lastLength = lastAutosaveLength.get(chatId) || 0;
     const partialResponse = partialResponses.get(chatId) || '';
     const currentLength = partialResponse.length;
-    
+
     // Check if enough time has passed AND enough chars have accumulated
     const timeSinceLastSave = now - lastSave;
     const charsSinceLastSave = currentLength - lastLength;
-    
-    if (timeSinceLastSave >= PERSISTENCE_INTERVAL && 
-        charsSinceLastSave >= MIN_CHARS_FOR_AUTOSAVE &&
-        timeSinceLastSave < MAX_AUTOSAVE_INTERVAL) {
+
+    if (timeSinceLastSave >= PERSISTENCE_INTERVAL &&
+      charsSinceLastSave >= MIN_CHARS_FOR_AUTOSAVE &&
+      timeSinceLastSave < MAX_AUTOSAVE_INTERVAL) {
       await persistPartialProgress(chatId, placeholderMessageId);
       lastAutosaveTime.set(chatId, now);
       lastAutosaveLength.set(chatId, currentLength);
@@ -296,7 +296,7 @@ async function processStreamChunks({
 }): Promise<{ fullResponse: string; incrementalResponse: string }> {
   let incrementalResponse = "";
   let inThinkingBlock = false;
-  
+
   // 🚀 PERFORMANCE FIX: Optimized throttling with char-delta gating
   let lastUpdateTime = 0;
   let lastUpdateLength = 0;
@@ -354,41 +354,41 @@ async function processStreamChunks({
         continue;
       }
 
-    fullResponse += chunk;
-    incrementalResponse += chunk;
-    
-    // 🚀 PERFORMANCE: Only clean response when we're about to send it, not on every chunk
-    // This avoids expensive regex operations on every text delta
-    
-    // 🚀 OPTIMIZED THROTTLE: Char-delta gating + reduced throttle time
-    const now = Date.now();
-    const timeSinceLastUpdate = now - lastUpdateTime;
-    const charsSinceLastUpdate = fullResponse.length - lastUpdateLength;
-    
-    if (timeSinceLastUpdate >= UI_UPDATE_THROTTLE_MS && 
-        charsSinceLastUpdate >= MIN_CHARS_FOR_UI_UPDATE && 
-        !pendingUpdate) {
-      pendingUpdate = true;
-      lastUpdateTime = now;
-      lastUpdateLength = fullResponse.length;
-      
-      // 🚨 CRITICAL: Check abort signal before expensive operations
-      if (abortController.signal.aborted) {
-        logger.log(`Stream aborted during throttled update for chat ${chatId}`);
-        break;
-      }
+      fullResponse += chunk;
+      incrementalResponse += chunk;
 
-      // 🚀 DIRECT ASYNC AWAIT: Remove setImmediate to avoid microtask queue backlog
-      try {
-        // Clean response only when sending to UI
-        const cleanedResponse = cleanFullResponse(fullResponse);
-        await processResponseChunkUpdate({ fullResponse: cleanedResponse });
-      } catch (error) {
-        logger.error(`Error in throttled chunk update for chat ${chatId}:`, error);
-      } finally {
-        pendingUpdate = false;
+      // 🚀 PERFORMANCE: Only clean response when we're about to send it, not on every chunk
+      // This avoids expensive regex operations on every text delta
+
+      // 🚀 OPTIMIZED THROTTLE: Char-delta gating + reduced throttle time
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastUpdateTime;
+      const charsSinceLastUpdate = fullResponse.length - lastUpdateLength;
+
+      if (timeSinceLastUpdate >= UI_UPDATE_THROTTLE_MS &&
+        charsSinceLastUpdate >= MIN_CHARS_FOR_UI_UPDATE &&
+        !pendingUpdate) {
+        pendingUpdate = true;
+        lastUpdateTime = now;
+        lastUpdateLength = fullResponse.length;
+
+        // 🚨 CRITICAL: Check abort signal before expensive operations
+        if (abortController.signal.aborted) {
+          logger.log(`Stream aborted during throttled update for chat ${chatId}`);
+          break;
+        }
+
+        // 🚀 DIRECT ASYNC AWAIT: Remove setImmediate to avoid microtask queue backlog
+        try {
+          // Clean response only when sending to UI
+          const cleanedResponse = cleanFullResponse(fullResponse);
+          await processResponseChunkUpdate({ fullResponse: cleanedResponse });
+        } catch (error) {
+          logger.error(`Error in throttled chunk update for chat ${chatId}:`, error);
+        } finally {
+          pendingUpdate = false;
+        }
       }
-    }
 
       // If the stream was aborted, exit early
       if (abortController.signal.aborted) {
@@ -656,13 +656,13 @@ ${componentSnippet}
           : "";
         const chatContext = req.selectedComponent
           ? {
-              contextPaths: [
-                {
-                  globPath: req.selectedComponent.relativePath,
-                },
-              ],
-              smartContextAutoIncludes: [],
-            }
+            contextPaths: [
+              {
+                globPath: req.selectedComponent.relativePath,
+              },
+            ],
+            smartContextAutoIncludes: [],
+          }
           : validateChatContext(updatedChat.app.chatContext);
 
         // Parse app mentions from the prompt
@@ -672,11 +672,11 @@ ${componentSnippet}
         const appId = updatedChat.app.id;
         const cacheKey = `${appId}-${JSON.stringify(chatContext)}`;
         const now = Date.now();
-        
+
         let codebaseInfo: string;
         let files: any;
         let systemPrompt: string;
-        
+
         // Check cache first
         const cached = systemPromptCache.get(cacheKey);
         if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
@@ -692,29 +692,30 @@ ${componentSnippet}
           });
           codebaseInfo = extracted.formattedOutput;
           files = extracted.files;
-          
+
           // Build system prompt
           const baseSystemPrompt = constructSystemPrompt({
             aiRules: await readAiRules(appPath),
             chatMode: settings.selectedChatMode,
             appPath: appPath,
+            appType: updatedChat.app.appType, // Pass appType from database
           });
-          
+
           // Apply cost optimization and prompt caching
           const optimized = await costOptimizationService.optimizeSystemPrompt(
             baseSystemPrompt,
             settings.selectedModel.provider,
             settings.selectedModel.name
           );
-          
+
           systemPrompt = optimized.systemPrompt;
-          
+
           // Log cost optimization results
           if (optimized.cachingStrategy !== 'none') {
             logger.log(`💰 Cost optimization applied: ${optimized.cachingStrategy} caching for ${settings.selectedModel.provider}/${settings.selectedModel.name}`);
             logger.log(`📊 Estimated savings: ${optimized.costSavingsEstimate}% (${optimized.estimatedTokens} tokens)`);
           }
-          
+
           // Cache the result
           const codebaseHash = crypto.createHash('md5').update(codebaseInfo).digest('hex');
           systemPromptCache.set(cacheKey, {
@@ -723,7 +724,7 @@ ${componentSnippet}
             codebaseHash,
             timestamp: now,
           });
-          
+
           logger.log(`💾 Cached system prompt and codebase for app ${appId} (${codebaseHash})`);
         }
 
@@ -828,9 +829,9 @@ ${componentSnippet}
               path.join(appPath, ".env"),
               path.join(appPath, ".env.local"),
             ];
-            
+
             logger.log(`🔍 Checking for Postgres in app: ${updatedChat.app?.name || 'unknown'}, path: ${appPath}`);
-            
+
             for (const envPath of envPaths) {
               if (fs.existsSync(envPath)) {
                 const envContent = fs.readFileSync(envPath, "utf-8");
@@ -846,7 +847,7 @@ ${componentSnippet}
                 logger.log(`📭 ${path.basename(envPath)} does not exist`);
               }
             }
-            
+
             if (!hasPostgres) {
               logger.log(`ℹ️ No DATABASE_URL found in .env files for app: ${updatedChat.app?.name || 'unknown'}. App may need database provisioning.`);
             }
@@ -860,7 +861,7 @@ ${componentSnippet}
         // 🚨 POSTGRES ONLY - NO SUPABASE/NEON FALLBACK
         // ALWAYS use Postgres - it's automatically provisioned for every app
         baseSystemPrompt += "\n\n" + getPostgresAvailablePrompt();
-        
+
         if (hasPostgres) {
           logger.log(`✅ [POSTGRES] Using Postgres database for app: ${updatedChat.app?.name || 'unknown'}`);
         } else {
@@ -876,12 +877,12 @@ ${componentSnippet}
         // 💰 COST OPTIMIZATION: Simple approach - just use the system prompt as string
         // Anthropic caching is handled by the API headers, not prompt format
         systemPrompt = baseSystemPrompt;
-        
+
         const estimatedTokens = Math.ceil(systemPrompt.length / 4);
         logger.log(`💰 System prompt: ${estimatedTokens} tokens`);
-        
-        if (settings.selectedModel.provider === 'anthropic' || 
-            (settings.selectedModel.provider === 'openrouter' && settings.selectedModel.name.startsWith('anthropic/'))) {
+
+        if (settings.selectedModel.provider === 'anthropic' ||
+          (settings.selectedModel.provider === 'openrouter' && settings.selectedModel.name.startsWith('anthropic/'))) {
           logger.log(`💰 Anthropic caching enabled via headers`);
         }
 
@@ -939,29 +940,29 @@ This conversation includes one or more image attachments. When the user uploads 
 
         const codebasePrefix = isEngineEnabled
           ? // No codebase prefix if engine is set, we will take of it there.
-            []
+          []
           : ([
-              {
-                role: "user",
-                content: createCodebasePrompt(codebaseInfo),
-              },
-              {
-                role: "assistant",
-                content: "OK, got it. I'm ready to help",
-              },
-            ] as const);
+            {
+              role: "user",
+              content: createCodebasePrompt(codebaseInfo),
+            },
+            {
+              role: "assistant",
+              content: "OK, got it. I'm ready to help",
+            },
+          ] as const);
 
         const otherCodebasePrefix = otherAppsCodebaseInfo
           ? ([
-              {
-                role: "user",
-                content: createOtherAppsCodebasePrompt(otherAppsCodebaseInfo),
-              },
-              {
-                role: "assistant",
-                content: "OK.",
-              },
-            ] as const)
+            {
+              role: "user",
+              content: createOtherAppsCodebasePrompt(otherAppsCodebaseInfo),
+            },
+            {
+              role: "assistant",
+              content: "OK.",
+            },
+          ] as const)
           : [];
 
         let chatMessages: CoreMessage[] = [
@@ -1031,7 +1032,7 @@ This conversation includes one or more image attachments. When the user uploads 
           // 💰 COST CONTROL: Limit response length to prevent runaway costs
           const defaultMaxTokens = await getMaxTokens(settings.selectedModel);
           const safeMaxTokens = Math.min(defaultMaxTokens || 8192, 8192); // Cap at 8K tokens
-          
+
           return streamText({
             maxTokens: safeMaxTokens,
             temperature: await getTemperature(settings.selectedModel),
@@ -1066,13 +1067,13 @@ This conversation includes one or more image attachments. When the user uploads 
               const errorObj = error as any;
               let errorMessage = errorObj?.error?.message;
               const responseBody = errorObj?.error?.responseBody;
-              
+
               // Special handling for Azure OpenAI authentication errors (401)
-              if (modelClient.builtinProviderId === 'azure-openai' && 
-                  (errorMessage?.includes('Access denied') || 
-                   errorMessage?.includes('invalid subscription key') ||
-                   errorMessage?.includes('wrong API endpoint') ||
-                   errorObj?.error?.status === 401)) {
+              if (modelClient.builtinProviderId === 'azure-openai' &&
+                (errorMessage?.includes('Access denied') ||
+                  errorMessage?.includes('invalid subscription key') ||
+                  errorMessage?.includes('wrong API endpoint') ||
+                  errorObj?.error?.status === 401)) {
                 logger.error("🔴 Azure OpenAI Authentication Error - checking configuration");
                 logger.error(`🔴 Azure OpenAI Error Details:`);
                 logger.error(`  - Selected Model: ${settings.selectedModel?.name || 'unknown'}`);
@@ -1080,12 +1081,12 @@ This conversation includes one or more image attachments. When the user uploads 
                 logger.error(`  - Error Status: ${errorObj?.error?.status || 'unknown'}`);
                 logger.error(`  - Error Message: ${errorMessage || 'unknown'}`);
                 logger.error(`  - Response Body: ${responseBody || 'none'}`);
-                
+
                 // Log Azure configuration
                 const azureSettings = settings.providerSettings?.['azure-openai'];
                 logger.error(`  - Azure API Key: ${azureSettings?.apiKey?.value ? 'SET (length: ' + azureSettings.apiKey.value.length + ')' : 'NOT SET'}`);
                 logger.error(`  - Note: Base URLs are configured per model in get_model_client.ts`);
-                
+
                 errorMessage = "Azure OpenAI Authentication Error (401). This usually means:\n" +
                   "1. The API key is incorrect or expired\n" +
                   "2. The API key doesn't have access to the Azure OpenAI resource\n" +
@@ -1096,14 +1097,14 @@ This conversation includes one or more image attachments. When the user uploads 
                   "- The endpoint URL matches your Azure OpenAI resource\n\n" +
                   "Check the terminal logs for detailed configuration information.";
               }
-              
+
               // Special handling for Azure OpenAI "Resource not found" errors
-              if (modelClient.builtinProviderId === 'azure-openai' && 
-                  (errorMessage?.includes('Resource not found') || 
-                   errorMessage?.includes('404') ||
-                   errorObj?.error?.status === 404)) {
+              if (modelClient.builtinProviderId === 'azure-openai' &&
+                (errorMessage?.includes('Resource not found') ||
+                  errorMessage?.includes('404') ||
+                  errorObj?.error?.status === 404)) {
                 logger.error("🔴 Azure OpenAI Resource not found - checking configuration");
-                
+
                 // Log the model configuration for debugging
                 logger.error(`🔴 Azure OpenAI Error Details:`);
                 logger.error(`  - Selected Model: ${settings.selectedModel?.name || 'unknown'}`);
@@ -1111,7 +1112,7 @@ This conversation includes one or more image attachments. When the user uploads 
                 logger.error(`  - Error Status: ${errorObj?.error?.status || 'unknown'}`);
                 logger.error(`  - Error Message: ${errorMessage || 'unknown'}`);
                 logger.error(`  - Response Body: ${responseBody || 'none'}`);
-                
+
                 // Try to get Azure config from settings for debugging
                 // Log Azure configuration - note that we use hardcoded base URLs per model
                 const azureSettings = settings.providerSettings?.['azure-openai'];
@@ -1121,7 +1122,7 @@ This conversation includes one or more image attachments. When the user uploads 
                 logger.error(`  - Azure Endpoint: ${azureSettings?.endpoint?.value ? 'SET' : 'NOT SET (using hardcoded base URL per model)'}`);
                 logger.error(`  - Azure API Version: ${azureSettings?.apiVersion?.value || 'using model-specific API version'}`);
                 logger.error(`  - Note: Base URLs are configured per model in get_model_client.ts`);
-                
+
                 errorMessage = "Azure OpenAI Resource not found (404). This usually means:\n" +
                   "1. The deployment name doesn't exist in your Azure OpenAI resource\n" +
                   "2. The deployment name doesn't match exactly (case-sensitive)\n" +
@@ -1132,16 +1133,16 @@ This conversation includes one or more image attachments. When the user uploads 
                   "- The resource name and endpoint are correct\n\n" +
                   "Check the terminal logs for detailed configuration information.";
               }
-              
+
               // Special handling for OpenRouter rate limits
-              if (modelClient.builtinProviderId === 'openrouter' && 
-                  (errorMessage?.includes('Too Many Requests') || 
-                   errorMessage?.includes('rate limit') ||
-                   errorObj?.error?.status === 429)) {
+              if (modelClient.builtinProviderId === 'openrouter' &&
+                (errorMessage?.includes('Too Many Requests') ||
+                  errorMessage?.includes('rate limit') ||
+                  errorObj?.error?.status === 429)) {
                 logger.warn("🔄 OpenRouter rate limit hit - consider switching models or upgrading plan");
                 errorMessage = "OpenRouter rate limit exceeded. Try switching to a different model or upgrading your OpenRouter plan. Free tier has strict limits.";
               }
-              
+
               if (errorMessage && responseBody) {
                 errorMessage += "\n\nDetails: " + responseBody;
               }
@@ -1223,7 +1224,7 @@ This conversation includes one or more image attachments. When the user uploads 
             // This ensures the LLM gets fresh instructions about file completion
             logger.warn(`🔄 Invalidating system prompt cache due to unclosed tags`);
             systemPromptCache.delete(cacheKey);
-            
+
             // Also invalidate application-level prompt cache to ensure fresh system prompt
             try {
               const { applicationCache } = await import("../utils/prompt_caching");
@@ -1232,7 +1233,7 @@ This conversation includes one or more image attachments. When the user uploads 
             } catch (error) {
               logger.warn(`⚠️ Failed to clear application cache:`, error);
             }
-            
+
             let continuationAttempts = 0;
             while (
               hasUnclosedDyadWrite(fullResponse) &&
@@ -1242,12 +1243,12 @@ This conversation includes one or more image attachments. When the user uploads 
               logger.warn(
                 `Received unclosed dyad-write or applaa-write tag, attempting to continue, attempt #${continuationAttempts + 1}`,
               );
-              
+
               // Extract the unclosed tag information for better continuation
               const unclosedTagMatch = fullResponse.match(/<(?:dyad-write|applaa-write)[^>]*>/g);
               const lastUnclosedTag = unclosedTagMatch?.[unclosedTagMatch.length - 1];
               const tagType = lastUnclosedTag?.includes("applaa-write") ? "applaa-write" : "dyad-write";
-              
+
               logger.info(`🔧 Continuation attempt ${continuationAttempts}: Found unclosed ${tagType} tag: ${lastUnclosedTag}`);
               logger.info(`📝 Full response length: ${fullResponse.length} characters`);
               logger.info(`📝 Last 200 characters of response: ${fullResponse.slice(-200)}`);
@@ -1259,15 +1260,15 @@ This conversation includes one or more image attachments. When the user uploads 
                 chatMode: settings.selectedChatMode,
                 appPath: appPath,
               });
-              
+
               const { fullStream: contStream } = await simpleStreamText({
                 // Build messages: replay history then pre-fill assistant with current partial.
                 chatMessages: [
                   ...chatMessages,
                   { role: "assistant", content: fullResponse },
-                  { 
-                    role: "user", 
-                    content: `Please continue and complete the file. You have an unclosed ${tagType} tag that needs to be finished. Complete the file content and add the closing </${tagType}> tag. Make sure to complete any incomplete code blocks, functions, or components. IMPORTANT: Only continue the current file, do not create new files.` 
+                  {
+                    role: "user",
+                    content: `Please continue and complete the file. You have an unclosed ${tagType} tag that needs to be finished. Complete the file content and add the closing </${tagType}> tag. Make sure to complete any incomplete code blocks, functions, or components. IMPORTANT: Only continue the current file, do not create new files.`
                   },
                 ],
                 modelClient,
@@ -1297,7 +1298,7 @@ This conversation includes one or more image attachments. When the user uploads 
                   fullResponse,
                 });
               }
-              
+
               logger.info(`✅ Continuation attempt ${continuationAttempts} completed. Response length: ${fullResponse.length}`);
             }
           }
@@ -1308,10 +1309,10 @@ This conversation includes one or more image attachments. When the user uploads 
               const writeTags = getDyadWriteTags(fullResponse);
               const renameTags = getDyadRenameTags(fullResponse);
               const deletePaths = getDyadDeleteTags(fullResponse);
-              
+
               if (writeTags.length > 0 || renameTags.length > 0 || deletePaths.length > 0) {
                 logger.info(`Found ${writeTags.length} write tags, ${renameTags.length} rename tags, ${deletePaths.length} delete tags`);
-                
+
                 const virtualFileSystem = new AsyncVirtualFileSystem(
                   getDyadAppPath(updatedChat.app.path),
                   {
@@ -1319,13 +1320,13 @@ This conversation includes one or more image attachments. When the user uploads 
                     readFile: (fileName: string) => readFileWithCache(fileName),
                   },
                 );
-                
+
                 await virtualFileSystem.applyResponseChanges({
                   deletePaths,
                   renameTags,
                   writeTags,
                 });
-                
+
                 logger.info("Successfully applied file changes to disk");
               }
             } catch (error) {
@@ -1334,12 +1335,12 @@ This conversation includes one or more image attachments. When the user uploads 
           }
 
           const addDependencies = getDyadAddDependencyTags(fullResponse);
-          
+
           // 🚀 PERFORMANCE FIX: Disable auto-fix for Expo apps to prevent excessive problems
-          const isExpoApp = updatedChat.app?.path?.includes('expo') || 
-                           fullResponse.includes('expo-') || 
-                           fullResponse.includes('react-native');
-          
+          const isExpoApp = updatedChat.app?.path?.includes('expo') ||
+            fullResponse.includes('expo-') ||
+            fullResponse.includes('react-native');
+
           if (
             !abortController.signal.aborted &&
             // If there are dependencies, we don't want to auto-fix problems
@@ -1369,11 +1370,11 @@ This conversation includes one or more image attachments. When the user uploads 
                 // APPLAA ENHANCEMENT: Support both dyad-problem-report and applaa-problem-report
                 fullResponse += `<dyad-problem-report summary="${problemReport.problems.length} problems">
 ${problemReport.problems
-  .map(
-    (problem) =>
-      `<problem file="${escapeXml(problem.file)}" line="${problem.line}" column="${problem.column}" code="${problem.code}">${escapeXml(problem.message)}</problem>`,
-  )
-  .join("\n")}
+                    .map(
+                      (problem) =>
+                        `<problem file="${escapeXml(problem.file)}" line="${problem.line}" column="${problem.column}" code="${problem.code}">${escapeXml(problem.message)}</problem>`,
+                    )
+                    .join("\n")}
 </dyad-problem-report>`;
 
                 logger.info(
@@ -1446,13 +1447,13 @@ ${problemReport.problems
                   chatId: req.chatId,
                   processResponseChunkUpdate,
                 });
-                
+
                 // 🚨 CRITICAL: Check abort signal immediately after stream processing
                 if (abortController.signal.aborted) {
                   logger.log(`🚨 Auto-fix loop aborted for chat ${req.chatId}`);
                   break; // Exit the while loop immediately
                 }
-                
+
                 fullResponse = result.fullResponse;
                 previousAttempts.push({
                   role: "assistant",
@@ -1464,7 +1465,7 @@ ${problemReport.problems
                   appPath: getDyadAppPath(updatedChat.app.path),
                 });
               }
-              
+
               // Process any remaining dyad-write tags after auto-fix completes
               if (!abortController.signal.aborted) {
                 try {
@@ -1472,10 +1473,10 @@ ${problemReport.problems
                   const writeTags = getDyadWriteTags(fullResponse);
                   const renameTags = getDyadRenameTags(fullResponse);
                   const deletePaths = getDyadDeleteTags(fullResponse);
-                  
+
                   if (writeTags.length > 0 || renameTags.length > 0 || deletePaths.length > 0) {
                     logger.info(`Found ${writeTags.length} write tags, ${renameTags.length} rename tags, ${deletePaths.length} delete tags after auto-fix`);
-                    
+
                     const virtualFileSystem = new AsyncVirtualFileSystem(
                       getDyadAppPath(updatedChat.app.path),
                       {
@@ -1483,13 +1484,13 @@ ${problemReport.problems
                         readFile: (fileName: string) => readFileWithCache(fileName),
                       },
                     );
-                    
+
                     await virtualFileSystem.applyResponseChanges({
                       deletePaths,
                       renameTags,
                       writeTags,
                     });
-                    
+
                     logger.info("Successfully applied file changes to disk after auto-fix");
                   }
 
@@ -1500,11 +1501,11 @@ ${problemReport.problems
                     for (const schemaTag of schemaTags) {
                       try {
                         logger.info(`🗄️ Creating tables: ${schemaTag.tables.join(", ")} for app ${updatedChat.app.id}`);
-                        
+
                         // Import executeSchema from lib/schema_parser
                         const { executeSchema } = await import("../../lib/schema_parser");
                         const result = await executeSchema(updatedChat.app.id, schemaTag.sql);
-                        
+
                         if (result.success) {
                           logger.info(`✅ Successfully created tables: ${schemaTag.tables.join(", ")}`);
                         } else {
@@ -1663,12 +1664,12 @@ ${problemReport.problems
 
       // 🚀 STOP PERIODIC PERSISTENCE: Stream completed successfully
       stopPeriodicPersistence(req.chatId);
-      
+
       // Return the chat ID for backwards compatibility
       return req.chatId;
     } catch (error) {
       logger.error("Error calling LLM:", error);
-      
+
       // Provide more user-friendly error messages for common errors
       let errorMessage = `Sorry, there was an error processing your request: ${error}`;
       if (error instanceof Error) {
@@ -1682,7 +1683,7 @@ ${problemReport.problems
           errorMessage = `Sorry, there was an error: ${error.message}`;
         }
       }
-      
+
       safeSend(
         event.sender,
         "chat:response:error",
@@ -1762,7 +1763,7 @@ ${problemReport.problems
     try {
       // Clean up the auto-save marker and add resume marker
       const resumePrompt = continuePrompt || "Please continue where you left off and complete the implementation.";
-      
+
       await db
         .update(messages)
         .set({
