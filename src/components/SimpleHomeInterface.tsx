@@ -96,7 +96,8 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
     }
 
     // Other educational frameworks go to prompted creation
-    const educationalTypes = ['microbit', 'minecraft', 'blockly'];
+    // Minecraft now uses the unified interface like web/mobile/godot
+    const educationalTypes = ['microbit', 'blockly'];
     if (educationalTypes.includes(type)) {
       navigate({ to: `/create-with-prompt`, search: { type: type as any } });
       return;
