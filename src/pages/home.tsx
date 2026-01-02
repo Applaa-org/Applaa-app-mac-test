@@ -228,8 +228,15 @@ ${extraDbText}`;
       // 🚀 PARALLEL CREATION: Use instant app creation for immediate chat access
       // Template creation and git operations run in background while user chats
 
-      // Determine appType from options (passed from SimpleHomeInterface) or fall back to settings
-      const appType = options?.appType || (settings?.selectedPlatform === 'expo' || settings?.selectedPlatform === 'flutter' ? 'mobile' : 'web');
+      // Determine appType from settings (selectedPlatform)
+      const appType = settings?.selectedPlatform === 'expo' || settings?.selectedPlatform === 'flutter' ? 'mobile' :
+        settings?.selectedPlatform === 'minecraft' ? 'minecraft' :
+          settings?.selectedPlatform === 'blockly' ? 'blockly' :
+            settings?.selectedPlatform === 'arcade' ? 'arcade' :
+              settings?.selectedPlatform === 'microbit' ? 'microbit' :
+                settings?.selectedPlatform === 'godot' ? 'godot' :
+                  'web';
+
       const framework = appType === 'expo' ? 'expo' :
         appType === 'flutter' ? 'flutter' :
           appType === 'minecraft' ? 'minecraft-makecode' :
