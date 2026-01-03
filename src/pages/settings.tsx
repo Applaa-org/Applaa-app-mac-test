@@ -16,6 +16,7 @@ import { useRouter, Outlet, useLocation } from "@tanstack/react-router";
 import { GitHubIntegration } from "@/components/GitHubIntegration";
 import { VercelIntegration } from "@/components/VercelIntegration";
 import { SupabaseIntegration } from "@/components/SupabaseIntegration";
+import { MinecraftSettings } from "@/components/settings/MinecraftSettings";
 // Semantic context settings removed for MVP
 
 import { Switch } from "@/components/ui/switch";
@@ -120,6 +121,9 @@ export default function SettingsPage() {
           >
             <ProviderSettingsGrid />
           </div>
+
+          {/* Minecraft Settings */}
+          <MinecraftSettings />
 
           <WorkflowSettings />
 
@@ -370,7 +374,7 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
 
 export function WorkflowSettings() {
   const { settings, updateSettings } = useSettings();
-  
+
   return (
     <div
       id="workflow-settings"
@@ -405,7 +409,7 @@ export function WorkflowSettings() {
               });
             }}
           />
-          <Label 
+          <Label
             htmlFor="enable-game-window-during-stream"
             className="text-gray-900 dark:text-gray-100 cursor-pointer"
           >

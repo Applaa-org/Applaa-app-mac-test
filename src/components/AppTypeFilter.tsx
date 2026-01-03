@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Monitor, Smartphone, Gamepad2, GraduationCap, Box, ChevronDown } from "lucide-react";
+import { useSetAtom } from "jotai";
+import { dropdownOpenAtom } from "@/atoms/uiAtoms";
 import {
   Select,
   SelectContent,
@@ -25,6 +27,7 @@ const filterOptions = [
 
 export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterProps) {
   const [selectedFilter, setSelectedFilter] = useState<AppFilterType>(defaultValue);
+  const setDropdownOpen = useSetAtom(dropdownOpenAtom);
 
   // Load from localStorage on initial mount
   useEffect(() => {
@@ -49,21 +52,31 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
 
   return (
     <div className="px-2 py-2">
-      <Select value={selectedFilter} onValueChange={handleFilterChange}>
-        <SelectTrigger className="w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+      <Select
+        value={selectedFilter}
+        onValueChange={handleFilterChange}
+        onOpenChange={(open) => setDropdownOpen(open)}
+      >
+        <SelectTrigger
+          className="w-full h-10 bg-background border-input hover:bg-accent hover:text-accent-foreground transition-all duration-200 shadow-sm"
+        >
           <div className="flex items-center gap-2 w-full">
-            <SelectedIcon className={`h-4 w-4 ${selectedOption?.color}`} />
+            <SelectedIcon className={`h-4 w-4 ${selectedOption?.color || 'text-foreground'}`} />
             <SelectValue placeholder="Filter apps..." />
           </div>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="z-50 max-h-[300px]">
           {filterOptions.map((option) => {
             const Icon = option.icon;
             return (
-              <SelectItem key={option.value} value={option.value}>
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                className="cursor-pointer py-2.5"
+              >
                 <div className="flex items-center gap-2">
                   <Icon className={`h-4 w-4 ${option.color}`} />
-                  <span>{option.label}</span>
+                  <span className="font-medium">{option.label}</span>
                 </div>
               </SelectItem>
             );

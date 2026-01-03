@@ -81,6 +81,7 @@ import { registerGamesHandlers } from "./handlers/games_handlers";
 import { registerGameTemplatesHandlers } from "./handlers/game_templates_handlers";
 import { registerMinecraftHandlers } from "./handlers/minecraft_handlers";
 import { registerMinecraftSandboxHandlers } from "./handlers/minecraft_sandbox_handlers";
+import { registerAssetGenerationHandlers } from "./handlers/asset_generation_handlers";
 import { registerCreatorHandlers } from "./handlers/creator_handlers";
 import { registerChromiumHandlers } from "./handlers/chromium_handlers";
 import { registerAutomationHandlers } from "./handlers/automation_handlers";
@@ -204,6 +205,10 @@ export function registerIpcHandlers() {
   // ⛏️ Minecraft Sandbox (PrismarineJS)
   console.log('⛏️ Registering Minecraft sandbox handlers...');
   registerMinecraftSandboxHandlers();
+
+  // 🎨 AI Asset Generation (Textures, Models, Sounds)
+  console.log('🎨 Registering asset generation handlers...');
+  registerAssetGenerationHandlers();
 
   // 🤖 AI Creator Handlers
   console.log('🤖 Registering creator handlers...');

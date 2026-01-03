@@ -26,6 +26,7 @@ export default defineConfig({
         "electron",
         "playwright-core",
         "shell-env",
+        "sharp",
         "child_process",
         "fs",
         "path",

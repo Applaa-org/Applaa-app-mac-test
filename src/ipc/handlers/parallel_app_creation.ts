@@ -226,6 +226,10 @@ export function registerParallelAppCreationHandlers() {
       const displayName = (params.displayName === originalName || !params.displayName)
         ? finalAppName
         : params.displayName;
+
+      // 🔍 DEBUG: Log the appType being saved
+      logger.info(`📝 Creating app with appType: "${appType}" (from params.appType: "${params.appType}", params.framework: "${params.framework}")`);
+
       const info = db.$client
         .prepare("INSERT INTO apps (name, path, app_type, status) VALUES (?, ?, ?, ?)")
         .run(finalAppName, appRelPath, appType, 'creating');

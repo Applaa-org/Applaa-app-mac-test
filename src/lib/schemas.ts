@@ -283,6 +283,10 @@ export const UserSettingsSchema = z.object({
     }).optional(),
   }).optional(),
 
+  // Simplified Asset Provider API Keys (for easier access)
+  meshyApiKey: SecretSchema.optional(),
+  elevenLabsApiKey: SecretSchema.optional(),
+
   ////////////////////////////////
   // E2E TESTING ONLY.
   ////////////////////////////////

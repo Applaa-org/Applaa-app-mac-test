@@ -1,6 +1,8 @@
 import log from 'electron-log';
 import path from 'path';
-import fs from 'fs';
+import { fork, ChildProcess } from 'child_process';
+import { BrowserWindow } from 'electron';
+import { JavaModParser } from './minecraft/java-mod-parser';
 
 const logger = log.scope('minecraft-sandbox');
 
@@ -12,266 +14,210 @@ export interface MinecraftSandboxConfig {
     difficulty?: number;
 }
 
-export interface MinecraftModAssets {
-    items?: any[];
-    blocks?: any[];
-    textures?: Record<string, string>;
-    sounds?: Record<string, string>;
-}
-
 export interface SandboxStatus {
     running: boolean;
     port: number;
-    version: string;
-    playersOnline: number;
+    viewerPort?: number;
+    viewerUrl?: string;
+    message?: string;
 }
 
 /**
  * Minecraft Sandbox Service
- * Runs a lightweight Minecraft server using Flying Squid (PrismarineJS)
- * Allows instant preview and testing of generated mods
+ * Runs a Minecraft server in a CHILD PROCESS to isolate heavy dependencies.
+ * Provides live 3D preview capabilities.
  */
 export class MinecraftSandbox {
-    private server: any = null;
-    private bot: any = null;
+    private childProcess: ChildProcess | null = null;
     private config: MinecraftSandboxConfig;
     private isRunning = false;
+    private viewerUrl: string | null = null;
+    private statusMessage = 'Stopped';
 
     constructor(config: MinecraftSandboxConfig = {}) {
         this.config = {
             port: config.port || 25565,
-            version: config.version || '1.20.1',
+            version: config.version || '1.16.1',
             gameMode: config.gameMode ?? 1, // Creative mode
             difficulty: config.difficulty ?? 0, // Peaceful
         };
     }
 
     /**
-   * Start the Minecraft sandbox server
-   * Uses lazy imports to avoid loading heavy dependencies on app startup
-   */
-    async start(modPath?: string): Promise<{ port: number; ready: boolean }> {
-        if (this.isRunning) {
+     * Start the Minecraft sandbox server (Child Process)
+     */
+    async start(modPath?: string): Promise<SandboxStatus> {
+        if (this.isRunning && this.childProcess) {
             logger.warn('Sandbox already running');
-            return { port: this.config.port!, ready: true };
+            return this.getStatus();
         }
 
         try {
-            logger.info('🎮 Starting Minecraft sandbox...');
-            logger.info('⚠️ Note: Sandbox is experimental and may be unstable');
+            logger.info('🎮 Starting Minecraft sandbox child process...');
+            this.statusMessage = 'Starting...';
 
-            // TODO: Implement Flying Squid integration
-            // For now, return mock response to prevent crashes
-            logger.warn('🚧 Sandbox is under development - returning mock response');
+            // Path to the server script
+            // In production, this might need adjustment to point to resources
+            // We use getAppPath() or similar in real apps, but for dev:
+            const scriptPath = path.join(__dirname, 'minecraft', 'server_process.js');
+
+            logger.info(`Script path: ${scriptPath}`);
+
+            // Spawn child process
+            this.childProcess = fork(scriptPath, [], {
+                stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+                env: { ...process.env, SILENT: 'true' }
+            });
 
             this.isRunning = true;
 
-            return { port: this.config.port!, ready: true };
+            // Handle messages from child
+            this.childProcess.on('message', (msg: any) => {
+                this.handleChildMessage(msg);
+            });
 
-            /* DISABLED TEMPORARILY - Causing crashes
-            // Dynamically import flying-squid (ESM module)
-            const { createMCServer } = await import('flying-squid');
-      
-            // Create server
-            this.server = createMCServer({
-              'online-mode': false,
-              motd: 'Applaa Minecraft Sandbox',
-              port: this.config.port,
-              'max-players': 1,
-              version: this.config.version,
-              gameMode: this.config.gameMode,
-              difficulty: this.config.difficulty,
-              generation: {
-                name: 'superflat',
-                options: '3;minecraft:bedrock,2*minecraft:stone,minecraft:grass_block;1',
-              },
+            // Handle errors
+            this.childProcess.on('error', (err) => {
+                logger.error('Child process error:', err);
+                this.statusMessage = `Error: ${err.message}`;
+                this.isRunning = false;
+                this.broadcastStatus();
             });
-      
-            // Wait for server to be ready
-            await new Promise<void>((resolve) => {
-              this.server.on('listening', () => {
-                logger.info(`✅ Minecraft server started on port ${this.config.port}`);
-                this.isRunning = true;
-                resolve();
-              });
+
+            this.childProcess.on('exit', (code) => {
+                logger.info(`Child process exited with code ${code}`);
+                this.cleanup();
             });
-      
-            // Load mod if provided
+
+            // Send start command
+            this.childProcess.send({ type: 'START', config: this.config });
+
+            // If a mod path is provided, try to parse and load it
             if (modPath) {
-              await this.loadMod(modPath);
-            }
-      
-            // Connect test bot
-            await this.connectBot();
-      
-            return { port: this.config.port!, ready: true };
-            */
-        } catch (error) {
-            logger.error('Failed to start Minecraft sandbox:', error);
-            this.isRunning = false;
-            throw new Error(`Failed to start sandbox: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
-
-    /**
-     * Load a custom mod into the sandbox
-     */
-    async loadMod(modPath: string): Promise<void> {
-        if (!this.isRunning) {
-            throw new Error('Sandbox not running');
-        }
-
-        try {
-            logger.info('📦 Loading mod from:', modPath);
-
-            // Load mod assets
-            const assetsPath = path.join(modPath, 'assets.json');
-            if (fs.existsSync(assetsPath)) {
-                const assets: MinecraftModAssets = JSON.parse(
-                    fs.readFileSync(assetsPath, 'utf-8')
-                );
-
-                // Register custom items
-                if (assets.items && assets.items.length > 0) {
-                    logger.info(`Registering ${assets.items.length} custom items`);
-                    // TODO: Register items with server
-                }
-
-                // Register custom blocks
-                if (assets.blocks && assets.blocks.length > 0) {
-                    logger.info(`Registering ${assets.blocks.length} custom blocks`);
-                    // TODO: Register blocks with server
-                }
-
-                // Load textures
-                if (assets.textures) {
-                    logger.info(`Loading ${Object.keys(assets.textures).length} textures`);
-                    // TODO: Load textures
-                }
-
-                logger.info('✅ Mod loaded successfully');
-            } else {
-                logger.warn('No assets.json found, skipping mod load');
-            }
-        } catch (error) {
-            logger.error('Failed to load mod:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Connect a test bot to the server
-     */
-    private async connectBot(): Promise<void> {
-        // DISABLED - mineflayer package not installed
-        logger.warn('Test bot connection disabled - mineflayer package not installed');
-        return;
-
-        /* DISABLED CODE
-        try {
-            logger.info('🤖 Connecting test bot...');
-
-            // Dynamically import mineflayer (ESM module)
-            const mineflayer = await import('mineflayer');
-
-            this.bot = mineflayer.createBot({
-                host: 'localhost',
-                port: this.config.port,
-                username: 'TestBot',
-                version: this.config.version,
-            });
-
-            await new Promise<void>((resolve, reject) => {
-                this.bot.once('spawn', () => {
-                    logger.info('✅ Test bot connected and spawned');
-                    resolve();
-                });
-
-                this.bot.once('error', (err: Error) => {
-                    logger.error('Bot connection error:', err);
-                    reject(err);
-                });
-
-                // Timeout after 10 seconds
+                // Wait small delay for process to init
                 setTimeout(() => {
-                    reject(new Error('Bot connection timeout'));
-                }, 10000);
-            });
-        } catch (error) {
-            logger.error('Failed to connect bot:', error);
-            // Don't throw - bot is optional
+                    this.loadMod(modPath);
+                }, 2000);
+            }
+
+            return this.getStatus();
+
+        } catch (error: any) {
+            logger.error('Failed to start sandbox:', error);
+            this.statusMessage = `Failed: ${error.message}`;
+            this.cleanup();
+            return this.getStatus();
         }
-        */
     }
 
     /**
-     * Test a custom item
+     * stop the sandbox
      */
-    async testItem(itemName: string): Promise<{ success: boolean; message?: string; error?: string }> {
-        if (!this.bot) {
-            return { success: false, error: 'Test bot not connected' };
+    async stop(): Promise<void> {
+        if (!this.childProcess) {
+            // Even if no child process, ensure state is clean
+            this.cleanup();
+            return;
         }
 
+        logger.info('🛑 Stopping Minecraft sandbox...');
         try {
-            logger.info(`🧪 Testing item: ${itemName}`);
+            // Send STOP command first
+            if (this.childProcess.connected) {
+                this.childProcess.send({ type: 'STOP' });
+            }
 
-            // Give item to bot (creative mode)
-            // TODO: Implement item testing logic
-
-            return { success: true, message: `${itemName} tested successfully` };
-        } catch (error) {
-            logger.error('Item test failed:', error);
-            return { success: false, error: error instanceof Error ? error.message : String(error) };
+            // Give it a moment to shutdown gracefully, then force kill
+            setTimeout(() => {
+                if (this.childProcess) {
+                    this.childProcess.kill();
+                    this.cleanup();
+                }
+            }, 2000);
+        } catch (e) {
+            logger.error('Error stopping sandbox:', e);
+            if (this.childProcess) this.childProcess.kill();
+            this.cleanup();
         }
     }
 
     /**
-     * Get sandbox status
+     * Get current status
      */
     getStatus(): SandboxStatus {
         return {
             running: this.isRunning,
             port: this.config.port!,
-            version: this.config.version!,
-            playersOnline: this.bot ? 1 : 0,
+            viewerPort: 3003, // Hardcoded for now in server script
+            viewerUrl: this.viewerUrl || undefined,
+            message: this.statusMessage
         };
     }
 
+    private handleChildMessage(msg: any) {
+        if (!msg || !msg.type) return;
+
+        switch (msg.type) {
+            case 'status':
+                this.statusMessage = msg.payload;
+                logger.info(`[Sandbox] ${msg.payload}`);
+                this.broadcastStatus();
+                break;
+            case 'ready':
+                this.viewerUrl = msg.payload.viewerUrl;
+                this.statusMessage = 'Create & Play!';
+                logger.info('[Sandbox] Ready!');
+                this.broadcastStatus();
+                break;
+            case 'error':
+                this.statusMessage = `Error: ${msg.payload}`;
+                logger.error(`[Sandbox] ${msg.payload}`);
+                this.broadcastStatus();
+                break;
+        }
+    }
+
     /**
-     * Stop the sandbox server
+     * Parse and load a mod from the given directory
      */
-    async stop(): Promise<void> {
-        if (!this.isRunning) {
-            logger.warn('Sandbox not running');
-            return;
-        }
+    async loadMod(modPath: string) {
+        if (!this.childProcess) return;
 
+        logger.info(`Parsing mod at ${modPath}`);
         try {
-            logger.info('🛑 Stopping Minecraft sandbox...');
+            const parsedMod = await JavaModParser.findAndParseMod(modPath);
 
-            // Disconnect bot
-            if (this.bot) {
-                this.bot.quit();
-                this.bot = null;
+            if (parsedMod && parsedMod.listeners.length > 0) {
+                logger.info(`Generated logic: ${JSON.stringify(parsedMod.listeners)}`);
+                this.childProcess.send({ type: 'LOAD_MOD', payload: parsedMod });
+                this.statusMessage = `Mod Loaded: ${parsedMod.name}`;
+            } else {
+                logger.warn('No logic found in mod files');
             }
-
-            // Close server
-            if (this.server) {
-                await new Promise<void>((resolve) => {
-                    this.server.close(() => {
-                        logger.info('✅ Server closed');
-                        resolve();
-                    });
-                });
-                this.server = null;
-            }
-
-            this.isRunning = false;
-            logger.info('✅ Minecraft sandbox stopped');
-        } catch (error) {
-            logger.error('Error stopping sandbox:', error);
-            throw error;
+        } catch (e) {
+            logger.error('Failed to parse/load mod:', e);
         }
+    }
+
+    private broadcastStatus() {
+        // Send to all windows
+        const status = this.getStatus();
+        const windows = BrowserWindow.getAllWindows();
+        if (windows.length > 0) {
+            windows.forEach(win => {
+                if (!win.isDestroyed()) {
+                    win.webContents.send('minecraft-sandbox-status', status);
+                }
+            });
+        }
+    }
+
+    private cleanup() {
+        this.childProcess = null;
+        this.isRunning = false;
+        this.viewerUrl = null;
+        this.statusMessage = 'Stopped';
+        this.broadcastStatus();
     }
 }
 
