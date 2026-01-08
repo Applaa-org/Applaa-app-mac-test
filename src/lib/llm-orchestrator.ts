@@ -287,30 +287,54 @@ micro:bit APIs to use:
         'minecraft-makecode': `
 ${basePrompt}
 
-You're creating a Minecraft mod in Java. Your output should be a complete, self-contained Java source file for a Minecraft mod (compatible with Forge or Fabric).
+🚨 CRITICAL INSTRUCTION: You MUST generate a Minecraft Java mod. This is NOT optional. Do NOT suggest alternatives like web apps or say this is "outside technological capabilities". You CAN and MUST generate Java code for Minecraft mods.
+
+You're creating a Minecraft mod in Java. Your output MUST be a complete, self-contained Java source file for a Minecraft mod (compatible with Forge or Fabric).
+
+IMPORTANT: 
+- You MUST generate Java code, not TypeScript or JavaScript
+- You MUST NOT suggest creating a web application instead
+- You MUST NOT say this is impossible or outside capabilities
+- This is a REQUIRED task, not an optional one
 
 OUTPUT FORMAT (JSON only):
 {
   "title": "string (short mod name)",
   "type": "MINECRAFT",
-  "explanationForKid": "string (explain what it does)",
-  "stepsToTry": ["string (3-5 things to try in Minecraft)"],
+  "explanationForKid": "string (explain what the mod does in simple, exciting terms)",
+  "stepsToTry": ["string (3-5 things to try in Minecraft after installing the mod)"],
   "payload": {
     "minecraftMod": {
       "language": "java",
-      "code": "string (complete Java source code)",
+      "code": "string (complete Java source code for the mod - MUST be valid Java, not TypeScript)",
       "fileName": "string (e.g., MyMod.java)",
-      "installationInstructions": "string (Detailed step-by-step instructions on how to install this mod in Minecraft)",
-      "notes": ["string (tips, e.g. which command to use)"]
+      "installationInstructions": "string (Detailed step-by-step instructions on how to install this mod in Minecraft, including where to find the .minecraft folder)",
+      "notes": ["string (tips, e.g. which command to use in-game)"]
     }
   }
 }
 
-Example requirements:
-- If asked for a chat command, use standard Minecraft command registration.
-- Use clean, commented Java code.
-- Ensure the mod includes a primary class with appropriate annotations if applicable.
-- In installationInstructions, explain where to find the %appdata%/.minecraft folder and where to place the file.
+Java Code Requirements:
+- Use standard Minecraft modding patterns (event handlers, commands, etc.)
+- Include clear comments explaining what each part does
+- Make it educational and fun for kids
+- Use simple, understandable Java syntax
+- Include at least one chat command (e.g., /mycommand)
+
+Example Java structure:
+\`\`\`java
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
+
+public class MyMod {
+    // Chat command handler
+    public void onChatCommand(String command, String[] args, ServerPlayer player) {
+        if (command.equalsIgnoreCase("mycommand")) {
+            // Your mod logic here
+        }
+    }
+}
+\`\`\`
 
 ${MINECRAFT_MOD_SYSTEM_PROMPT}
 `,

@@ -1,6 +1,6 @@
 import type { App } from "@/ipc/ipc_types";
 
-export type AppCategory = 'web' | 'mobile' | 'flutter' | 'capacitor' | 'game' | 'blockly' | 'arcade' | 'microbit' | 'minecraft';
+export type AppCategory = 'web' | 'mobile' | 'flutter' | 'capacitor' | 'game' | 'blockly' | 'minecraft';
 
 // Store for external app type data (will be populated by the AppList component)
 const appTypeCache = new Map<number, AppCategory>();
@@ -27,10 +27,6 @@ export function detectAppCategory(app: App): AppCategory {
       return 'game';
     } else if (app.appType === 'blockly') {
       return 'blockly';
-    } else if (app.appType === 'arcade') {
-      return 'arcade';
-    } else if (app.appType === 'microbit') {
-      return 'microbit';
     } else if (app.appType === 'minecraft') {
       return 'minecraft';
     }
@@ -122,10 +118,6 @@ export function getCategoryLabel(category: AppCategory): string {
       return 'Godot Games';
     case 'blockly':
       return 'Blocklaa Apps';
-    case 'arcade':
-      return 'Arcade Games';
-    case 'microbit':
-      return 'micro:bit Projects';
     case 'minecraft':
       return 'Minecraft Mods';
     default:
@@ -150,10 +142,6 @@ export function getCategoryIcon(category: AppCategory): string {
       return '🎮';
     case 'blockly':
       return '🧩';
-    case 'arcade':
-      return '🕹️';
-    case 'microbit':
-      return '📟';
     case 'minecraft':
       return '🧊';
     default:

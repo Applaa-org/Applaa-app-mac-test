@@ -775,7 +775,13 @@ export function registerAppHandlers() {
 
         const templateCreateStart = performance.now();
         updateProgress(50, "Setting up app template...");
-        const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
+        // Map framework to template ID
+        let templateId: string | undefined;
+        if (params.framework === 'expo') {
+          templateId = 'expo-base-master';
+        } else if (params.framework === 'minecraft-makecode' || appType === 'minecraft') {
+          templateId = 'minecraft-basic';
+        }
         console.log(`📋 [PERF] Starting template creation with templateId: ${templateId}`);
         await createFromTemplate({
           fullAppPath,

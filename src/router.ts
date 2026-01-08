@@ -10,7 +10,6 @@ import { appDetailsRoute } from "./routes/app-details";
 import { hubRoute } from "./routes/hub";
 import { promptToProjectRoute } from "./routes/create-with-prompt";
 import { blocklyRoute } from "./routes/blockly";
-import { arcadeRoute } from "./routes/arcade";
 import { browserAgentRoute } from "./routes/browser-agent";
 
 
@@ -19,7 +18,6 @@ const routeTree = rootRoute.addChildren([
   hubRoute,
   chatRoute,
   blocklyRoute,
-  arcadeRoute,
   promptToProjectRoute,
   browserAgentRoute,
   // libraryRoute, // Disabled for MVP

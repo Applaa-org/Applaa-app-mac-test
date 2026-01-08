@@ -299,8 +299,8 @@ export class CodeValidator {
 
       const packageJson = await fs.readJSON(packageJsonPath);
       const installedDeps = {
-        ...packageJson.dependencies || {},
-        ...packageJson.devDependencies || {}
+        ...packageJson.dependencies,
+        ...packageJson.devDependencies
       };
 
       const files = await this.getAllSourceFiles();

@@ -32,7 +32,6 @@ import { useGodotExport } from "@/hooks/useGodotExport";
 import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
 import { useQuery } from "@tanstack/react-query";
 // DesignTab removed for MVP
-import { MakeCodeEditor, type MakeCodeType } from "../makecode/MakeCodeEditor";
 import { BlocklyEditor } from "../blockly/BlocklyEditor";
 import { MinecraftModPreview } from "../minecraft/MinecraftModPreview.simplified";
 
@@ -145,12 +144,8 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     return hasExpoConfig && (hasExpoRouterStructure || hasExpoPackages);
   }, [app?.files]);
 
-  // Detect if this is a MakeCode app (TypeScript/Visual)
-  const isMakeCodeApp = useMemo(() => {
-    if (!app) return false;
-    const hasPxtJson = app.files?.some(f => f.includes('pxt.json'));
-    return ['arcade', 'microbit', 'minecraft'].includes(app.appType as string) && hasPxtJson;
-  }, [app?.appType, app?.files]);
+  // MakeCode apps are no longer supported
+  const isMakeCodeApp = false;
 
   // Detect if this is a Minecraft Java Mod
   const isMinecraftJavaMod = useMemo(() => {
@@ -472,13 +467,6 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                     </div>
                   ) : isExpoApp ? (
                     <SnackPoweredPreview />
-                  ) : isMakeCodeApp ? (
-                    <MakeCodeEditor
-                      type={app?.appType as MakeCodeType}
-                      onCodeChange={(code) => {
-                        console.log("MakeCode updated code:", code);
-                      }}
-                    />
                   ) : isBlocklyApp ? (
                     <BlocklyEditor
                       appId={selectedAppId!}

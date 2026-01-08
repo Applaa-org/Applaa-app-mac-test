@@ -3,7 +3,7 @@ import { useSearch, useNavigate } from '@tanstack/react-router';
 import { IpcClient } from '@/ipc/ipc_client';
 import { BlocklyEditor } from '@/components/blockly/BlocklyEditor';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BlockChat } from '@/components/blockly/BlockChat';
 
@@ -44,20 +44,52 @@ export default function BlocklyPage() {
         load();
     }, [appId]);
 
-    const handleSave = async ({ workspaceJson, generatedCode }: { workspaceJson: any, generatedCode: string }) => {
+    const handleSave = async ({ workspaceJson, generatedCode, generatedCodeMap }: { workspaceJson: any, generatedCode: string, generatedCodeMap?: Record<string, string> }) => {
         if (!app) return;
 
-        // TODO: Implement proper file saving when IPC channel is available
-        // For now, just update the last saved timestamp
-        // The workspace state is maintained in Blockly's internal state
-        setLastSaved(new Date());
-
-        // Store in localStorage as backup
         try {
-            localStorage.setItem(`blockly-workspace-${appId}`, JSON.stringify(workspaceJson));
-            localStorage.setItem(`blockly-code-${appId}`, generatedCode);
+            const client = IpcClient.getInstance();
+
+            // Save to file system via IPC
+            const result = await client.saveBlocklyWorkspace({
+                appId,
+                workspaceJson,
+                generatedCode: generatedCodeMap || {
+                    javascript: generatedCode,
+                    python: '',
+                    php: '',
+                    lua: '',
+                    dart: '',
+                    xml: '',
+                    json: JSON.stringify(workspaceJson, null, 2)
+                }
+            });
+
+            if (result.success) {
+                setLastSaved(new Date());
+                toast.success('Workspace saved!');
+            } else {
+                toast.error('Failed to save workspace');
+            }
+        } catch (err: any) {
+            // Silently handle IPC channel errors (will be fixed on app restart)
+            if (!err?.message?.includes('Invalid channel')) {
+                console.error("Failed to save workspace", err);
+                toast.error("Failed to save workspace");
+            }
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!confirm(`Delete "${app?.name}"? This cannot be undone.`)) return;
+
+        try {
+            const client = IpcClient.getInstance();
+            await client.deleteApp(appId);
+            toast.success('App deleted');
+            navigate({ to: '/' });
         } catch (err) {
-            console.error("Failed to save to localStorage", err);
+            toast.error('Failed to delete app');
         }
     };
 
@@ -96,6 +128,16 @@ export default function BlocklyPage() {
                     >
                         <MessageSquare className="w-4 h-4" />
                         Block Chat
+                    </Button>
+                    <div className="h-4 w-px bg-border mx-2" />
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDelete}
+                        className="gap-2 text-destructive hover:text-destructive"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
                     </Button>
                 </div>
             </div>

@@ -3485,7 +3485,7 @@ export class IpcClient {
     javaVersion?: string;
     gradleVersion?: string;
   }> {
-    return this.ipcRenderer.invoke("minecraft:check-tools", {});
+    return this.ipcRenderer.invoke("check-minecraft-tools");
   }
 
   async buildMinecraftMod(spec: any): Promise<{
@@ -3494,7 +3494,7 @@ export class IpcClient {
     error?: string;
     logs: string[];
   }> {
-    return this.ipcRenderer.invoke("minecraft:build-mod", spec);
+    return this.ipcRenderer.invoke("build-minecraft-mod", spec);
   }
 
   async buildAndTestMod(spec: any): Promise<{
@@ -3505,17 +3505,31 @@ export class IpcClient {
     logs: string[];
     restarted: boolean;
   }> {
-    return this.ipcRenderer.invoke("minecraft:build-and-test", spec);
+    return this.ipcRenderer.invoke("build-and-test-mod", spec);
   }
 
   async installMinecraftTools(): Promise<{ success: boolean; error?: string }> {
-    return this.ipcRenderer.invoke("minecraft:install-tools");
+    return this.ipcRenderer.invoke("install-minecraft-tools");
   }
 
 
   onMinecraftInstallProgress(callback: (log: string) => void) {
-    this.ipcRenderer.on("minecraft:install-progress", (_: any, log: string) => callback(log));
+    this.ipcRenderer.on("minecraft-install-progress", (_: any, log: string) => callback(log));
   }
+
+  async extractAssets(jarPath: string): Promise<{
+    success: boolean;
+    assets: Array<{
+      name: string;
+      path: string;
+      type: string;
+      relativePath: string;
+    }>;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("extract-assets", jarPath);
+  }
+
 
   // 🌐 Browser Agent
   async testBrowserPing(): Promise<{ success: boolean; message?: string }> {
@@ -3702,12 +3716,22 @@ export class IpcClient {
     return this.ipcRenderer.invoke("minecraft-sandbox:load-mod", modPath);
   }
 
+
   async minecraftSandboxTestItem(itemName: string): Promise<{
     success: boolean;
     message?: string;
     error?: string;
   }> {
     return this.ipcRenderer.invoke("minecraft-sandbox:test-item", { itemName });
+  }
+
+  // Blockly workspace management
+  async saveBlocklyWorkspace(params: {
+    appId: number;
+    workspaceJson: any;
+    generatedCode: Record<string, string>;
+  }): Promise<{ success: boolean; savedAt?: string; error?: string }> {
+    return this.ipcRenderer.invoke("blockly:save-workspace", params);
   }
 }
 

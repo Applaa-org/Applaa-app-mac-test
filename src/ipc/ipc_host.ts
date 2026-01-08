@@ -85,6 +85,8 @@ import { registerAssetGenerationHandlers } from "./handlers/asset_generation_han
 import { registerCreatorHandlers } from "./handlers/creator_handlers";
 import { registerChromiumHandlers } from "./handlers/chromium_handlers";
 import { registerAutomationHandlers } from "./handlers/automation_handlers";
+import "./handlers/blockly_handlers"; // Register Blockly workspace handlers
+
 
 
 export function registerIpcHandlers() {

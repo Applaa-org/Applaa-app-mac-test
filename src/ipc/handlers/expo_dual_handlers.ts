@@ -210,7 +210,7 @@ async function startTunnelProcess(appId: number, appPath: string): Promise<ExpoP
         }
 
         // Look for LAN URL
-        const lanMatch = output.match(/exp:\/\/[\d\.]+:\d+/);
+        const lanMatch = output.match(/exp:\/\/[\d.]+:\d+/);
         if (lanMatch) {
           status.lanUrl = lanMatch[0];
           if (!status.qrUrl) status.qrUrl = lanMatch[0];

@@ -1,9 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import * as Blockly from 'blockly';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as Blockly from 'blockly/core';
 import * as En from 'blockly/msg/en'; // Import English language
 import 'blockly/blocks'; // Import default blocks
 import { initCustomBlocks } from './CustomBlocks'; // Import Custom Blocks
 import { SampleHub } from './SampleHub'; // Import Hub
+import { RobotWelcome } from './RobotWelcome'; // Import Robot Welcome
+import { AppyAnimated } from './AppyAnimated'; // Import Animated Appy
+import { aiBlockAssistant } from '@/services/AiBlockAssistant'; // Import AI Brain
 
 // Import Generators
 import { javascriptGenerator } from 'blockly/javascript';
@@ -18,7 +21,11 @@ Blockly.setLocale(En as any);
 interface BlocklyEditorProps {
     appId: number;
     initialWorkspace?: any;
-    onWorkspaceChange?: (data: { workspaceJson: any; generatedCode: string }) => void;
+    onWorkspaceChange?: (data: {
+        workspaceJson: any;
+        generatedCode: string;
+        generatedCodeMap?: Record<string, string>;
+    }) => void;
     readOnly?: boolean;
 }
 
@@ -34,6 +41,7 @@ export function BlocklyEditor({
 }: BlocklyEditorProps) {
     const blocklyDivRef = useRef<HTMLDivElement>(null);
     const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
+    const appyRef = useRef<any>(null); // Reference for Appy Animated
 
     // State for Multi-Language Support
     type Tab = 'blocks' | 'javascript' | 'python' | 'php' | 'lua' | 'dart' | 'xml' | 'json';
@@ -43,8 +51,19 @@ export function BlocklyEditor({
     const [generatedCode, setGeneratedCode] = useState<string>(''); // Keep for backward compat
     const [isRunning, setIsRunning] = useState(false);
     const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
-    const [showTerminal, setShowTerminal] = useState(true);
+    const [showTerminal, setShowTerminal] = useState(false); // Don't auto-open terminal
     const [isHubOpen, setIsHubOpen] = useState(false);
+    const [showWelcome, setShowWelcome] = useState(() => {
+        return !localStorage.getItem('blocklaa-welcome-seen');
+    });
+
+    // Register Appy and Workspace with the AI Brain
+    useEffect(() => {
+        if (appyRef.current && workspaceRef.current) {
+            aiBlockAssistant.setReferences(appyRef.current, workspaceRef.current);
+            console.log("🧠 AI Block Assistant Connected");
+        }
+    }, [isHubOpen]); // Re-register if hub closes/opens or generally on mount
 
     // Listen for Sandbox Messages
     useEffect(() => {
@@ -64,6 +83,13 @@ export function BlocklyEditor({
         if (!workspaceRef.current) return;
 
         try {
+            // Check if workspace is empty - don't save empty workspaces
+            const allBlocks = workspaceRef.current.getAllBlocks(false);
+            if (allBlocks.length === 0) {
+                console.log('Workspace is empty, skipping save');
+                return;
+            }
+
             // Generate code for all languages
             const codeJS = javascriptGenerator.workspaceToCode(workspaceRef.current);
             const codePy = pythonGenerator.workspaceToCode(workspaceRef.current);
@@ -92,7 +118,8 @@ export function BlocklyEditor({
             if (onWorkspaceChange) {
                 onWorkspaceChange({
                     workspaceJson: Blockly.serialization.workspaces.save(workspaceRef.current),
-                    generatedCode: codeJS
+                    generatedCode: codeJS,
+                    generatedCodeMap: newCodeMap
                 });
             }
         } catch (error) {
@@ -246,8 +273,87 @@ export function BlocklyEditor({
         }
     };
 
+    // Initialize Appy Core logic (simulated for now)
+    const handleQuickAction = (action: string) => {
+        if (!appyRef.current) return;
+
+        if (action === 'run-help') {
+            // Manual sequence for Run Help
+            appyRef.current.speak("Let me show you how to run code! 🏃");
+            // Move to run button (approximate position for now if we don't have full DOM nav)
+            appyRef.current.setPosition({ x: 90, y: 10, facing: 'west' }); // Top Right
+            setTimeout(() => {
+                appyRef.current.speak("Click this Green Button to start your program! ▶️");
+                appyRef.current.setAnimation('Pointing');
+            }, 2000);
+        } else if (action === 'tour') {
+            // Tour sequence: Face movement direction while moving, face camera (south) while talking
+            appyRef.current.speak("Follow me for a quick tour! 🚀");
+
+            // Step 1: Move to Toolbox (moving left/west)
+            setTimeout(() => {
+                appyRef.current.setPosition({ x: 10, y: 50, facing: 'west' }); // Face direction of movement
+            }, 2000);
+            setTimeout(() => {
+                appyRef.current.setPosition({ x: 10, y: 50, facing: 'south' }); // Turn to face camera
+            }, 5000); // Wait for running to complete
+            setTimeout(() => {
+                appyRef.current.speak("Here is the Toolbox! Drag blocks from here. 🧱");
+            }, 5500);
+
+            // Step 2: Move to Workspace (moving right/east)
+            setTimeout(() => {
+                appyRef.current.setPosition({ x: 50, y: 50, facing: 'east' }); // Face direction of movement
+            }, 8000);
+            setTimeout(() => {
+                appyRef.current.setPosition({ x: 50, y: 50, facing: 'south' }); // Turn to face camera
+            }, 10000); // Wait for running to complete
+            setTimeout(() => {
+                appyRef.current.speak("Drop them here to build your code! 🧩");
+            }, 10500);
+
+            // Step 3: Move to Trash (moving right/east)
+            setTimeout(() => {
+                appyRef.current.setPosition({ x: 90, y: 90, facing: 'east' }); // Face direction of movement
+            }, 14000);
+            setTimeout(() => {
+                appyRef.current.setPosition({ x: 90, y: 90, facing: 'south' }); // Turn to face camera
+            }, 17000); // Wait for running to complete
+            setTimeout(() => {
+                appyRef.current.speak("Drag bad blocks here to delete them! 🗑️");
+            }, 17500);
+
+            // Step 4: Return Home (moving left/west)
+            setTimeout(() => {
+                appyRef.current.setPosition({ x: 85, y: 75, facing: 'west' }); // Face direction of movement
+            }, 20000);
+            setTimeout(() => {
+                appyRef.current.setPosition({ x: 85, y: 75, facing: 'south' }); // Turn to face camera
+            }, 22500); // Wait for walking to complete
+            setTimeout(() => {
+                appyRef.current.speak("That's it! easy right? 😄");
+            }, 23000);
+        } else if (action === 'chat-help') {
+            appyRef.current.speak("Need more help? Click the 'Ask Appy' button below! 💬");
+            // Wiggle
+            appyRef.current.setAnimation('Wave');
+        }
+    };
+
     return (
         <div className="blockly-editor-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Robot Welcome */}
+            <RobotWelcome
+                isFirstTime={showWelcome}
+                onComplete={() => setShowWelcome(false)}
+            />
+
+            {/* Appy the AI Teacher */}
+            <AppyAnimated
+                ref={appyRef}
+                onQuickAction={handleQuickAction}
+            />
+
             {/* Toolbar */}
             <div className="blockly-toolbar" style={{
                 padding: '8px',

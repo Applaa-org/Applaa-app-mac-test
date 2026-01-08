@@ -204,8 +204,8 @@ export class PrePreviewValidator {
 
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     const allDeps = {
-      ...packageJson.dependencies || {},
-      ...packageJson.devDependencies || {}
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies
     };
 
     const criticalDeps = ['expo', 'react', 'react-native', '@expo/config-plugins'];

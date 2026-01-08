@@ -133,7 +133,7 @@ const ERROR_PATTERNS: ErrorPattern[] = [
   // Example: Type 'string[]' is not assignable to type 'readonly [ColorValue, ColorValue, ..., ColorValue[]]'
   // Fix: add `as const` to colors arrays or annotate as tuple: [ColorValue, ColorValue, ...ColorValue[]]
   {
-    pattern: /Type\s+'?string\[\]'?\s+is\s+not\s+assignable\s+to\s+type\s+'?readonly\s*\[\s*ColorValue[\s\S]*\]\'?/i,
+    pattern: /Type\s+'?string\[\]'?\s+is\s+not\s+assignable\s+to\s+type\s+'?readonly\s*\[\s*ColorValue[\s\S]*\]'?/i,
     severity: 'error',
     category: 'typescript',
     autoFixable: true,

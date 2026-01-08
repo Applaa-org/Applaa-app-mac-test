@@ -23,6 +23,7 @@ import {
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useSearch, useNavigate } from "@tanstack/react-router";
+import { aiBlockAssistant } from '@/services/AiBlockAssistant'; // Brain Import
 
 import { useSettings } from "@/hooks/useSettings";
 import { IpcClient } from "@/ipc/ipc_client";
@@ -169,6 +170,44 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   // Voice input disabled for MVP
 
   const handleSubmit = async () => {
+    // 🧠 APPY CHAT INTERCEPTION
+    if (isBlockChat) {
+      if (!inputValue.trim()) return;
+
+      const userMsg: Message = {
+        id: Date.now(),
+        role: 'user',
+        content: inputValue,
+        created_at: new Date().toISOString()
+      };
+
+      // 1. Add User Message immediately
+      setMessages(prev => [...prev, userMsg]);
+      setInputValue("");
+
+      try {
+        // 2. Ask Appy Brain
+        const response = await aiBlockAssistant.processMessage(userMsg.content);
+
+        // 3. Add Appy Response
+        const appyMsg: Message = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: response.text,
+          created_at: new Date().toISOString()
+        };
+
+        // Simulate "typing" delay or just push
+        setTimeout(() => {
+          setMessages(prev => [...prev, appyMsg]);
+        }, 500);
+
+      } catch (e) {
+        console.error("Appy Brain Error:", e);
+      }
+      return; // STOP EXECUTION HERE for Block Chat
+    }
+
     console.log("🚀 ChatInput handleSubmit called", { inputValue, chatId, isStreaming, attachments });
 
     if (

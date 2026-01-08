@@ -6,6 +6,14 @@ import { defineConfig } from "vite";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    strictPort: false,
+    hmr: {
+      overlay: false, // Disable error overlay
+    },
+  },
+  clearScreen: false, // Don't clear terminal on rebuild
+  logLevel: 'error', // Only show errors, not info/warnings
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

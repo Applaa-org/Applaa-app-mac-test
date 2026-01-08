@@ -6,7 +6,7 @@ import { readSettings } from "../main/settings";
 
 const logger = log.scope("workspace");
 
-export type AppKind = "web" | "mobile" | "godot" | "blockly" | "arcade" | "microbit" | "minecraft";
+export type AppKind = "web" | "mobile" | "godot" | "blockly" | "minecraft";
 
 /**
  * Returns the workspace root directory where all apps/packages live.
@@ -96,8 +96,6 @@ async function fallbackWorkspaceInit(root: string): Promise<void> {
   fs.mkdirSync(path.join(root, "apps", "mobile"), { recursive: true });
   fs.mkdirSync(path.join(root, "apps", "godot"), { recursive: true });
   fs.mkdirSync(path.join(root, "apps", "blockly"), { recursive: true });
-  fs.mkdirSync(path.join(root, "apps", "arcade"), { recursive: true });
-  fs.mkdirSync(path.join(root, "apps", "microbit"), { recursive: true });
   fs.mkdirSync(path.join(root, "apps", "minecraft"), { recursive: true });
   fs.mkdirSync(path.join(root, "packages"), { recursive: true });
 
