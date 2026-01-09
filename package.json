@@ -13,6 +13,7 @@
   },
   "scripts": {
     "clean": "node -e \"const fs=require('fs'); try{fs.rmSync('out',{recursive:true,force:true})}catch(e){} try{fs.rmSync('scaffold/node_modules',{recursive:true,force:true})}catch(e){}\"",
+    "postinstall": "npx electron-rebuild -f -w better-sqlite3",
     "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096\" electron-forge start",
     "dev:engine": "DYAD_ENGINE_URL=http://localhost:8080/v1 npm start",
     "staging:engine": "DYAD_ENGINE_URL=https://staging---dyad-llm-engine-kq7pivehnq-uc.a.run.app/v1 npm start",
