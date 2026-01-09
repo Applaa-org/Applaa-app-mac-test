@@ -150,11 +150,11 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 1_048_576,
       temperature: 0,
     },
-    // https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview
+    // https://ai.google.dev/gemini-api/docs/models#gemini-3-flash
     {
-      name: "gemini-2.5-flash",
-      displayName: "Gemini 2.5 Flash",
-      description: "Google's Gemini 2.5 Flash model (free tier available)",
+      name: "gemini-3-flash",
+      displayName: "Gemini 3 Flash",
+      description: "Google's Gemini 3 Flash model (free tier available)",
       // Weirdly for Vertex AI, the output token limit is *exclusive* of the stated limit.
       maxOutputTokens: 65_536 - 1,
       // Gemini context window = input token + output token
@@ -185,9 +185,9 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       tag: "Turbo",
     },
     {
-      name: "gemini-2.5-flash",
-      displayName: "Gemini 2.5 Flash (Vertex)",
-      description: "Google Vertex AI Gemini 2.5 Flash model",
+      name: "gemini-3-flash",
+      displayName: "Gemini 3 Flash (Vertex)",
+      description: "Google Vertex AI Gemini 3 Flash model",
       maxOutputTokens: 65_536 - 1,
       contextWindow: 1_048_576,
       temperature: 0,
