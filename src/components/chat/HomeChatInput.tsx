@@ -69,6 +69,9 @@ export function HomeChatInput({
   // Game data storage option (only for Applaa Game) - checked by default
   const [saveGameData, setSaveGameData] = useState(appType === 'godot');
   
+  // Clone website mode state
+  const [isCloneModeActive, setIsCloneModeActive] = useState(false);
+  
   // Update saveGameData when appType changes
   useEffect(() => {
     console.log('[HomeChatInput] appType:', appType, 'isGodot:', appType === 'godot');
@@ -77,7 +80,14 @@ export function HomeChatInput({
     } else {
       setSaveGameData(false);
     }
+    // Reset clone mode when appType changes
+    setIsCloneModeActive(false);
   }, [appType]);
+  
+  // Toggle clone mode
+  const handleCloneModeToggle = useCallback(() => {
+    setIsCloneModeActive((prev) => !prev);
+  }, []);
 
   // Handler for optimizing the prompt
   // Optimization handlers removed for MVP simplicity
@@ -90,11 +100,23 @@ export function HomeChatInput({
       return;
     }
 
+    // If clone mode is active, prepend the clone prompt
+    let finalInputValue = inputValue.trim();
+    if (isCloneModeActive && finalInputValue) {
+      finalInputValue = `Please clone the following website: ${finalInputValue}`;
+      // Update the input value with the modified prompt before submitting
+      // Use a callback to ensure the update happens before onSubmit reads from the atom
+      setInputValue(finalInputValue);
+    }
+
     // Call the parent's onSubmit handler with attachments, DB options, and game data option
+    // The parent will read from homeChatInputValueAtom, which we've just updated if in clone mode
     onSubmit({ attachments, createDatabase, databaseNotes, saveGameData });
 
     // Clear attachments as part of submission process
     clearAttachments();
+    // Reset clone mode after submission
+    setIsCloneModeActive(false);
     // resetOptimization removed for MVP simplicity
     posthog.capture("chat:home_submit");
   };
@@ -129,7 +151,11 @@ export function HomeChatInput({
               onChange={setInputValue}
               onSubmit={handleCustomSubmit}
               onPaste={handlePaste}
-              placeholder={placeholder || "Ask Applaa to build..."}
+              placeholder={
+                isCloneModeActive
+                  ? "Enter the name or URL of the website you wish to clone"
+                  : placeholder || "Ask Applaa to build..."
+              }
               disabled={isStreaming}
               excludeCurrentApp={false}
             />
@@ -175,6 +201,8 @@ export function HomeChatInput({
                 onInputChange={setInputValue}
                 appType={appType}
                 disabled={isStreaming}
+                isCloneModeActive={isCloneModeActive}
+                onCloneModeToggle={handleCloneModeToggle}
               />
             </div>
           </div>
