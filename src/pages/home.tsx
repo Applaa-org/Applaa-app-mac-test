@@ -366,12 +366,19 @@ ${extraDbText}`;
   // Loading overlay for app creation
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center max-w-3xl m-auto p-8">
+      <div className="flex flex-col items-center justify-center max-w-3xl m-auto p-8 relative">
         <CombinedAuthDialog
           open={showAuthDialog}
           onOpenChange={handleAuthDialogOpenChange}
           forceOpen={forceAuthDialog}
         />
+        
+        {/* Top Right Building Status Message */}
+        <div className="fixed top-4 right-4 z-50 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
+          <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
+          <span className="text-sm font-medium">App building in progress</span>
+        </div>
+        
         <div className="w-full flex flex-col items-center">
           {/* Loading Spinner */}
           <div className="relative w-24 h-24 mb-8">

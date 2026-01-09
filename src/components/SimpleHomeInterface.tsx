@@ -6,8 +6,8 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { useAtom } from 'jotai';
-import { homeChatInputValueAtom } from '@/atoms/chatAtoms';
+import { useAtom, useAtomValue } from 'jotai';
+import { homeChatInputValueAtom, isStreamingAtom } from '@/atoms/chatAtoms';
 import { HomeChatInput } from '@/components/chat/HomeChatInput';
 import { SimpleAppTypeSelector } from './SimpleAppTypeSelector';
 import { ComingSoonCards } from './ComingSoonCards';
@@ -46,6 +46,7 @@ type ExampleIdea = {
 
 export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) {
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
+  const isStreaming = useAtomValue(isStreamingAtom);
   const navigate = useNavigate();
   const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | null>(null);
   const { updateSettings } = useSettings();
@@ -235,7 +236,15 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8">
+    <div className="w-full max-w-6xl mx-auto space-y-8 relative">
+      {/* Top Right Building Status Message - Show when input is disabled (streaming) */}
+      {isStreaming && (
+        <div className="fixed top-6 right-4 z-50 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
+          <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
+          <span className="text-sm font-medium">App building in progress</span>
+        </div>
+      )}
+      
       {/* Subtitle - Only show when no app type is selected */}
       {!selectedAppType && (
         <div className="text-center space-y-4 mb-8">
