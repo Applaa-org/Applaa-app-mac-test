@@ -21,7 +21,7 @@ const dyadGatewayUrl = process.env.DYAD_GATEWAY_URL;
 const AUTO_MODELS = [
   {
     provider: "google",
-    name: "gemini-3-flash",
+    name: "gemini-2.5-flash",
   },
   // Prefer Azure router model if Azure credentials are present
   {
