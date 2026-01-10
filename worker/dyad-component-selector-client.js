@@ -71,6 +71,35 @@
 
     if (isSelected) {
       const editLine = document.createElement("div");
+      editLine.style.cursor = "pointer";
+      editLine.style.padding = "4px 8px";
+      editLine.style.borderRadius = "4px";
+      editLine.style.transition = "background-color 0.2s";
+      
+      // Add hover effect
+      editLine.addEventListener("mouseenter", () => {
+        editLine.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
+      });
+      editLine.addEventListener("mouseleave", () => {
+        editLine.style.backgroundColor = "transparent";
+      });
+      
+      // Make it clickable - send message to parent to focus chat input
+      editLine.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        // Send message to parent to focus chat input with selected component
+        window.parent.postMessage(
+          {
+            type: "dyad-edit-with-ai-clicked",
+            id: el.dataset.dyadId,
+            name: el.dataset.dyadName,
+          },
+          "*",
+        );
+      });
 
       const svgNS = "http://www.w3.org/2000/svg";
       const svg = document.createElementNS(svgNS, "svg");

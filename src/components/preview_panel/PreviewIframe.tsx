@@ -743,7 +743,14 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       if (event.data?.type === "dyad-component-selected") {
         console.log("Component picked:", event.data);
         
-        // If visual editing is enabled, convert component selection to visual editing selection
+        // Always set component selection for chat, regardless of visual editing state
+        const componentSelection = parseComponentSelection(event.data);
+        if (componentSelection) {
+          console.log('✅ Setting component selection for chat:', componentSelection);
+          setSelectedComponentPreview(componentSelection);
+        }
+        
+        // If visual editing is enabled, also convert to visual editing selection
         if (visualEditingEnabled) {
           const componentData = event.data;
           
@@ -784,7 +791,6 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           console.log('✅ Setting visual editing element - toolbar should appear:', visualElement);
           setSelectedVisualElement(visualElement);
           setIsPicking(false);
-          setSelectedComponentPreview(null);
           
           // Request styles from visual editing script (works for cross-origin)
           if (iframeRef.current?.contentWindow) {
@@ -861,13 +867,37 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               console.debug('⚠️ Cross-origin iframe detected - styles will be sent via postMessage (this is normal):', error);
             }
           }
-          
-          return;
+        } else {
+          // Visual editing not enabled, just handle regular component selection
+          setIsPicking(false);
         }
         
-        // Otherwise, handle as regular component selection
-        setSelectedComponentPreview(parseComponentSelection(event.data));
-        setIsPicking(false);
+        return;
+      }
+      
+      // Handle "Edit with AI" button click
+      // Accept from iframe (same origin check already done above for non-visual-editing messages)
+      if (event.data?.type === "dyad-edit-with-ai-clicked") {
+        console.log("Edit with AI clicked:", event.data);
+        
+        // Parse and set the component selection
+        const componentSelection = parseComponentSelection({
+          type: "dyad-component-selected",
+          id: event.data.id,
+          name: event.data.name,
+        });
+        
+        if (componentSelection) {
+          console.log('✅ Setting component selection from Edit with AI button:', componentSelection);
+          setSelectedComponentPreview(componentSelection);
+          
+          // Focus chat input by dispatching a custom event
+          // The chat input should listen for this and focus itself
+          window.dispatchEvent(new CustomEvent('focus-chat-input', { 
+            detail: { componentSelection } 
+          }));
+        }
+        
         return;
       }
 
@@ -886,8 +916,29 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           line: elementData.line,
         };
         setSelectedVisualElement(visualElement);
-        // Clear component selection when visual editing element is selected
-        setSelectedComponentPreview(null);
+        
+        // If we have file and line info, create a component selection for chat
+        // This allows the selected element to be used in chat even when visual editing is active
+        if (elementData.file && elementData.line) {
+          try {
+            // Extract component name from tag or selector
+            const componentName = elementData.tagName || elementData.selector || 'element';
+            
+            const componentSelection: ComponentSelection = {
+              id: `${elementData.file}:${elementData.line}:${elementData.column || 0}`,
+              name: componentName,
+              relativePath: elementData.file,
+              lineNumber: elementData.line,
+              columnNumber: elementData.column || 0,
+            };
+            
+            console.log('✅ Creating component selection from visual editing element:', componentSelection);
+            setSelectedComponentPreview(componentSelection);
+          } catch (error) {
+            console.warn('Could not create component selection from visual editing element:', error);
+          }
+        }
+        
         setIsPicking(false);
         return;
       }
@@ -912,7 +963,8 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           line: elementData.line,
         };
         setSelectedVisualElement(visualElement);
-        setSelectedComponentPreview(null);
+        // Don't clear component selection - it should remain available for chat
+        // Only update visual element, keep component selection intact
         setIsPicking(false);
         return;
       }
