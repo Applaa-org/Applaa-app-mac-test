@@ -231,12 +231,23 @@ export function updateTextContentInAST(
     const newChildren: t.JSXChild[] = [];
     let hasTextNode = false;
     
+    // Log the text content we're trying to set for debugging
+    console.log(`[AST] Updating text content to: "${textContent}" (length: ${textContent.length})`);
+    
     for (const child of jsxElement.children) {
       if (t.isJSXText(child)) {
         // Replace the first text node with new content, skip others
         if (!hasTextNode) {
-          newChildren.push(t.jsxText(textContent));
+          // Create JSX text node - Babel will handle escaping automatically
+          // Ensure we're using the full text content, not truncated
+          const textNode = t.jsxText(textContent);
+          // Verify the text node was created correctly
+          if (textNode.value !== textContent) {
+            console.warn(`[AST] Text node value mismatch! Expected: "${textContent}", Got: "${textNode.value}"`);
+          }
+          newChildren.push(textNode);
           hasTextNode = true;
+          console.log(`[AST] Replaced text node with: "${textContent}" (node value: "${textNode.value}")`);
         }
         // Skip other text nodes
       } else {
@@ -247,21 +258,43 @@ export function updateTextContentInAST(
     
     // If no text node was found, add one at the beginning
     if (!hasTextNode) {
-      newChildren.unshift(t.jsxText(textContent));
+      const textNode = t.jsxText(textContent);
+      // Verify the text node was created correctly
+      if (textNode.value !== textContent) {
+        console.warn(`[AST] Text node value mismatch! Expected: "${textContent}", Got: "${textNode.value}"`);
+      }
+      newChildren.unshift(textNode);
+      console.log(`[AST] Added new text node: "${textContent}" (node value: "${textNode.value}")`);
     }
     
     jsxElement.children = newChildren;
     
     // Generate code from AST
+    // Use retainLines: true to preserve line structure better
     const output = generate(ast, {
-      retainLines: false,
+      retainLines: true,
       compact: false,
       comments: true,
-      jsescOption: {
-        quotes: 'single',
-        wrap: true,
-      },
+      // Don't use jsescOption for JSX text - let Babel handle it naturally
     }, code);
+    
+    // Verify the generated code contains our text
+    const containsText = output.code.includes(textContent);
+    if (!containsText) {
+      // Try to find a partial match (in case of escaping)
+      const partialMatch = textContent.length > 0 && output.code.includes(textContent.substring(0, Math.min(3, textContent.length)));
+      if (partialMatch) {
+        console.warn(`[AST] Generated code contains partial text match. Full text: "${textContent}"`);
+      } else {
+        console.error(`[AST] Generated code does NOT contain expected text: "${textContent}"`);
+      }
+    }
+    
+    // Log the generated code snippet for debugging
+    const generatedSnippet = output.code.split('\n').slice(Math.max(0, lineNumber - 2), lineNumber + 2).join('\n');
+    console.log(`[AST] Generated code snippet around line ${lineNumber}:\n${generatedSnippet}`);
+    console.log(`[AST] Text content in generated code: ${containsText ? 'FOUND' : 'NOT FOUND'}`);
+    
     return output.code;
   } catch (error) {
     console.error(`Failed to update text content in AST for ${filePath}:`, error);

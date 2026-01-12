@@ -18,6 +18,15 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
   const [changes, setChanges] = useAtom(visualEditingChangesAtom);
   const [selectedAppId] = useAtom(selectedAppIdAtom);
   const [isSaving, setIsSaving] = useState(false);
+  // Local state for text content input to avoid sync issues
+  const [textContentValue, setTextContentValue] = useState<string>('');
+
+  // Sync textContentValue with selectedElement.textContent when element changes
+  useEffect(() => {
+    if (selectedElement) {
+      setTextContentValue(selectedElement.textContent || '');
+    }
+  }, [selectedElement?.id, selectedElement?.textContent]);
 
   if (!selectedElement) return null;
 
@@ -61,6 +70,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
 
   const handleTextContentChange = (textContent: string) => {
     if (!selectedElement.selector) return;
+    
+    // Update local state immediately for responsive UI
+    setTextContentValue(textContent);
     
     const filePath = selectedElement.file;
 
@@ -107,11 +119,8 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
             element.textContent = textContent;
           }
           
-          // Update the selected element's textContent for UI
-          setSelectedVisualElement({
-            ...selectedElement,
-            textContent: textContent,
-          });
+          // Update the selected element's textContent for UI (but don't trigger re-render that resets input)
+          // We'll update this after a debounce or on blur
         }
       } catch (error) {
         // Cross-origin iframe - cannot apply live preview
@@ -123,15 +132,25 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
     if (filePath) {
       const changeId = `${selectedElement.id}-textContent`;
       const newChanges = new Map(changes);
+      
+      // Log the text content being saved for debugging
+      console.log(`[VisualEditing] Updating text content: "${textContent}" (length: ${textContent.length}, file: ${filePath}, line: ${selectedElement.line})`);
+      
       newChanges.set(changeId, {
         property: 'textContent',
-        value: textContent,
+        value: textContent, // Ensure we're passing the full text content
         file: filePath,
         selector: selectedElement.selector,
         line: selectedElement.line,
         isTextContent: true,
       });
       setChanges(newChanges);
+      
+      // Update the atom with the new text content (for other parts of the UI)
+      setSelectedVisualElement({
+        ...selectedElement,
+        textContent: textContent,
+      });
     } else {
       console.warn('Text content change applied (live preview only). File path not found, so changes cannot be saved to source files.');
     }
@@ -512,8 +531,17 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                   <Input
                     type="text"
                     placeholder="Enter text content..."
-                    value={selectedElement.textContent || ''}
+                    value={textContentValue}
                     onChange={(e) => handleTextContentChange(e.target.value)}
+                    onBlur={() => {
+                      // Update the atom on blur to ensure final value is synced
+                      if (selectedElement) {
+                        setSelectedVisualElement({
+                          ...selectedElement,
+                          textContent: textContentValue,
+                        });
+                      }
+                    }}
                     className="h-8 text-xs"
                   />
                 </div>

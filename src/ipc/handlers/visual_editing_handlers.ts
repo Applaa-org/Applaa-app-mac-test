@@ -70,7 +70,11 @@ export function registerVisualEditingHandlers() {
                 
                 // Check if this is a text content change
                 if (change.isTextContent && change.property === 'textContent') {
+                  // Log the text content being processed
+                  logger.info(`Processing text content update to ${file}:${change.line} - textContent: "${change.value}" (length: ${change.value?.length || 0})`);
+                  
                   // Update text content using AST
+                  const originalContent = content;
                   content = updateTextContentInAST(
                     content,
                     file,
@@ -78,7 +82,13 @@ export function registerVisualEditingHandlers() {
                     column,
                     change.value
                   );
-                  logger.info(`Applied AST-based text content update to ${file}:${change.line} - textContent: ${change.value}`);
+                  
+                  // Verify the change was applied
+                  if (content === originalContent) {
+                    logger.warn(`Text content update may have failed - content unchanged for ${file}:${change.line}`);
+                  }
+                  
+                  logger.info(`Applied AST-based text content update to ${file}:${change.line} - textContent: "${change.value}"`);
                 } else {
                   // Use AST-based parsing for styles (more accurate)
                   content = updateStyleInAST(
