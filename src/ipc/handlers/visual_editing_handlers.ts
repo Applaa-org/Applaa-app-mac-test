@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import log from 'electron-log';
+import { updateStyleInAST } from '../utils/ast_style_updater';
 
 const logger = log.scope('visual_editing_handlers');
 
@@ -61,7 +62,25 @@ export function registerVisualEditingHandlers() {
             
             // Apply each change to the file
             for (const change of fileChanges) {
-              content = updateStyleInCode(content, change.selector, change.property, change.value);
+              // Use AST-based approach if we have line/column info, otherwise fall back to regex
+              if (change.line !== undefined && change.line > 0) {
+                // Use AST-based parsing (more accurate)
+                // Default column to 0 if not provided
+                const column = 0;
+                content = updateStyleInAST(
+                  content,
+                  file,
+                  change.line,
+                  column,
+                  change.property,
+                  change.value
+                );
+                logger.info(`Applied AST-based style update to ${file}:${change.line} - ${change.property}: ${change.value}`);
+              } else {
+                // Fall back to regex-based approach for backward compatibility
+                content = updateStyleInCode(content, change.selector, change.property, change.value);
+                logger.info(`Applied regex-based style update to ${file} - ${change.property}: ${change.value}`);
+              }
             }
             
             await fs.writeFile(filePath, content, 'utf-8');
