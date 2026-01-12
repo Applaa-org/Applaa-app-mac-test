@@ -14,7 +14,7 @@ interface VisualEditingToolbarProps {
 }
 
 export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
-  const [selectedElement] = useAtom(selectedVisualElementAtom);
+  const [selectedElement, setSelectedVisualElement] = useAtom(selectedVisualElementAtom);
   const [changes, setChanges] = useAtom(visualEditingChangesAtom);
   const [selectedAppId] = useAtom(selectedAppIdAtom);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,6 +56,84 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
       setChanges(newChanges);
     } else {
       console.warn('Visual editing change applied (live preview only). File path not found, so changes cannot be saved to source files.');
+    }
+  };
+
+  const handleTextContentChange = (textContent: string) => {
+    if (!selectedElement.selector) return;
+    
+    const filePath = selectedElement.file;
+
+    // Apply live preview changes even without file path
+    const iframe = document.querySelector('iframe[data-testid="preview-iframe-element"]') as HTMLIFrameElement;
+    if (iframe?.contentWindow) {
+      try {
+        const element = iframe.contentWindow.document.querySelector(selectedElement.selector || '');
+        if (element) {
+          // Check if element has non-text child nodes (like nested elements)
+          const hasNonTextChildren = Array.from(element.childNodes).some(
+            node => node.nodeType !== Node.TEXT_NODE
+          );
+          
+          if (hasNonTextChildren) {
+            // Element has child elements - only replace text nodes, preserve structure
+            const textNodes: Node[] = [];
+            const nonTextNodes: Node[] = [];
+            
+            // Separate text nodes from non-text nodes
+            for (let i = 0; i < element.childNodes.length; i++) {
+              const node = element.childNodes[i];
+              if (node.nodeType === Node.TEXT_NODE) {
+                textNodes.push(node);
+              } else {
+                nonTextNodes.push(node);
+              }
+            }
+            
+            // Remove all text nodes
+            textNodes.forEach(node => node.remove());
+            
+            // Add new text node at the beginning (before other elements)
+            // Always add text node, even if empty, so user can see their typing
+            const textNode = iframe.contentWindow.document.createTextNode(textContent);
+            if (element.firstChild) {
+              element.insertBefore(textNode, element.firstChild);
+            } else {
+              element.appendChild(textNode);
+            }
+          } else {
+            // Element only has text nodes or is empty - use textContent directly for better performance
+            // This handles empty strings and all text content properly
+            element.textContent = textContent;
+          }
+          
+          // Update the selected element's textContent for UI
+          setSelectedVisualElement({
+            ...selectedElement,
+            textContent: textContent,
+          });
+        }
+      } catch (error) {
+        // Cross-origin iframe - cannot apply live preview
+        console.debug('Cannot apply text content preview (cross-origin):', error);
+      }
+    }
+
+    // Only add to changes map if we have a file path (so we can save)
+    if (filePath) {
+      const changeId = `${selectedElement.id}-textContent`;
+      const newChanges = new Map(changes);
+      newChanges.set(changeId, {
+        property: 'textContent',
+        value: textContent,
+        file: filePath,
+        selector: selectedElement.selector,
+        line: selectedElement.line,
+        isTextContent: true,
+      });
+      setChanges(newChanges);
+    } else {
+      console.warn('Text content change applied (live preview only). File path not found, so changes cannot be saved to source files.');
     }
   };
 
@@ -423,8 +501,22 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
 
           {/* Text Tab */}
           <TabsContent value="text" className="space-y-4">
-            {selectedElement.tagName && ['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'button', 'a', 'label', 'input', 'textarea'].includes(selectedElement.tagName.toLowerCase()) && (
+            {selectedElement.tagName && ['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'button', 'a', 'label'].includes(selectedElement.tagName.toLowerCase()) && (
               <>
+                {/* Text Content Editor */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <Type className="w-3 h-3" />
+                    Text Content
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter text content..."
+                    value={selectedElement.textContent || ''}
+                    onChange={(e) => handleTextContentChange(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium flex items-center gap-2">
                     <Type className="w-3 h-3" />
@@ -484,6 +576,11 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                   </select>
                 </div>
               </>
+            )}
+            {selectedElement.tagName && ['input', 'textarea'].includes(selectedElement.tagName.toLowerCase()) && (
+              <div className="text-xs text-muted-foreground text-center py-4">
+                Text content editing is not available for form inputs. Use placeholder or value attributes instead.
+              </div>
             )}
             {!selectedElement.tagName || !['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'button', 'a', 'label', 'input', 'textarea'].includes(selectedElement.tagName.toLowerCase()) && (
               <div className="text-xs text-muted-foreground text-center py-4">
