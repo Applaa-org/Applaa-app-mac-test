@@ -23,7 +23,7 @@ import { handleNeonOAuthReturn } from "./neon_admin/neon_return_handler";
 import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
-import { chromiumManager } from "./lib/browser/chromium-manager";
+import { startLocalServer } from "./server/api";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -107,7 +107,11 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient("applaa");
 }
 
+
 export async function onReady() {
+  // 🚀 API: Start Local API Server for Buddy Extension
+  startLocalServer();
+
   // ✅ Enable Web Speech API features in Electron with comprehensive flags
   app.commandLine.appendSwitch('enable-features', 'WebSpeechAPI,SpeechRecognition,SpeechSynthesis');
   app.commandLine.appendSwitch('enable-speech-input');
@@ -153,15 +157,11 @@ export async function onReady() {
     logger.error("❌ Failed to initialize workspace dependency manager:", error);
   }
 
-  // 🌐 BROWSER: Launch professional Chromium browser
-  try {
-    logger.info('🚀 Launching professional Chromium browser...');
-    await chromiumManager.launch();
-    logger.info('✅ Chromium browser launched successfully');
-  } catch (error) {
-    logger.error('❌ Failed to launch Chromium browser:', error);
-    logger.warn('⚠️ Browser features may not work correctly');
-  }
+
+
+  // 🌐 BROWSER: Buddy Browser will launch on-demand when user requests browsing tasks
+  // No longer auto-launching at startup to improve performance
+  logger.info('✅ Buddy Browser configured for on-demand launch');
 
   // 🔄 Auto-migrate settings encryption for seamless updates
   try {
@@ -597,12 +597,13 @@ app.on("window-all-closed", async () => {
   const { globalShortcut } = require('electron');
   globalShortcut.unregisterAll();
 
-  // 🌐 BROWSER: Close Chromium browser
+  // 🌐 BROWSER: Close Buddy Browser
   try {
-    await chromiumManager.close();
-    logger.info('✅ Chromium browser closed');
+    const { getBuddyBrowser } = await import('./services/buddy-browser');
+    await getBuddyBrowser().close();
+    logger.info('✅ Buddy Browser closed');
   } catch (error) {
-    logger.error('Error closing Chromium:', error);
+    logger.error('Error closing Buddy Browser:', error);
   }
 
   if (process.platform !== "darwin") {

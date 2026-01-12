@@ -3517,19 +3517,19 @@ export class IpcClient {
     this.ipcRenderer.on("minecraft-install-progress", (_: any, log: string) => callback(log));
   }
 
-  async extractAssets(jarPath: string): Promise<{
-    success: boolean;
-    assets: Array<{
-      name: string;
-      path: string;
-      type: string;
-      relativePath: string;
-    }>;
-    error?: string;
-  }> {
-    return this.ipcRenderer.invoke("extract-assets", jarPath);
+
+  // 🤖 Applaa Buddy - AI Assistant Browser
+  async launchBuddy(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("buddy:launch");
   }
 
+  async closeBuddy(): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("buddy:close");
+  }
+
+  async getBuddyServiceStatus(): Promise<{ success: boolean; isRunning?: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("buddy:status");
+  }
 
   // 🌐 Browser Agent
   async testBrowserPing(): Promise<{ success: boolean; message?: string }> {

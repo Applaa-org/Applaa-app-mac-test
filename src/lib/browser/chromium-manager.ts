@@ -27,7 +27,7 @@ export class ChromiumManager {
 
         try {
             this.browser = await chromium.launch({
-                headless: true, // Run invisibly (no separate window)
+                headless: false, // Run VISIBLY so the user can see Buddy working
                 args: [
                     `--remote-debugging-port=9222`, // Enable CDP for BrowserView connection
                     '--disable-blink-features=AutomationControlled',

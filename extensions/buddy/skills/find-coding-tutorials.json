@@ -1,0 +1,442 @@
+{
+    "id": "find-coding-tutorials",
+    "version": "1.0.0",
+    "createdBy": "claude-opus-4.5",
+    "createdAt": "2026-01-09",
+    "metadata": {
+        "title": "Discover Coding Tutorials",
+        "category": "learning",
+        "subcategory": "coding",
+        "icon": "💻",
+        "difficulty": "beginner",
+        "ageRange": "8-16",
+        "estimatedDuration": "50-70 seconds",
+        "tags": [
+            "coding",
+            "programming",
+            "tutorials",
+            "learning",
+            "python",
+            "javascript",
+            "scratch"
+        ],
+        "description": "Find the best coding tutorials for your skill level from Code.org, Khan Academy, Scratch, and YouTube!",
+        "learningOutcomes": [
+            "Discover age-appropriate coding resources",
+            "Find tutorials matching your skill level",
+            "Learn multiple programming languages",
+            "Track your coding progress"
+        ]
+    },
+    "objective": "Browse Code.org, Khan Academy, Scratch.mit.edu, and YouTube to find coding tutorials matching user's age, skill level, and interests. Extract course info, create personalized learning path, and bookmark resources.",
+    "prerequisites": {
+        "browserState": "ready",
+        "internetConnection": true,
+        "permissions": [
+            "tabs",
+            "storage",
+            "bookmarks"
+        ],
+        "userInput": {
+            "experience": {
+                "type": "select",
+                "options": [
+                    "never-coded",
+                    "beginner",
+                    "some-experience",
+                    "advanced"
+                ],
+                "prompt": "Have you coded before?"
+            },
+            "interest": {
+                "type": "select",
+                "options": [
+                    "games",
+                    "websites",
+                    "apps",
+                    "robots",
+                    "art",
+                    "any"
+                ],
+                "prompt": "What do you want to create?"
+            }
+        }
+    },
+    "workflow": {
+        "steps": [
+            {
+                "id": "step-1",
+                "name": "Get User Coding Level",
+                "action": "user-input",
+                "params": {
+                    "questions": [
+                        {
+                            "id": "experience",
+                            "text": "Have you tried coding before?",
+                            "type": "buttons",
+                            "options": [
+                                {
+                                    "label": "🌱 Never",
+                                    "value": "never-coded"
+                                },
+                                {
+                                    "label": "👶 Just Started",
+                                    "value": "beginner"
+                                },
+                                {
+                                    "label": "⭐ Some Experience",
+                                    "value": "some-experience"
+                                },
+                                {
+                                    "label": "🚀 Advanced",
+                                    "value": "advanced"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "interest",
+                            "text": "What do you want to build?",
+                            "type": "buttons",
+                            "options": [
+                                {
+                                    "label": "🎮 Games",
+                                    "value": "games"
+                                },
+                                {
+                                    "label": "🌐 Websites",
+                                    "value": "websites"
+                                },
+                                {
+                                    "label": "📱 Mobile Apps",
+                                    "value": "apps"
+                                },
+                                {
+                                    "label": "🤖 Robots",
+                                    "value": "robots"
+                                },
+                                {
+                                    "label": "🎨 Digital Art",
+                                    "value": "art"
+                                },
+                                {
+                                    "label": "✨ Surprise Me!",
+                                    "value": "any"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "age",
+                            "text": "How old are you?",
+                            "type": "number",
+                            "min": 6,
+                            "max": 18,
+                            "default": 10
+                        }
+                    ]
+                },
+                "reasoning": "Personalization ensures tutorials match skill level and interests, preventing frustration from content that's too hard or too easy.",
+                "kidFriendlyExplanation": "Tell me about yourself so I can find the perfect coding lessons for you!"
+            },
+            {
+                "id": "step-2",
+                "name": "Navigate to Code.org",
+                "action": "navigate",
+                "params": {
+                    "url": "https://code.org/learn",
+                    "waitFor": "networkidle"
+                },
+                "successCriteria": {
+                    "urlContains": "code.org",
+                    "elementExists": ".course-card, .tutorial-card"
+                },
+                "reasoning": "Code.org is specifically designed for K-12 students with age-appropriate, gamified learning.",
+                "kidFriendlyExplanation": "Visiting Code.org - a website made just for kids learning to code!"
+            },
+            {
+                "id": "step-3",
+                "name": "Extract Code.org Courses",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".course-card, .tutorial-card",
+                        "title": "h3, .course-title",
+                        "description": ".description, p",
+                        "ageRange": ".age-range, .grade-level",
+                        "duration": ".duration, .time",
+                        "thumbnail": "img",
+                        "courseUrl": "a",
+                        "difficulty": ".difficulty, .level",
+                        "topics": ".topics, .tags"
+                    },
+                    "limit": 15,
+                    "filters": {
+                        "ageMatch": "{age}",
+                        "experienceMatch": "{experience}"
+                    }
+                },
+                "reasoning": "Code.org courses are structured progressively, making it easy to find the right starting point.",
+                "kidFriendlyExplanation": "Finding courses that are perfect for your age and skill level!"
+            },
+            {
+                "id": "step-4",
+                "name": "Navigate to Khan Academy Computing",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.khanacademy.org/computing",
+                    "waitFor": "networkidle"
+                },
+                "successCriteria": {
+                    "urlContains": "khanacademy.org"
+                },
+                "reasoning": "Khan Academy offers in-depth, mastery-based learning with progress tracking.",
+                "kidFriendlyExplanation": "Checking Khan Academy for more coding lessons!"
+            },
+            {
+                "id": "step-5",
+                "name": "Extract Khan Academy Courses",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".course, .tutorial",
+                        "title": "h2, h3",
+                        "description": "p",
+                        "lessons": ".lesson-count",
+                        "thumbnail": "img",
+                        "url": "a"
+                    },
+                    "limit": 10,
+                    "filters": {
+                        "relevantTopics": [
+                            "javascript",
+                            "html",
+                            "css",
+                            "python",
+                            "sql"
+                        ]
+                    }
+                },
+                "reasoning": "Khan Academy excels at web development and computer science fundamentals.",
+                "kidFriendlyExplanation": "Getting Khan Academy's best coding courses!"
+            },
+            {
+                "id": "step-6",
+                "name": "Check Scratch for Block Coding",
+                "action": "navigate",
+                "params": {
+                    "url": "https://scratch.mit.edu/ideas",
+                    "waitFor": "networkidle",
+                    "condition": "{experience} === 'never-coded' || {experience} === 'beginner'"
+                },
+                "successCriteria": {
+                    "urlContains": "scratch.mit.edu"
+                },
+                "reasoning": "Scratch is perfect for beginners - visual block coding without syntax errors.",
+                "kidFriendlyExplanation": "Scratch is great for beginners - you drag blocks instead of typing code!"
+            },
+            {
+                "id": "step-7",
+                "name": "Extract Scratch Tutorials",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".tutorial-card, .idea-card",
+                        "title": "h3",
+                        "description": "p",
+                        "thumbnail": "img",
+                        "url": "a",
+                        "difficulty": ".difficulty"
+                    },
+                    "limit": 10
+                },
+                "reasoning": "Scratch tutorials teach programming concepts through game creation.",
+                "kidFriendlyExplanation": "Finding fun Scratch projects you can make!"
+            },
+            {
+                "id": "step-8",
+                "name": "Search YouTube for Tutorials",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.youtube.com/results?search_query=coding+for+kids+{interest}+tutorial+beginner",
+                    "waitFor": "networkidle"
+                },
+                "reasoning": "YouTube has visual, step-by-step tutorials perfect for visual learners.",
+                "kidFriendlyExplanation": "Looking for video tutorials on YouTube!"
+            },
+            {
+                "id": "step-9",
+                "name": "Extract YouTube Tutorials",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": "ytd-video-renderer",
+                        "title": "#video-title",
+                        "channel": "#channel-name",
+                        "thumbnail": "img#img",
+                        "duration": "span.ytd-thumbnail-overlay-time-status-renderer",
+                        "views": "#metadata-line span:first-child",
+                        "url": "a#thumbnail"
+                    },
+                    "limit": 15,
+                    "filters": {
+                        "minDuration": "10:00",
+                        "maxDuration": "45:00",
+                        "kidSafeChannels": true,
+                        "excludeKeywords": [
+                            "advanced",
+                            "professional",
+                            "enterprise"
+                        ]
+                    }
+                },
+                "reasoning": "Filter for appropriate length and kid-safe content. Exclude overly advanced topics.",
+                "kidFriendlyExplanation": "Finding the best video tutorials from trusted creators!"
+            },
+            {
+                "id": "step-10",
+                "name": "Create Personalized Learning Path",
+                "action": "ai-enhance",
+                "params": {
+                    "model": "gemini-flash-2.0",
+                    "promptTemplate": "Based on this user profile: Age {age}, Experience: {experience}, Interest: {interest}, create a 4-week learning path using these resources. Week 1 should start with absolute basics, gradually building to Week 4 with a complete project. For each week, recommend 2-3 specific tutorials and explain what they'll learn. Make it encouraging and achievable!",
+                    "context": "all-extracted-tutorials",
+                    "temperature": 0.8
+                },
+                "reasoning": "AI creates a structured path that prevents overwhelm and ensures steady progress.",
+                "kidFriendlyExplanation": "Creating your personal 4-week coding journey!"
+            },
+            {
+                "id": "step-11",
+                "name": "Bookmark Best Resources",
+                "action": "bookmark",
+                "params": {
+                    "folder": "Buddy - Coding Tutorials",
+                    "subfolders": {
+                        "byWeek": [
+                            "Week 1",
+                            "Week 2",
+                            "Week 3",
+                            "Week 4"
+                        ],
+                        "byPlatform": [
+                            "Code.org",
+                            "Khan Academy",
+                            "Scratch",
+                            "YouTube"
+                        ]
+                    },
+                    "topPicks": 10,
+                    "includeNotes": true
+                },
+                "reasoning": "Bookmarks provide easy access to resources. Organization by week and platform aids navigation.",
+                "kidFriendlyExplanation": "Saving all the best tutorials to your bookmarks!"
+            },
+            {
+                "id": "step-12",
+                "name": "Generate Interactive Dashboard",
+                "action": "compile",
+                "params": {
+                    "format": "interactive-html",
+                    "template": "coding-learning-dashboard",
+                    "sections": [
+                        {
+                            "name": "🎯 Your Learning Path",
+                            "content": "ai-generated-path",
+                            "features": [
+                                "progress-tracking",
+                                "checkboxes",
+                                "motivational-messages"
+                            ]
+                        },
+                        {
+                            "name": "🌟 Start Here",
+                            "filter": "beginner-friendly + high-rating",
+                            "limit": 5,
+                            "layout": "featured-cards"
+                        },
+                        {
+                            "name": "📚 All Tutorials",
+                            "groupBy": "platform",
+                            "sortBy": "difficulty",
+                            "features": [
+                                "search",
+                                "filter",
+                                "favorites"
+                            ]
+                        },
+                        {
+                            "name": "🎮 Project Ideas",
+                            "content": "ai-generated-projects",
+                            "based-on": "{interest}"
+                        }
+                    ]
+                },
+                "reasoning": "Interactive dashboard makes learning feel like a game with clear progress and goals.",
+                "kidFriendlyExplanation": "Building your personal coding dashboard!"
+            },
+            {
+                "id": "step-13",
+                "name": "Present Results",
+                "action": "output",
+                "params": {
+                    "displayInSidebar": true,
+                    "saveToFile": {
+                        "filename": "my_coding_journey_{date}.html",
+                        "location": "downloads"
+                    },
+                    "notification": {
+                        "title": "💻 Your Coding Journey is Ready!",
+                        "message": "Found {count} tutorials perfect for you! Start with Week 1.",
+                        "actions": [
+                            {
+                                "label": "Start Learning",
+                                "action": "open-first-tutorial"
+                            },
+                            {
+                                "label": "View Dashboard",
+                                "action": "open-sidebar"
+                            },
+                            {
+                                "label": "Bookmark All",
+                                "action": "save-bookmarks"
+                            }
+                        ]
+                    }
+                },
+                "kidFriendlyExplanation": "Everything's ready! Let's start coding!"
+            }
+        ]
+    },
+    "reactLoop": {
+        "enabled": true,
+        "maxIterations": 12,
+        "adaptationRules": [
+            {
+                "condition": "platform-unavailable",
+                "reasoning": "Website down or blocked",
+                "action": "skip-source",
+                "params": {
+                    "continueWithOthers": true
+                }
+            },
+            {
+                "condition": "no-age-appropriate-content",
+                "reasoning": "User's age doesn't match available content",
+                "action": "broaden-age-range",
+                "params": {
+                    "expandBy": 2
+                }
+            }
+        ]
+    },
+    "safety": {
+        "contentFiltering": {
+            "kidSafeOnly": true,
+            "verifiedEducators": "preferred",
+            "blockInappropriate": true
+        },
+        "privacyProtection": {
+            "noAccountRequired": "preferred",
+            "noPersonalInfo": true
+        }
+    }
+}

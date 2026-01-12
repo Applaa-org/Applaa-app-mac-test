@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, unique, blob } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 
 export const apps = sqliteTable("apps", {
@@ -257,7 +257,47 @@ export const automationPlans = sqliteTable("automation_plans", {
     .default(sql`(unixepoch())`),
 });
 
-// Relations for new tables
+// ============================================================================
+// BUDDY PERSISTENT MEMORY TABLES
+// ============================================================================
+
+export const buddyConversations = sqliteTable("buddy_conversations", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export const buddyMessages = sqliteTable("buddy_messages", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => buddyConversations.id, { onDelete: "cascade" }),
+  role: text("role", { enum: ["user", "assistant", "system", "tool"] }).notNull(),
+  content: text("content").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export const buddyMessageEmbeddings = sqliteTable("buddy_message_embeddings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  messageId: text("message_id")
+    .notNull()
+    .unique()
+    .references(() => buddyMessages.id, { onDelete: "cascade" }),
+  embedding: blob("embedding", { mode: "buffer" }).notNull(),
+  modelVersion: text("model_version").default("all-MiniLM-L6-v2"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// Relations for tables
 export const browserTabsRelations = relations(browserTabs, ({ one, many }) => ({
   chat: one(chats, {
     fields: [browserTabs.chatId],
@@ -284,6 +324,28 @@ export const automationPlansRelations = relations(automationPlans, ({ one }) => 
   tab: one(browserTabs, {
     fields: [automationPlans.tabId],
     references: [browserTabs.id],
+  }),
+}));
+
+export const buddyConversationsRelations = relations(buddyConversations, ({ many }) => ({
+  messages: many(buddyMessages),
+}));
+
+export const buddyMessagesRelations = relations(buddyMessages, ({ one }) => ({
+  conversation: one(buddyConversations, {
+    fields: [buddyMessages.conversationId],
+    references: [buddyConversations.id],
+  }),
+  embedding: one(buddyMessageEmbeddings, {
+    fields: [buddyMessages.id],
+    references: [buddyMessageEmbeddings.messageId],
+  }),
+}));
+
+export const buddyMessageEmbeddingsRelations = relations(buddyMessageEmbeddings, ({ one }) => ({
+  message: one(buddyMessages, {
+    fields: [buddyMessageEmbeddings.messageId],
+    references: [buddyMessages.id],
   }),
 }));
 

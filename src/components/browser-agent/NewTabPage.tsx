@@ -18,7 +18,7 @@ interface NewTabPageProps {
 const CURATED_WEBSITES: Website[] = [
     {
         name: 'Applaa',
-        url: 'https://app.applaa.com',
+        url: 'https://applaa.com',
         icon: '🚀',
         color: 'from-orange-500/10 to-amber-500/10',
     },
@@ -74,14 +74,14 @@ export function NewTabPage({ onNavigate }: NewTabPageProps) {
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-8 z-50 overflow-y-auto">
             {/* Header */}
             <div className="mb-10 text-center mt-12">
-                <div className="w-20 h-20 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-3xl flex items-center justify-center mb-6 mx-auto hover:scale-105 transition-transform duration-300">
-                    <Globe className="h-10 w-10 text-orange-500" />
+                <div className="w-20 h-20 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-3xl flex items-center justify-center mb-6 mx-auto hover:scale-105 transition-transform duration-300">
+                    <span className="text-5xl">🤖</span>
                 </div>
                 <h3 className="text-3xl font-bold tracking-tight mb-2">
-                    Applaa <span className="text-orange-500">Browser</span>
+                    Applaa <span className="text-purple-500">Buddy</span>
                 </h3>
                 <p className="text-base text-muted-foreground">
-                    The Best AI Browser for Kids
+                    Your AI-Powered Learning & Automation Assistant
                 </p>
             </div>
 

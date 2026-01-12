@@ -36,10 +36,26 @@ export function registerChromiumHandlers() {
                     }
                 });
                 logger.info('✅ WebContentsView created');
+
+                // Load Applaa Buddy extension into BrowserView session
+                try {
+                    const path = require('path');
+                    const { app } = require('electron');
+                    const isDev = !app.isPackaged;
+                    const extensionPath = isDev
+                        ? path.join(process.cwd(), 'extensions', 'buddy')
+                        : path.join(process.resourcesPath, 'extensions', 'buddy');
+
+                    await browserView.webContents.session.loadExtension(extensionPath, {
+                        allowFileAccess: true
+                    });
+                    logger.info('✅ Applaa Buddy extension loaded into BrowserView');
+                } catch (extError) {
+                    logger.warn('⚠️ Could not load Applaa Buddy extension:', extError);
+                }
             }
 
             // Ensure it's attached to the window
-            // addChildView moves it to the top if already attached
             win.contentView.addChildView(browserView);
             logger.info('✅ WebContentsView attached to window');
 

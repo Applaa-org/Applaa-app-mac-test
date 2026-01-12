@@ -1,0 +1,58 @@
+{
+    "manifest_version": 3,
+    "name": "Applaa Theme",
+    "description": "Official Applaa Browser theme with orange and green branding",
+    "version": "1.0.0",
+    "theme": {
+        "colors": {
+            "frame": [
+                255,
+                107,
+                53
+            ],
+            "frame_inactive": [
+                255,
+                179,
+                153
+            ],
+            "toolbar": [
+                255,
+                255,
+                255
+            ],
+            "tab_text": [
+                51,
+                51,
+                51
+            ],
+            "tab_background_text": [
+                102,
+                102,
+                102
+            ],
+            "bookmark_text": [
+                255,
+                107,
+                53
+            ],
+            "ntp_background": [
+                255,
+                245,
+                242
+            ],
+            "ntp_text": [
+                51,
+                51,
+                51
+            ],
+            "button_background": [
+                76,
+                175,
+                80
+            ]
+        }
+    },
+    "icons": {
+        "128": "icon128.png"
+    }
+}

@@ -275,6 +275,11 @@ const validInvokeChannels = [
   "chromium:close",
   "chromium:hide-view",
 
+  // 🤖 Applaa Buddy - AI Assistant Browser channels
+  "buddy:launch",
+  "buddy:close",
+  "buddy:status",
+
   // 🤖 Gemini AI Browser Automation channels
   "automation:init",
   "automation:plan",
@@ -368,6 +373,18 @@ const validInvokeChannels = [
   "game-templates:create",
   "game-templates:update",
   "game-templates:delete",
+  "game-templates:create",
+  "game-templates:update",
+  "game-templates:delete",
+
+  // 🧠 Local Brain channels
+  "local-brain:search",
+  "local-brain:embed",
+  "local-brain:init",
+
+  // 🧠 Skill Executor
+  "skill:execute",
+  "skill:status",
 ];
 
 // Add valid receive channels

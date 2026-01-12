@@ -86,6 +86,12 @@ import { registerCreatorHandlers } from "./handlers/creator_handlers";
 import { registerChromiumHandlers } from "./handlers/chromium_handlers";
 import { registerAutomationHandlers } from "./handlers/automation_handlers";
 import "./handlers/blockly_handlers"; // Register Blockly workspace handlers
+import { registerBuddyHandlers } from "./handlers/buddy_handlers";
+import { registerLocalBrainHandlers } from "./handlers/local_brain_handlers";
+import { registerSkillHandlers } from "./handlers/skill_handlers";
+import { registerBrowserAutomationHandlers } from "./handlers/browser_automation_handlers";
+
+
 
 
 
@@ -231,6 +237,22 @@ export function registerIpcHandlers() {
   // 🤖 Gemini AI Browser Automation
   console.log('🤖 Registering Gemini Automation handlers...');
   registerAutomationHandlers();
+
+  // 🤖 Applaa Buddy - AI Assistant Browser
+  console.log('🤖 Registering Applaa Buddy handlers...');
+  registerBuddyHandlers();
+
+  // 🧠 Applaa Local Brain - Transformers.js + Vector Search
+  console.log('🧠 Registering Local Brain handlers...');
+  registerLocalBrainHandlers();
+
+  // 🧠 Skill Executor
+  console.log('🧠 Registering Skill Executor handlers...');
+  registerSkillHandlers();
+
+  // 🌐 Browser Automation (Planning + Execution)
+  console.log('🌐 Registering Browser Automation handlers...');
+  registerBrowserAutomationHandlers();
 
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

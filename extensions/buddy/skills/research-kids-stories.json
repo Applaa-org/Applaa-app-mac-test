@@ -1,0 +1,94 @@
+{
+    "id": "research-kids-stories",
+    "version": "1.0.1",
+    "createdBy": "Applaa Team",
+    "createdAt": "2024-01-09T12:00:00Z",
+    "metadata": {
+        "title": "Research Kids Stories",
+        "category": "learning",
+        "icon": "📚",
+        "difficulty": "beginner",
+        "ageRange": "6-12",
+        "estimatedDuration": "5m",
+        "tags": [
+            "Reading",
+            "Stories",
+            "AI"
+        ],
+        "description": "Find amazing stories, get AI summaries, and create your own reading list!",
+        "learningOutcomes": [
+            "Research skills",
+            "Reading comprehension",
+            "Critical thinking"
+        ]
+    },
+    "workflow": {
+        "steps": [
+            {
+                "id": "nav-stories",
+                "name": "Go to Storyberries",
+                "action": "navigate",
+                "params": {
+                    "url": "https://storyberries.com/category/5-min-stories/"
+                },
+                "reasoning": "Storyberries is a great safe site for kids stories."
+            },
+            {
+                "id": "wait-load",
+                "name": "Wait for stories to appear",
+                "action": "wait",
+                "params": {
+                    "duration": 3000
+                }
+            },
+            {
+                "id": "extract-titles",
+                "name": "Find Story Titles",
+                "action": "extract",
+                "params": {
+                    "selector": "h2.entry-title a",
+                    "variable": "storyTitles",
+                    "multiple": true
+                },
+                "reasoning": "Get a list of available stories to show the user."
+            },
+            {
+                "id": "pick-first-story",
+                "name": "Pick the first story",
+                "action": "click",
+                "params": {
+                    "selector": "h2.entry-title a"
+                },
+                "reasoning": "Let's read the first one as an example."
+            },
+            {
+                "id": "wait-story",
+                "name": "Wait for story",
+                "action": "wait",
+                "params": {
+                    "duration": 3000
+                }
+            },
+            {
+                "id": "extract-content",
+                "name": "Read Story Content",
+                "action": "extract",
+                "params": {
+                    "selector": "div.entry-content",
+                    "variable": "currentStoryText"
+                },
+                "reasoning": "Extract the text so our Local Brain can summarize it."
+            },
+            {
+                "id": "ai-summarize",
+                "name": "Summarize Story",
+                "action": "ai-enhance",
+                "params": {
+                    "input": "{{currentStoryText}}",
+                    "outputVariable": "storySummary"
+                },
+                "reasoning": "Use the local AI to create a short summary."
+            }
+        ]
+    }
+}

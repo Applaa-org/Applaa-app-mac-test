@@ -4,6 +4,7 @@ import {
   drizzle,
 } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
+import * as sqliteVec from "sqlite-vec";
 import * as schema from "./schema";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "node:path";
@@ -619,6 +620,7 @@ export function initializeDatabase(): BetterSQLite3Database<typeof schema> & {
   fs.mkdirSync(getDyadAppPath("."), { recursive: true });
 
   const sqlite = new Database(dbPath, { timeout: 10000 });
+  sqliteVec.load(sqlite);
   sqlite.pragma("foreign_keys = ON");
 
   _db = drizzle(sqlite, { schema });
