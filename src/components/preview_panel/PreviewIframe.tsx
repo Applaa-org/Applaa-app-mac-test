@@ -458,6 +458,17 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 textAlign: computedStyle.textAlign,
               };
               
+              // Get text content (only for text-containing elements)
+              let textContent = '';
+              if (targetElement.childNodes.length > 0) {
+                // Get direct text content (not from nested elements)
+                const textNodes = Array.from(targetElement.childNodes)
+                  .filter(node => node.nodeType === Node.TEXT_NODE)
+                  .map(node => node.textContent?.trim())
+                  .filter(text => text && text.length > 0);
+                textContent = textNodes.join(' ') || '';
+              }
+              
               // Send element info to parent with file information
               // This works even for cross-origin iframes since we're sending from iframe to parent
               window.parent.postMessage({
@@ -471,6 +482,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                   file: filePath || undefined,
                   line: lineNumber || undefined,
                   column: columnNumber || undefined,
+                  textContent: textContent || undefined,
                 }
               }, '*');
             }
@@ -566,6 +578,16 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                     textAlign: computedStyle.textAlign,
                   };
                   
+                  // Get text content
+                  let textContent = '';
+                  if (element.childNodes.length > 0) {
+                    const textNodes = Array.from(element.childNodes)
+                      .filter(node => node.nodeType === Node.TEXT_NODE)
+                      .map(node => node.textContent?.trim())
+                      .filter(text => text && text.length > 0);
+                    textContent = textNodes.join(' ') || '';
+                  }
+                  
                   window.parent.postMessage({
                     type: 'visual-editing-element-data-response',
                     elementId: e.data.elementId,
@@ -578,6 +600,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                       file: filePath || undefined,
                       line: lineNumber || undefined,
                       column: columnNumber || undefined,
+                      textContent: textContent || undefined,
                     }
                   }, '*');
                 }
@@ -785,6 +808,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             selector: `[data-dyad-id="${componentData.id}"]`,
             file: filePath || undefined,
             line: lineNumber || undefined,
+            textContent: undefined, // Will be populated by visual editing script response
           };
           
           // Set the element immediately so toolbar appears
@@ -851,6 +875,16 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                   textAlign: computedStyle.textAlign,
                 };
                 
+                // Get text content
+                let textContent = '';
+                if (element.childNodes.length > 0) {
+                  const textNodes = Array.from(element.childNodes)
+                    .filter(node => node.nodeType === Node.TEXT_NODE)
+                    .map(node => node.textContent?.trim())
+                    .filter(text => text && text.length > 0);
+                  textContent = textNodes.join(' ') || '';
+                }
+                
                 // Update with computed styles (this will trigger a re-render with styles)
                 console.log('✅ Updating visual element with computed styles');
                 setSelectedVisualElement({
@@ -858,6 +892,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                   styles: styles,
                   className: element.className || '',
                   elementId: element.id || '',
+                  textContent: textContent || undefined,
                 });
               } else {
                 console.warn('⚠️ Element not found in iframe with selector:', `[data-dyad-id="${componentData.id}"]`);
@@ -914,6 +949,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           selector: elementData.selector || (elementData.id ? `#${elementData.id}` : elementData.className ? `.${elementData.className.split(' ')[0]}` : elementData.tagName || 'div'),
           file: elementData.file,
           line: elementData.line,
+          textContent: elementData.textContent,
         };
         setSelectedVisualElement(visualElement);
         
@@ -961,6 +997,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           selector: elementData.selector || '[data-dyad-id]',
           file: elementData.file,
           line: elementData.line,
+          textContent: elementData.textContent,
         };
         setSelectedVisualElement(visualElement);
         // Don't clear component selection - it should remain available for chat

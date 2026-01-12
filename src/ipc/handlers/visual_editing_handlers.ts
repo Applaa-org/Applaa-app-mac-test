@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import log from 'electron-log';
-import { updateStyleInAST } from '../utils/ast_style_updater';
+import { updateStyleInAST, updateTextContentInAST } from '../utils/ast_style_updater';
 
 const logger = log.scope('visual_editing_handlers');
 
@@ -16,6 +16,7 @@ export interface VisualEditingChange {
   file: string;
   selector: string;
   line?: number;
+  isTextContent?: boolean;
 }
 
 export function registerVisualEditingHandlers() {
@@ -64,22 +65,42 @@ export function registerVisualEditingHandlers() {
             for (const change of fileChanges) {
               // Use AST-based approach if we have line/column info, otherwise fall back to regex
               if (change.line !== undefined && change.line > 0) {
-                // Use AST-based parsing (more accurate)
                 // Default column to 0 if not provided
                 const column = 0;
-                content = updateStyleInAST(
-                  content,
-                  file,
-                  change.line,
-                  column,
-                  change.property,
-                  change.value
-                );
-                logger.info(`Applied AST-based style update to ${file}:${change.line} - ${change.property}: ${change.value}`);
+                
+                // Check if this is a text content change
+                if (change.isTextContent && change.property === 'textContent') {
+                  // Update text content using AST
+                  content = updateTextContentInAST(
+                    content,
+                    file,
+                    change.line,
+                    column,
+                    change.value
+                  );
+                  logger.info(`Applied AST-based text content update to ${file}:${change.line} - textContent: ${change.value}`);
+                } else {
+                  // Use AST-based parsing for styles (more accurate)
+                  content = updateStyleInAST(
+                    content,
+                    file,
+                    change.line,
+                    column,
+                    change.property,
+                    change.value
+                  );
+                  logger.info(`Applied AST-based style update to ${file}:${change.line} - ${change.property}: ${change.value}`);
+                }
               } else {
                 // Fall back to regex-based approach for backward compatibility
-                content = updateStyleInCode(content, change.selector, change.property, change.value);
-                logger.info(`Applied regex-based style update to ${file} - ${change.property}: ${change.value}`);
+                if (change.isTextContent && change.property === 'textContent') {
+                  // For text content without line info, try to update using selector
+                  content = updateTextContentInCode(content, change.selector, change.value);
+                  logger.info(`Applied regex-based text content update to ${file} - textContent: ${change.value}`);
+                } else {
+                  content = updateStyleInCode(content, change.selector, change.property, change.value);
+                  logger.info(`Applied regex-based style update to ${file} - ${change.property}: ${change.value}`);
+                }
               }
             }
             
@@ -198,3 +219,55 @@ function updateStyleInCode(
   return lines.join('\n');
 }
 
+/**
+ * Update text content in code using simple pattern matching
+ */
+function updateTextContentInCode(
+  content: string, 
+  selector: string, 
+  textContent: string
+): string {
+  const lines = content.split('\n');
+  let updated = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Check if this line contains the selector
+    const hasSelector = 
+      (selector.startsWith('#') && line.includes(`id="${selector.slice(1)}"`)) ||
+      (selector.startsWith('.') && line.includes(`className="${selector.slice(1)}"`)) ||
+      (!selector.startsWith('#') && !selector.startsWith('.') && line.includes(`<${selector}`));
+    
+    if (hasSelector) {
+      // Try to find the closing tag and replace content between opening and closing tags
+      // This is a simplified approach - for production, you'd want more sophisticated parsing
+      const tagMatch = line.match(/<(\w+)([^>]*)>/);
+      if (tagMatch) {
+        const tagName = tagMatch[1];
+        // Look for the closing tag on the same line or next few lines
+        for (let j = i; j < Math.min(i + 5, lines.length); j++) {
+          if (lines[j].includes(`</${tagName}>`)) {
+            // Replace content between tags
+            const beforeTag = line.substring(0, line.indexOf('>') + 1);
+            const afterTag = lines[j].substring(lines[j].indexOf(`</${tagName}>`));
+            lines[i] = beforeTag + textContent + afterTag;
+            // Clear intermediate lines if any
+            for (let k = i + 1; k < j; k++) {
+              lines[k] = '';
+            }
+            if (i !== j) {
+              lines[j] = '';
+            }
+            updated = true;
+            break;
+          }
+        }
+        if (updated) break;
+      }
+    }
+  }
+  
+  // Filter out empty lines
+  return lines.filter(line => line.trim() !== '' || !updated).join('\n');
+}

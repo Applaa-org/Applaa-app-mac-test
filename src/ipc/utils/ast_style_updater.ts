@@ -167,3 +167,105 @@ export function updateStylesInAST(
   }
   return updatedCode;
 }
+
+/**
+ * Update text content in React/JSX code using AST parsing
+ */
+export function updateTextContentInAST(
+  code: string,
+  filePath: string,
+  lineNumber: number,
+  columnNumber: number,
+  textContent: string
+): string {
+  try {
+    // Determine parser options based on file extension
+    const parserOptions: ParserOptions = {
+      sourceType: 'module',
+      plugins: ['jsx', 'typescript', 'decorators-legacy', 'classProperties'],
+      allowReturnOutsideFunction: true,
+      allowImportExportEverywhere: true,
+      tokens: false,
+      ranges: false,
+    };
+    
+    // Parse the code to AST
+    const ast = parse(code, parserOptions);
+    
+    let targetPath: any = null;
+    let bestMatchDistance = Infinity;
+    
+    // Find the JSX element at the specified location
+    traverse(ast, {
+      JSXOpeningElement(path) {
+        const loc = path.node.loc;
+        if (!loc) return;
+        
+        // Check if this element matches the target location
+        if (loc.start.line === lineNumber) {
+          const columnDistance = Math.abs(loc.start.column - columnNumber);
+          if (columnDistance < bestMatchDistance) {
+            targetPath = path;
+            bestMatchDistance = columnDistance;
+          }
+        }
+      },
+    });
+    
+    if (!targetPath) {
+      console.warn(`Could not find JSX element at line ${lineNumber}, column ${columnNumber} in ${filePath}`);
+      return code;
+    }
+    
+    // Get the parent JSX element (which contains both opening and children)
+    const parentPath = targetPath.parentPath;
+    if (!parentPath || !t.isJSXElement(parentPath.node)) {
+      console.warn(`Could not find JSX element parent at line ${lineNumber} in ${filePath}`);
+      return code;
+    }
+    
+    const jsxElement = parentPath.node;
+    
+    // Replace text nodes while preserving JSX elements
+    // Find and replace only text nodes, keep JSX elements
+    const newChildren: t.JSXChild[] = [];
+    let hasTextNode = false;
+    
+    for (const child of jsxElement.children) {
+      if (t.isJSXText(child)) {
+        // Replace the first text node with new content, skip others
+        if (!hasTextNode) {
+          newChildren.push(t.jsxText(textContent));
+          hasTextNode = true;
+        }
+        // Skip other text nodes
+      } else {
+        // Keep JSX elements and expressions
+        newChildren.push(child);
+      }
+    }
+    
+    // If no text node was found, add one at the beginning
+    if (!hasTextNode) {
+      newChildren.unshift(t.jsxText(textContent));
+    }
+    
+    jsxElement.children = newChildren;
+    
+    // Generate code from AST
+    const output = generate(ast, {
+      retainLines: false,
+      compact: false,
+      comments: true,
+      jsescOption: {
+        quotes: 'single',
+        wrap: true,
+      },
+    }, code);
+    return output.code;
+  } catch (error) {
+    console.error(`Failed to update text content in AST for ${filePath}:`, error);
+    // Fall back to original code if AST parsing fails
+    return code;
+  }
+}
