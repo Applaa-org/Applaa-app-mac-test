@@ -2161,6 +2161,86 @@ export class IpcClient {
     return this.ipcRenderer.invoke("supabase:set-session", params);
   }
 
+  // Subscription Methods
+  public async subscriptionInitialize(secretKey: string): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:initialize", secretKey);
+  }
+
+  public async subscriptionInitializeFromSettings(): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:initialize-from-settings");
+  }
+
+  public async subscriptionGetCurrent(): Promise<{
+    subscription: {
+      id: string;
+      status: string;
+      planName: string;
+      currentPeriodStart: string;
+      currentPeriodEnd: string;
+      trialStart?: string;
+      trialEnd?: string;
+      cancelAtPeriodEnd: boolean;
+      canceledAt?: string;
+    } | null;
+    isPro: boolean;
+    tier: 'free' | 'pro';
+    trialStart?: string;
+    trialEnd?: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:get-current");
+  }
+
+  public async subscriptionCreateCheckout(params: {
+    priceId: string;
+    trialDays?: number;
+  }): Promise<{
+    success: boolean;
+    sessionId: string;
+    url: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:create-checkout", params);
+  }
+
+  public async subscriptionCreatePortal(returnUrl: string): Promise<{
+    success: boolean;
+    url: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:create-portal", returnUrl);
+  }
+
+  public async subscriptionCancel(params: {
+    subscriptionId: string;
+    cancelAtPeriodEnd?: boolean;
+  }): Promise<{
+    success: boolean;
+    subscription: {
+      id: string;
+      status: string;
+      cancelAtPeriodEnd: boolean;
+    };
+  }> {
+    return this.ipcRenderer.invoke("subscription:cancel", params);
+  }
+
+  public async subscriptionResume(subscriptionId: string): Promise<{
+    success: boolean;
+    subscription: {
+      id: string;
+      status: string;
+      cancelAtPeriodEnd: boolean;
+    };
+  }> {
+    return this.ipcRenderer.invoke("subscription:resume", subscriptionId);
+  }
+
+  public async subscriptionWebhook(params: {
+    payload: string;
+    signature: string;
+    secret: string;
+  }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:webhook", params);
+  }
+
   // R2 Storage Methods
   public async r2Initialize(config: {
     accountId: string;
