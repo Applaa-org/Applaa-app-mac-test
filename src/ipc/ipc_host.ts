@@ -229,7 +229,14 @@ export function registerIpcHandlers() {
   // 🌐 Website Cloning handlers
   console.log('🌐 Registering Website Cloning handlers...');
   registerWebCloneHandlers();
-  registerSubscriptionHandlers();
+  
+  // 💳 Subscription handlers (Stripe integration - optional)
+  try {
+    registerSubscriptionHandlers();
+    console.log('💳 Subscription handlers registered');
+  } catch (error: any) {
+    console.warn('⚠️ Subscription handlers not available (Stripe may not be installed):', error.message);
+  }
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

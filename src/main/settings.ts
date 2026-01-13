@@ -59,6 +59,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   
   // Game Window defaults (enabled by default to match current behavior)
   enableGameWindowDuringStream: true,
+  
+  // User tier - defaults to "free"
+  userTier: "free" as const,
 };
 
 // Use different settings file for packaged apps to avoid loading dev settings

@@ -848,11 +848,19 @@ export function registerAppHandlers() {
       _,
       params: CreateAppParams,
     ): Promise<{ app: any; chatId: number }> => {
+      // Check tier-based app limits
+      const { canCreateApp } = await import("../utils/feature_checks");
+      const appLimitCheck = canCreateApp();
+      if (!appLimitCheck.allowed) {
+        throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
+      }
+      
+      // Legacy auth check (keep for backwards compatibility)
       const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
       const FREE_UNAUTH_LIMIT = 3;
       const isAuthenticated = await isUserAuthenticated();
 
-      // Require authentication after 3 apps
+      // Require authentication after 3 apps (only if not already checked by tier)
       if (!isAuthenticated && existingApps.count >= FREE_UNAUTH_LIMIT) {
         throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
       }

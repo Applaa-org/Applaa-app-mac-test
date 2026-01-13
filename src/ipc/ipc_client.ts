@@ -2190,6 +2190,18 @@ export class IpcClient {
     return this.ipcRenderer.invoke("subscription:get-current");
   }
 
+  public async redirectToSubscribe(): Promise<{ success: boolean; url: string }> {
+    return this.ipcRenderer.invoke("subscription:redirect-to-subscribe");
+  }
+
+  public async syncSubscriptionFromSupabase(): Promise<{
+    success: boolean;
+    tier: 'free' | 'pro';
+    isPro: boolean;
+  }> {
+    return this.ipcRenderer.invoke("subscription:sync-from-supabase");
+  }
+
   public async subscriptionCreateCheckout(params: {
     priceId: string;
     trialDays?: number;

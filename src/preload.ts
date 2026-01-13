@@ -129,6 +129,8 @@ const validInvokeChannels = [
   "subscription:cancel",
   "subscription:resume",
   "subscription:webhook",
+  "subscription:redirect-to-subscribe",
+  "subscription:sync-from-supabase",
   "wordpress:check-configuration",
   "wordpress:login",
   "wordpress:register",

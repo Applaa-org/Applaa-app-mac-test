@@ -1,23 +1,45 @@
-import Stripe from 'stripe';
 import log from 'electron-log';
 import { getSupabaseClient } from '../lib/supabase';
 
 const logger = log.scope('stripe');
 
-// Initialize Stripe client
-let stripeClient: Stripe | null = null;
+// Lazy load Stripe to avoid requiring it if not installed
+let Stripe: any = null;
+let stripeLoaded = false;
 
-export function initializeStripe(secretKey: string): void {
+async function loadStripe(): Promise<typeof import('stripe').default> {
+  if (!stripeLoaded) {
+    try {
+      Stripe = (await import('stripe')).default;
+      stripeLoaded = true;
+      logger.info('Stripe module loaded');
+    } catch (error) {
+      logger.warn('Stripe module not available. Stripe features will be disabled.');
+      stripeLoaded = true; // Mark as loaded to avoid repeated attempts
+      throw new Error('Stripe module not installed. Run: npm install stripe');
+    }
+  }
+  if (!Stripe) {
+    throw new Error('Stripe module not installed. Run: npm install stripe');
+  }
+  return Stripe;
+}
+
+// Initialize Stripe client
+let stripeClient: any = null;
+
+export async function initializeStripe(secretKey: string): Promise<void> {
   if (!secretKey) {
     throw new Error('Stripe secret key is required');
   }
-  stripeClient = new Stripe(secretKey, {
+  const StripeClass = await loadStripe();
+  stripeClient = new StripeClass(secretKey, {
     apiVersion: '2024-11-20.acacia',
   });
   logger.info('Stripe client initialized');
 }
 
-export function getStripeClient(): Stripe {
+export function getStripeClient(): any {
   if (!stripeClient) {
     throw new Error('Stripe not initialized. Call initializeStripe first.');
   }
@@ -232,7 +254,7 @@ export async function resumeSubscription(subscriptionId: string): Promise<Subscr
 /**
  * Map Stripe subscription to our SubscriptionStatus format
  */
-function mapStripeSubscriptionToStatus(subscription: Stripe.Subscription): SubscriptionStatus {
+function mapStripeSubscriptionToStatus(subscription: any): SubscriptionStatus {
   const price = subscription.items.data[0]?.price;
   const planName = price?.metadata?.plan_name || 'pro';
 
@@ -254,7 +276,7 @@ function mapStripeSubscriptionToStatus(subscription: Stripe.Subscription): Subsc
  * Sync subscription from Stripe to database
  */
 export async function syncSubscriptionToDatabase(
-  subscription: Stripe.Subscription,
+  subscription: any,
   userId: string
 ): Promise<void> {
   let supabase;
@@ -322,7 +344,7 @@ export function verifyWebhookSignature(
   payload: string | Buffer,
   signature: string,
   secret: string
-): Stripe.Event {
+): any {
   const stripe = getStripeClient();
 
   try {

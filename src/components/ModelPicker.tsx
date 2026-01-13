@@ -26,9 +26,9 @@ import { useLanguageModelProviders } from "@/hooks/useLanguageModelProviders";
 import { useSettings } from "@/hooks/useSettings";
 import { ChevronDown, Brain } from "lucide-react";
 
+
 export function ModelPicker() {
   const { settings, updateSettings } = useSettings();
-  
 
   const onModelSelect = (model: LargeLanguageModel) => {
     console.log('ModelPicker: Selecting model:', model);
@@ -279,7 +279,8 @@ export function ModelPicker() {
                             {provider?.name} Models
                           </DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          {models.map((model) => (
+                          {models.map((model) => {
+                            return (
                             <Tooltip key={`${providerId}-${model.apiName}`}>
                               <TooltipTrigger asChild>
                                 <DropdownMenuItem
@@ -314,7 +315,8 @@ export function ModelPicker() {
                                 {model.description}
                               </TooltipContent>
                             </Tooltip>
-                          ))}
+                          );
+                          })}
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                     );
@@ -351,7 +353,8 @@ export function ModelPicker() {
                               <DropdownMenuSubContent className="w-56">
                                 <DropdownMenuLabel>{provider.name} Models</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                {models.map((model) => (
+                                {models.map((model) => {
+                                  return (
                                   <Tooltip key={`${providerId}-${model.apiName}`}>
                                     <TooltipTrigger asChild>
                                       <DropdownMenuItem
@@ -386,7 +389,8 @@ export function ModelPicker() {
                                       {model.description}
                                     </TooltipContent>
                                   </Tooltip>
-                                ))}
+                                );
+                                })}
                               </DropdownMenuSubContent>
                             </DropdownMenuSub>
                           );

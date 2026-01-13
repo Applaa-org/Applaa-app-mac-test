@@ -6,19 +6,34 @@ Run these SQL migrations in order in your Supabase dashboard.
 
 **IMPORTANT**: Run migrations in this exact order:
 
-### 1. Create Profiles Table (Optional - for WordPress user sync)
+### 1. Create Profiles Table (REQUIRED for subscriptions)
 
 Run: `create_profiles_table.sql`
 
-This creates the `profiles` table for WordPress user data. **This is optional** - you can skip it if you only want app sync.
+This creates the `profiles` table for WordPress user data and subscription management. **This is REQUIRED** if you want to use subscriptions.
 
-### 2. Create User Apps Table
+**Fields include:**
+- User profile data (email, full_name, avatar_url)
+- `subscription_tier` (free/pro)
+- `stripe_customer_id` (for Stripe integration)
+- `trial_start` and `trial_end` (for trial management)
+- WordPress user fields (for WordPress auth sync)
+
+### 2. Create Subscriptions Table (Optional - for Stripe integration)
+
+Run: `create_subscriptions_table.sql`
+
+This creates the `subscriptions` table for Stripe subscription management. **Requires profiles table to exist first.**
+
+**Note:** This table has a foreign key reference to `profiles(id)`, so you MUST run `create_profiles_table.sql` first.
+
+### 3. Create User Apps Table
 
 Run: `create_user_apps_table.sql`
 
 This creates the `user_apps` table for syncing app data. **Uses `user_display_name` (not email)**.
 
-### 3. Update Existing Table (If you already created with user_email)
+### 4. Update Existing Table (If you already created with user_email)
 
 If you already created the `user_apps` table with `user_email`, run: `update_user_apps_to_display_name_simple.sql`
 
@@ -36,31 +51,42 @@ This migrates from `user_email` to `user_display_name`.
 
 ## Verification
 
-After running both migrations, verify:
+After running the migrations, verify:
 
 1. **Profiles table exists**:
    ```sql
    SELECT * FROM public.profiles LIMIT 1;
    ```
 
-2. **User apps table exists**:
+2. **Subscriptions table exists** (if you ran it):
+   ```sql
+   SELECT * FROM public.subscriptions LIMIT 1;
+   ```
+
+3. **User apps table exists**:
    ```sql
    SELECT * FROM public.user_apps LIMIT 1;
    ```
 
-3. **RLS is enabled**:
+4. **RLS is enabled**:
    ```sql
    SELECT tablename, rowsecurity 
    FROM pg_tables 
    WHERE schemaname = 'public' 
-   AND tablename IN ('profiles', 'user_apps');
+   AND tablename IN ('profiles', 'subscriptions', 'user_apps');
    ```
 
 ## Troubleshooting
 
 ### Error: "relation public.profiles does not exist"
 
-**Solution**: Run `create_profiles_table.sql` first, then `create_user_apps_table.sql`.
+**Solution**: Run `create_profiles_table.sql` first. This table is required before creating:
+- `subscriptions` table (has foreign key to profiles)
+- `user_apps` table (if it references profiles)
+
+### Error: "relation public.subscriptions does not exist" or foreign key constraint fails
+
+**Solution**: Make sure you ran `create_profiles_table.sql` BEFORE `create_subscriptions_table.sql`. The subscriptions table has a foreign key reference to profiles.
 
 ### Error: "permission denied"
 
