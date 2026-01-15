@@ -1,10 +1,10 @@
 # Subscription Management Web Implementation Guide
 
-This guide provides detailed instructions for implementing subscription management in your Next.js application at `applaa.com/subscribe`.
+This guide provides detailed instructions for implementing subscription management in your Next.js application at `localhost:3000/subscribe`.
 
 ## Overview
 
-The Electron app redirects users to `applaa.com/subscribe` with URL parameters containing user information. Your Next.js application needs to:
+The Electron app redirects users to `localhost:3000/subscribe` with URL parameters containing user information. Your Next.js application needs to:
 
 1. Receive and validate the user parameters
 2. Display subscription plans
@@ -234,7 +234,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 Access the page with test parameters:
 ```
-https://applaa.com/subscribe?email=test@example.com&userId=123e4567-e89b-12d3-a456-426614174000&returnUrl=applaa://subscription/success
+http://localhost:3000/subscribe?email=test@example.com&userId=123e4567-e89b-12d3-a456-426614174000&returnUrl=applaa://subscription/success
 ```
 
 **Test Cases:**
@@ -313,7 +313,7 @@ When ready to add actual payments:
 1. **User clicks "Upgrade to Pro" in Electron app**
    - Electron app calls `subscription:redirect-to-subscribe` IPC handler
    - Handler gets user email and userId from Supabase auth or WordPress auth
-   - Opens browser with URL: `https://applaa.com/subscribe?email=...&userId=...&returnUrl=applaa://subscription/success`
+   - Opens browser with URL: `http://localhost:3000/subscribe?email=...&userId=...&returnUrl=applaa://subscription/success`
 
 2. **User selects plan on web page**
    - Web page calls `/api/subscription/update` endpoint
