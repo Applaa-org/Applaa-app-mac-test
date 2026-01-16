@@ -233,26 +233,15 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   const [visualEditingEnabled, setVisualEditingEnabled] = useAtom(visualEditingEnabledAtom);
   const [selectedVisualElement, setSelectedVisualElement] = useAtom(selectedVisualElementAtom);
   
-  // Auto-activate/deactivate component selector when mode changes
+  // Ensure selector stays active when mode changes
+  // This is a backup - activation happens immediately in click handlers
   useEffect(() => {
-    console.log('🔄 Selector activation check:', { isPicking, visualEditingEnabled, hasIframe: !!iframeRef.current?.contentWindow });
+    if (!iframeRef.current?.contentWindow) return;
     
-    if (!iframeRef.current?.contentWindow) {
-      console.log('❌ No iframe contentWindow available');
-      return;
-    }
-    
-    // If either mode is active, activate the component selector
+    // Only activate if either mode is active (never deactivate)
     if (isPicking || visualEditingEnabled) {
-      console.log('✅ Activating component selector - mode:', isPicking ? 'AI' : 'Manual');
       iframeRef.current.contentWindow.postMessage(
         { type: "activate-dyad-component-selector" },
-        "*",
-      );
-    } else {
-      console.log('🔴 Deactivating component selector');
-      iframeRef.current.contentWindow.postMessage(
-        { type: "deactivate-dyad-component-selector" },
         "*",
       );
     }
@@ -876,160 +865,53 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       }
 
       if (event.data?.type === "dyad-component-selected") {
-        console.log("Component picked:", event.data);
-        
-        // Always set component selection for chat, regardless of visual editing state
         const componentSelection = parseComponentSelection(event.data);
-        if (componentSelection) {
-          console.log('✅ Setting component selection for chat:', componentSelection);
-          setSelectedComponentPreview(componentSelection);
-        }
+        if (!componentSelection) return;
         
-        // If "Edit with AI" mode is active (isPicking), focus chat input and don't open popup
+        setSelectedComponentPreview(componentSelection);
+        
+        // Edit with AI mode: focus chat
         if (isPicking && !visualEditingEnabled) {
-          // Focus chat input when component is selected in AI edit mode
-          if (componentSelection) {
-            window.dispatchEvent(new CustomEvent('focus-chat-input', { 
-              detail: { componentSelection } 
-            }));
-          }
-          // Keep picking mode active so user can select more components if needed
+          window.dispatchEvent(new CustomEvent('focus-chat-input', { 
+            detail: { componentSelection } 
+          }));
           return;
         }
         
-        // If visual editing is enabled, also convert to visual editing selection (this opens popup)
+        // Manual Edit mode: open popup
         if (visualEditingEnabled) {
-          console.log('🎨 Manual Edit mode - converting to visual editing element');
           const componentData = event.data;
-          
-          // Parse file and line from the id (format: "file.tsx:line:column" or "file\path.tsx:line:column")
-          // Handle both forward slashes and backslashes in paths
           const parts = componentData.id.split(':');
           let filePath = null;
           let lineNumber = null;
           if (parts.length >= 3) {
-            // Extract line number (second to last part) and file path (everything before that)
             const lineStr = parts[parts.length - 2];
-            filePath = parts.slice(0, -2).join(':'); // Join all parts except last 2 (line:column)
-            // Normalize path separators (convert backslashes to forward slashes)
+            filePath = parts.slice(0, -2).join(':');
             filePath = filePath.replace(/\\/g, '/');
             lineNumber = parseInt(lineStr, 10);
           }
           
-          console.log('Converting component selection to visual editing:', {
-            id: componentData.id,
-            name: componentData.name,
-            filePath,
-            lineNumber
-          });
-          
-          // Create a visual element immediately so toolbar appears
           const visualElement: VisualEditingElement = {
             id: Date.now().toString(),
             tagName: componentData.name || 'div',
             className: '',
             elementId: '',
-            styles: {}, // Will be populated by visual editing script response or direct access
+            styles: {},
             selector: `[data-dyad-id="${componentData.id}"]`,
             file: filePath || undefined,
             line: lineNumber || undefined,
-            textContent: undefined, // Will be populated by visual editing script response
+            textContent: undefined,
           };
           
-          // Set the element immediately so toolbar appears
-          console.log('✅ Setting visual editing element - toolbar should appear:', visualElement);
           setSelectedVisualElement(visualElement);
           setIsPicking(false);
           
-          // Request styles from visual editing script (works for cross-origin)
           if (iframeRef.current?.contentWindow) {
-            try {
-              iframeRef.current.contentWindow.postMessage({
-                type: 'visual-editing-request-element-data',
-                elementId: componentData.id
-              }, '*');
-              console.log('Requested element data from visual editing script');
-            } catch (error) {
-              console.debug('Could not send message to iframe:', error);
-            }
-            
-            
-            // Also try to get styles directly if iframe is same-origin (fallback)
-            // This is a best-effort attempt, won't break if it fails
-            try {
-              const iframeDoc = iframeRef.current.contentWindow.document;
-              // Find element by checking all elements with data-dyad-id attribute
-              // This is more reliable than querySelector with special characters
-              let element: Element | null = null;
-              const allElements = iframeDoc.querySelectorAll('[data-dyad-id]');
-              for (let i = 0; i < allElements.length; i++) {
-                if (allElements[i].getAttribute('data-dyad-id') === componentData.id) {
-                  element = allElements[i];
-                  break;
-                }
-              }
-              if (element) {
-                console.log('✅ Found element in iframe, getting computed styles');
-                const computedStyle = iframeRef.current.contentWindow.getComputedStyle(element);
-                const styles = {
-                  width: computedStyle.width,
-                  height: computedStyle.height,
-                  display: computedStyle.display,
-                  position: computedStyle.position,
-                  flexDirection: computedStyle.flexDirection,
-                  justifyContent: computedStyle.justifyContent,
-                  alignItems: computedStyle.alignItems,
-                  marginTop: computedStyle.marginTop,
-                  marginRight: computedStyle.marginRight,
-                  marginBottom: computedStyle.marginBottom,
-                  marginLeft: computedStyle.marginLeft,
-                  paddingTop: computedStyle.paddingTop,
-                  paddingRight: computedStyle.paddingRight,
-                  paddingBottom: computedStyle.paddingBottom,
-                  paddingLeft: computedStyle.paddingLeft,
-                  borderWidth: computedStyle.borderWidth,
-                  borderRadius: computedStyle.borderRadius,
-                  borderColor: computedStyle.borderColor,
-                  backgroundColor: computedStyle.backgroundColor,
-                  opacity: computedStyle.opacity,
-                  boxShadow: computedStyle.boxShadow,
-                  zIndex: computedStyle.zIndex,
-                  fontSize: computedStyle.fontSize,
-                  fontWeight: computedStyle.fontWeight,
-                  color: computedStyle.color,
-                  textAlign: computedStyle.textAlign,
-                };
-                
-                // Get text content
-                let textContent = '';
-                if (element.childNodes.length > 0) {
-                  const textNodes = Array.from(element.childNodes)
-                    .filter(node => node.nodeType === Node.TEXT_NODE)
-                    .map(node => node.textContent?.trim())
-                    .filter(text => text && text.length > 0);
-                  textContent = textNodes.join(' ') || '';
-                }
-                
-                // Update with computed styles (this will trigger a re-render with styles)
-                console.log('✅ Updating visual element with computed styles');
-                setSelectedVisualElement({
-                  ...visualElement,
-                  styles: styles,
-                  className: element.className || '',
-                  elementId: element.id || '',
-                  textContent: textContent || undefined,
-                });
-              } else {
-                console.warn('⚠️ Element not found in iframe with selector:', `[data-dyad-id="${componentData.id}"]`);
-              }
-            } catch (error) {
-              // Cross-origin iframe - this is expected, script will send styles via postMessage
-              console.debug('⚠️ Cross-origin iframe detected - styles will be sent via postMessage (this is normal):', error);
-            }
+            iframeRef.current.contentWindow.postMessage({
+              type: 'visual-editing-request-element-data',
+              elementId: componentData.id
+            }, '*');
           }
-        } else {
-          // Visual editing not enabled, just handle regular component selection
-          setIsPicking(false);
         }
         
         return;
@@ -1448,7 +1330,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       <div className="godot-toolbar">
         {/* Navigation Buttons */}
         <div className="flex gap-1">
-          {/* Single Edit Button with Hidden Dropdown */}
+          {/* Edit Mode Dropdown */}
           {!isGodotApp && !expoUrl && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1463,8 +1345,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
                 <DropdownMenuItem
-                  onClick={async () => {
-                    // Check if component selector is initialized
+                  onSelect={async () => {
                     if (!isComponentSelectorInitialized && selectedAppId) {
                       try {
                         const ipcClient = IpcClient.getInstance();
@@ -1480,20 +1361,20 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                       }
                     }
                     
-                    // Activate Edit with AI mode and selector
-                    setVisualEditingEnabled(false);
-                    setSelectedVisualElement(null);
-                    setIsPicking(true);
-                    
-                    // Immediately activate selector (useEffect will also handle it, but this ensures it happens)
+                    // Activate selector FIRST (before state changes)
                     if (iframeRef.current?.contentWindow) {
                       iframeRef.current.contentWindow.postMessage(
                         { type: "activate-dyad-component-selector" },
                         "*",
                       );
                     }
+                    
+                    // Then update state to switch to Edit with AI mode
+                    setVisualEditingEnabled(false);
+                    setSelectedVisualElement(null);
+                    setIsPicking(true);
                   }}
-                  className="flex items-center gap-2 cursor-pointer"
+                  className="flex items-center gap-2"
                 >
                   <Sparkles size={16} />
                   <span>Edit with AI</span>
@@ -1503,13 +1384,8 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={async () => {
-                    console.log('🖊️ Manual Edit clicked');
-                    console.log('  - isComponentSelectorInitialized:', isComponentSelectorInitialized);
-                    
-                    // Check if component selector is initialized
+                  onSelect={async () => {
                     if (!isComponentSelectorInitialized && selectedAppId) {
-                      console.log('  - Applying component tagger upgrade...');
                       try {
                         const ipcClient = IpcClient.getInstance();
                         await ipcClient.executeAppUpgrade({ 
@@ -1524,25 +1400,23 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                       }
                     }
                     
-                    console.log('  - Setting state: isPicking=false, visualEditingEnabled=true');
-                    // Activate Manual Edit mode and selector
-                    setIsPicking(false);
-                    setSelectedComponentPreview(null);
-                    setVisualEditingEnabled(true);
-                    
-                    // Immediately activate selector (useEffect will also handle it, but this ensures it happens)
+                    // Activate selector FIRST (before state changes)
                     if (iframeRef.current?.contentWindow) {
-                      console.log('  - Sending activate message immediately');
                       iframeRef.current.contentWindow.postMessage(
                         { type: "activate-dyad-component-selector" },
                         "*",
                       );
                     }
+                    
+                    // Then update state to switch to Manual Edit mode
+                    setIsPicking(false);
+                    setSelectedComponentPreview(null);
+                    setVisualEditingEnabled(true);
                   }}
-                  className="flex items-center gap-2 cursor-pointer"
+                  className="flex items-center gap-2"
                 >
                   <Pen size={16} />
-                  <span>Manual Edit</span>
+                  <span>Edit Manually</span>
                   {visualEditingEnabled && !isPicking && (
                     <span className="ml-auto text-blue-500">✓</span>
                   )}
