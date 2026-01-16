@@ -551,17 +551,39 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               }
               
               if (e.data?.type === 'visual-editing-request-element-data' && e.data.elementId) {
+                console.log('🎯 [iframe] Received request for element data:', e.data.elementId);
                 // Find element by checking all elements with data-dyad-id attribute
                 // This is more reliable than querySelector with special characters like backslashes
                 let element = null;
                 const allElements = document.querySelectorAll('[data-dyad-id]');
+                console.log('🔍 [iframe] Total elements with data-dyad-id:', allElements.length);
+                
+                // Try exact match first
                 for (let i = 0; i < allElements.length; i++) {
-                  if (allElements[i].getAttribute('data-dyad-id') === e.data.elementId) {
+                  const dyadId = allElements[i].getAttribute('data-dyad-id');
+                  if (dyadId === e.data.elementId) {
                     element = allElements[i];
+                    console.log('✅ [iframe] Found element with exact match');
                     break;
                   }
                 }
+                
+                // If not found, try normalizing path separators (backslash to forward slash)
+                if (!element) {
+                  const normalizedRequestId = e.data.elementId.replace(/\\/g, '/');
+                  for (let i = 0; i < allElements.length; i++) {
+                    const dyadId = allElements[i].getAttribute('data-dyad-id');
+                    const normalizedDyadId = dyadId ? dyadId.replace(/\\/g, '/') : '';
+                    if (normalizedDyadId === normalizedRequestId) {
+                      element = allElements[i];
+                      console.log('✅ [iframe] Found element with normalized path match');
+                      break;
+                    }
+                  }
+                }
+                
                 if (element) {
+                  console.log('📊 [iframe] Found element, computing styles...');
                   const computedStyle = window.getComputedStyle(element);
                   let filePath = null;
                   let lineNumber = null;
@@ -618,6 +640,15 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                     textContent = textNodes.join(' ') || '';
                   }
                   
+                  console.log('📤 [iframe] Sending element data response:', {
+                    elementId: e.data.elementId,
+                    stylesCount: Object.keys(styles).length,
+                    hasWidth: !!styles.width,
+                    hasHeight: !!styles.height,
+                    width: styles.width,
+                    height: styles.height,
+                  });
+                  
                   window.parent.postMessage({
                     type: 'visual-editing-element-data-response',
                     elementId: e.data.elementId,
@@ -631,6 +662,20 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                       line: lineNumber || undefined,
                       column: columnNumber || undefined,
                       textContent: textContent || undefined,
+                    }
+                  }, '*');
+                } else {
+                  console.warn('❌ [iframe] Element not found for:', e.data.elementId);
+                  // Send empty response so the handler knows the request was processed
+                  window.parent.postMessage({
+                    type: 'visual-editing-element-data-response',
+                    elementId: e.data.elementId,
+                    element: {
+                      tagName: 'div',
+                      className: '',
+                      id: '',
+                      selector: '[data-dyad-id="' + e.data.elementId + '"]',
+                      styles: {},
                     }
                   }, '*');
                 }
@@ -717,7 +762,8 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       // This is necessary for cross-origin iframes
       const isVisualEditingMessage = event.data?.type === 'visual-editing-element-selected' || 
                                      event.data?.type === 'visual-editing-ready' ||
-                                     event.data?.type === 'visual-editing-element-data-response';
+                                     event.data?.type === 'visual-editing-element-data-response' ||
+                                     event.data?.type === 'element-styles-response';
       
       if (isVisualEditingMessage) {
         // Accept visual editing messages from any origin (they come from the iframe)
@@ -754,6 +800,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         // Manual Edit mode: open popup
         if (visualEditingEnabled) {
           const componentData = event.data;
+          console.log('🎨 Manual Edit: Component selected', componentData);
           const parts = componentData.id.split(':');
           let filePath = null;
           let lineNumber = null;
@@ -764,24 +811,40 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             lineNumber = parseInt(lineStr, 10);
           }
           
-          const visualElement: VisualEditingElement = {
-            id: Date.now().toString(),
+          setIsPicking(false);
+          
+          // Use postMessage to request element styles (works for cross-origin iframes)
+          const elementId = `visual-edit-${componentData.id}`;
+          const selector = `[data-dyad-id="${componentData.id}"]`;
+          
+          // Create placeholder element first
+          const placeholderElement: VisualEditingElement = {
+            id: elementId,
             tagName: componentData.name || 'div',
             className: '',
             elementId: '',
             styles: {},
-            selector: `[data-dyad-id="${componentData.id}"]`,
+            selector,
             file: filePath || undefined,
             line: lineNumber || undefined,
             textContent: undefined,
           };
           
-          setSelectedVisualElement(visualElement);
-          setIsPicking(false);
+          console.log('📝 Setting placeholder element, requesting styles via postMessage');
+          setSelectedVisualElement(placeholderElement);
           
+          // Request element data via postMessage (works for cross-origin)
           if (iframeRef.current?.contentWindow) {
+            console.log('📤 Requesting element data via postMessage for:', componentData.id);
+            // Try multiple message types - component selector might handle one of them
             iframeRef.current.contentWindow.postMessage({
               type: 'visual-editing-request-element-data',
+              elementId: componentData.id
+            }, '*');
+            
+            // Also try a direct request to the component selector
+            iframeRef.current.contentWindow.postMessage({
+              type: 'request-element-styles',
               elementId: componentData.id
             }, '*');
           }
@@ -858,21 +921,128 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       }
 
       if (event.data?.type === "visual-editing-element-data-response") {
+        console.log('📥 Received element data response:', event.data);
         const elementData = event.data.element;
-        const visualElement: VisualEditingElement = {
-          id: Date.now().toString(),
-          tagName: elementData.tagName || 'div',
-          className: elementData.className || '',
-          elementId: elementData.id || '',
-          styles: elementData.styles || {},
-          selector: elementData.selector || '[data-dyad-id]',
-          file: elementData.file,
-          line: elementData.line,
-          textContent: elementData.textContent,
-        };
-        setSelectedVisualElement(visualElement);
-        // Don't clear component selection - it should remain available for chat
-        // Only update visual element, keep component selection intact
+        const requestedElementId = event.data.elementId;
+        
+        console.log('📊 Element data:', {
+          tagName: elementData.tagName,
+          styles: elementData.styles,
+          stylesType: typeof elementData.styles,
+          stylesKeys: elementData.styles ? Object.keys(elementData.styles) : [],
+          requestedElementId,
+        });
+        
+        // Update the existing element with the fetched styles
+        // Match by checking if the selector or requestedElementId matches the current element
+        setSelectedVisualElement((prev) => {
+          console.log('🔄 Updating element. Previous:', prev);
+          
+          if (!prev) {
+            console.log('⚠️ No previous element, creating new one');
+            // If no previous element, create a new one with styles
+            const newElement = {
+              id: `visual-edit-${requestedElementId || Date.now()}`,
+              tagName: elementData.tagName || 'div',
+              className: elementData.className || '',
+              elementId: elementData.id || '',
+              styles: elementData.styles && typeof elementData.styles === 'object' 
+                ? { ...elementData.styles } 
+                : {},
+              selector: elementData.selector || '[data-dyad-id]',
+              file: elementData.file,
+              line: elementData.line,
+              textContent: elementData.textContent,
+            };
+            console.log('✅ Created new element with styles:', {
+              ...newElement,
+              stylesCount: Object.keys(newElement.styles).length,
+            });
+            // Force a new object reference to ensure React/Jotai detects the change
+            return JSON.parse(JSON.stringify(newElement)) as VisualEditingElement;
+          }
+          
+          // Check if this response is for the current element
+          // Normalize path separators for matching (handle both \ and /)
+          const normalizePath = (str: string) => str ? str.replace(/\\/g, '/') : '';
+          const normalizedPrevId = normalizePath(prev.id);
+          const normalizedRequestedId = requestedElementId ? normalizePath(requestedElementId) : '';
+          const normalizedExpectedId = requestedElementId ? normalizePath(`visual-edit-${requestedElementId}`) : '';
+          
+          // Match by selector or by checking if the elementId matches (with path normalization)
+          const isMatchingElement = 
+            prev.selector === elementData.selector ||
+            (requestedElementId && (
+              prev.id === `visual-edit-${requestedElementId}` ||
+              normalizedPrevId === normalizedExpectedId ||
+              normalizedPrevId.endsWith(normalizedRequestedId)
+            ));
+          
+          console.log('🔍 Matching check:', {
+            prevSelector: prev.selector,
+            elementDataSelector: elementData.selector,
+            prevId: prev.id,
+            requestedElementId,
+            expectedId: `visual-edit-${requestedElementId}`,
+            normalizedPrevId,
+            normalizedExpectedId,
+            normalizedRequestedId,
+            isMatching: isMatchingElement,
+          });
+          
+          if (!isMatchingElement) {
+            console.log('❌ Response is for different element, not updating');
+            // This response is for a different element, don't update
+            return prev;
+          }
+          
+          // Update existing element with fetched styles and data
+          // Create a new styles object to ensure React detects the change
+          const newStyles = elementData.styles && typeof elementData.styles === 'object' 
+            ? { ...elementData.styles } // Spread to create a new object reference
+            : {};
+          
+          console.log('🎨 New styles object:', {
+            newStyles,
+            stylesCount: Object.keys(newStyles).length,
+            sampleStyles: Object.keys(newStyles).slice(0, 5).reduce((acc, key) => {
+              acc[key] = newStyles[key];
+              return acc;
+            }, {} as Record<string, string>),
+          });
+          
+          // Return a completely new element object to ensure React detects the change
+          // Force a new object reference by spreading all properties
+          const updatedElement: VisualEditingElement = {
+            id: prev.id, // Keep the same ID
+            tagName: elementData.tagName || prev.tagName,
+            className: elementData.className || prev.className,
+            elementId: elementData.id || prev.elementId,
+            styles: newStyles, // New styles object with computed values
+            selector: elementData.selector || prev.selector,
+            file: elementData.file !== undefined ? elementData.file : prev.file,
+            line: elementData.line !== undefined ? elementData.line : prev.line,
+            textContent: elementData.textContent !== undefined ? elementData.textContent : prev.textContent,
+          };
+          
+          console.log('✅ Updated element with styles:', {
+            id: updatedElement.id,
+            stylesCount: Object.keys(updatedElement.styles).length,
+            hasWidth: !!updatedElement.styles.width,
+            hasHeight: !!updatedElement.styles.height,
+            hasColor: !!updatedElement.styles.color,
+            sampleStyles: {
+              width: updatedElement.styles.width,
+              height: updatedElement.styles.height,
+              color: updatedElement.styles.color,
+              backgroundColor: updatedElement.styles.backgroundColor,
+            },
+          });
+          
+          // Force a new object reference by using JSON parse/stringify to break any reference
+          // This ensures React/Jotai detects the change
+          return JSON.parse(JSON.stringify(updatedElement)) as VisualEditingElement;
+        });
         setIsPicking(false);
         return;
       }

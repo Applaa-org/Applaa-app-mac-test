@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Save, Type, Palette, Layout, Square, Maximize2, Layers, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,28 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
       setTextContentValue(selectedElement.textContent || '');
     }
   }, [selectedElement?.id, selectedElement?.textContent]);
+
+  // Debug: Log when element changes
+  useEffect(() => {
+    if (selectedElement) {
+      console.log('🎨 VisualEditingToolbar: Element changed', {
+        id: selectedElement.id,
+        stylesCount: Object.keys(selectedElement.styles || {}).length,
+        styles: selectedElement.styles,
+        hasWidth: !!selectedElement.styles?.width,
+        hasHeight: !!selectedElement.styles?.height,
+        width: selectedElement.styles?.width,
+        height: selectedElement.styles?.height,
+        stylesKeys: Object.keys(selectedElement.styles || {}),
+      });
+    }
+  }, [selectedElement?.id, selectedElement?.styles]);
+
+  // Use useMemo to ensure currentStyles updates when selectedElement.styles changes
+  // This ensures React detects the change even if the styles object reference changes
+  const currentStyles = useMemo(() => {
+    return selectedElement?.styles || {};
+  }, [selectedElement?.styles]);
 
   if (!selectedElement) return null;
 
@@ -157,12 +179,23 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
   };
 
   const handleSave = async () => {
-    if (!selectedAppId || changes.size === 0) {
+    // Prevent multiple simultaneous saves
+    if (isSaving) {
+      return;
+    }
+
+    if (!selectedAppId) {
+      alert('Cannot save: No app selected.');
+      return;
+    }
+
+    if (changes.size === 0) {
       // Check if we have changes that can't be saved (no file path)
       if (selectedElement && !selectedElement.file) {
         alert('Cannot save changes: File path not found for this element. Changes are only applied to the live preview.');
         return;
       }
+      alert('No changes to save.');
       return;
     }
 
@@ -178,23 +211,31 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
         return;
       }
       
-      await IpcClient.getInstance().applyVisualEditingChanges({
+      const result = await IpcClient.getInstance().applyVisualEditingChanges({
         appId: selectedAppId,
         changes: validChanges,
       });
       
-      // Clear changes after successful save
-      setChanges(new Map());
-      onClose();
+      if (result.success) {
+        // Clear changes after successful save
+        setChanges(new Map());
+        onClose();
+      } else {
+        // Show error if some files failed
+        const failedFiles = result.results.filter(r => !r.success);
+        if (failedFiles.length > 0) {
+          alert(`Failed to save changes to some files: ${failedFiles.map(f => f.file).join(', ')}`);
+        } else {
+          alert('Failed to save changes. Please try again.');
+        }
+      }
     } catch (error) {
       console.error('Failed to save visual editing changes:', error);
-      alert('Failed to save changes. Please try again.');
+      alert(`Failed to save changes: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsSaving(false);
     }
   };
-
-  const currentStyles = selectedElement.styles || {};
   
   // Helper to parse pixel values
   const parsePixelValue = (value: string): number => {
@@ -206,6 +247,14 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
   // Helper to get current value with fallback
   const getStyleValue = (property: string, defaultValue: string = '') => {
     return currentStyles[property] || defaultValue;
+  };
+
+  // Check if element has file path (can save changes)
+  const canSaveChanges = selectedElement?.file ? true : false;
+  
+  // Check if a specific style property is available
+  const hasStyle = (property: string) => {
+    return currentStyles[property] && currentStyles[property] !== '' && currentStyles[property] !== 'none' && currentStyles[property] !== 'initial';
   };
 
   return (
@@ -225,12 +274,17 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
             <Button
               variant="default"
               size="sm"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="bg-green-600 hover:bg-green-700 text-white h-7 px-2 text-xs"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSave();
+              }}
+              disabled={isSaving || changes.size === 0 || !canSaveChanges}
+              className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white h-7 px-2 text-xs"
+              title={!canSaveChanges ? 'Cannot save: File path not found' : changes.size === 0 ? 'No changes to save' : `Save ${changes.size} change${changes.size === 1 ? '' : 's'}`}
             >
               <Save className="w-3 h-3 mr-1" />
-              Save {changes.size}
+              {isSaving ? 'Saving...' : `Save ${changes.size}`}
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
@@ -240,16 +294,8 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        <Tabs defaultValue="layout" className="w-full">
+        <Tabs defaultValue="text" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-4">
-            <TabsTrigger value="layout" className="text-xs">
-              <Layout className="w-3 h-3 mr-1" />
-              Layout
-            </TabsTrigger>
-            <TabsTrigger value="spacing" className="text-xs">
-              <Square className="w-3 h-3 mr-1" />
-              Spacing
-            </TabsTrigger>
             <TabsTrigger value="text" className="text-xs">
               <Type className="w-3 h-3 mr-1" />
               Text
@@ -257,6 +303,14 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
             <TabsTrigger value="effects" className="text-xs">
               <Palette className="w-3 h-3 mr-1" />
               Effects
+            </TabsTrigger>
+            <TabsTrigger value="layout" className="text-xs">
+              <Layout className="w-3 h-3 mr-1" />
+              Layout
+            </TabsTrigger>
+            <TabsTrigger value="spacing" className="text-xs">
+              <Square className="w-3 h-3 mr-1" />
+              Spacing
             </TabsTrigger>
           </TabsList>
 
@@ -276,7 +330,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="auto"
                     value={parsePixelValue(getStyleValue('width', '')) || ''}
                     onChange={(e) => handlePropertyChange('width', e.target.value ? `${e.target.value}px` : 'auto')}
-                    className="h-8 text-xs"
+                    disabled={!canSaveChanges}
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : 'Width'}
                   />
                 </div>
                 <div>
@@ -286,7 +342,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="auto"
                     value={parsePixelValue(getStyleValue('height', '')) || ''}
                     onChange={(e) => handlePropertyChange('height', e.target.value ? `${e.target.value}px` : 'auto')}
-                    className="h-8 text-xs"
+                    disabled={!canSaveChanges}
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : 'Height'}
                   />
                 </div>
               </div>
@@ -301,7 +359,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
               <select
                 value={getStyleValue('display', 'block')}
                 onChange={(e) => handlePropertyChange('display', e.target.value)}
-                className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1"
+                className="w-full h-9 text-sm rounded-md border-2 border-input bg-background px-3 py-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
               >
                 <option value="block">Block</option>
                 <option value="inline">Inline</option>
@@ -320,7 +380,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                 <select
                   value={getStyleValue('flexDirection', 'row')}
                   onChange={(e) => handlePropertyChange('flexDirection', e.target.value)}
-                  className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1"
+                  className="w-full h-9 text-sm rounded-md border-2 border-input bg-background px-3 py-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                 >
                   <option value="row">Row</option>
                   <option value="column">Column</option>
@@ -333,7 +395,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     <select
                       value={getStyleValue('justifyContent', 'flex-start')}
                       onChange={(e) => handlePropertyChange('justifyContent', e.target.value)}
-                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1"
+                      className="w-full h-9 text-sm rounded-md border-2 border-input bg-background px-3 py-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                     >
                       <option value="flex-start">Start</option>
                       <option value="center">Center</option>
@@ -347,7 +411,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     <select
                       value={getStyleValue('alignItems', 'flex-start')}
                       onChange={(e) => handlePropertyChange('alignItems', e.target.value)}
-                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1"
+                      className="w-full h-9 text-sm rounded-md border-2 border-input bg-background px-3 py-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                     >
                       <option value="flex-start">Start</option>
                       <option value="center">Center</option>
@@ -365,7 +431,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
               <select
                 value={getStyleValue('position', 'static')}
                 onChange={(e) => handlePropertyChange('position', e.target.value)}
-                className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1"
+                className="w-full h-9 text-sm rounded-md border-2 border-input bg-background px-3 py-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
               >
                 <option value="static">Static</option>
                 <option value="relative">Relative</option>
@@ -392,7 +460,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('marginTop', '')) || 0}
                     onChange={(e) => handlePropertyChange('marginTop', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div>
@@ -402,7 +472,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('marginRight', '')) || 0}
                     onChange={(e) => handlePropertyChange('marginRight', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div>
@@ -412,7 +484,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('marginBottom', '')) || 0}
                     onChange={(e) => handlePropertyChange('marginBottom', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div>
@@ -422,7 +496,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('marginLeft', '')) || 0}
                     onChange={(e) => handlePropertyChange('marginLeft', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
               </div>
@@ -442,7 +518,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('paddingTop', '')) || 0}
                     onChange={(e) => handlePropertyChange('paddingTop', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div>
@@ -452,7 +530,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('paddingRight', '')) || 0}
                     onChange={(e) => handlePropertyChange('paddingRight', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div>
@@ -462,7 +542,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('paddingBottom', '')) || 0}
                     onChange={(e) => handlePropertyChange('paddingBottom', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div>
@@ -472,7 +554,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('paddingLeft', '')) || 0}
                     onChange={(e) => handlePropertyChange('paddingLeft', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
               </div>
@@ -492,7 +576,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('borderWidth', '')) || 0}
                     onChange={(e) => handlePropertyChange('borderWidth', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div>
@@ -502,7 +588,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     placeholder="0"
                     value={parsePixelValue(getStyleValue('borderRadius', '')) || 0}
                     onChange={(e) => handlePropertyChange('borderRadius', `${e.target.value}px`)}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
               </div>
@@ -512,7 +600,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                   type="color"
                   value={getStyleValue('borderColor', '#000000')}
                   onChange={(e) => handlePropertyChange('borderColor', e.target.value)}
-                  className="h-8 p-1 w-full"
+                    className="h-10 p-1 w-full border-2 border-gray-300 dark:border-gray-600 rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                 />
               </div>
             </div>
@@ -542,7 +632,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                         });
                       }
                     }}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div className="space-y-2">
@@ -558,7 +650,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                         placeholder="16"
                         value={parsePixelValue(getStyleValue('fontSize', '')) || 16}
                         onChange={(e) => handlePropertyChange('fontSize', `${e.target.value}px`)}
-                        className="h-8 text-xs"
+                        className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canSaveChanges}
+                    title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                       />
                     </div>
                     <div>
@@ -566,7 +660,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                       <select
                         value={getStyleValue('fontWeight', '400')}
                         onChange={(e) => handlePropertyChange('fontWeight', e.target.value)}
-                        className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1"
+                        className="w-full h-9 text-sm rounded-md border-2 border-input bg-background px-3 py-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                       >
                         <option value="100">100 - Thin</option>
                         <option value="200">200 - Extra Light</option>
@@ -587,7 +683,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                     type="color"
                     value={getStyleValue('color', '#000000')}
                     onChange={(e) => handlePropertyChange('color', e.target.value)}
-                    className="h-8 p-1 w-full"
+                    className="h-10 p-1 w-full border-2 border-gray-300 dark:border-gray-600 rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   />
                 </div>
                 <div className="space-y-2">
@@ -595,7 +693,9 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                   <select
                     value={getStyleValue('textAlign', 'left')}
                     onChange={(e) => handlePropertyChange('textAlign', e.target.value)}
-                    className="w-full h-8 text-xs rounded-md border border-input bg-background px-3 py-1"
+                    className="w-full h-9 text-sm rounded-md border-2 border-input bg-background px-3 py-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
                   >
                     <option value="left">Left</option>
                     <option value="center">Center</option>
@@ -627,9 +727,11 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
               </Label>
               <Input
                 type="color"
-                value={getStyleValue('backgroundColor', '#ffffff')}
+                value={getStyleValue('backgroundColor') || '#ffffff'}
                 onChange={(e) => handlePropertyChange('backgroundColor', e.target.value)}
-                className="h-8 p-1 w-full"
+                className="h-10 p-1 w-full border-2 border-gray-300 dark:border-gray-600 rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canSaveChanges}
+                title={!canSaveChanges ? 'File path not found - cannot save changes' : undefined}
               />
             </div>
 
@@ -644,7 +746,7 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                 placeholder="1"
                 value={parseFloat(getStyleValue('opacity', '1')) || 1}
                 onChange={(e) => handlePropertyChange('opacity', e.target.value)}
-                className="h-8 text-xs"
+                className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900"
               />
             </div>
 
@@ -656,7 +758,7 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                 placeholder="0 2px 4px rgba(0,0,0,0.1)"
                 value={getStyleValue('boxShadow', '')}
                 onChange={(e) => handlePropertyChange('boxShadow', e.target.value)}
-                className="h-8 text-xs"
+                className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900"
               />
             </div>
 
@@ -668,7 +770,7 @@ export function VisualEditingToolbar({ onClose }: VisualEditingToolbarProps) {
                 placeholder="auto"
                 value={getStyleValue('zIndex', '') || ''}
                 onChange={(e) => handlePropertyChange('zIndex', e.target.value || 'auto')}
-                className="h-8 text-xs"
+                className="h-9 text-sm border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white dark:bg-gray-900"
               />
             </div>
           </TabsContent>

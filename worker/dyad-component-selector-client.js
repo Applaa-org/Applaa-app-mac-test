@@ -200,11 +200,156 @@
     state = { type: "inactive" };
   }
 
+  // Helper to convert RGB/RGBA to hex
+  function rgbToHex(rgb) {
+    if (!rgb || rgb === 'transparent' || rgb === 'none' || rgb === 'rgba(0, 0, 0, 0)' || rgb === 'initial' || rgb === 'inherit') {
+      return '';
+    }
+    // If already hex, return as is (handle both 3 and 6 digit hex)
+    if (rgb.startsWith('#')) {
+      // Normalize 3-digit hex to 6-digit
+      if (rgb.length === 4) {
+        const r = rgb[1];
+        const g = rgb[2];
+        const b = rgb[3];
+        return '#' + r + r + g + g + b + b;
+      }
+      return rgb.length === 7 ? rgb : '';
+    }
+    // Convert rgb/rgba to hex
+    const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/);
+    if (match) {
+      const r = parseInt(match[1]).toString(16).padStart(2, '0');
+      const g = parseInt(match[2]).toString(16).padStart(2, '0');
+      const b = parseInt(match[3]).toString(16).padStart(2, '0');
+      return '#' + r + g + b;
+    }
+    // Return empty string for unrecognized formats
+    return '';
+  }
+
   /* ---------- message bridge -------------------------------------------- */
   window.addEventListener("message", (e) => {
     if (e.source !== window.parent) return;
     if (e.data.type === "activate-dyad-component-selector") activate();
     if (e.data.type === "deactivate-dyad-component-selector") deactivate();
+    
+    // Handle element style requests
+    if (e.data.type === "visual-editing-request-element-data" || 
+        e.data.type === "request-element-styles") {
+      const elementId = e.data.elementId;
+      if (!elementId) return;
+      
+      // Find element by data-dyad-id
+      let element = null;
+      const allElements = document.querySelectorAll('[data-dyad-id]');
+      for (let i = 0; i < allElements.length; i++) {
+        const dyadId = allElements[i].getAttribute('data-dyad-id');
+        if (dyadId === elementId || dyadId?.replace(/\\/g, '/') === elementId.replace(/\\/g, '/')) {
+          element = allElements[i];
+          break;
+        }
+      }
+      
+      if (element) {
+        // Try to get inline styles first (actual set values), then fall back to computed
+        const inlineStyle = element.style;
+        const computedStyle = window.getComputedStyle(element);
+        
+        // Get background color (convert to hex if needed)
+        // Always use computed style for background color to get the actual rendered color
+        let bgColor = computedStyle.backgroundColor || '';
+        // Convert to hex - handle all color formats
+        if (bgColor && bgColor !== 'transparent' && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'initial' && bgColor !== 'inherit') {
+          bgColor = rgbToHex(bgColor);
+          // If conversion failed, fallback to original computed value
+          if (!bgColor) {
+            bgColor = computedStyle.backgroundColor;
+          }
+        } else {
+          bgColor = ''; // Empty string for transparent/no background
+        }
+        
+        // Get text color (convert to hex if needed)
+        let textColor = inlineStyle.color || computedStyle.color;
+        textColor = rgbToHex(textColor);
+        
+        // Get border color (convert to hex if needed)
+        let borderColor = inlineStyle.borderColor || computedStyle.borderColor;
+        borderColor = rgbToHex(borderColor);
+        
+        const styles = {
+          width: inlineStyle.width || computedStyle.width || '',
+          height: inlineStyle.height || computedStyle.height || '',
+          display: inlineStyle.display || computedStyle.display || '',
+          position: inlineStyle.position || computedStyle.position || '',
+          flexDirection: inlineStyle.flexDirection || computedStyle.flexDirection || '',
+          justifyContent: inlineStyle.justifyContent || computedStyle.justifyContent || '',
+          alignItems: inlineStyle.alignItems || computedStyle.alignItems || '',
+          marginTop: inlineStyle.marginTop || computedStyle.marginTop || '',
+          marginRight: inlineStyle.marginRight || computedStyle.marginRight || '',
+          marginBottom: inlineStyle.marginBottom || computedStyle.marginBottom || '',
+          marginLeft: inlineStyle.marginLeft || computedStyle.marginLeft || '',
+          paddingTop: inlineStyle.paddingTop || computedStyle.paddingTop || '',
+          paddingRight: inlineStyle.paddingRight || computedStyle.paddingRight || '',
+          paddingBottom: inlineStyle.paddingBottom || computedStyle.paddingBottom || '',
+          paddingLeft: inlineStyle.paddingLeft || computedStyle.paddingLeft || '',
+          borderWidth: inlineStyle.borderWidth || computedStyle.borderWidth || '',
+          borderRadius: inlineStyle.borderRadius || computedStyle.borderRadius || '',
+          borderColor: borderColor || '',
+          backgroundColor: bgColor || '',
+          opacity: inlineStyle.opacity || computedStyle.opacity || '',
+          boxShadow: inlineStyle.boxShadow || (computedStyle.boxShadow !== 'none' ? computedStyle.boxShadow : '') || '',
+          zIndex: inlineStyle.zIndex || (computedStyle.zIndex !== 'auto' ? computedStyle.zIndex : '') || '',
+          fontSize: inlineStyle.fontSize || computedStyle.fontSize || '',
+          fontWeight: inlineStyle.fontWeight || computedStyle.fontWeight || '',
+          color: textColor || '',
+          textAlign: inlineStyle.textAlign || computedStyle.textAlign || '',
+        };
+        
+        // Get file/line info from data-dyad-id
+        const dyadId = element.getAttribute('data-dyad-id');
+        let filePath = null;
+        let lineNumber = null;
+        let columnNumber = null;
+        if (dyadId) {
+          const parts = dyadId.split(':');
+          if (parts.length >= 3) {
+            const columnStr = parts.pop();
+            const lineStr = parts.pop();
+            filePath = parts.join(':');
+            lineNumber = parseInt(lineStr, 10);
+            columnNumber = parseInt(columnStr, 10);
+          }
+        }
+        
+        // Get text content
+        let textContent = '';
+        if (element.childNodes.length > 0) {
+          const textNodes = Array.from(element.childNodes)
+            .filter(node => node.nodeType === Node.TEXT_NODE)
+            .map(node => node.textContent?.trim())
+            .filter(text => text && text.length > 0);
+          textContent = textNodes.join(' ') || '';
+        }
+        
+        window.parent.postMessage({
+          type: 'visual-editing-element-data-response',
+          elementId: elementId,
+          element: {
+            tagName: element.tagName.toLowerCase(),
+            className: element.className || '',
+            id: element.id || '',
+            selector: '[data-dyad-id="' + elementId + '"]',
+            styles: styles,
+            file: filePath || undefined,
+            line: lineNumber || undefined,
+            column: columnNumber || undefined,
+            textContent: textContent || undefined,
+          }
+        }, '*');
+      }
+    }
   });
 
   function initializeComponentSelector() {
