@@ -8,7 +8,7 @@ import {
 } from "@/atoms/appAtoms";
 import { useExpoUrl } from "@/hooks/useExpoUrl";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -227,25 +227,30 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPicking, setIsPicking] = useState(false);
+  const selectorActiveRef = useRef(false); // Track if selector should be active
+  
+  // Helper function to activate selector - always works
+  const activateSelector = useCallback(() => {
+    if (iframeRef.current?.contentWindow) {
+      selectorActiveRef.current = true;
+      iframeRef.current.contentWindow.postMessage(
+        { type: "activate-dyad-component-selector" },
+        "*",
+      );
+    }
+  }, []);
   
   // Visual Editing state
   const { isPro } = useApplaaPro();
   const [visualEditingEnabled, setVisualEditingEnabled] = useAtom(visualEditingEnabledAtom);
   const [selectedVisualElement, setSelectedVisualElement] = useAtom(selectedVisualElementAtom);
   
-  // Ensure selector stays active when mode changes
-  // This is a backup - activation happens immediately in click handlers
+  // Keep selector active - always activate when either mode is active
   useEffect(() => {
-    if (!iframeRef.current?.contentWindow) return;
-    
-    // Only activate if either mode is active (never deactivate)
     if (isPicking || visualEditingEnabled) {
-      iframeRef.current.contentWindow.postMessage(
-        { type: "activate-dyad-component-selector" },
-        "*",
-      );
+      activateSelector();
     }
-  }, [isPicking, visualEditingEnabled]);
+  }, [isPicking, visualEditingEnabled, activateSelector]);
   
   // Publish state
   const [isPublishing, setIsPublishing] = useState(false);
@@ -1361,18 +1366,16 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                       }
                     }
                     
-                    // Activate selector FIRST (before state changes)
-                    if (iframeRef.current?.contentWindow) {
-                      iframeRef.current.contentWindow.postMessage(
-                        { type: "activate-dyad-component-selector" },
-                        "*",
-                      );
-                    }
+                    // Activate selector FIRST before any state changes
+                    activateSelector();
                     
-                    // Then update state to switch to Edit with AI mode
+                    // Batch state updates together - React 18 batches these automatically
                     setVisualEditingEnabled(false);
                     setSelectedVisualElement(null);
                     setIsPicking(true);
+                    
+                    // Activate again after a tiny delay to ensure it stays on
+                    setTimeout(() => activateSelector(), 10);
                   }}
                   className="flex items-center gap-2"
                 >
@@ -1400,18 +1403,16 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                       }
                     }
                     
-                    // Activate selector FIRST (before state changes)
-                    if (iframeRef.current?.contentWindow) {
-                      iframeRef.current.contentWindow.postMessage(
-                        { type: "activate-dyad-component-selector" },
-                        "*",
-                      );
-                    }
+                    // Activate selector FIRST before any state changes
+                    activateSelector();
                     
-                    // Then update state to switch to Manual Edit mode
+                    // Batch state updates together - React 18 batches these automatically
                     setIsPicking(false);
                     setSelectedComponentPreview(null);
                     setVisualEditingEnabled(true);
+                    
+                    // Activate again after a tiny delay to ensure it stays on
+                    setTimeout(() => activateSelector(), 10);
                   }}
                   className="flex items-center gap-2"
                 >
