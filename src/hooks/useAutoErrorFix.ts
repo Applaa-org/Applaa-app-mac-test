@@ -701,19 +701,19 @@ Please fix these errors immediately and ensure the app runs without issues.`;
 
   // ✅ CRITICAL FIX: Auto-trigger fix when streaming stops and problems exist
   useEffect(() => {
-    console.log('🔍 Auto-fix effect running...', {
-      isExpoApp,
-      isStreaming,
-      problemCount: problemReport?.problems?.length || 0,
-      chatId,
-      chatsCount: chats?.length || 0,
-      isAutoFixing,
-      selectedAppId
-    });
+    // console.log('🔍 Auto-fix effect running...', {
+    //   isExpoApp,
+    //   isStreaming,
+    //   problemCount: problemReport?.problems?.length || 0,
+    //   chatId,
+    //   chatsCount: chats?.length || 0,
+    //   isAutoFixing,
+    //   selectedAppId
+    // });
 
     // Must have: Expo app, not streaming, problems exist
     if (!isExpoApp) {
-      console.log('⏸️ Not an Expo app, skipping auto-fix');
+      // console.log('⏸️ Not an Expo app, skipping auto-fix');
       return;
     }
     
