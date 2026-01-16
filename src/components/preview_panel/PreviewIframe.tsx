@@ -17,16 +17,15 @@ import {
   Loader2,
   X,
   Sparkles,
-  ChevronDown,
   Lightbulb,
   ChevronRight,
-  MousePointerClick,
+  ChevronDown,
   Power,
-  Upload,
   Github,
   Globe,
   Pen,
   Edit,
+  Upload,
 } from "lucide-react";
 import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
@@ -39,23 +38,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { selectedComponentPreviewAtom, visualEditingEnabledAtom, selectedVisualElementAtom, type VisualEditingElement } from "@/atoms/previewAtoms";
 import { VisualEditingToolbar } from "./VisualEditingToolbar";
-import { useApplaaPro } from "@/hooks/useApplaaPro";
 import { AutoErrorFixBanner } from "./AutoErrorFixBanner";
 import { ComponentSelection } from "@/ipc/ipc_types";
-import { StreamingGameSelector } from "@/components/StreamingGameSelector";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useRunApp } from "@/hooks/useRunApp";
 import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
 import { useGodotExport } from "@/hooks/useGodotExport";
@@ -227,12 +216,9 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPicking, setIsPicking] = useState(false);
-  const selectorActiveRef = useRef(false); // Track if selector should be active
   
-  // Helper function to activate selector - always works
   const activateSelector = useCallback(() => {
     if (iframeRef.current?.contentWindow) {
-      selectorActiveRef.current = true;
       iframeRef.current.contentWindow.postMessage(
         { type: "activate-dyad-component-selector" },
         "*",
@@ -240,8 +226,6 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     }
   }, []);
   
-  // Visual Editing state
-  const { isPro } = useApplaaPro();
   const [visualEditingEnabled, setVisualEditingEnabled] = useAtom(visualEditingEnabledAtom);
   const [selectedVisualElement, setSelectedVisualElement] = useAtom(selectedVisualElementAtom);
   
@@ -318,63 +302,26 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     }
   }, [selectedAppId]);
 
-  // Inject visual editing script into iframe (always inject, activate via postMessage)
+  // Visual editing script injection (disabled - using component selector instead)
+  // This useEffect is kept for potential future use but currently not needed
+  // since we use the same component selector for both Edit with AI and Edit Manually
   useEffect(() => {
-    console.log('🔧 Visual editing injection useEffect running...');
-    console.log('  - iframeRef.current:', !!iframeRef.current);
-    console.log('  - isGodotApp:', isGodotApp);
-    console.log('  - expoUrl:', expoUrl);
-    console.log('  - selectedAppId:', selectedAppId);
-    console.log('  - appUrl:', appUrl);
+    if (!iframeRef.current || isGodotApp || expoUrl) return;
     
-    if (!iframeRef.current) {
-      console.log('❌ No iframeRef.current - skipping injection');
-      return;
-    }
-    
-    if (isGodotApp) {
-      console.log('❌ Is Godot app - skipping injection');
-      return;
-    }
-    
-    if (expoUrl) {
-      console.log('❌ Is Expo app - skipping injection');
-      return;
-    }
-
-    console.log('✅ All conditions met - proceeding with injection setup');
     const iframe = iframeRef.current;
     
     const injectVisualEditingScript = () => {
-      console.log('🔧 injectVisualEditingScript() called');
-      if (!iframe.contentWindow) {
-        console.log('❌ No iframe.contentWindow, aborting injection');
-        return;
-      }
-      console.log('✅ iframe.contentWindow exists');
+      if (!iframe.contentWindow) return;
       
-      // Check if we can access the iframe document (might be cross-origin)
       try {
-        // Try to access - this will throw for cross-origin
-        if (!iframe.contentDocument) {
-          console.log('❌ Cannot access iframe.contentDocument - aborting');
-          return;
-        }
-        console.log('✅ Can access iframe.contentDocument');
+        if (!iframe.contentDocument) return;
       } catch (e) {
-        // Cross-origin iframe - cannot inject script directly
-        console.warn('❌ Cross-origin iframe detected, cannot inject script:', e);
         return;
       }
 
       try {
-        // Check if script already exists
         const existingScript = (iframe.contentWindow as any).__visualEditing;
-        if (existingScript) {
-          console.log('ℹ️ Visual editing script already exists, skipping injection');
-          return;
-        }
-        console.log('🔧 Script not found, proceeding with injection...');
+        if (existingScript) return;
 
         const script = `
           (function() {
@@ -452,12 +399,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             }
             
             function handleClick(e) {
-              if (!window.__visualEditing.active) {
-                console.log('Click ignored - visual editing not active');
-                return;
-              }
-              
-              console.log('🖱️ Element clicked in visual editing mode:', e.target);
+              if (!window.__visualEditing.active) return;
               
               // Stop the component selector from handling this click
               e.preventDefault();
@@ -560,55 +502,26 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             }
             
             function activate() {
-              if (window.__visualEditing.active) {
-                console.log('⚠️ Visual editing already active');
-                return;
-              }
-              console.log('🖱️ ACTIVATING VISUAL EDITING - Element selection mode enabled');
-              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              if (window.__visualEditing.active) return;
+              
               window.__visualEditing.active = true;
               createOverlay();
               
-              // Use capture phase to intercept clicks before component selector
               document.addEventListener('mousemove', handleMouseMove, true);
               document.addEventListener('click', handleClick, true);
               window.addEventListener('scroll', handleScroll, true);
               
-              // Deactivate component selector when visual editing is active
               window.parent.postMessage({ type: "deactivate-dyad-component-selector" }, "*");
               
               document.body.style.cursor = 'crosshair';
               document.body.style.userSelect = 'none';
-              
-              // Show visual indicator
-              const indicator = document.createElement('div');
-              indicator.id = '__visual_editing_indicator__';
-              indicator.style.cssText = \`
-                position: fixed;
-                top: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #9333ea;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 6px;
-                z-index: 999999;
-                font-family: sans-serif;
-                font-size: 14px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-              \`;
-              indicator.textContent = '🖱️ Visual Editing Active - Click an element to edit';
-              document.body.appendChild(indicator);
-              
-              console.log('✅✅✅ VISUAL EDITING ACTIVATED - Hover over elements to see purple highlights! ✅✅✅');
             }
             
             function deactivate() {
               if (!window.__visualEditing.active) return;
-              console.log('🛑 DEACTIVATING VISUAL EDITING');
+              
               window.__visualEditing.active = false;
               
-              // Cancel any pending animation frames
               if (rafId) {
                 cancelAnimationFrame(rafId);
                 rafId = null;
@@ -622,40 +535,17 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               document.body.style.userSelect = '';
               lastTarget = null;
               selectedElement = null;
-              
-              // Remove visual indicator
-              const indicator = document.getElementById('__visual_editing_indicator__');
-              if (indicator) {
-                indicator.remove();
-              }
-              console.log('✅ Visual editing deactivated');
             }
             
-            // Handle requests for element data by data-dyad-id AND activation/deactivation messages
-            console.log('🎯 Visual editing message listener registered');
             window.addEventListener('message', function(e) {
-              // Log all messages for debugging
-              if (e.source === window.parent && e.data?.type) {
-                console.log('📬 Received message from parent:', e.data.type);
-              }
-              
               if (e.source !== window.parent) return;
               
-              // Test message for debugging
-              if (e.data?.type === 'test-visual-editing') {
-                console.log('🧪 Test message received - postMessage communication works!');
-                return;
-              }
-              
-              // Handle activation/deactivation messages (like component selector)
               if (e.data?.type === 'activate-visual-editing') {
-                console.log('📨 Received activate-visual-editing message - activating now!');
                 activate();
                 return;
               }
               
               if (e.data?.type === 'deactivate-visual-editing') {
-                console.log('📨 Received deactivate-visual-editing message - deactivating now!');
                 deactivate();
                 return;
               }
@@ -672,7 +562,6 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                   }
                 }
                 if (element) {
-                  console.log('Visual editing script: Found element for data-dyad-id:', e.data.elementId);
                   const computedStyle = window.getComputedStyle(element);
                   let filePath = null;
                   let lineNumber = null;
@@ -767,27 +656,17 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               (iframe.contentWindow as any).eval(script);
             }
           } else {
-            // Fallback to eval
             (iframe.contentWindow as any).eval(script);
           }
-          
-          console.log('✅ VISUAL EDITING SCRIPT INJECTED - Script is ready to receive messages');
         } catch (evalError: any) {
-          // Cross-origin iframe - cannot inject script
-          if (evalError?.name === 'SecurityError' || evalError?.message?.includes('cross-origin')) {
-            console.warn('⚠️ Cannot inject visual editing (cross-origin iframe)');
-          } else {
-            console.error('❌ Failed to inject visual editing script:', evalError);
-          }
+          // Cross-origin iframe - cannot inject script (expected for some apps)
         }
       } catch (error) {
-        console.error('❌ Failed to inject visual editing script:', error);
+        // Silently fail for cross-origin iframes
       }
     };
 
     const handleLoad = () => {
-      console.log('📥 Iframe load event fired - preparing to inject script');
-      // Wait for iframe to be fully ready
       const checkReady = () => {
         try {
           if (iframe.contentDocument) {
@@ -815,33 +694,22 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       checkReady();
     };
 
-    // Inject script when iframe loads
-    console.log('📌 Adding load event listener to iframe');
     iframe.addEventListener('load', handleLoad);
     
-    // If iframe is already loaded, inject immediately
     try {
       const readyState = iframe.contentDocument?.readyState;
-      console.log('📄 Current iframe readyState:', readyState);
       if (readyState === 'complete' || readyState === 'interactive') {
-        console.log('🔄 Iframe already loaded, injecting immediately');
         handleLoad();
       }
     } catch (e) {
-      console.warn('⚠️ Cannot check readyState (cross-origin?), will wait for load event');
+      // Cross-origin - will wait for load event
     }
 
     return () => {
-      console.log('🧹 Cleaning up visual editing injection useEffect');
       iframe.removeEventListener('load', handleLoad);
     };
-  }, [isGodotApp, expoUrl, selectedAppId, appUrl]); // Add appUrl to trigger on app changes
+  }, [isGodotApp, expoUrl, selectedAppId, appUrl]);
 
-  // 🚫 DISABLED: Console error monitoring to match Dyad's approach
-  // Add message listener for iframe errors and navigation events
-  // useEffect(() => {
-  //   detectConsoleErrors(appOutput);
-  // }, [appOutput, detectConsoleErrors]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -922,12 +790,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         return;
       }
       
-      // Handle "Edit with AI" button click
-      // Accept from iframe (same origin check already done above for non-visual-editing messages)
       if (event.data?.type === "dyad-edit-with-ai-clicked") {
-        console.log("Edit with AI clicked:", event.data);
-        
-        // Parse and set the component selection
         const componentSelection = parseComponentSelection({
           type: "dyad-component-selected",
           id: event.data.id,
@@ -935,11 +798,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         });
         
         if (componentSelection) {
-          console.log('✅ Setting component selection from Edit with AI button:', componentSelection);
           setSelectedComponentPreview(componentSelection);
-          
-          // Focus chat input by dispatching a custom event
-          // The chat input should listen for this and focus itself
           window.dispatchEvent(new CustomEvent('focus-chat-input', { 
             detail: { componentSelection } 
           }));
@@ -948,9 +807,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         return;
       }
 
-      // Handle visual editing element selection
       if (event.data?.type === "visual-editing-element-selected") {
-        console.log("Visual editing element selected:", event.data.element);
         const elementData = event.data.element;
         const visualElement: VisualEditingElement = {
           id: Date.now().toString(),
@@ -963,16 +820,11 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           line: elementData.line,
           textContent: elementData.textContent,
         };
-        console.log('✅ Setting visual editing element - toolbar should appear:', visualElement);
         setSelectedVisualElement(visualElement);
         
-        // If we have file and line info, create a component selection for chat
-        // This allows the selected element to be used in chat even when visual editing is active
         if (elementData.file && elementData.line) {
           try {
-            // Extract component name from tag or selector
             const componentName = elementData.tagName || elementData.selector || 'element';
-            
             const componentSelection: ComponentSelection = {
               id: `${elementData.file}:${elementData.line}:${elementData.column || 0}`,
               name: componentName,
@@ -980,41 +832,32 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               lineNumber: elementData.line,
               columnNumber: elementData.column || 0,
             };
-            
-            console.log('✅ Creating component selection from visual editing element:', componentSelection);
             setSelectedComponentPreview(componentSelection);
           } catch (error) {
-            console.warn('Could not create component selection from visual editing element:', error);
+            // Silently fail
           }
         }
         
-        // Keep visual editing active so user can select another element after closing toolbar
-        // Don't deactivate or set isPicking to false
         return;
       }
 
       if (event.data?.type === "visual-editing-ready") {
-        console.log("Visual editing script ready");
-        // If visual editing is already enabled, activate it immediately
         if (visualEditingEnabled) {
           setTimeout(() => {
             try {
               const iframeWindow = iframeRef.current?.contentWindow as any;
               if (iframeWindow?.__visualEditing) {
-                console.log('Activating visual editing after script ready');
                 iframeWindow.__visualEditing.activate();
               }
             } catch (error) {
-              console.debug('Cannot activate visual editing after ready:', error);
+              // Silently fail for cross-origin
             }
           }, 100);
         }
         return;
       }
 
-      // Handle response from visual editing script with element data
       if (event.data?.type === "visual-editing-element-data-response") {
-        console.log("Received element data from visual editing script:", event.data.element);
         const elementData = event.data.element;
         const visualElement: VisualEditingElement = {
           id: Date.now().toString(),
@@ -1064,7 +907,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         const errorMessage = `Error ${
           payload?.message || payload?.reason
         }\nStack trace: ${stack}`;
-        console.error("Iframe error:", errorMessage);
+        // Error logged to console by iframe
         setErrorMessage(errorMessage);
         setAppOutput((prev) => [
           ...prev,
@@ -1076,7 +919,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           },
         ]);
       } else if (type === "build-error-report") {
-        console.debug(`Build error report: ${payload}`);
+        // Build error handled
         const errorMessage = `${payload?.message} from file ${payload?.file}.\n\nSource code:\n${payload?.frame}`;
         setErrorMessage(errorMessage);
         setAppOutput((prev) => [
@@ -1089,7 +932,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           },
         ]);
       } else if (type === "pushState" || type === "replaceState") {
-        console.debug(`Navigation event: ${type}`, payload);
+        // Navigation event handled
 
         // Update navigation history based on the type of state change
         if (type === "pushState" && payload?.newUrl) {
@@ -1218,7 +1061,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     setErrorMessage(undefined);
     // Optionally, add logic here if you need to explicitly stop/start the app again
     // For now, just changing the key should remount the iframe
-    console.debug("Reloading iframe preview for app", selectedAppId);
+    // Reloading iframe
   };
 
   // Function to navigate to a specific route
@@ -1575,33 +1418,19 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           error={errorMessage}
           onDismiss={() => setErrorMessage(undefined)}
           onAIFix={async () => {
-            console.log("🔧 Fix error with AI button clicked");
-            console.log("🔧 Error message:", errorMessage);
-            console.log("🔧 Selected app ID:", selectedAppId);
-            console.log("🔧 Selected chat ID:", selectedChatId);
-            console.log("🔧 App chat ID:", appChatId);
-            console.log("🔧 Available chats:", chats);
-            
-            // 🚀 IMPROVED: Use proper chat lookup - selectedChatId first, then app's main chat
             const chatIdToUse = selectedChatId || appChatId;
             
             if (!chatIdToUse) {
-              console.error("❌ Cannot fix error: No chat ID available - selectedChatId:", selectedChatId, "appChatId:", appChatId, "selectedAppId:", selectedAppId);
-              // Try to show an error message to the user
               alert("No chat available to send the error fix request. Please create a chat first.");
               return;
             }
-            
-            console.log("✅ Fixing error with chat ID:", chatIdToUse, "(source:", selectedChatId ? "selectedChat" : "appChat", ")");
             
             try {
               await streamMessage({
                 prompt: `Fix this error: ${errorMessage}. Please analyze the error and provide the corrected code.`,
                 chatId: chatIdToUse,
               });
-              console.log("✅ Error fix request sent successfully");
             } catch (error) {
-              console.error("❌ Failed to send error fix request:", error);
               alert(`Failed to send error fix request: ${error instanceof Error ? error.message : String(error)}`);
             }
           }}
@@ -1672,12 +1501,12 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                         data-testid="preview-iframe-element"
                         onLoad={(e) => {
                           const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                          console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                          // Iframe loaded successfully
                           setErrorMessage(undefined);
                         }}
                         onError={(e) => {
                           const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                          console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                          // Iframe load error (handled by error handler)
                           setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
                         }}
                         ref={iframeRef}
@@ -1709,22 +1538,22 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 data-testid="preview-iframe-element"
                 onLoad={(e) => {
                   const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                  console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                  // Iframe loaded
                   setErrorMessage(undefined);
                   
                   // Try to access iframe content for debugging (may fail due to CORS)
                   try {
                     const iframe = iframeRef.current;
                     if (iframe && iframe.contentWindow) {
-                      console.log('Iframe contentWindow accessible');
+                      // Iframe accessible
                     }
                   } catch (err) {
-                    console.log('Cannot access iframe content (CORS):', err);
+                    // Cross-origin iframe (expected)
                   }
                 }}
                 onError={(e) => {
                   const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                  console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                  // Iframe load error
                   setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
                 }}
                 ref={iframeRef}
@@ -1743,7 +1572,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       {visualEditingEnabled && selectedVisualElement && (
         <VisualEditingToolbar
           onClose={() => {
-            console.log('Closing visual editing toolbar');
+            // Closing toolbar
             setSelectedVisualElement(null);
             // Keep visual editing active so user can select another element
             // Don't deactivate - just clear the selected element
@@ -1796,7 +1625,7 @@ function parseComponentSelection(data: any): ComponentSelection | null {
   // The id is expected to be in the format "filepath:line:column"
   const parts = id.split(":");
   if (parts.length < 3) {
-    console.error(`Invalid component selection id format: "${id}"`);
+    // Invalid format
     return null;
   }
 
@@ -1805,7 +1634,7 @@ function parseComponentSelection(data: any): ComponentSelection | null {
   const relativePath = parts.join(":");
 
   if (!columnStr || !lineStr || !relativePath) {
-    console.error(`Could not parse component selection from id: "${id}"`);
+    // Parse error
     return null;
   }
 
@@ -1813,7 +1642,7 @@ function parseComponentSelection(data: any): ComponentSelection | null {
   const columnNumber = parseInt(columnStr, 10);
 
   if (isNaN(lineNumber) || isNaN(columnNumber)) {
-    console.error(`Could not parse line/column from id: "${id}"`);
+    // Parse error
     return null;
   }
 
