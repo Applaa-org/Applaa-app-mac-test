@@ -58,14 +58,31 @@ export default function ChatPage() {
             console.log(`🔍 [ChatPage] Chat ${chatId} not found in loaded chats, fetching directly...`);
             const { IpcClient } = await import("@/ipc/ipc_client");
             const ipcClient = IpcClient.getInstance();
-            const chatData = await ipcClient.getChat(chatId);
 
-            // Get all chats to find the appId (since getChat doesn't return appId directly)
-            const allChats = await ipcClient.getChats();
-            currentChat = allChats.find(chat => chat.id === chatId);
+            // Retry logic for getChat (up to 5 times for race conditions)
+            let attempts = 0;
+            const maxAttempts = 5;
+
+            while (attempts < maxAttempts) {
+              try {
+                const chatData = await ipcClient.getChat(chatId);
+                if (chatData) {
+                  // Direct result has appId, no need to fetch all chats!
+                  currentChat = chatData as any;
+                  console.log(`✅ [ChatPage] Successfully fetched chat ${chatId} (appId: ${chatData.appId})`);
+                  break;
+                }
+              } catch (err) {
+                attempts++;
+                console.warn(`⚠️ [ChatPage] getChat ${chatId} failed (attempt ${attempts}/${maxAttempts}):`, err);
+                if (attempts >= maxAttempts) throw err;
+                // Exponential backoff
+                await new Promise(r => setTimeout(r, 500 * attempts));
+              }
+            }
           }
 
-          if (currentChat && currentChat.appId !== selectedAppId) {
+          if (currentChat && currentChat.appId && currentChat.appId !== selectedAppId) {
             console.log(`🔄 [ChatPage] Syncing selectedAppId: ${selectedAppId} -> ${currentChat.appId} for chatId: ${chatId}`);
             setSelectedAppId(currentChat.appId);
           }
