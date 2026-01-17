@@ -39,7 +39,7 @@ export default function RootLayout({
     }
   }, [location.pathname]);
 
-  const { refreshAppIframe } = useRunApp();
+  const { refreshAppIframe, app } = useRunApp();
 
   // 🚀 OPTIMIZATION: Background dependency installation for opened apps
   useBackgroundDependencyInstaller();
@@ -63,7 +63,10 @@ export default function RootLayout({
 
   // Show game popup immediately when streaming starts (only once per session)
   useEffect(() => {
-    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current) {
+    // Hide game popup for Minecraft apps as requested by user
+    const isMinecraftApp = app?.appType === 'minecraft' || (app?.appType as string) === 'minecraft-mod';
+
+    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current && !isMinecraftApp) {
       setIsGamePopupOpen(true);
       popupOpenedForCurrentStream.current = true;
     }

@@ -5,7 +5,10 @@ import { EXPO_SYSTEM_PROMPT } from "./expo_system_prompt";
 import { GODOT_SYSTEM_PROMPT } from "./godot_system_prompt";
 // import { MAKECODE_SYSTEM_PROMPT } from "./makecode_system_prompt"; // Temporarily commented out
 import { MINECRAFT_MOD_SYSTEM_PROMPT } from "./minecraft_mod_system_prompt";
+import { MINECRAFT_BEDROCK_MCFUNCTION_PROMPT } from "./minecraft_bedrock_prompt";
 import { replaceColorPlaceholders } from "./color_system";
+import { generateFeatureInstructions } from "./feature_prompts";
+import type { AppFeaturesConfig, AppType } from "../types/app-features";
 
 const logger = log.scope("system_prompt");
 
@@ -111,16 +114,20 @@ export const isMakeCodeApp = (appPath: string): boolean => {
 };
 
 /**
- * Detect if an app is a Minecraft Mod (Java)
+ * Detect if an app is a Minecraft Mod (Blockly or Java)
  */
 export const isMinecraftModApp = (appPath: string): boolean => {
   try {
     const files = fs.readdirSync(appPath);
+    // Check for Blockly workspace (new approach)
+    const hasWorkspaceJson = fs.existsSync(path.join(appPath, "workspace.json"));
+    // Legacy: check for Java files
     const hasJavaFile = files.some(f => f.endsWith('.java'));
     const hasBuildGradle = fs.existsSync(path.join(appPath, "build.gradle"));
     const hasPxtJson = fs.existsSync(path.join(appPath, "pxt.json"));
 
-    return (hasJavaFile || hasBuildGradle) && !hasPxtJson;
+    // Blockly workspace OR Java files (not MakeCode)
+    return hasWorkspaceJson || ((hasJavaFile || hasBuildGradle) && !hasPxtJson);
   } catch (error) {
     return false;
   }
@@ -1579,6 +1586,7 @@ export const constructSystemPrompt = ({
   appDescription,
   appContent,
   appType,
+  features,
 }: {
   aiRules: string | undefined;
   chatMode?: "build" | "ask";
@@ -1587,16 +1595,16 @@ export const constructSystemPrompt = ({
   appDescription?: string;
   appContent?: string;
   appType?: string;
+  features?: AppFeaturesConfig;
 }) => {
   let systemPrompt: string;
 
   if (chatMode === "ask") {
     systemPrompt = ASK_MODE_SYSTEM_PROMPT;
   } else if (appType === 'minecraft' || (appPath && isMinecraftModApp(appPath))) {
-    // Use Minecraft Mod-specific system prompt
-    // Check appType first (from database), then fall back to file detection
-    systemPrompt = MINECRAFT_MOD_SYSTEM_PROMPT;
-    logger.log(`Using Minecraft Mod system prompt for app at: ${appPath}`);
+    // Use Minecraft Bedrock system prompt (mcfunction commands)
+    systemPrompt = MINECRAFT_BEDROCK_MCFUNCTION_PROMPT;
+    logger.log(`Using Minecraft Bedrock mcfunction prompt for app at: ${appPath}`);
   } else if (appType === 'expo' || (appPath && isExpoApp(appPath))) {
     // Use Expo-specific system prompt for mobile apps
     systemPrompt = EXPO_SYSTEM_PROMPT;
@@ -1639,6 +1647,14 @@ export const constructSystemPrompt = ({
 
   // Replace color placeholders with app-specific colors
   systemPrompt = replaceColorPlaceholders(systemPrompt, appName, appDescription, appContent);
+
+  // Add feature-specific instructions if features are enabled
+  if (features && appType) {
+    const featureInstructions = generateFeatureInstructions(appType as AppType, features);
+    if (featureInstructions) {
+      systemPrompt = systemPrompt + '\n\n' + featureInstructions;
+    }
+  }
 
   return systemPrompt.replace("[[AI_RULES]]", aiRules ?? DEFAULT_AI_RULES);
 };

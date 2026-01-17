@@ -1,16 +1,21 @@
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Settings, Sparkles, Check } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Terminal } from "lucide-react";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppUpgrade } from "@/ipc/ipc_types";
 import { useLoadApp } from "@/hooks/useLoadApp";
 import { MobileUpgradeComparison } from "./MobileUpgradeComparison";
+import { FeatureConfigDialog } from "./creator/FeatureConfigDialog";
+import type { AppType } from "@/types/app-features";
+import { useState } from "react";
 
 export function AppUpgrades({ appId, hideHeading = false }: { appId: number | null; hideHeading?: boolean }) {
   const queryClient = useQueryClient();
   const { app } = useLoadApp(appId ?? null);
+  const [showFeatureConfig, setShowFeatureConfig] = useState(false);
 
   const {
     data: upgrades,
@@ -46,10 +51,10 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
     },
     onSuccess: (result, upgradeId) => {
       console.log(`🎉 [DEBUG] Upgrade successful for ${upgradeId}:`, result);
-      
+
       // Force refresh all upgrade-related queries
       queryClient.invalidateQueries({ queryKey: ["app-upgrades", appId] });
-      
+
       if (upgradeId === "capacitor") {
         // Capacitor upgrade is done, invalidate Capacitor queries
         queryClient.invalidateQueries({ queryKey: ["is-capacitor", appId] });
@@ -67,7 +72,7 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
           queryClient.invalidateQueries({ queryKey: ["app-upgrades", appId] });
         }, 1000);
       }
-      
+
       // Show success message
       const frameworkName = upgradeId === 'capacitor' ? 'Capacitor' : 'Flutter';
       alert(`✅ ${frameworkName} upgrade completed successfully!`);
@@ -75,9 +80,9 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
     onError: (error, upgradeId) => {
       console.error(`❌ [DEBUG] Upgrade failed for ${upgradeId}:`, error);
       const frameworkName = upgradeId === 'capacitor' ? 'Capacitor' : 'Flutter';
-      
+
       let userFriendlyMessage = error.message;
-      
+
       // Provide specific guidance for common errors
       if (error.message.includes("Flutter CLI is not installed")) {
         userFriendlyMessage = "Flutter CLI is not installed. Please install Flutter from https://flutter.dev/docs/get-started/install and restart the app.";
@@ -88,7 +93,7 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
       } else if (error.message.includes("Flutter app is already installed")) {
         userFriendlyMessage = "Flutter app is already created for this project. No upgrade needed.";
       }
-      
+
       alert(`❌ Failed to upgrade ${frameworkName}:\n\n${userFriendlyMessage}`);
     },
   });
@@ -130,17 +135,131 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
     );
   }
 
-  // If this is a mobile app, hide the whole upgrade area (Capacitor/Flutter are web-only)
+  // If this is a mobile app, show Mobile Features configuration instead of upgrades
   if (appId && app?.appType === 'mobile') {
-    return null;
+    return (
+      <div className={hideHeading ? "" : "mt-6"}>
+        {!hideHeading && (
+          <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
+            Mobile App Features
+          </h3>
+        )}
+
+        {/* Mobile Features Configuration Card */}
+        <Card className="border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-purple-600" />
+              Configure Mobile Features
+            </CardTitle>
+            <CardDescription>
+              Enable AdMob, Haptics, Push Notifications, Camera, and other native features for your Expo app
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  <span>AI Capabilities</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <span>AdMob Ads</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 text-orange-600" />
+                  <span>Haptic Feedback</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 text-purple-600" />
+                  <span>Push Notifications</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 text-red-600" />
+                  <span>Camera & Media</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 text-indigo-600" />
+                  <span>20+ More Features</span>
+                </div>
+              </div>
+
+              {app?.features && Object.values(app.features).some((f: any) => f?.enabled) && (
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-700 dark:text-green-300">
+                  ✓ {Object.values(app.features).filter((f: any) => f?.enabled).length} mobile feature(s) configured
+                </div>
+              )}
+
+              <Button
+                onClick={() => {
+                  console.log('[AppUpgrades] Mobile - Configure Features clicked');
+                  setShowFeatureConfig(true);
+                }}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                size="lg"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configure Mobile Features
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Feature Configuration Dialog */}
+        {(() => {
+          console.log('[AppUpgrades] Mobile - Dialog render check:', {
+            hasApp: !!app,
+            appType: app?.appType,
+            showFeatureConfig,
+            features: app?.features
+          });
+          return app && (
+            <FeatureConfigDialog
+              open={showFeatureConfig}
+              onOpenChange={setShowFeatureConfig}
+              appType={(app.appType || 'mobile') as AppType}
+              initialFeatures={app.features}
+              onFeaturesSelected={async (features) => {
+                try {
+                  console.log('[AppUpgrades] Mobile - Saving features:', features);
+
+                  // Save features to app's features.json file
+                  const ipcClient = IpcClient.getInstance();
+                  await ipcClient.writeFile({
+                    appId: appId!,
+                    filePath: '.applaa/features.json',
+                    content: JSON.stringify(features, null, 2),
+                  });
+
+                  // Invalidate queries to refresh app data
+                  queryClient.invalidateQueries({
+                    queryKey: ["app", appId],
+                  });
+                  queryClient.invalidateQueries({
+                    queryKey: ["app-details", appId],
+                  });
+
+                  alert("✅ Mobile features configured successfully!");
+                  setShowFeatureConfig(false);
+                } catch (error) {
+                  console.error('[AppUpgrades] Mobile - Failed to save features:', error);
+                  alert(`❌ Failed to save features: ${error}`);
+                }
+              }}
+            />
+          );
+        })()}
+      </div>
+    );
   }
 
   // Backend now only returns upgrades that are needed, so no need to filter by isNeeded
   const currentUpgrades = upgrades ?? [];
-  const mobileUpgrades = currentUpgrades.filter(u => 
+  const mobileUpgrades = currentUpgrades.filter(u =>
     u.id === 'capacitor' || u.id === 'flutter-webview'
   );
-  const otherUpgrades = currentUpgrades.filter(u => 
+  const otherUpgrades = currentUpgrades.filter(u =>
     u.id !== 'capacitor' && u.id !== 'flutter-webview'
   );
 
@@ -148,11 +267,11 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
     console.log(`🚀 [DEBUG] AppUpgrades handleSelectFramework called with:`, { frameworkId, webUrl });
     console.log(`🚀 [DEBUG] executeUpgrade function:`, executeUpgrade);
     console.log(`🚀 [DEBUG] appId:`, appId);
-    
+
     if (webUrl) {
       (window as any).__webUrl = webUrl;
     }
-    
+
     try {
       console.log(`🚀 [DEBUG] Calling executeUpgrade with frameworkId: ${frameworkId}`);
       executeUpgrade(frameworkId);
@@ -186,7 +305,60 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
           </Button>
         </div>
       )}
-      
+
+      {/* App Features Configuration Card */}
+      <Card className="mb-6 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5 text-purple-600" />
+            Configure App Features
+          </CardTitle>
+          <CardDescription>
+            Enable AI capabilities, monetization, platform features, and integrations for your {app?.appType || 'app'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Sparkles className="h-4 w-4 text-blue-600" />
+                <span>AI Models</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Check className="h-4 w-4 text-green-600" />
+                <span>AdMob/AdSense</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Check className="h-4 w-4 text-orange-600" />
+                <span>Native Features</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Check className="h-4 w-4 text-purple-600" />
+                <span>Integrations</span>
+              </div>
+            </div>
+
+            {app?.features && Object.values(app.features).some((f: any) => f?.enabled) && (
+              <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-700 dark:text-green-300">
+                ✓ {Object.values(app.features).filter((f: any) => f?.enabled).length} feature(s) configured
+              </div>
+            )}
+
+            <Button
+              onClick={() => {
+                console.log('[AppUpgrades] Configure Features clicked', { app, showFeatureConfig });
+                setShowFeatureConfig(true);
+              }}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              size="lg"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Configure Features
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Show mobile upgrade comparison if mobile upgrades are available */}
       {mobileUpgrades.length > 0 && (
         <div className="mb-6">
@@ -208,7 +380,7 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
           App is up-to-date and has all Applaa capabilities enabled
         </div>
       ) : null}
-      
+
       {/* Show other (non-mobile) upgrades in traditional format */}
       {otherUpgrades.length > 0 && (
         <div className="space-y-4">
@@ -266,6 +438,51 @@ export function AppUpgrades({ appId, hideHeading = false }: { appId: number | nu
           ))}
         </div>
       )}
+
+      {/* Feature Configuration Dialog */}
+      {(() => {
+        console.log('[AppUpgrades] Dialog render check:', {
+          hasApp: !!app,
+          appType: app?.appType,
+          showFeatureConfig,
+          features: app?.features
+        });
+        return app && (
+          <FeatureConfigDialog
+            open={showFeatureConfig}
+            onOpenChange={setShowFeatureConfig}
+            appType={(app.appType || 'web') as AppType}
+            initialFeatures={app.features}
+            onFeaturesSelected={async (features) => {
+              try {
+                console.log('[AppUpgrades] Saving features:', features);
+
+                // Save features to app's features.json file
+                const ipcClient = IpcClient.getInstance();
+                await ipcClient.writeFile({
+                  appId: appId!,
+                  filePath: '.applaa/features.json',
+                  content: JSON.stringify(features, null, 2),
+                });
+
+                // Invalidate queries to refresh app data
+                queryClient.invalidateQueries({
+                  queryKey: ["app", appId],
+                });
+                queryClient.invalidateQueries({
+                  queryKey: ["app-details", appId],
+                });
+
+                alert("✅ Features configured successfully!");
+                setShowFeatureConfig(false);
+              } catch (error) {
+                console.error('[AppUpgrades] Failed to save features:', error);
+                alert(`❌ Failed to save features: ${error}`);
+              }
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

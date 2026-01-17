@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ProblemReport, Problem } from "../../shared/tsc_types";
+import type { AppFeaturesConfig } from "../types/app-features";
 export type { ProblemReport, Problem };
 
 export interface AppOutput {
@@ -58,6 +59,8 @@ export interface CreateAppParams {
   platforms?: string[];
   path?: string;
   initialPrompt?: string;
+  // App Features Configuration
+  features?: AppFeaturesConfig;
 }
 
 export interface CreateAppResult {
@@ -119,6 +122,8 @@ export interface App {
   deploymentStatus: string | null;
   lastDeploymentAt: Date | null;
   deploymentNotes: string | null;
+  // App Features Configuration
+  features?: AppFeaturesConfig;
 }
 
 export interface ReadFileParams {

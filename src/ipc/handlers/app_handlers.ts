@@ -1011,8 +1011,14 @@ renderer/rendering_method="forward_plus"
       } else {
         const isGameFramework = ['makecode-arcade', 'arcade', 'microbit', 'minecraft-makecode', 'blockly'].includes(params.framework as string);
 
-        if (isGameFramework) {
-          // For game frameworks, just initialize an empty project with Git
+        if (appType === 'minecraft') {
+          // For Minecraft apps, use the minecraft-basic template with starter Java mod
+          await createFromTemplate({
+            fullAppPath,
+            templateId: 'minecraft-basic',
+          });
+        } else if (isGameFramework) {
+          // For other game frameworks (blockly, arcade, microbit), just initialize an empty project with Git
           await fsPromises.mkdir(fullAppPath, { recursive: true });
 
           await git.init({

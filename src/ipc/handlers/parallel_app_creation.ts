@@ -735,85 +735,85 @@ renderer/rendering_method="forward_plus"
 }
 
 /**
- * Create Minecraft Mod template files
+ * Create Minecraft Mod template files (Blockly-based)
  */
 async function createMinecraftModTemplate(
   fullAppPath: string,
   params: ParallelAppCreationParams
 ) {
-  logger.info(`⛏️ Creating Minecraft mod template at ${fullAppPath}`);
+  logger.info(`⛏️ Creating Minecraft Blockly template at ${fullAppPath}`);
 
   // Create the app directory
   fs.mkdirSync(fullAppPath, { recursive: true });
 
-  // Path to the Minecraft template
-  const templatePath = path.join(__dirname, '../../../minecraft-templates/basic');
-
-  // Check if template exists
-  if (!fs.existsSync(templatePath)) {
-    logger.warn(`Minecraft template not found at ${templatePath}, creating basic structure`);
-
-    // Create basic MyMod.java file
-    const basicModContent = `/**
- * ${params.displayName || params.name}
- * 
- * A Minecraft mod created with Applaa
- */
-
-public class MyMod {
-    
-    public void onInit() {
-        System.out.println("${params.displayName || params.name} has been loaded!");
-    }
-    
-    public void onChatCommand(String command, Player player) {
-        if (command.equals("hello")) {
-            player.sendMessage("Hello from ${params.displayName || params.name}!");
+  // Create a starter Blockly workspace with a simple spawn command
+  const starterWorkspace = {
+    blocks: {
+      languageVersion: 0,
+      blocks: [
+        {
+          type: "minecraft_on_chat",
+          x: 50,
+          y: 50,
+          fields: { COMMAND: "hello" },
+          inputs: {
+            DO: {
+              block: {
+                type: "minecraft_say",
+                inputs: {
+                  MESSAGE: {
+                    shadow: {
+                      type: "text",
+                      fields: { TEXT: "Hello from " + (params.displayName || params.name) + "!" }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
+      ]
     }
-}
+  };
+
+  // Save workspace.json (Blockly format)
+  fs.writeFileSync(
+    path.join(fullAppPath, 'workspace.json'),
+    JSON.stringify(starterWorkspace, null, 2)
+  );
+
+  // Create README with Blockly instructions
+  const readmeContent = `# ${params.displayName || params.name}
+
+A Minecraft mod created with Applaa using visual blocks!
+
+## How to Use
+
+1. **Drag blocks** from the Minecraft category on the left
+2. **Connect blocks** to build your mod logic
+3. **Click Play** to preview what your mod does
+4. **Click Build .mcaddon** to create an installable add-on
+
+## Available Block Categories
+
+- 🐾 **Creatures**: Spawn zombies, creepers, pigs, etc.
+- ✨ **Effects**: Give speed, invisibility, strength, etc.
+- 🧱 **Building**: Place blocks, build structures
+- 🎮 **Player**: Teleport, give items, send messages
+- 🌍 **World**: Set time of day, weather
+
+## Installing Your Mod
+
+After clicking "Build .mcaddon":
+1. Download the .mcaddon file
+2. Double-click it to import into Minecraft
+3. Enable the add-on in your world settings
+4. Have fun!
 `;
 
-    fs.writeFileSync(path.join(fullAppPath, 'MyMod.java'), basicModContent);
+  fs.writeFileSync(path.join(fullAppPath, 'README.md'), readmeContent);
 
-    // Create README
-    const readmeContent = `# ${params.displayName || params.name}
-
-A Minecraft mod created with Applaa.
-
-## Getting Started
-
-Edit \`MyMod.java\` to add your custom features!
-`;
-
-    fs.writeFileSync(path.join(fullAppPath, 'README.md'), readmeContent);
-
-  } else {
-    // Copy template files
-    logger.info(`Copying Minecraft template from ${templatePath}`);
-
-    const templateFiles = fs.readdirSync(templatePath);
-    for (const file of templateFiles) {
-      const srcPath = path.join(templatePath, file);
-      const destPath = path.join(fullAppPath, file);
-
-      if (fs.statSync(srcPath).isDirectory()) {
-        // Recursively copy directories
-        fs.cpSync(srcPath, destPath, { recursive: true });
-      } else {
-        // Copy files
-        let content = fs.readFileSync(srcPath, 'utf8');
-
-        // Replace placeholders in template files
-        content = content.replace(/MyMod/g, params.displayName || params.name);
-        content = content.replace(/\{\{APP_NAME\}\}/g, params.displayName || params.name);
-
-        fs.writeFileSync(destPath, content);
-      }
-    }
-  }
-
-  logger.info(`✅ Minecraft mod template created at ${fullAppPath}`);
+  logger.info(`✅ Minecraft Blockly template created at ${fullAppPath}`);
 }
 
 /**

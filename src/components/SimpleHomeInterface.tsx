@@ -22,6 +22,7 @@ import { useApplaaPro } from '@/hooks/useApplaaPro';
 import { useNavigate } from '@tanstack/react-router';
 import { Crown, Sparkles, Globe, Smartphone, RefreshCw, Lightbulb, ExternalLink, Gamepad2, Play, Cpu, Box } from 'lucide-react';
 import { GODOT_GAMES_DATA, getEmojiForGame } from '@/data/godotGamesData';
+import { ALL_TEMPLATES as MINECRAFT_TEMPLATES, getRandomTemplates as getRandomMinecraftTemplates } from '@/lib/minecraft/minecraft-direct-templates';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
@@ -32,6 +33,7 @@ import { toast } from 'sonner';
 import { Edit2, Trash2, Plus } from 'lucide-react';
 import { showError, showSuccess } from '@/lib/toast';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
+import { AppNamingDialog } from './AppNamingDialog';
 
 interface SimpleHomeInterfaceProps {
   onChatSubmit?: (options?: any) => Promise<void>;
@@ -60,6 +62,10 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const [templateToEdit, setTemplateToEdit] = useState<{ id: string; name: string; details: string; previewUrl?: string | null; imageUrl?: string | null; emoji?: string | null; appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' } | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  // Minecraft template naming dialog state
+  const [isMinecraftNamingDialogOpen, setIsMinecraftNamingDialogOpen] = useState(false);
+  const [pendingMinecraftTemplate, setPendingMinecraftTemplate] = useState<ExampleIdea | null>(null);
 
   // Handle app type selection
   const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly') => {
@@ -130,6 +136,50 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const ipcClient = IpcClient.getInstance();
   const queryClient = useQueryClient();
   const { hasPermission: hasAdminPermission } = useAdminPermission();
+
+  // Handler for when user confirms Minecraft app name
+  const handleMinecraftNameSelected = async (name: string) => {
+    if (!pendingMinecraftTemplate) return;
+
+    try {
+      console.log('[Minecraft] Creating app with name:', name);
+      toast.loading(`Creating ${name}...`);
+
+      const normalizedName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const appName = `${normalizedName}-${Date.now().toString(36)}`;
+
+      // Create Minecraft app
+      const result = await ipcClient.createApp({
+        name: appName,
+        displayName: name,
+        appType: 'minecraft',
+        framework: 'minecraft' as any,
+        path: `apps/minecraft/${appName}`,
+      });
+
+      console.log('[Minecraft] App created:', result);
+
+      // Store template code and info for the editor to pick up
+      localStorage.setItem('minecraft-template-code', pendingMinecraftTemplate.prompt);
+      localStorage.setItem('minecraft-template-name', pendingMinecraftTemplate.title);
+      localStorage.setItem('minecraft-template-features', pendingMinecraftTemplate.description);
+      localStorage.setItem('minecraft-template-show-welcome', 'true');
+
+      toast.dismiss();
+      toast.success(`${name} ready! Modify it in the chat.`);
+
+      // Clear pending template
+      setPendingMinecraftTemplate(null);
+
+      // Navigate to chat page with this app using router
+      console.log('[Minecraft] Navigating to chat with app:', result.app.id);
+      navigate({ to: '/chat', search: { id: result.app.id } });
+    } catch (error: any) {
+      toast.dismiss();
+      console.error('[Minecraft] Failed to create app:', error);
+      toast.error(`Failed to create app: ${error?.message || 'Unknown error'}`);
+    }
+  };
 
   // Fetch game templates from Supabase
   const { data: gameTemplates = [], isLoading: isLoadingTemplates } = useQuery({
@@ -490,9 +540,18 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                     <span className="text-xl leading-none pt-0.5 flex-shrink-0">{idea.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <button
-                        onClick={() => {
-                          setInputValue(idea.prompt);
-                          // For Godot, the component will pick up the value via initialDescription prop
+                        onClick={async () => {
+                          console.log('[Template Click] selectedAppType:', selectedAppType, 'idea.title:', idea.title);
+
+                          // For Minecraft templates, show naming dialog first
+                          if (selectedAppType === 'minecraft') {
+                            console.log('[Minecraft] Opening naming dialog for template:', idea.title);
+                            setPendingMinecraftTemplate(idea);
+                            setIsMinecraftNamingDialogOpen(true);
+                          } else {
+                            // For other app types, use normal flow
+                            setInputValue(idea.prompt);
+                          }
                         }}
                         className="w-full text-left"
                       >
@@ -643,6 +702,17 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Minecraft Template Naming Dialog */}
+      <AppNamingDialog
+        open={isMinecraftNamingDialogOpen}
+        onOpenChange={(open) => {
+          setIsMinecraftNamingDialogOpen(open);
+          if (!open) setPendingMinecraftTemplate(null);
+        }}
+        userPrompt={pendingMinecraftTemplate?.title || ''}
+        onNameSelected={handleMinecraftNameSelected}
+      />
     </div>
   );
 }
@@ -811,26 +881,14 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 
       }
     ];
   } else if (type === 'minecraft') {
-    return [
-      {
-        title: "Super Bridge Builder",
-        description: "Automatically builds a bridge as you walk.\nUses the Agent to place blocks.",
-        emoji: "🌉",
-        prompt: "Code a Minecraft mod where an Agent follows the player and automatically builds a glass bridge under their feet as they walk across gaps."
-      },
-      {
-        title: "Instant House",
-        description: "Builds a complete house structure with one command.\nIncludes doors, windows, and a roof.",
-        emoji: "🏠",
-        prompt: "Create a Minecraft Mod that builds a 5x5 house around the player instantly when they type 'build' in the chat. Use wood for walls and glass for windows."
-      },
-      {
-        title: "Mob Spawner Trap",
-        description: "Automates mob containment for farming.\nCreates a safe zone with traps.",
-        emoji: "🧟",
-        prompt: "Design a Minecraft mod that creates a 10x10 stone arena with lava traps and automatic mob spawning triggers for testing combat skills."
-      }
-    ];
+    // Use new Minecraft Templates Hub (45+ templates)
+    const shuffled = [...MINECRAFT_TEMPLATES].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 12).map(template => ({
+      title: template.name,
+      description: template.description + '\n' + template.features.slice(0, 2).join(' • '),
+      emoji: template.icon,
+      prompt: template.mcfunction,
+    }));
   } else if (type === 'blockly') {
     return [
       {

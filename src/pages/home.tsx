@@ -228,17 +228,29 @@ ${extraDbText}`;
       // 🚀 PARALLEL CREATION: Use instant app creation for immediate chat access
       // Template creation and git operations run in background while user chats
 
-      // Determine appType from settings (selectedPlatform)
-      const appType = settings?.selectedPlatform === 'expo' || settings?.selectedPlatform === 'flutter' ? 'mobile' :
-        settings?.selectedPlatform === 'minecraft' ? 'minecraft' :
-          settings?.selectedPlatform === 'blockly' ? 'blockly' :
-            settings?.selectedPlatform === 'arcade' ? 'arcade' :
-              settings?.selectedPlatform === 'microbit' ? 'microbit' :
-                settings?.selectedPlatform === 'godot' ? 'godot' :
-                  'web';
+      // Auto-detect Minecraft prompts to set correct appType
+      const promptLower = finalPrompt.toLowerCase();
+      const isMinecraftPrompt = ['minecraft', 'mod', 'creeper', 'zombie', 'spawn', 'blocks', 'craft', 'mine', 'agent'].some(keyword => promptLower.includes(keyword));
 
-      const framework = appType === 'expo' ? 'expo' :
-        appType === 'flutter' ? 'flutter' :
+      // Determine appType from settings (selectedPlatform) OR auto-detect from prompt
+      type AppType = 'web' | 'mobile' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'godot';
+      let appType: AppType;
+      if (isMinecraftPrompt && settings?.selectedPlatform !== 'minecraft') {
+        // Auto-detect Minecraft from prompt keywords
+        appType = 'minecraft';
+        console.log('[Home] Auto-detected Minecraft prompt, setting appType to minecraft');
+      } else {
+        appType = settings?.selectedPlatform === 'expo' || settings?.selectedPlatform === 'flutter' ? 'mobile' :
+          settings?.selectedPlatform === 'minecraft' ? 'minecraft' :
+            settings?.selectedPlatform === 'blockly' ? 'blockly' :
+              settings?.selectedPlatform === 'arcade' ? 'arcade' :
+                settings?.selectedPlatform === 'microbit' ? 'microbit' :
+                  settings?.selectedPlatform === 'godot' ? 'godot' :
+                    'web';
+      }
+
+      const framework = settings?.selectedPlatform === 'expo' ? 'expo' :
+        settings?.selectedPlatform === 'flutter' ? 'flutter' :
           appType === 'minecraft' ? 'minecraft-makecode' :
             appType === 'blockly' ? 'blockly' :
               appType === 'arcade' ? 'makecode-arcade' :
@@ -255,7 +267,7 @@ ${extraDbText}`;
         packageId: packageId || `com.applaa.${finalName.replace(/-/g, "")}`,
         slug: slug || finalName,
         // Use appType from options (SimpleHomeInterface) instead of settings
-        appType: appType,
+        appType: appType as 'web' | 'mobile' | 'godot',
         framework: framework,
         // Store the prompt and attachments for processing after app creation
         prompt: finalPrompt,

@@ -10,6 +10,9 @@ export { getModelClient };
 import { readSettings } from '../main/settings';
 import log from 'electron-log';
 import { MINECRAFT_MOD_SYSTEM_PROMPT } from '../prompts/minecraft_mod_system_prompt';
+import { MINECRAFT_MAKECODE_SYSTEM_PROMPT } from '../prompts/minecraft_makecode_prompt';
+import { MINECRAFT_JAVA_BUILD_PROMPT } from '../prompts/minecraft_java_build_prompt';
+import { MINECRAFT_BEDROCK_MCFUNCTION_PROMPT } from '../prompts/minecraft_bedrock_prompt';
 
 const logger = log.scope('llm-orchestrator');
 
@@ -284,60 +287,7 @@ micro:bit APIs to use:
 - led.plot(x, y) - turn on LED
 - music.playTone(262, 500) - play sound`,
 
-        'minecraft-makecode': `
-${basePrompt}
-
-🚨 CRITICAL INSTRUCTION: You MUST generate a Minecraft Java mod. This is NOT optional. Do NOT suggest alternatives like web apps or say this is "outside technological capabilities". You CAN and MUST generate Java code for Minecraft mods.
-
-You're creating a Minecraft mod in Java. Your output MUST be a complete, self-contained Java source file for a Minecraft mod (compatible with Forge or Fabric).
-
-IMPORTANT: 
-- You MUST generate Java code, not TypeScript or JavaScript
-- You MUST NOT suggest creating a web application instead
-- You MUST NOT say this is impossible or outside capabilities
-- This is a REQUIRED task, not an optional one
-
-OUTPUT FORMAT (JSON only):
-{
-  "title": "string (short mod name)",
-  "type": "MINECRAFT",
-  "explanationForKid": "string (explain what the mod does in simple, exciting terms)",
-  "stepsToTry": ["string (3-5 things to try in Minecraft after installing the mod)"],
-  "payload": {
-    "minecraftMod": {
-      "language": "java",
-      "code": "string (complete Java source code for the mod - MUST be valid Java, not TypeScript)",
-      "fileName": "string (e.g., MyMod.java)",
-      "installationInstructions": "string (Detailed step-by-step instructions on how to install this mod in Minecraft, including where to find the .minecraft folder)",
-      "notes": ["string (tips, e.g. which command to use in-game)"]
-    }
-  }
-}
-
-Java Code Requirements:
-- Use standard Minecraft modding patterns (event handlers, commands, etc.)
-- Include clear comments explaining what each part does
-- Make it educational and fun for kids
-- Use simple, understandable Java syntax
-- Include at least one chat command (e.g., /mycommand)
-
-Example Java structure:
-\`\`\`java
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.server.level.ServerPlayer;
-
-public class MyMod {
-    // Chat command handler
-    public void onChatCommand(String command, String[] args, ServerPlayer player) {
-        if (command.equalsIgnoreCase("mycommand")) {
-            // Your mod logic here
-        }
-    }
-}
-\`\`\`
-
-${MINECRAFT_MOD_SYSTEM_PROMPT}
-`,
+        'minecraft-makecode': `${MINECRAFT_BEDROCK_MCFUNCTION_PROMPT}`,
 
         'blockly': `
 ${basePrompt}

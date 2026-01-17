@@ -156,7 +156,8 @@ export default function ChatPage() {
   }, [previewMode]);
 
   // 🚀 GAME MODE: Auto-collapse chat for game apps to give full screen focus
-  const isGameApp = app && ['blockly', 'godot', 'minecraft'].includes(app.appType || '');
+  // NOTE: Minecraft KEEPS chat open so users can modify templates via chat
+  const isGameApp = app && ['blockly', 'godot'].includes(app.appType || '');
 
   useEffect(() => {
     if (isGameApp && isLeftPanelOpen) {

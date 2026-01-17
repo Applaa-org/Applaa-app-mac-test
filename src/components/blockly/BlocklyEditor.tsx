@@ -7,6 +7,7 @@ import { SampleHub } from './SampleHub'; // Import Hub
 import { RobotWelcome } from './RobotWelcome'; // Import Robot Welcome
 import { AppyAnimated } from './AppyAnimated'; // Import Animated Appy
 import { aiBlockAssistant } from '@/services/AiBlockAssistant'; // Import AI Brain
+import { MINECRAFT_TOOLBOX_CATEGORY, initMinecraftBlocks } from '@/lib/minecraft/minecraft-blocks'; // Import Minecraft Blocks
 
 // Import Generators
 import { javascriptGenerator } from 'blockly/javascript';
@@ -161,10 +162,14 @@ export function BlocklyEditor({
         // Load initial workspace if provided
         if (initialWorkspace) {
             try {
+                console.log('🔵 [INITIAL LOAD] Loading workspace:', initialWorkspace);
                 Blockly.serialization.workspaces.load(initialWorkspace, workspaceRef.current);
+                console.log('✅ [INITIAL LOAD] Workspace loaded successfully');
             } catch (error) {
-                console.error('Failed to load workspace:', error);
+                console.error('❌ [INITIAL LOAD] Failed to load workspace:', error);
             }
+        } else {
+            console.log('⚪ [INITIAL LOAD] No initialWorkspace provided');
         }
 
         // Listen for workspace changes
@@ -192,6 +197,27 @@ export function BlocklyEditor({
             }
         };
     }, [appId, readOnly]);
+
+    // Watch for initialWorkspace changes and reload (for AI-generated blocks)
+    useEffect(() => {
+        if (!workspaceRef.current || !initialWorkspace) return;
+
+        try {
+            // Clear existing workspace
+            workspaceRef.current.clear();
+            // Load new workspace
+            Blockly.serialization.workspaces.load(initialWorkspace, workspaceRef.current);
+            console.log('✅ Reloaded workspace from initialWorkspace prop change');
+
+            // Regenerate code after load
+            setTimeout(() => {
+                generateAllCode();
+            }, 100);
+        } catch (error) {
+            console.error('Failed to reload workspace:', error);
+        }
+    }, [initialWorkspace]);
+
 
     const handleRunCode = () => {
         if (!generatedCode) {
@@ -800,7 +826,12 @@ const KIDS_TOOLBOX = {
             name: '⚡ Functions',
             categorystyle: 'procedure_category',
             custom: 'PROCEDURE'
-        }
+        },
+        {
+            kind: 'sep',
+        },
+        // ⛏️ Minecraft Category (Bedrock Edition blocks)
+        MINECRAFT_TOOLBOX_CATEGORY
     ]
 };
 

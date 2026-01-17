@@ -34,6 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 // DesignTab removed for MVP
 import { BlocklyEditor } from "../blockly/BlocklyEditor";
 import { MinecraftModPreview } from "../minecraft/MinecraftModPreview.simplified";
+import { MinecraftDirectEditor } from "../minecraft/MinecraftDirectEditor";
 
 interface ConsoleHeaderProps {
   isOpen: boolean;
@@ -476,7 +477,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                       }}
                     />
                   ) : isMinecraftJavaMod ? (
-                    <MinecraftModPreview app={app} />
+                    <MinecraftDirectEditor
+                      appId={String(selectedAppId)}
+                      appPath={app?.path || ''}
+                    />
                   ) : (
                     <PreviewIframe key={key} loading={loading} />
                   )
@@ -534,8 +538,8 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
         />
       )}
 
-      {/* Web Preview Timeout Popup - Only show for non-Expo apps */}
-      {!isExpoApp && (
+      {/* Web Preview Timeout Popup - Only show for non-Expo/non-Game/non-Minecraft apps */}
+      {!isExpoApp && !isMinecraftJavaMod && !isGodotApp && !isBlocklyApp && (
         <WebPreviewTimeoutPopup
           isOpen={shouldShowTimeoutPopup}
           message={timeoutReason}

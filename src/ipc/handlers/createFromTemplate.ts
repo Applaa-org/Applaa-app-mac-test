@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs-extra";
+import crypto from "crypto";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 import { app } from "electron";
@@ -335,23 +336,74 @@ export async function createFromTemplate({
   }
 
   if (templateId === "minecraft-basic") {
-    // Use local Minecraft template
-    const appPath = app.getAppPath();
-    const possiblePaths = [
-      path.join(appPath, "minecraft-templates", "basic"),           // Production: bundled with app
-      path.join(process.cwd(), "minecraft-templates", "basic"),     // Development: relative to cwd
-    ];
+    // For Minecraft Bedrock, we ALWAYS create a formatted structure
+    // We do NOT copy from a template folder anymore to prevent copying the entire library
+    // The specific template code will be injected by the frontend via Ipc/File writes
+    const templateFound = false; // Force creation of new structure
 
-    for (const templatePath of possiblePaths) {
-      if (fs.existsSync(templatePath)) {
-        logger.info(`Using Minecraft template from: ${templatePath}`);
-        await copyDirectoryRecursive(templatePath, fullAppPath);
-        await initializeGitRepository(fullAppPath);
-        return;
-      }
+    // If no template folder found, create a minimal Bedrock addon structure
+    if (!templateFound) {
+      logger.info(`Creating minimal Minecraft Bedrock structure at: ${fullAppPath}`);
+
+      // Create behavior pack structure
+      const bpPath = path.join(fullAppPath, 'behavior_pack');
+      await fs.ensureDir(path.join(bpPath, 'functions'));
+
+      // Create manifest.json
+      const manifest = {
+        format_version: 2,
+        header: {
+          name: path.basename(fullAppPath),
+          description: "Created with Applaa",
+          uuid: crypto.randomUUID(),
+          version: [1, 0, 0],
+          min_engine_version: [1, 20, 0]
+        },
+        modules: [{
+          type: "data",
+          uuid: crypto.randomUUID(),
+          version: [1, 0, 0]
+        }]
+      };
+      await fs.writeJson(path.join(bpPath, 'manifest.json'), manifest, { spaces: 2 });
+
+      // Create default mcfunction file
+      const defaultMcfunction = `# My Minecraft Mod - Created with Applaa
+# Run this function with: /function main
+
+# Welcome message
+say 🎮 Hello from Applaa!
+
+# Give starter items
+give @p diamond_sword 1
+give @p golden_apple 3
+
+# Build a small platform
+fill ~0 ~-1 ~0 ~5 ~-1 ~5 stone
+say ✨ Your platform is ready!`;
+
+      await fs.writeFile(path.join(bpPath, 'functions', 'main.mcfunction'), defaultMcfunction);
+
+      // Create README
+      const readme = `# Minecraft Bedrock Addon
+
+Created with Applaa!
+
+## How to Use
+1. Edit the mcfunction files in \`behavior_pack/functions/\`
+2. Export as .mcaddon
+3. Import into Minecraft Bedrock Edition
+
+## Commands
+\`\`\`
+/function main
+\`\`\`
+`;
+      await fs.writeFile(path.join(fullAppPath, 'README.md'), readme);
     }
 
-    throw new Error(`Local Minecraft template not found. Tried paths: ${possiblePaths.join(', ')}`);
+    await initializeGitRepository(fullAppPath);
+    return;
   }
 
   if (templateId === "expo-base-master") {
