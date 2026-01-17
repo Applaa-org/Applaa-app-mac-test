@@ -210,7 +210,15 @@ export function registerGameTemplatesHandlers() {
 
         if (error) {
           logger.error("Failed to update game template:", error);
-          throw error;
+          logger.error("Error details:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          });
+          // Extract meaningful error message from Supabase error
+          const errorMessage = error.message || error.details || error.hint || `Error code: ${error.code || 'UNKNOWN'}`;
+          throw new Error(`Failed to update game template: ${errorMessage}`);
         }
 
         if (!template) {
@@ -232,7 +240,17 @@ export function registerGameTemplatesHandlers() {
         };
       } catch (error) {
         logger.error("Failed to update game template:", error);
-        throw new Error(`Failed to update game template: ${error instanceof Error ? error.message : String(error)}`);
+        // Better error message extraction with Supabase error details
+        let errorMessage = "Unknown error";
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+          const err = error as any;
+          errorMessage = err.message || err.details || err.hint || `Error code: ${err.code || 'UNKNOWN'}` || JSON.stringify(error);
+        } else {
+          errorMessage = String(error);
+        }
+        throw new Error(`Failed to update game template: ${errorMessage}`);
       }
     }
   );

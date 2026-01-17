@@ -360,6 +360,8 @@ const validInvokeChannels = [
   "game-templates:create",
   "game-templates:update",
   "game-templates:delete",
+  // Web Apps Templates Management channels
+  "web-apps:list",
 ];
 
 // Add valid receive channels

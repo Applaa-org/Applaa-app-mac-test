@@ -5,7 +5,7 @@
  * with a simple app type selector and chat input.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { homeChatInputValueAtom, isStreamingAtom } from '@/atoms/chatAtoms';
 import { HomeChatInput } from '@/components/chat/HomeChatInput';
@@ -53,6 +53,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
   const [visibleIdeasCount, setVisibleIdeasCount] = useState<number>(6);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAddTemplateDialogOpen, setIsAddTemplateDialogOpen] = useState(false);
   const [isEditTemplateDialogOpen, setIsEditTemplateDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<{ id: string; name: string; details: string; previewUrl?: string | null; imageUrl?: string | null; emoji?: string | null; appType: 'web' | 'expo' | 'flutter' | 'godot' } | null>(null);
@@ -94,50 +95,173 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const queryClient = useQueryClient();
   const { hasPermission: hasAdminPermission } = useAdminPermission();
 
-  // Fetch game templates from Supabase
+  // Fetch game templates from Supabase (for non-web app types)
   const { data: gameTemplates = [], isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['game-templates', selectedAppType],
     queryFn: async () => {
-      if (!selectedAppType) return [];
+      if (!selectedAppType || selectedAppType === 'web') return [];
       try {
         const templates = await ipcClient.listGameTemplates({ appType: selectedAppType });
         return templates;
       } catch (error) {
         console.error('Error fetching game templates:', error);
-        // Fallback to static data if Supabase fails
         return [];
       }
     },
-    enabled: !!selectedAppType,
+    enabled: !!selectedAppType && selectedAppType !== 'web',
   });
+
+  // Fetch web apps templates from Supabase (for web app type)
+  const { data: webAppsTemplates = [], isLoading: isLoadingWebApps } = useQuery({
+    queryKey: ['web-apps', selectedAppType, selectedCategory],
+    queryFn: async () => {
+      if (selectedAppType !== 'web') return [];
+      try {
+        const templates = await ipcClient.listWebApps({ 
+          appType: 'web',
+          category: selectedCategory || undefined 
+        });
+        return templates;
+      } catch (error) {
+        console.error('Error fetching web apps templates:', error);
+        return [];
+      }
+    },
+    enabled: selectedAppType === 'web',
+  });
+
+  // Get unique categories from ALL web apps templates (not filtered by selectedCategory)
+  // We need to fetch all templates first to get all categories
+  const { data: allWebAppsTemplates = [] } = useQuery({
+    queryKey: ['web-apps-all', 'web'],
+    queryFn: async () => {
+      if (selectedAppType !== 'web') return [];
+      try {
+        const templates = await ipcClient.listWebApps({ appType: 'web' });
+        return templates;
+      } catch (error) {
+        console.error('Error fetching all web apps templates:', error);
+        return [];
+      }
+    },
+    enabled: selectedAppType === 'web',
+  });
+
+  // Get unique categories from ALL web apps templates
+  const categories = useMemo(() => {
+    if (selectedAppType !== 'web') return [];
+    const allCategories = allWebAppsTemplates.map(t => t.category).filter(Boolean);
+    return Array.from(new Set(allCategories)).sort();
+  }, [allWebAppsTemplates, selectedAppType]);
+
+  // Reset category filter when app type changes
+  useEffect(() => {
+    setSelectedCategory(null);
+  }, [selectedAppType]);
+
+  // Track previous values to detect actual changes
+  const prevSelectedAppTypeRef = useRef(selectedAppType);
+  const prevSelectedCategoryRef = useRef(selectedCategory);
+  const prevWebAppsTemplatesLengthRef = useRef(webAppsTemplates.length);
+  const prevGameTemplatesLengthRef = useRef(gameTemplates.length);
 
   // When app type changes, load ideas from Supabase or fallback to static
   useEffect(() => {
-    if (selectedAppType) {
-      if (gameTemplates.length > 0) {
-        // Convert Supabase templates to ExampleIdea format
-        const templateIdeas: ExampleIdea[] = gameTemplates.map(template => {
-          const firstSentence = template.details.split('.')[0] || template.name;
-          const shortDesc = firstSentence.length > 100 
-            ? firstSentence.substring(0, 97) + '...'
-            : firstSentence;
-          
-          return {
-            title: template.name,
-            description: shortDesc + '\nClick to use the full detailed prompt.',
-            emoji: template.emoji || getEmojiForGame(template.name),
-            prompt: template.details,
-            previewUrl: template.previewUrl || undefined,
-          };
+    if (!selectedAppType) return;
+
+    // Check if app type or category actually changed
+    const appTypeChanged = prevSelectedAppTypeRef.current !== selectedAppType;
+    const categoryChanged = prevSelectedCategoryRef.current !== selectedCategory;
+    const shouldResetCount = appTypeChanged || categoryChanged;
+
+    // Update refs
+    prevSelectedAppTypeRef.current = selectedAppType;
+    prevSelectedCategoryRef.current = selectedCategory;
+
+    // For web apps
+    if (selectedAppType === 'web') {
+      if (!isLoadingWebApps) {
+        const templatesLengthChanged = prevWebAppsTemplatesLengthRef.current !== webAppsTemplates.length;
+        prevWebAppsTemplatesLengthRef.current = webAppsTemplates.length;
+
+        const newIdeas = webAppsTemplates.length > 0
+          ? webAppsTemplates.map(template => {
+              const firstSentence = template.details.split('.')[0] || template.name;
+              const shortDesc = firstSentence.length > 100 
+                ? firstSentence.substring(0, 97) + '...'
+                : firstSentence;
+              
+              return {
+                title: template.name,
+                description: shortDesc + '\nClick to use the full detailed prompt.',
+                emoji: template.emoji || '🌐',
+                prompt: template.details,
+                previewUrl: template.previewUrl || undefined,
+              };
+            })
+          : getStaticIdeas(selectedAppType);
+        
+        // Only update if ideas actually changed
+        setIdeas(prevIdeas => {
+          const ideasChanged = JSON.stringify(prevIdeas) !== JSON.stringify(newIdeas);
+          if (!ideasChanged) {
+            return prevIdeas;
+          }
+          // Only reset count if ideas actually changed AND it's due to category/app type change
+          // AND user hasn't manually changed the count
+          if ((shouldResetCount || templatesLengthChanged) && !userManuallyChangedCountRef.current) {
+            setVisibleIdeasCount(6);
+          }
+          // Reset the flag when ideas change due to category/app type change
+          if (shouldResetCount || templatesLengthChanged) {
+            userManuallyChangedCountRef.current = false;
+          }
+          return newIdeas;
         });
-        setIdeas(templateIdeas);
-      } else if (!isLoadingTemplates) {
-        // Fallback to static data if no templates from Supabase
-        setIdeas(getStaticIdeas(selectedAppType));
       }
-      setVisibleIdeasCount(6); // Reset to 6 when app type changes
+    } else {
+      // For non-web apps (game templates)
+      if (!isLoadingTemplates) {
+        const templatesLengthChanged = prevGameTemplatesLengthRef.current !== gameTemplates.length;
+        prevGameTemplatesLengthRef.current = gameTemplates.length;
+
+        const newIdeas = gameTemplates.length > 0
+          ? gameTemplates.map(template => {
+              const firstSentence = template.details.split('.')[0] || template.name;
+              const shortDesc = firstSentence.length > 100 
+                ? firstSentence.substring(0, 97) + '...'
+                : firstSentence;
+              
+              return {
+                title: template.name,
+                description: shortDesc + '\nClick to use the full detailed prompt.',
+                emoji: template.emoji || getEmojiForGame(template.name),
+                prompt: template.details,
+                previewUrl: template.previewUrl || undefined,
+              };
+            })
+          : getStaticIdeas(selectedAppType);
+        
+        // Only update if ideas actually changed
+        setIdeas(prevIdeas => {
+          const ideasChanged = JSON.stringify(prevIdeas) !== JSON.stringify(newIdeas);
+          if (!ideasChanged) {
+            return prevIdeas;
+          }
+          // Only reset count if ideas actually changed AND it's due to app type change
+          // AND user hasn't manually changed the count
+          if ((shouldResetCount || templatesLengthChanged) && !userManuallyChangedCountRef.current) {
+            setVisibleIdeasCount(6);
+          }
+          // Reset the flag when ideas change due to app type change
+          if (shouldResetCount || templatesLengthChanged) {
+            userManuallyChangedCountRef.current = false;
+          }
+          return newIdeas;
+        });
+      }
     }
-  }, [selectedAppType, gameTemplates, isLoadingTemplates]);
+  }, [selectedAppType, gameTemplates, webAppsTemplates, isLoadingTemplates, isLoadingWebApps, selectedCategory]);
 
   // Handle chat submission
   const handleChatSubmit = useCallback(async (options?: any) => {
@@ -167,11 +291,18 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
     setVisibleIdeasCount(6); // Reset to 6 when shuffling
   };
 
+  // Track if user manually changed the visible count
+  const userManuallyChangedCountRef = useRef(false);
+
   const handleShowMore = () => {
+    console.log('[SimpleHomeInterface] Show More clicked, current count:', visibleIdeasCount, 'total ideas:', ideas.length);
+    userManuallyChangedCountRef.current = true;
     setVisibleIdeasCount(ideas.length); // Show all ideas
   };
 
   const handleShowLess = () => {
+    console.log('[SimpleHomeInterface] Show Less clicked');
+    userManuallyChangedCountRef.current = true;
     setVisibleIdeasCount(6); // Show only first 6
   };
 
@@ -184,11 +315,17 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
   // Template management handlers
   const handleTemplateAdded = () => {
+    // Invalidate both queries to refresh templates
     queryClient.invalidateQueries({ queryKey: ['game-templates', selectedAppType] });
+    queryClient.invalidateQueries({ queryKey: ['web-apps', selectedAppType] });
   };
 
   const handleEditTemplate = (templateId: string) => {
-    const template = gameTemplates.find(t => t.id === templateId);
+    // Find template in the appropriate array based on app type
+    const template = selectedAppType === 'web'
+      ? webAppsTemplates.find(t => t.id === templateId)
+      : gameTemplates.find(t => t.id === templateId);
+    
     if (template) {
       setTemplateToEdit({
         id: template.id,
@@ -204,7 +341,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   };
 
   const handleTemplateUpdated = () => {
+    // Invalidate both queries to refresh templates
     queryClient.invalidateQueries({ queryKey: ['game-templates', selectedAppType] });
+    queryClient.invalidateQueries({ queryKey: ['web-apps', selectedAppType] });
     setIsEditTemplateDialogOpen(false);
     setTemplateToEdit(null);
   };
@@ -415,10 +554,41 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            
+            {/* Category Filter Pills - Only show for web apps */}
+            {selectedAppType === 'web' && categories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4 px-0.5">
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium transition-colors ${
+                    selectedCategory === null
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All
+                </button>
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium transition-colors ${
+                      selectedCategory === category
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" key={`ideas-grid-${visibleIdeasCount}`}>
               {ideas.slice(0, visibleIdeasCount).map((idea, index) => {
-                // Find the template ID from gameTemplates
-                const template = gameTemplates.find(t => t.name === idea.title && t.details === idea.prompt);
+                // Find the template ID from gameTemplates or webAppsTemplates
+                const template = selectedAppType === 'web' 
+                  ? webAppsTemplates.find(t => t.name === idea.title && t.details === idea.prompt)
+                  : gameTemplates.find(t => t.name === idea.title && t.details === idea.prompt);
                 const canEdit = hasAdminPermission && template && !template.isDefault;
                 
                 return (
@@ -446,21 +616,29 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                         <>
                           <button
                             onClick={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
-                              if (template) handleEditTemplate(template.id);
+                              if (template) {
+                                handleEditTemplate(template.id);
+                              }
                             }}
-                            className="h-7 w-7 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 shadow-sm flex items-center justify-center"
+                            className="h-7 w-7 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 shadow-sm flex items-center justify-center cursor-pointer"
                             title="Edit template"
+                            type="button"
                           >
                             <Edit2 className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
                           </button>
                           <button
                             onClick={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
-                              if (template) handleDeleteTemplate(template.id, template.name);
+                              if (template) {
+                                handleDeleteTemplate(template.id, template.name);
+                              }
                             }}
-                            className="h-7 w-7 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 shadow-sm flex items-center justify-center"
+                            className="h-7 w-7 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 shadow-sm flex items-center justify-center cursor-pointer"
                             title="Delete template"
+                            type="button"
                           >
                             <Trash2 className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                           </button>
@@ -484,18 +662,30 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               })}
             </div>
             {ideas.length > 6 && (
-              <div className="flex justify-center mt-4">
+              <div className="flex justify-center mt-4" onClick={(e) => e.stopPropagation()}>
                 {visibleIdeasCount < ideas.length ? (
                   <button
-                    onClick={handleShowMore}
-                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('[SimpleHomeInterface] Show More button clicked, ideas.length:', ideas.length);
+                      handleShowMore();
+                    }}
+                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700 cursor-pointer"
                   >
                     Show More ({ideas.length - visibleIdeasCount} more)
                   </button>
                 ) : (
                   <button
-                    onClick={handleShowLess}
-                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('[SimpleHomeInterface] Show Less button clicked');
+                      handleShowLess();
+                    }}
+                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700 cursor-pointer"
                   >
                     Show Less
                   </button>
