@@ -290,6 +290,19 @@ const NATIVE_MODULES = [
   'react-native-svg'
 ];
 
+/**
+ * 🎮 MINECRAFT ESSENTIALS: Dependencies for Minecraft Sandbox
+ */
+const MINECRAFT_ESSENTIAL_DEPS = [
+  'flying-squid',
+  'mineflayer',
+  'prismarine-viewer',
+  'prismarine-chunk',
+  'prismarine-registry',
+  'prismarine-item',
+  'minecraft-protocol'
+];
+
 // AI model caching removed for MVP
 
 /**
@@ -672,6 +685,52 @@ export async function ensureExpoDependencies(projectPath: string): Promise<boole
     return true;
   } catch (error) {
     logger.error("Failed to ensure Expo dependencies:", error);
+    return false;
+  }
+}
+
+/**
+ * 🎮 MINECRAFT COMPATIBILITY: Ensure Minecraft sandbox dependencies are ready
+ */
+export async function ensureMinecraftDependencies(projectPath: string): Promise<boolean> {
+  try {
+    const packageJsonPath = path.join(projectPath, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      return false;
+    }
+
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+
+    const missingDeps = MINECRAFT_ESSENTIAL_DEPS.filter(dep => !deps[dep]);
+
+    if (missingDeps.length === 0) {
+      logger.info("✅ All essential Minecraft sandbox dependencies are present");
+      return true;
+    }
+
+    logger.info(`📦 Installing missing Minecraft dependencies: ${missingDeps.join(', ')}`);
+
+    // Install missing dependencies
+    const child = await runPackageManagerCommand("add", missingDeps, projectPath, {
+      stdio: "pipe"
+    });
+
+    return new Promise<boolean>((resolve) => {
+      child.on("close", (code: number) => {
+        if (code === 0) {
+          logger.info(`✅ Installed Minecraft dependencies`);
+          resolve(true);
+        } else {
+          logger.error(`❌ Failed to install Minecraft dependencies`);
+          resolve(false);
+        }
+      });
+      child.on("error", () => resolve(false));
+    });
+
+  } catch (error) {
+    logger.error("Failed to ensure Minecraft dependencies:", error);
     return false;
   }
 }
