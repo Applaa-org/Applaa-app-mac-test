@@ -49,7 +49,7 @@ export function registerProfileHandlers() {
         // Try to get profile by Supabase user ID first
         let { data: profile, error: profileError } = await adminClient
           .from('profiles')
-          .select('id, email, username, full_name, first_name, last_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, created_at, updated_at')
+          .select('id, email, username, full_name, first_name, last_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, total_tokens_used, created_at, updated_at')
           .eq('id', supabaseUser.id)
           .maybeSingle();
 

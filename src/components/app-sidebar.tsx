@@ -7,7 +7,8 @@ import {
   BookOpenText,
   User,
   LogIn,
-  Target
+  Target,
+  Crown
 } from "lucide-react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
@@ -34,6 +35,7 @@ import { SettingsList } from "./SettingsList";
 // Advanced features temporarily disabled for core stability
 import { useWordPressAuth } from "@/hooks/useWordPressAuth";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { CombinedAuthDialog } from "@/components/auth/CombinedAuthDialog";
 
 // Menu items with dynamic colors - blue for active, gray for inactive
@@ -91,10 +93,15 @@ export function AppSidebar() {
   // Advanced features temporarily disabled for core stability
   const { isAuthenticated: isWordPressAuthenticated, user: wordpressUser, isLoading: isWordPressLoading } = useWordPressAuth();
   const { isAuthenticated: isSupabaseAuthenticated, user: supabaseUser, isLoading: isSupabaseLoading } = useSupabaseAuth();
+  const { profile } = useProfile();
   const isAuthenticated = isWordPressAuthenticated || isSupabaseAuthenticated;
   const isAuthLoading = isWordPressLoading || isSupabaseLoading;
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const navigate = useNavigate();
+  
+  // Get subscription tier from profile
+  const subscriptionTier = profile?.subscription_tier || 'free';
+  const isPro = subscriptionTier === 'pro' || subscriptionTier === 'ultra' || subscriptionTier === 'business';
   
   // Authentication state is now managed by useSupabaseAuth hook
 
@@ -203,20 +210,42 @@ export function AppSidebar() {
                 }
               }}
               >
-                <div className="p-2 rounded-xl bg-gradient-to-r from-gray-500 to-gray-600 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
+                <div className={`relative p-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 ${
+                  isAuthenticated && isPro
+                    ? "bg-gradient-to-r from-yellow-500 via-yellow-500 to-amber-600"
+                    : isAuthenticated
+                    ? "bg-gradient-to-r from-gray-500 to-gray-600"
+                    : "bg-gradient-to-r from-gray-400 to-gray-500"
+                }`}>
                   {isAuthenticated ? (
-                    <User className="h-5 w-5 text-white" />
+                    <>
+                      <User className="h-5 w-5 text-white" />
+                      {isPro && (
+                        <div className="absolute -top-1 -right-1 bg-yellow-600 rounded-full p-0.5">
+                          <Crown className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <LogIn className="h-5 w-5 text-white" />
                   )}
                 </div>
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                <span className={`text-xs font-medium whitespace-nowrap ${
+                  isAuthenticated && isPro
+                    ? "text-yellow-700 dark:text-yellow-400 font-bold"
+                    : "text-gray-700 dark:text-gray-300"
+                }`}>
                   {isAuthLoading ? "..." : isAuthenticated ? (
-                    isSupabaseAuthenticated
-                      ? (supabaseUser?.fullName || supabaseUser?.full_name || supabaseUser?.email || "U").split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                      : wordpressUser?.display_name 
-                        ? wordpressUser.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                        : wordpressUser?.username?.[0]?.toUpperCase() || "U"
+                    <>
+                      {isSupabaseAuthenticated
+                        ? (supabaseUser?.fullName || supabaseUser?.full_name || supabaseUser?.email || "U").split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                        : wordpressUser?.display_name 
+                          ? wordpressUser.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                          : wordpressUser?.username?.[0]?.toUpperCase() || "U"}
+                      {isPro && (
+                        <span className="ml-1 text-[10px]">PRO</span>
+                      )}
+                    </>
                   ) : "Sign In"}
                 </span>
               </SidebarMenuButton>

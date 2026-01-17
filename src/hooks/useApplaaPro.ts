@@ -1,5 +1,6 @@
 import { useSettings } from './useSettings';
 import { useLoadApps } from './useLoadApps';
+import { useProfile } from './useProfile';
 import { IpcClient } from '@/ipc/ipc_client';
 import { useSubscriptionSync } from './useSubscriptionSync';
 import { showError, showSuccess } from '@/lib/toast';
@@ -7,11 +8,12 @@ import { showError, showSuccess } from '@/lib/toast';
 export function useApplaaPro() {
   const { settings } = useSettings();
   const { data: apps } = useLoadApps();
+  const { profile } = useProfile();
   const { syncSubscription } = useSubscriptionSync();
   
-  // Check user tier (defaults to "free") - THIS IS THE SOURCE OF TRUTH
-  const userTier = settings?.userTier || "free";
-  const isPro = userTier === "pro";
+  // Check user tier from Supabase profile (defaults to "free") - THIS IS THE SOURCE OF TRUTH
+  const userTier = (profile?.subscription_tier || settings?.userTier || "free") as 'free' | 'pro' | 'ultra' | 'business';
+  const isPro = userTier === "pro" || userTier === "ultra" || userTier === "business";
   
   // Legacy support: only use if tier is not explicitly set
   // But tier should always take precedence

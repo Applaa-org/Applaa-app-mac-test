@@ -27,6 +27,7 @@ export interface Database {
           remaining_credits: number | null;
           credits_last_reset: string | null;
           total_credits_used: number | null;
+          total_tokens_used: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -50,6 +51,7 @@ export interface Database {
           remaining_credits?: number | null;
           credits_last_reset?: string | null;
           total_credits_used?: number | null;
+          total_tokens_used?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -73,6 +75,7 @@ export interface Database {
           remaining_credits?: number | null;
           credits_last_reset?: string | null;
           total_credits_used?: number | null;
+          total_tokens_used?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -136,6 +139,7 @@ export interface Database {
           user_id: string;
           operation_type: string;
           credits_used: number;
+          tokens_used: number | null;
           metadata: any;
           created_at: string;
         };
@@ -144,6 +148,7 @@ export interface Database {
           user_id: string;
           operation_type: string;
           credits_used: number;
+          tokens_used?: number | null;
           metadata?: any;
           created_at?: string;
         };
@@ -152,6 +157,7 @@ export interface Database {
           user_id?: string;
           operation_type?: string;
           credits_used?: number;
+          tokens_used?: number | null;
           metadata?: any;
           created_at?: string;
         };

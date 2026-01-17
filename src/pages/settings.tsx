@@ -16,7 +16,6 @@ import { useRouter, Outlet, useLocation } from "@tanstack/react-router";
 import { GitHubIntegration } from "@/components/GitHubIntegration";
 import { VercelIntegration } from "@/components/VercelIntegration";
 import { SupabaseIntegration } from "@/components/SupabaseIntegration";
-import { useSubscriptionSync } from "@/hooks/useSubscriptionSync";
 // Semantic context settings removed for MVP
 
 import { Switch } from "@/components/ui/switch";
@@ -28,136 +27,7 @@ import { CustomAppsDirectorySelector } from "@/components/CustomAppsDirectorySel
 import { NeonIntegration } from "@/components/NeonIntegration";
 import { CloudServicesSettings } from "@/components/settings/CloudServicesSettings";
 import { CacheDebugPanel } from "@/components/settings/CacheDebugPanel";
-import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { useWordPressAuth } from "@/hooks/useWordPressAuth";
 
-// User Tier Toggle (Free/Pro)
-function UserTierToggle() {
-  const { settings, updateSettings } = useSettings();
-  
-  const currentTier = settings?.userTier || "free";
-  const isPro = currentTier === "pro";
-  
-  const toggleTier = () => {
-    const newTier = isPro ? "free" : "pro";
-    updateSettings({
-      userTier: newTier,
-    });
-  };
-
-  return (
-    <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-      <div className="space-y-1 flex-1">
-        <Label htmlFor="user-tier-toggle" className="text-sm font-medium text-blue-800 dark:text-blue-200">
-          User Tier: {isPro ? "Pro" : "Free"}
-        </Label>
-        <p className="text-xs text-blue-600 dark:text-blue-400">
-          {isPro 
-            ? "Pro tier enabled - Unlimited apps, deployments, and premium AI models"
-            : "Free tier - Max 3 apps, no deployments, no premium AI models"}
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className={`text-xs font-medium ${!isPro ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"}`}>
-          Free
-        </span>
-        <Switch
-          id="user-tier-toggle"
-          checked={isPro}
-          onCheckedChange={toggleTier}
-        />
-        <span className={`text-xs font-medium ${isPro ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"}`}>
-          Pro
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// Subscription Management Component
-function SubscriptionManagement() {
-  const { isAuthenticated: isSupabaseAuthenticated } = useSupabaseAuth();
-  const { isAuthenticated: isWordPressAuthenticated } = useWordPressAuth();
-  const isAuthenticated = isSupabaseAuthenticated || isWordPressAuthenticated;
-  const { syncSubscription, isSyncing } = useSubscriptionSync();
-  const [isRedirecting, setIsRedirecting] = useState(false);
-
-  const handleUpgrade = async () => {
-    if (!isAuthenticated) {
-      showError("Please sign in to upgrade to Pro");
-      return;
-    }
-
-    setIsRedirecting(true);
-    try {
-      const ipcClient = IpcClient.getInstance();
-      await ipcClient.redirectToSubscribe();
-      showSuccess("Opening subscription page in your browser...");
-    } catch (error) {
-      showError(
-        error instanceof Error ? error.message : "Failed to open subscription page"
-      );
-    } finally {
-      setIsRedirecting(false);
-    }
-  };
-
-  const handleSync = async () => {
-    if (!isAuthenticated) {
-      showError("Please sign in to sync subscription");
-      return;
-    }
-
-    try {
-      await syncSubscription();
-    } catch (error) {
-      // Error is already handled in the hook
-    }
-  };
-
-  return (
-    <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="space-y-3">
-        <div>
-          <Label className="text-sm font-medium text-gray-900 dark:text-white">
-            Subscription Management
-          </Label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Upgrade to Pro or sync your subscription status from the database
-          </p>
-        </div>
-        
-        <div className="flex gap-2">
-          <Button
-            onClick={handleUpgrade}
-            disabled={!isAuthenticated || isRedirecting}
-            className="flex-1"
-            variant="default"
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            {isRedirecting ? "Opening..." : "Upgrade to Pro"}
-          </Button>
-          
-          <Button
-            onClick={handleSync}
-            disabled={!isAuthenticated || isSyncing}
-            className="flex-1"
-            variant="outline"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-            {isSyncing ? "Syncing..." : "Sync Subscription"}
-          </Button>
-        </div>
-
-        {!isAuthenticated && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            Please sign in to manage your subscription
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function SettingsPage() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -443,12 +313,6 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
         </div>
 
         <CustomAppsDirectorySelector />
-        
-        {/* User Tier Toggle (Free/Pro) */}
-        <UserTierToggle />
-        
-        {/* Subscription Management */}
-        <SubscriptionManagement />
       </div>
 
       <div className="space-y-1 mt-4">

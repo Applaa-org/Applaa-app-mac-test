@@ -1,25 +1,29 @@
 import { useState, useEffect } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { useCredits } from "@/hooks/useCredits";
+import { useSubscriptionSync } from "@/hooks/useSubscriptionSync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Save, User, Mail, Calendar, Crown, Globe, Loader2, RefreshCw, LogOut, Coins, TrendingUp } from "lucide-react";
+import { ArrowLeft, Save, User, Mail, Calendar, Crown, Globe, Loader2, RefreshCw, LogOut, Coins, TrendingUp, ExternalLink } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 import { showError, showSuccess } from "@/lib/toast";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useWordPressAuth } from "@/hooks/useWordPressAuth";
+import { IpcClient } from "@/ipc/ipc_client";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { profile, isLoading, error, refetch, updateProfile, isUpdating } = useProfile();
   const { balance, usageHistory, isLoading: isLoadingCredits, refetch: refetchCredits } = useCredits();
+  const { syncSubscription, isSyncing } = useSubscriptionSync();
   const { isAuthenticated: isSupabaseAuthenticated, signOut: supabaseSignOut, isSigningOut: isSupabaseSigningOut } = useSupabaseAuth();
   const { isAuthenticated: isWordPressAuthenticated, logout: wordPressLogout, isLoggingOut: isWordPressLoggingOut } = useWordPressAuth();
   const isAuthenticated = isSupabaseAuthenticated || isWordPressAuthenticated;
   const isLoggingOut = isSupabaseSigningOut || isWordPressLoggingOut;
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const [username, setUsername] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -378,6 +382,29 @@ export default function ProfilePage() {
               </div>
             ) : null}
 
+            {/* Total Tokens Used */}
+            {profile.total_tokens_used !== null && profile.total_tokens_used !== undefined && (
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                    <span className="text-lg font-bold text-purple-600 dark:text-purple-400">T</span>
+                  </div>
+                  <div>
+                    <p className="font-medium">Total Tokens Used</p>
+                    <p className="text-sm text-muted-foreground">
+                      Lifetime token usage across all operations
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    {profile.total_tokens_used.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">tokens</p>
+                </div>
+              </div>
+            )}
+
             {/* Credit Usage History */}
             {usageHistory && usageHistory.length > 0 && (
               <div className="space-y-2 p-4 bg-muted rounded-lg">
@@ -394,33 +421,110 @@ export default function ProfilePage() {
                           {new Date(usage.createdAt).toLocaleDateString()} {new Date(usage.createdAt).toLocaleTimeString()}
                         </p>
                       </div>
-                      <p className="font-semibold text-blue-600 dark:text-blue-400">
-                        -{usage.creditsUsed}
-                      </p>
+                      <div className="text-right">
+                        {usage.creditsUsed > 0 && (
+                          <p className="font-semibold text-blue-600 dark:text-blue-400">
+                            -{usage.creditsUsed} credits
+                          </p>
+                        )}
+                        {usage.tokensUsed > 0 && (
+                          <p className="text-xs font-medium text-purple-600 dark:text-purple-400">
+                            {usage.tokensUsed.toLocaleString()} tokens
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Top-up Credits Button (Pro+ only) */}
-            {(profile.subscription_tier === 'pro' || profile.subscription_tier === 'ultra' || profile.subscription_tier === 'business') && (
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    // TODO: Implement actual top-up flow with Stripe
-                    showError('Credit top-up not yet implemented. Please upgrade your subscription for more credits.');
-                  } catch (error: any) {
-                    showError(error.message || 'Failed to top up credits');
-                  }
-                }}
-                className="w-full"
-              >
-                <Coins className="h-4 w-4 mr-2" />
-                Top Up Credits
-              </Button>
-            )}
+            {/* Subscription Management */}
+            <div className="p-4 bg-muted rounded-lg border space-y-3">
+              <div>
+                <Label className="text-sm font-medium">Subscription Management</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upgrade to Pro or sync your subscription status from the database
+                </p>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={async () => {
+                    if (!isAuthenticated) {
+                      showError("Please sign in to upgrade to Pro");
+                      return;
+                    }
+
+                    setIsRedirecting(true);
+                    try {
+                      const ipcClient = IpcClient.getInstance();
+                      await ipcClient.redirectToSubscribe();
+                      showSuccess("Opening subscription page in your browser...");
+                    } catch (error) {
+                      showError(
+                        error instanceof Error ? error.message : "Failed to open subscription page"
+                      );
+                    } finally {
+                      setIsRedirecting(false);
+                    }
+                  }}
+                  disabled={!isAuthenticated || isRedirecting}
+                  className="flex-1"
+                  variant="default"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  {isRedirecting ? "Opening..." : "Upgrade to Pro"}
+                </Button>
+                
+                <Button
+                  onClick={async () => {
+                    if (!isAuthenticated) {
+                      showError("Please sign in to sync subscription");
+                      return;
+                    }
+
+                    try {
+                      await syncSubscription();
+                      refetch(); // Refresh profile after sync
+                    } catch (error) {
+                      // Error is already handled in the hook
+                    }
+                  }}
+                  disabled={!isAuthenticated || isSyncing}
+                  className="flex-1"
+                  variant="outline"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+                  {isSyncing ? "Syncing..." : "Sync Subscription"}
+                </Button>
+              </div>
+
+              {!isAuthenticated && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Please sign in to manage your subscription
+                </p>
+              )}
+
+              {/* Top-up Credits Button (Pro+ only) */}
+              {(profile.subscription_tier === 'pro' || profile.subscription_tier === 'ultra' || profile.subscription_tier === 'business') && (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      // TODO: Implement actual top-up flow with Stripe
+                      showError('Credit top-up not yet implemented. Please upgrade your subscription for more credits.');
+                    } catch (error: any) {
+                      showError(error.message || 'Failed to top up credits');
+                    }
+                  }}
+                  className="w-full"
+                >
+                  <Coins className="h-4 w-4 mr-2" />
+                  Top Up Credits
+                </Button>
+              )}
+            </div>
 
             {/* WordPress Info (if applicable) */}
             {profile.wordpress_display_name && (

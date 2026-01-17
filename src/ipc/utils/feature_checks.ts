@@ -6,20 +6,115 @@
 import { readSettings } from "../../main/settings";
 import { db } from "@/db";
 import type { UserTier } from "@/lib/schemas";
+import { getSupabaseAuth } from "../../lib/supabase";
+import log from "electron-log";
+
+const logger = log.scope("feature-checks");
 
 /**
- * Get the current user tier (defaults to "free")
+ * Get the current user tier from Supabase profile (defaults to "free")
+ * Falls back to settings if profile is not available
  */
-export function getUserTier(): UserTier {
+export async function getUserTier(): Promise<UserTier> {
+  try {
+    const auth = getSupabaseAuth();
+    const supabaseUser = await auth.getCurrentUser();
+    
+    if (supabaseUser) {
+      // Try to get profile by user ID
+      const profile = await auth.getProfile(supabaseUser.id);
+      if (profile?.subscription_tier) {
+        return profile.subscription_tier as UserTier;
+      }
+    }
+    
+    // Fallback: Try WordPress auth
+    const settings = readSettings();
+    const wordpressAuth = settings.wordpressAuth;
+    
+    if (wordpressAuth?.isAuthenticated && wordpressAuth?.user) {
+      const userEmail = wordpressAuth.user.email;
+      const wordpressUsername = wordpressAuth.user.username;
+      const wordpressDisplayName = wordpressAuth.user.display_name;
+
+      // Try multiple lookup strategies
+      if (userEmail && userEmail !== 'unknown@example.com') {
+        const profile = await auth.getProfileByEmailOrUsername(userEmail);
+        if (profile?.subscription_tier) {
+          return profile.subscription_tier as UserTier;
+        }
+      }
+
+      if (wordpressDisplayName) {
+        const profile = await auth.getProfileByEmailOrUsername(wordpressDisplayName);
+        if (profile?.subscription_tier) {
+          return profile.subscription_tier as UserTier;
+        }
+      }
+
+      if (wordpressUsername) {
+        const profile = await auth.getProfileByEmailOrUsername(wordpressUsername);
+        if (profile?.subscription_tier) {
+          return profile.subscription_tier as UserTier;
+        }
+      }
+    }
+  } catch (error) {
+    logger.warn('Failed to get tier from Supabase, falling back to settings:', error);
+  }
+  
+  // Final fallback: use settings (for backwards compatibility)
   const settings = readSettings();
-  return settings.userTier || "free";
+  return (settings.userTier || "free") as UserTier;
 }
 
 /**
- * Check if user is on Pro tier
+ * Synchronous version that caches the tier
+ * Note: This may return stale data. Use async version when possible.
+ */
+let cachedTier: UserTier | null = null;
+let tierCacheTime: number = 0;
+const TIER_CACHE_TTL = 60000; // 1 minute cache
+
+export function getUserTierSync(): UserTier {
+  const now = Date.now();
+  
+  // Return cached tier if still valid
+  if (cachedTier && (now - tierCacheTime) < TIER_CACHE_TTL) {
+    return cachedTier;
+  }
+  
+  // Fallback to settings immediately, then update cache asynchronously
+  const settings = readSettings();
+  const fallbackTier = (settings.userTier || "free") as UserTier;
+  
+  // Update cache asynchronously
+  getUserTier().then(tier => {
+    cachedTier = tier;
+    tierCacheTime = Date.now();
+  }).catch(() => {
+    // If async fetch fails, keep using fallback
+    cachedTier = fallbackTier;
+    tierCacheTime = Date.now();
+  });
+  
+  return fallbackTier;
+}
+
+/**
+ * Check if user is on Pro tier (async)
+ */
+export async function isProUserAsync(): Promise<boolean> {
+  const tier = await getUserTier();
+  return tier === "pro" || tier === "ultra" || tier === "business";
+}
+
+/**
+ * Check if user is on Pro tier (sync, uses cache)
  */
 export function isProUser(): boolean {
-  return getUserTier() === "pro";
+  const tier = getUserTierSync();
+  return tier === "pro" || tier === "ultra" || tier === "business";
 }
 
 /**
@@ -28,7 +123,9 @@ export function isProUser(): boolean {
  * Pro tier: unlimited
  */
 export function canCreateApp(): { allowed: boolean; reason?: string } {
-  if (isProUser()) {
+  // Use sync version for immediate check
+  const isPro = isProUser();
+  if (isPro) {
     return { allowed: true };
   }
 
@@ -51,7 +148,9 @@ export function canCreateApp(): { allowed: boolean; reason?: string } {
  * Pro tier: allowed
  */
 export function canDeployApp(): { allowed: boolean; reason?: string } {
-  if (isProUser()) {
+  // Use sync version for immediate check
+  const isPro = isProUser();
+  if (isPro) {
     return { allowed: true };
   }
 
@@ -67,7 +166,9 @@ export function canDeployApp(): { allowed: boolean; reason?: string } {
  * Pro tier: allowed
  */
 export function canUsePremiumModel(modelName: string, provider: string): { allowed: boolean; reason?: string } {
-  if (isProUser()) {
+  // Use sync version for immediate check
+  const isPro = isProUser();
+  if (isPro) {
     return { allowed: true };
   }
 
@@ -98,10 +199,10 @@ export function canUsePremiumModel(modelName: string, provider: string): { allow
  * Get feature limits for the current user tier
  */
 export function getFeatureLimits() {
-  const tier = getUserTier();
+  const tier = getUserTierSync();
   const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
 
-  if (tier === "pro") {
+  if (tier === "pro" || tier === "ultra" || tier === "business") {
     return {
       tier: "pro" as const,
       maxApps: Infinity,

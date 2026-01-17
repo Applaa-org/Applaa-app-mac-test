@@ -13,6 +13,7 @@ export interface CreditUsage {
   id: string;
   operationType: string;
   creditsUsed: number;
+  tokensUsed: number;
   metadata: any;
   createdAt: string;
 }

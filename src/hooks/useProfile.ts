@@ -19,6 +19,7 @@ export interface Profile {
   remaining_credits: number | null;
   credits_last_reset: string | null;
   total_credits_used: number | null;
+  total_tokens_used: number | null;
   subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
   created_at: string;
   updated_at: string;

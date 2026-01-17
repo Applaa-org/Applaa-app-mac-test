@@ -255,7 +255,7 @@ export async function getUsageHistory(
 
     let query = adminClient
       .from('credit_usage')
-      .select('id, operation_type, credits_used, metadata, created_at')
+      .select('id, operation_type, credits_used, tokens_used, metadata, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -286,6 +286,7 @@ export async function getUsageHistory(
       id: item.id,
       operationType: item.operation_type,
       creditsUsed: item.credits_used,
+      tokensUsed: item.tokens_used || 0,
       metadata: item.metadata,
       createdAt: item.created_at,
     }));
