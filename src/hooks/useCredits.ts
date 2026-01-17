@@ -14,6 +14,8 @@ export interface CreditUsage {
   operationType: string;
   creditsUsed: number;
   tokensUsed: number;
+  appId: string | null;
+  chatId: string | null;
   metadata: any;
   createdAt: string;
 }

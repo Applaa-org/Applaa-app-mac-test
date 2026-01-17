@@ -2270,6 +2270,7 @@ export class IpcClient {
 
   public async getCreditUsage(filters?: {
     operationType?: string;
+    appId?: string;
     startDate?: string;
     endDate?: string;
     limit?: number;
@@ -2279,6 +2280,9 @@ export class IpcClient {
       id: string;
       operationType: string;
       creditsUsed: number;
+      tokensUsed: number;
+      appId: string | null;
+      chatId: string | null;
       metadata: any;
       createdAt: string;
     }>;

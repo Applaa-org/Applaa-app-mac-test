@@ -405,23 +405,101 @@ export default function ProfilePage() {
               </div>
             )}
 
+            {/* Token Usage Breakdown by App */}
+            {usageHistory && usageHistory.length > 0 && (() => {
+              // Aggregate tokens by app_id
+              const tokensByApp = new Map<string | null, number>();
+              const appNames = new Map<string | null, string>();
+
+              usageHistory.forEach((usage) => {
+                if (usage.tokensUsed > 0) {
+                  const appId = usage.appId || null;
+                  const current = tokensByApp.get(appId) || 0;
+                  tokensByApp.set(appId, current + usage.tokensUsed);
+                  
+                  // Try to get app name from metadata
+                  if (appId && !appNames.has(appId) && usage.metadata?.appName) {
+                    appNames.set(appId, usage.metadata.appName);
+                  }
+                }
+              });
+
+              // Sort by tokens (descending) and take top 10
+              const sortedApps = Array.from(tokensByApp.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+              if (sortedApps.length > 0) {
+                return (
+                  <div className="space-y-2 p-4 bg-muted rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm font-medium">Token Usage by App</p>
+                    </div>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {sortedApps.map(([appId, tokens]) => (
+                        <div key={appId || 'no-app'} className="flex items-center justify-between text-sm pb-2 border-b last:border-0">
+                          <div>
+                            <p className="font-medium">
+                              {appId ? (appNames.get(appId) || `App ${appId}`) : 'Other Operations'}
+                            </p>
+                            {appId && (
+                              <p className="text-xs text-muted-foreground">
+                                App ID: {appId}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-purple-600 dark:text-purple-400">
+                              {tokens.toLocaleString()} tokens
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {((tokens / (profile.total_tokens_used || 1)) * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Credit Usage History */}
-            {usageHistory && usageHistory.length > 0 && (
-              <div className="space-y-2 p-4 bg-muted rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm font-medium">Recent Usage</p>
+            <div className="space-y-2 p-4 bg-muted rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">Credit Usage History</p>
+              </div>
+              {isLoadingCredits ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <p className="ml-2 text-sm text-muted-foreground">Loading usage history...</p>
                 </div>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {usageHistory.slice(0, 5).map((usage) => (
+              ) : usageHistory && usageHistory.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {usageHistory.slice(0, 10).map((usage) => (
                     <div key={usage.id} className="flex items-center justify-between text-sm pb-2 border-b last:border-0">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium capitalize">{usage.operationType.replace(/_/g, ' ')}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(usage.createdAt).toLocaleDateString()} {new Date(usage.createdAt).toLocaleTimeString()}
-                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(usage.createdAt).toLocaleDateString()} {new Date(usage.createdAt).toLocaleTimeString()}
+                          </p>
+                          {usage.appId && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                              App: {usage.metadata?.appName || usage.appId}
+                            </span>
+                          )}
+                          {usage.chatId && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                              Chat: {usage.chatId}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right ml-4">
                         {usage.creditsUsed > 0 && (
                           <p className="font-semibold text-blue-600 dark:text-blue-400">
                             -{usage.creditsUsed} credits
@@ -436,8 +514,12 @@ export default function ProfilePage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center justify-center py-8">
+                  <p className="text-sm text-muted-foreground">No usage history yet. Your credit and token usage will appear here.</p>
+                </div>
+              )}
+            </div>
 
             {/* Subscription Management */}
             <div className="p-4 bg-muted rounded-lg border space-y-3">

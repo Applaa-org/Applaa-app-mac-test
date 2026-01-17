@@ -140,6 +140,8 @@ export interface Database {
           operation_type: string;
           credits_used: number;
           tokens_used: number | null;
+          app_id: string | null;
+          chat_id: string | null;
           metadata: any;
           created_at: string;
         };
@@ -149,6 +151,8 @@ export interface Database {
           operation_type: string;
           credits_used: number;
           tokens_used?: number | null;
+          app_id?: string | null;
+          chat_id?: string | null;
           metadata?: any;
           created_at?: string;
         };
@@ -158,6 +162,8 @@ export interface Database {
           operation_type?: string;
           credits_used?: number;
           tokens_used?: number | null;
+          app_id?: string | null;
+          chat_id?: string | null;
           metadata?: any;
           created_at?: string;
         };

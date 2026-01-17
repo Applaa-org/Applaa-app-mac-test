@@ -118,13 +118,38 @@ export function isProUser(): boolean {
 }
 
 /**
- * Check if user can create more apps
+ * Check if user can create more apps (sync version - uses cache)
  * Free tier: max 3 apps
  * Pro tier: unlimited
  */
 export function canCreateApp(): { allowed: boolean; reason?: string } {
   // Use sync version for immediate check
   const isPro = isProUser();
+  if (isPro) {
+    return { allowed: true };
+  }
+
+  const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
+  const FREE_APP_LIMIT = 3;
+  
+  if (existingApps.count >= FREE_APP_LIMIT) {
+    return {
+      allowed: false,
+      reason: `FREE_TIER_APP_LIMIT:${FREE_APP_LIMIT}`,
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Check if user can create more apps (async version - always fetches latest tier)
+ * Free tier: max 3 apps
+ * Pro tier: unlimited
+ */
+export async function canCreateAppAsync(): Promise<{ allowed: boolean; reason?: string }> {
+  // Use async version to get latest tier (bypasses cache)
+  const isPro = await isProUserAsync();
   if (isPro) {
     return { allowed: true };
   }

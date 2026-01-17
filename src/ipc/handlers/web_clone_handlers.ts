@@ -72,9 +72,9 @@ export function registerWebCloneHandlers() {
         throw new Error(`Invalid URL: ${params.url}`);
       }
 
-      // Check tier-based app limits
-      const { canCreateApp } = await import("../utils/feature_checks");
-      const appLimitCheck = canCreateApp();
+      // Check tier-based app limits (use async version to get latest tier)
+      const { canCreateAppAsync } = await import("../utils/feature_checks");
+      const appLimitCheck = await canCreateAppAsync();
       if (!appLimitCheck.allowed) {
         throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
       }

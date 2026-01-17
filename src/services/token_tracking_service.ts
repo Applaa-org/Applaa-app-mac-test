@@ -69,6 +69,10 @@ export async function trackTokenUsage(
       throw new Error(`Failed to update token usage: ${updateError?.message || 'Update failed'}`);
     }
 
+    // Extract app_id and chat_id from metadata if present
+    const appId = metadata?.appId || metadata?.app_id || null;
+    const chatId = metadata?.chatId || metadata?.chat_id || null;
+
     // Also update credit_usage table with tokens_used if the record exists
     // Note: We'll update the most recent credit_usage record for this operation
     // This assumes credits were deducted right before tokens were used
@@ -88,6 +92,8 @@ export async function trackTokenUsage(
           .from('credit_usage')
           .update({
             tokens_used: tokensUsed,
+            app_id: appId ? String(appId) : null,
+            chat_id: chatId ? String(chatId) : null,
             metadata: {
               ...(metadata || {}),
               tokens_used: tokensUsed,
@@ -105,6 +111,8 @@ export async function trackTokenUsage(
             operation_type: operationType,
             credits_used: 0, // No credits deducted, just tracking tokens
             tokens_used: tokensUsed,
+            app_id: appId ? String(appId) : null,
+            chat_id: chatId ? String(chatId) : null,
             metadata: {
               ...(metadata || {}),
               tokens_used: tokensUsed,

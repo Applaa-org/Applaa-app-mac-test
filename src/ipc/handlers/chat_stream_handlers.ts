@@ -439,6 +439,11 @@ export function registerChatStreamHandlers() {
       const abortController = new AbortController();
       activeStreams.set(req.chatId, abortController);
 
+      // Declare userId, creditCost, and tokensUsed at the top level so they're accessible throughout the handler
+      let userId: string | null = null;
+      let creditCost = 0;
+      let tokensUsed = 0;
+
       // Get the chat to check for existing messages FIRST
       const chat = await db.query.chats.findFirst({
         where: eq(chats.id, req.chatId),
@@ -1203,8 +1208,6 @@ This conversation includes one or more image attachments. When the user uploads 
         };
 
         // 💎 CREDIT CHECK: Verify user has enough credits before streaming
-        let userId: string | null = null;
-        let creditCost = 0;
         try {
           const auth = getSupabaseAuth();
           const supabaseUser = await auth.getCurrentUser();
@@ -1245,8 +1248,8 @@ This conversation includes one or more image attachments. When the user uploads 
         });
         const { fullStream } = streamResult;
 
-        // Track token usage from the stream result
-        let tokensUsed = 0;
+        // Reset tokensUsed for this stream
+        tokensUsed = 0;
 
         // Process the stream as before
         try {
@@ -1699,17 +1702,30 @@ ${problemReport.problems
           }
 
           // 📊 TOKEN TRACKING: Track token usage after successful completion
-          if (userId && tokensUsed > 0) {
+          if (!userId) {
+            logger.warn(`Token tracking skipped: No userId found for chat ${req.chatId}`);
+          } else if (tokensUsed <= 0) {
+            logger.warn(`Token tracking skipped: tokensUsed is ${tokensUsed} for chat ${req.chatId}`);
+          } else {
             try {
+              logger.info(`Tracking token usage: ${tokensUsed} tokens for user ${userId}, chat ${req.chatId}`);
               await trackTokenUsage(userId, tokensUsed, 'chat_message', {
                 chatId: req.chatId,
                 appId: updatedChat.app.id,
                 model: settings.selectedModel?.name,
                 provider: settings.selectedModel?.provider,
               });
+              logger.info(`✅ Successfully tracked ${tokensUsed} tokens for user ${userId}`);
             } catch (tokenError: any) {
               // Log but don't throw - the chat was successful
               logger.error('Failed to track token usage after chat completion:', tokenError);
+              logger.error('Token tracking error details:', {
+                userId,
+                tokensUsed,
+                chatId: req.chatId,
+                appId: updatedChat.app.id,
+                error: tokenError.message,
+              });
             }
           }
 
@@ -1744,16 +1760,28 @@ ${problemReport.problems
           }
 
           // 📊 TOKEN TRACKING: Track token usage for simple completion (ask mode)
-          if (userId && tokensUsed > 0) {
+          if (!userId) {
+            logger.warn(`Token tracking skipped (ask mode): No userId found for chat ${req.chatId}`);
+          } else if (tokensUsed <= 0) {
+            logger.warn(`Token tracking skipped (ask mode): tokensUsed is ${tokensUsed} for chat ${req.chatId}`);
+          } else {
             try {
+              logger.info(`Tracking token usage (ask mode): ${tokensUsed} tokens for user ${userId}, chat ${req.chatId}`);
               await trackTokenUsage(userId, tokensUsed, 'chat_message', {
                 chatId: req.chatId,
                 model: settings.selectedModel?.name,
                 provider: settings.selectedModel?.provider,
               });
+              logger.info(`✅ Successfully tracked ${tokensUsed} tokens for user ${userId} (ask mode)`);
             } catch (tokenError: any) {
               // Log but don't throw - the chat was successful
-              logger.error('Failed to track token usage after chat completion:', tokenError);
+              logger.error('Failed to track token usage after chat completion (ask mode):', tokenError);
+              logger.error('Token tracking error details:', {
+                userId,
+                tokensUsed,
+                chatId: req.chatId,
+                error: tokenError.message,
+              });
             }
           }
 

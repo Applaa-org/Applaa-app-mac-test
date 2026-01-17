@@ -143,6 +143,10 @@ export async function deductCredits(
       throw new Error(`Failed to deduct credits: ${updateError?.message || 'Update failed'}`);
     }
 
+    // Extract app_id and chat_id from metadata if present
+    const appId = metadata?.appId || metadata?.app_id || null;
+    const chatId = metadata?.chatId || metadata?.chat_id || null;
+
     // Log credit usage
     const { error: usageError } = await adminClient
       .from('credit_usage')
@@ -150,6 +154,8 @@ export async function deductCredits(
         user_id: userId,
         operation_type: operationType,
         credits_used: operationCost,
+        app_id: appId ? String(appId) : null,
+        chat_id: chatId ? String(chatId) : null,
         metadata: metadata || {},
       });
 
@@ -239,6 +245,7 @@ export async function getUsageHistory(
   userId: string,
   filters?: {
     operationType?: string;
+    appId?: string;
     startDate?: string;
     endDate?: string;
     limit?: number;
@@ -247,20 +254,29 @@ export async function getUsageHistory(
   id: string;
   operationType: string;
   creditsUsed: number;
+  tokensUsed: number;
+  appId: string | null;
+  chatId: string | null;
   metadata: any;
   createdAt: string;
 }>> {
   try {
     const adminClient = getSupabaseAdminClient();
 
+    // Try to select all columns including optional ones (tokens_used, app_id, chat_id)
+    // If migration hasn't been run, these columns won't exist, so we'll catch and retry with base columns
     let query = adminClient
       .from('credit_usage')
-      .select('id, operation_type, credits_used, tokens_used, metadata, created_at')
+      .select('id, operation_type, credits_used, tokens_used, app_id, chat_id, metadata, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (filters?.operationType) {
       query = query.eq('operation_type', filters.operationType);
+    }
+
+    if (filters?.appId) {
+      query = query.eq('app_id', filters.appId);
     }
 
     if (filters?.startDate) {
@@ -275,7 +291,39 @@ export async function getUsageHistory(
       query = query.limit(filters.limit);
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+
+    // If error is about missing columns, retry with only base columns
+    if (error && (error.message.includes('does not exist') || error.code === '42703')) {
+      logger.warn('Some columns are missing, retrying with base columns only. Please run migrations: add_token_tracking.sql and add_app_tracking_to_credit_usage.sql');
+      
+      // Retry with only base columns that definitely exist
+      let fallbackQuery = adminClient
+        .from('credit_usage')
+        .select('id, operation_type, credits_used, metadata, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (filters?.operationType) {
+        fallbackQuery = fallbackQuery.eq('operation_type', filters.operationType);
+      }
+
+      if (filters?.startDate) {
+        fallbackQuery = fallbackQuery.gte('created_at', filters.startDate);
+      }
+
+      if (filters?.endDate) {
+        fallbackQuery = fallbackQuery.lte('created_at', filters.endDate);
+      }
+
+      if (filters?.limit) {
+        fallbackQuery = fallbackQuery.limit(filters.limit);
+      }
+
+      const fallbackResult = await fallbackQuery;
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       logger.error('Failed to get usage history:', error);
@@ -286,7 +334,9 @@ export async function getUsageHistory(
       id: item.id,
       operationType: item.operation_type,
       creditsUsed: item.credits_used,
-      tokensUsed: item.tokens_used || 0,
+      tokensUsed: (item as any).tokens_used || 0,
+      appId: (item as any).app_id || null,
+      chatId: (item as any).chat_id || null,
       metadata: item.metadata,
       createdAt: item.created_at,
     }));

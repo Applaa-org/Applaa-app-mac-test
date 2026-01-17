@@ -111,6 +111,7 @@ export function registerCreditHandlers() {
   // Get usage history
   ipcMain.handle('credit:get-usage', async (_, filters?: {
     operationType?: string;
+    appId?: string;
     startDate?: string;
     endDate?: string;
     limit?: number;
