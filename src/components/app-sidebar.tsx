@@ -35,8 +35,6 @@ import { SettingsList } from "./SettingsList";
 import { useWordPressAuth } from "@/hooks/useWordPressAuth";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { CombinedAuthDialog } from "@/components/auth/CombinedAuthDialog";
-import { WordPressUserProfile } from "@/components/auth/WordPressUserProfile";
-import { UserDropdown } from "./UserDropdown";
 
 // Menu items with dynamic colors - blue for active, gray for inactive
 const items = [
@@ -96,8 +94,6 @@ export function AppSidebar() {
   const isAuthenticated = isWordPressAuthenticated || isSupabaseAuthenticated;
   const isAuthLoading = isWordPressLoading || isSupabaseLoading;
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  const [isWordPressUserDropdownOpen, setIsWordPressUserDropdownOpen] = useState(false);
-  const [isSupabaseUserDropdownOpen, setIsSupabaseUserDropdownOpen] = useState(false);
   const navigate = useNavigate();
   
   // Authentication state is now managed by useSupabaseAuth hook
@@ -125,6 +121,7 @@ export function AppSidebar() {
     routerState.location.pathname.startsWith("/app-details");
   const isChatRoute = routerState.location.pathname === "/chat";
   const isSettingsRoute = routerState.location.pathname.startsWith("/settings");
+  const isProfileRoute = routerState.location.pathname.startsWith("/profile");
   const isHubRoute = routerState.location.pathname.startsWith("/hub");
   const isDocsRoute = routerState.location.pathname.startsWith("/docs");
 
@@ -142,6 +139,8 @@ export function AppSidebar() {
       selectedItem = "Chat";
     } else if (isSettingsRoute) {
       selectedItem = "Settings";
+    } else if (isProfileRoute) {
+      selectedItem = "Profile";
     } else if (isHubRoute) {
       selectedItem = "Hub";
     } else if (isDocsRoute) {
@@ -198,11 +197,7 @@ export function AppSidebar() {
                 className="font-medium w-14 h-auto flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl"
               onClick={() => {
                 if (isAuthenticated) {
-                  if (isSupabaseAuthenticated) {
-                    setIsSupabaseUserDropdownOpen(!isSupabaseUserDropdownOpen);
-                  } else {
-                    setIsWordPressUserDropdownOpen(!isWordPressUserDropdownOpen);
-                  }
+                  navigate({ to: '/profile' });
                 } else {
                   setIsAuthDialogOpen(true);
                 }
@@ -249,17 +244,9 @@ export function AppSidebar() {
             open={isAuthDialogOpen}
             onOpenChange={setIsAuthDialogOpen}
           />
-          <UserDropdown
-            isOpen={isSupabaseUserDropdownOpen}
-            onClose={() => setIsSupabaseUserDropdownOpen(false)}
-          />
           <HelpDialog
             isOpen={isHelpDialogOpen}
             onClose={() => setIsHelpDialogOpen(false)}
-          />
-          <WordPressUserProfile
-            isOpen={isWordPressUserDropdownOpen}
-            onClose={() => setIsWordPressUserDropdownOpen(false)}
           />
         </SidebarMenu>
       </SidebarFooter>

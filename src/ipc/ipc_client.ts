@@ -2026,6 +2026,8 @@ export class IpcClient {
     email: string;
     password: string;
     fullName?: string;
+    firstName?: string;
+    lastName?: string;
   }): Promise<{
     success: boolean;
     user?: any;
@@ -2200,6 +2202,120 @@ export class IpcClient {
     isPro: boolean;
   }> {
     return this.ipcRenderer.invoke("subscription:sync-from-supabase");
+  }
+
+  // Profile Management Methods
+  public async getCurrentProfile(): Promise<{
+    success: boolean;
+    profile: {
+      id: string;
+      email: string;
+      username: string | null;
+      full_name: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      avatar_url: string | null;
+      subscription_tier: 'free' | 'pro' | null;
+      wordpress_user_id: number | null;
+      wordpress_username: string | null;
+      wordpress_display_name: string | null;
+      wordpress_roles: string[] | null;
+      created_at: string;
+      updated_at: string;
+    };
+  }> {
+    return this.ipcRenderer.invoke("profile:get-current");
+  }
+
+  public async updateProfile(updates: {
+    username?: string;
+    full_name?: string;
+    first_name?: string;
+    last_name?: string;
+    avatar_url?: string;
+  }): Promise<{
+    success: boolean;
+    profile: {
+      id: string;
+      email: string;
+      username: string | null;
+      full_name: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      avatar_url: string | null;
+      subscription_tier: 'free' | 'pro' | null;
+      wordpress_user_id: number | null;
+      wordpress_username: string | null;
+      wordpress_display_name: string | null;
+      wordpress_roles: string[] | null;
+      created_at: string;
+      updated_at: string;
+    };
+  }> {
+    return this.ipcRenderer.invoke("profile:update", updates);
+  }
+
+  // Credit Management Methods
+  public async getCreditBalance(): Promise<{
+    success: boolean;
+    balance: {
+      remaining: number;
+      monthly: number;
+      totalUsed: number;
+      lastReset: string | null;
+    };
+  }> {
+    return this.ipcRenderer.invoke("credit:get-balance");
+  }
+
+  public async getCreditUsage(filters?: {
+    operationType?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    history: Array<{
+      id: string;
+      operationType: string;
+      creditsUsed: number;
+      metadata: any;
+      createdAt: string;
+    }>;
+  }> {
+    return this.ipcRenderer.invoke("credit:get-usage", filters);
+  }
+
+  public async checkCredits(operationType: string, cost?: number): Promise<{
+    success: boolean;
+    hasCredits: boolean;
+    remaining: number;
+    required: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:check", operationType, cost);
+  }
+
+  public async resetCredits(): Promise<{
+    success: boolean;
+    newBalance?: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:reset");
+  }
+
+  public async checkAndResetCredits(): Promise<{
+    success: boolean;
+    reset: boolean;
+    newBalance?: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:check-reset");
+  }
+
+  public async topUpCredits(amount: number): Promise<{
+    success: boolean;
+    newBalance?: number;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("credit:top-up", amount);
   }
 
   public async subscriptionCreateCheckout(params: {

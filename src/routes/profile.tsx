@@ -1,6 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { ProfilePage } from '@/components/profile/ProfilePage';
+import { createRoute } from "@tanstack/react-router";
+import { rootRoute } from "./root";
+import ProfilePage from "../pages/profile";
 
-export const Route = createFileRoute('/profile')({
+export const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/profile",
   component: ProfilePage,
 });

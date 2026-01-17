@@ -369,20 +369,27 @@ export function registerSubscriptionHandlers() {
 
       if (supabaseUser) {
         // User is authenticated via Supabase
-        // Use admin client to query profiles table (bypasses RLS and schema cache issues)
         const adminClient = getSupabaseAdminClient();
         
-        // Get user profile to get email
-        const { data: profile, error: profileError } = await adminClient
+        // Try to get profile by Supabase user ID first
+        let { data: profile, error: profileError } = await adminClient
           .from('profiles')
           .select('email, id')
           .eq('id', supabaseUser.id)
           .maybeSingle();
 
         if (profileError && profileError.code !== 'PGRST116') {
-          // PGRST116 is "not found" which is expected if profile doesn't exist
           logger.error('Failed to get profile from Supabase:', profileError);
           throw new Error(`Failed to get user profile: ${profileError.message}`);
+        }
+
+        // If not found by ID, try by email or username
+        if (!profile) {
+          const identifier = supabaseUser.email || supabaseUser.user_metadata?.username || supabaseUser.user_metadata?.preferred_username;
+          
+          if (identifier) {
+            profile = await auth.getProfileByEmailOrUsername(identifier);
+          }
         }
 
         if (!profile) {
@@ -418,7 +425,8 @@ export function registerSubscriptionHandlers() {
         userEmail = profile.email;
         userId = profile.id;
       } else {
-        // Check WordPress authentication
+        // Check WordPress authentication (fallback)
+        // All WordPress users are already in Supabase, so just look them up
         const settings = readSettings();
         const wordpressAuth = settings.wordpressAuth;
 
@@ -429,39 +437,25 @@ export function registerSubscriptionHandlers() {
         // Get email from WordPress user
         userEmail = wordpressAuth.user.email;
         
-        // For WordPress users, try to get their profile from Supabase by email
-        // If it doesn't exist, create it automatically
-        let profile = await auth.getProfileByEmail(userEmail);
+        // Look up existing profile in Supabase by email or username
+        // Since all WordPress users are already in Supabase, profile should exist
+        let profile = await auth.getProfileByEmailOrUsername(userEmail);
+        
+        // If not found by email, try by WordPress username
+        if (!profile && wordpressAuth.user.username) {
+          profile = await auth.getProfileByEmailOrUsername(wordpressAuth.user.username);
+        }
         
         if (!profile) {
-          // Profile doesn't exist - create it automatically using WordPress user data
-          logger.info('Profile not found, creating from WordPress user data');
-          
-          const adminClient = getSupabaseAdminClient();
-          const { data: newProfile, error: createError } = await adminClient
-            .from('profiles')
-            .insert({
-              email: userEmail,
-              full_name: wordpressAuth.user.display_name || null,
-              subscription_tier: 'free',
-              wordpress_user_id: wordpressAuth.user.id,
-              wordpress_username: wordpressAuth.user.username,
-              wordpress_display_name: wordpressAuth.user.display_name,
-              wordpress_roles: wordpressAuth.user.roles || [],
-            })
-            .select('id')
-            .single();
-
-          if (createError) {
-            logger.error('Failed to create profile from WordPress data:', createError);
-            throw new Error(`Failed to create user profile: ${createError.message}`);
-          }
-
-          profile = newProfile;
-          logger.info('Profile created successfully from WordPress data');
+          logger.error('WordPress user profile not found in Supabase:', {
+            email: userEmail,
+            username: wordpressAuth.user.username,
+          });
+          throw new Error('User profile not found in database. Please contact support.');
         }
 
         userId = profile.id;
+        logger.info('Found WordPress user profile in Supabase:', userId);
       }
 
       // Build redirect URL with user parameters
@@ -471,7 +465,7 @@ export function registerSubscriptionHandlers() {
         returnUrl: 'applaa://subscription/success',
       });
 
-      const subscribeUrl = `https://applaa.com/subscribe?${params.toString()}`;
+      const subscribeUrl = `http://localhost:3000/subscribe?${params.toString()}`;
       
       logger.info(`Redirecting to subscription page: ${subscribeUrl}`);
       await shell.openExternal(subscribeUrl);
@@ -494,20 +488,30 @@ export function registerSubscriptionHandlers() {
 
       if (supabaseUser) {
         // User is authenticated via Supabase
-        // Use admin client to query profiles table (bypasses RLS and schema cache issues)
         const adminClient = getSupabaseAdminClient();
         
-        // Query Supabase profiles table for subscription_tier
-        const { data: profileData, error: profileError } = await adminClient
+        // Try to get profile by Supabase user ID first
+        let { data: profileData, error: profileError } = await adminClient
           .from('profiles')
           .select('subscription_tier')
           .eq('id', supabaseUser.id)
           .maybeSingle();
 
         if (profileError && profileError.code !== 'PGRST116') {
-          // PGRST116 is "not found" which is expected if profile doesn't exist
           logger.error('Failed to get profile from Supabase:', profileError);
           throw new Error(`Failed to sync subscription: ${profileError.message}`);
+        }
+
+        // If not found by ID, try by email or username
+        if (!profileData) {
+          const identifier = supabaseUser.email || supabaseUser.user_metadata?.username || supabaseUser.user_metadata?.preferred_username;
+          
+          if (identifier) {
+            const fullProfile = await auth.getProfileByEmailOrUsername(identifier);
+            if (fullProfile) {
+              profileData = { subscription_tier: fullProfile.subscription_tier };
+            }
+          }
         }
 
         if (!profileData) {
@@ -542,7 +546,8 @@ export function registerSubscriptionHandlers() {
 
         profile = profileData;
       } else {
-        // Check WordPress authentication
+        // Check WordPress authentication (fallback)
+        // All WordPress users are already in Supabase, so just look them up
         const settings = readSettings();
         const wordpressAuth = settings.wordpressAuth;
 
@@ -550,39 +555,28 @@ export function registerSubscriptionHandlers() {
           throw new Error('User not authenticated. Please sign in to sync subscription.');
         }
 
-        // For WordPress users, try to get their profile from Supabase by email
-        // If it doesn't exist, create it automatically
-        let profileData = await auth.getProfileByEmail(wordpressAuth.user.email);
+        // Get email from WordPress user
+        const userEmail = wordpressAuth.user.email;
+        
+        // Look up existing profile in Supabase by email or username
+        // Since all WordPress users are already in Supabase, profile should exist
+        let profileData = await auth.getProfileByEmailOrUsername(userEmail);
+        
+        // If not found by email, try by WordPress username
+        if (!profileData && wordpressAuth.user.username) {
+          profileData = await auth.getProfileByEmailOrUsername(wordpressAuth.user.username);
+        }
         
         if (!profileData) {
-          // Profile doesn't exist - create it automatically using WordPress user data
-          logger.info('Profile not found during sync, creating from WordPress user data');
-          
-          const adminClient = getSupabaseAdminClient();
-          const { data: newProfile, error: createError } = await adminClient
-            .from('profiles')
-            .insert({
-              email: wordpressAuth.user.email,
-              full_name: wordpressAuth.user.display_name || null,
-              subscription_tier: 'free',
-              wordpress_user_id: wordpressAuth.user.id,
-              wordpress_username: wordpressAuth.user.username,
-              wordpress_display_name: wordpressAuth.user.display_name,
-              wordpress_roles: wordpressAuth.user.roles || [],
-            })
-            .select('subscription_tier')
-            .single();
-
-          if (createError) {
-            logger.error('Failed to create profile from WordPress data during sync:', createError);
-            throw new Error(`Failed to create user profile: ${createError.message}`);
-          }
-
-          profileData = newProfile;
-          logger.info('Profile created successfully from WordPress data during sync');
+          logger.error('WordPress user profile not found in Supabase:', {
+            email: userEmail,
+            username: wordpressAuth.user.username,
+          });
+          throw new Error('User profile not found in database. Please contact support.');
         }
 
-        profile = profileData;
+        profile = { subscription_tier: profileData.subscription_tier };
+        logger.info('Found WordPress user profile in Supabase:', profileData.id);
       }
 
       if (!profile) {

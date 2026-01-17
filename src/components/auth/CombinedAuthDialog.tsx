@@ -146,6 +146,8 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
           email: email,
           password: password,
           fullName: fullName,
+          firstName: finalFirstName,
+          lastName: finalLastName,
         });
         supabaseSuccess = true;
         console.log('✅ Supabase sign up successful');

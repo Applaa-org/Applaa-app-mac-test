@@ -74,10 +74,12 @@ export function registerSupabaseAuthHandlers() {
   });
 
   // Sign up
-  ipcMain.handle('supabase:sign-up', async (_, { email, password, fullName }: { 
-    email: string; 
-    password: string; 
-    fullName?: string; 
+  ipcMain.handle('supabase:sign-up', async (_, { email, password, fullName, firstName, lastName }: {
+    email: string;
+    password: string;
+    fullName?: string;
+    firstName?: string;
+    lastName?: string;
   }) => {
     try {
       if (!isInitialized) {
@@ -85,7 +87,7 @@ export function registerSupabaseAuthHandlers() {
       }
 
       const auth = getSupabaseAuth();
-      const result = await auth.signUp(email, password, fullName);
+      const result = await auth.signUp(email, password, fullName, firstName, lastName);
       
       log.info('User signed up successfully');
       return { 

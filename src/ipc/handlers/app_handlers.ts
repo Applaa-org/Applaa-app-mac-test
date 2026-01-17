@@ -62,6 +62,8 @@ import { storeDbTimestampAtCurrentVersion } from "../utils/neon_timestamp_utils"
 import { perfMonitor, logPerfReport } from "../utils/performance_monitor";
 import { backendAPI } from "../../lib/backend-api";
 import { getSupabaseAuth } from "../../lib/supabase";
+import { checkCredits, deductCredits } from "../../services/credit_service";
+import { CREDIT_COSTS } from "../../utils/credit_costs";
 
 const logger = log.scope("app-handlers");
 
@@ -874,6 +876,50 @@ export function registerAppHandlers() {
           ? 'mobile'
           : 'web';
       
+      // 💎 CREDIT CHECK: Verify user has enough credits before creating app
+      let userId: string | null = null;
+      let creditCost = 0;
+      try {
+        const auth = getSupabaseAuth();
+        const supabaseUser = await auth.getCurrentUser();
+        if (supabaseUser) {
+          userId = supabaseUser.id;
+        } else {
+          // Try WordPress auth as fallback
+          const settings = readSettings();
+          const wordpressAuth = settings.wordpressAuth;
+          if (wordpressAuth?.isAuthenticated && wordpressAuth?.user) {
+            const profile = await auth.getProfileByEmailOrUsername(wordpressAuth.user.email || wordpressAuth.user.username || wordpressAuth.user.display_name || '');
+            if (profile) {
+              userId = profile.id;
+            }
+          }
+        }
+
+        if (userId) {
+          // Determine credit cost based on app type
+          if (appType === 'godot') {
+            creditCost = CREDIT_COSTS.APP_CREATION_GAME;
+          } else if (appType === 'mobile') {
+            creditCost = CREDIT_COSTS.APP_CREATION_MOBILE;
+          } else {
+            creditCost = CREDIT_COSTS.APP_CREATION_WEB;
+          }
+
+          const creditCheck = await checkCredits(userId, 'app_creation', creditCost);
+          if (!creditCheck.hasCredits) {
+            throw new Error(`Insufficient credits. You need ${creditCheck.required} credits to create a ${appType} app but only have ${creditCheck.remaining} remaining.`);
+          }
+        }
+      } catch (creditError: any) {
+        // If it's an insufficient credits error, throw it
+        if (creditError.message?.includes('Insufficient credits')) {
+          throw creditError;
+        }
+        // Otherwise, log and continue (don't block app creation if credit check fails)
+        logger.warn('Credit check failed, continuing anyway:', creditError);
+      }
+      
       const appRelPath2 = getAppRelativePath(
         params.name,
         appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
@@ -1173,6 +1219,20 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         } catch (error: any) {
           logger.warn(`⚠️ Failed to write .env.local file:`, error.message);
           // Don't fail app creation if .env write fails
+        }
+      }
+
+      // 💎 CREDIT DEDUCTION: Deduct credits after successful app creation
+      if (userId && creditCost > 0) {
+        try {
+          await deductCredits(userId, 'app_creation', creditCost, {
+            appId: app.id,
+            appName: app.name,
+            appType: appType,
+          });
+        } catch (creditError: any) {
+          // Log but don't throw - the app was created successfully
+          logger.error('Failed to deduct credits after app creation:', creditError);
         }
       }
 

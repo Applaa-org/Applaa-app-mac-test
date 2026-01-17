@@ -10,9 +10,12 @@ export interface Database {
         Row: {
           id: string;
           email: string;
+          username: string | null;
           full_name: string | null;
+          first_name: string | null;
+          last_name: string | null;
           avatar_url: string | null;
-          subscription_tier: 'free' | 'pro';
+          subscription_tier: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id: string | null;
           trial_start: string | null;
           trial_end: string | null;
@@ -20,15 +23,22 @@ export interface Database {
           wordpress_username: string | null;
           wordpress_display_name: string | null;
           wordpress_roles: string[] | null;
+          monthly_credits: number | null;
+          remaining_credits: number | null;
+          credits_last_reset: string | null;
+          total_credits_used: number | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           email: string;
+          username?: string | null;
           full_name?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
           avatar_url?: string | null;
-          subscription_tier?: 'free' | 'pro';
+          subscription_tier?: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id?: string | null;
           trial_start?: string | null;
           trial_end?: string | null;
@@ -36,15 +46,22 @@ export interface Database {
           wordpress_username?: string | null;
           wordpress_display_name?: string | null;
           wordpress_roles?: string[] | null;
+          monthly_credits?: number | null;
+          remaining_credits?: number | null;
+          credits_last_reset?: string | null;
+          total_credits_used?: number | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           email?: string;
+          username?: string | null;
           full_name?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
           avatar_url?: string | null;
-          subscription_tier?: 'free' | 'pro';
+          subscription_tier?: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id?: string | null;
           trial_start?: string | null;
           trial_end?: string | null;
@@ -52,6 +69,10 @@ export interface Database {
           wordpress_username?: string | null;
           wordpress_display_name?: string | null;
           wordpress_roles?: string[] | null;
+          monthly_credits?: number | null;
+          remaining_credits?: number | null;
+          credits_last_reset?: string | null;
+          total_credits_used?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -107,6 +128,32 @@ export interface Database {
           canceled_at?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      credit_usage: {
+        Row: {
+          id: string;
+          user_id: string;
+          operation_type: string;
+          credits_used: number;
+          metadata: any;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          operation_type: string;
+          credits_used: number;
+          metadata?: any;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          operation_type?: string;
+          credits_used?: number;
+          metadata?: any;
+          created_at?: string;
         };
       };
       user_apps: {
@@ -400,7 +447,7 @@ export class SupabaseAuth {
   }
 
   // Sign up with email and password
-  async signUp(email: string, password: string, fullName?: string) {
+  async signUp(email: string, password: string, fullName?: string, firstName?: string, lastName?: string) {
     try {
       const { data, error } = await this.client.auth.signUp({
         email,
@@ -408,6 +455,8 @@ export class SupabaseAuth {
         options: {
           data: {
             full_name: fullName,
+            first_name: firstName,
+            last_name: lastName,
           },
         },
       });
@@ -416,7 +465,7 @@ export class SupabaseAuth {
 
       // Create profile if user was created
       if (data.user && !error) {
-        await this.createProfile(data.user, fullName);
+        await this.createProfile(data.user, fullName, firstName, lastName);
       }
 
       return { user: data.user, session: data.session };
@@ -507,14 +556,19 @@ export class SupabaseAuth {
   }
 
   // Create user profile
-  private async createProfile(user: User, fullName?: string) {
+  private async createProfile(user: User, fullName?: string, firstName?: string, lastName?: string) {
     try {
+      // Build full_name from first_name and last_name if not provided
+      const finalFullName = fullName || (firstName || lastName ? [firstName, lastName].filter(Boolean).join(' ').trim() : null);
+      
       const { error } = await this.client
         .from('profiles')
         .insert({
           id: user.id,
           email: user.email!,
-          full_name: fullName || null,
+          full_name: finalFullName || null,
+          first_name: firstName || null,
+          last_name: lastName || null,
           subscription_tier: 'free',
         });
 
@@ -740,6 +794,97 @@ export class SupabaseAuth {
       return data;
     } catch (error) {
       log.error('Get profile by email error:', error);
+      throw error;
+    }
+  }
+
+  // Get user profile by email or username (WordPress username)
+  async getProfileByEmailOrUsername(emailOrUsername: string) {
+    try {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!serviceRoleKey) {
+        throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
+      }
+
+      const supabaseUrl = process.env.SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('SUPABASE_URL not configured');
+      }
+
+      const adminClient = createClient<Database>(
+        supabaseUrl,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
+
+      // Try to find by email first
+      const { data: profileByEmail, error: emailError } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('email', emailOrUsername)
+        .maybeSingle();
+
+      if (profileByEmail && !emailError) {
+        console.log('✅ [getProfileByEmailOrUsername] Found profile by email:', {
+          identifier: emailOrUsername,
+          profileId: profileByEmail.id,
+          profileEmail: profileByEmail.email,
+          profileFullName: profileByEmail.full_name,
+          wordpressUsername: profileByEmail.wordpress_username,
+        });
+        return profileByEmail;
+      }
+
+      // If not found by email, try to find by WordPress username
+      const { data: profileByUsername, error: usernameError } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('wordpress_username', emailOrUsername)
+        .maybeSingle();
+
+      if (profileByUsername && !usernameError) {
+        console.log('✅ [getProfileByEmailOrUsername] Found profile by WordPress username:', {
+          identifier: emailOrUsername,
+          profileId: profileByUsername.id,
+          profileEmail: profileByUsername.email,
+          profileFullName: profileByUsername.full_name,
+          wordpressUsername: profileByUsername.wordpress_username,
+        });
+        return profileByUsername;
+      }
+
+      // Also try to find by full_name (display_name) - sometimes WordPress display_name matches the username in database
+      const { data: profileByDisplayName, error: displayNameError } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('full_name', emailOrUsername)
+        .maybeSingle();
+
+      if (profileByDisplayName && !displayNameError) {
+        console.log('✅ [getProfileByEmailOrUsername] Found profile by full_name (display_name):', {
+          identifier: emailOrUsername,
+          profileId: profileByDisplayName.id,
+          profileEmail: profileByDisplayName.email,
+          profileFullName: profileByDisplayName.full_name,
+          wordpressUsername: profileByDisplayName.wordpress_username,
+        });
+        return profileByDisplayName;
+      }
+
+      // Not found by either
+      console.log('❌ [getProfileByEmailOrUsername] Profile not found:', {
+        identifier: emailOrUsername,
+        triedEmail: !emailError && !profileByEmail,
+        triedUsername: !usernameError && !profileByUsername,
+      });
+      return null;
+    } catch (error) {
+      log.error('Get profile by email or username error:', error);
       throw error;
     }
   }

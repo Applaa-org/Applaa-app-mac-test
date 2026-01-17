@@ -150,7 +150,7 @@ export function useSupabaseAuth() {
 
   // Sign up mutation
   const signUpMutation = useMutation({
-    mutationFn: async (params: { email: string; password: string; fullName?: string }) => {
+    mutationFn: async (params: { email: string; password: string; fullName?: string; firstName?: string; lastName?: string }) => {
       const result = await IpcClient.getInstance().supabaseSignUp(params);
       if (!result.success) {
         throw new Error(result.error || 'Sign up failed');

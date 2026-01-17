@@ -131,6 +131,17 @@ const validInvokeChannels = [
   "subscription:webhook",
   "subscription:redirect-to-subscribe",
   "subscription:sync-from-supabase",
+  // Profile Management
+  "profile:get-current",
+  "profile:update",
+  // Credit Management
+  "credit:check",
+  "credit:deduct",
+  "credit:get-balance",
+  "credit:get-usage",
+  "credit:reset",
+  "credit:check-reset",
+  "credit:top-up",
   "wordpress:check-configuration",
   "wordpress:login",
   "wordpress:register",

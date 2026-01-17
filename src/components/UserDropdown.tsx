@@ -7,9 +7,11 @@ import {
   Mail, 
   Crown, 
   LogOut, 
-  Calendar
+  Calendar,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from '@tanstack/react-router';
 
 interface UserDropdownProps {
   isOpen: boolean;
@@ -17,6 +19,7 @@ interface UserDropdownProps {
 }
 
 export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const { 
     user, 
     session, 
@@ -114,7 +117,19 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
 
 
           {/* Actions */}
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                navigate({ to: '/profile' });
+                onClose();
+              }}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              View Full Profile
+            </Button>
             <Button
               variant="ghost"
               size="sm"

@@ -85,6 +85,8 @@ import { registerVisualEditingHandlers } from "./handlers/visual_editing_handler
 import { registerPreviewImageHandlers } from "./handlers/preview_image_handlers";
 import { registerWebCloneHandlers } from "./handlers/web_clone_handlers";
 import { registerSubscriptionHandlers } from "./handlers/subscription_handlers";
+import { registerProfileHandlers } from "./handlers/profile_handlers";
+import { registerCreditHandlers } from "./handlers/credit_handlers";
 
 
 export function registerIpcHandlers() {
@@ -237,6 +239,14 @@ export function registerIpcHandlers() {
   } catch (error: any) {
     console.warn('⚠️ Subscription handlers not available (Stripe may not be installed):', error.message);
   }
+  
+  // 👤 Profile handlers
+  registerProfileHandlers();
+  console.log('👤 Profile handlers registered');
+  
+  // 💎 Credit handlers
+  registerCreditHandlers();
+  console.log('💎 Credit handlers registered');
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP
