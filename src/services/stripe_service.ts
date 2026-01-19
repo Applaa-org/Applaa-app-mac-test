@@ -1,5 +1,7 @@
 import log from 'electron-log';
 import { getSupabaseClient } from '../lib/supabase';
+import { updateCreditsOnTierChange } from './credit_service';
+import { getMonthlyCredits } from '../utils/credit_costs';
 
 const logger = log.scope('stripe');
 
@@ -273,6 +275,29 @@ function mapStripeSubscriptionToStatus(subscription: any): SubscriptionStatus {
 }
 
 /**
+ * Determine subscription tier from plan name or metadata
+ */
+function getTierFromPlan(planName: string, status: string): 'free' | 'pro' | 'ultra' | 'business' {
+  if (status !== 'active' && status !== 'trialing') {
+    return 'free';
+  }
+
+  const planLower = planName.toLowerCase();
+  if (planLower.includes('ultra')) {
+    return 'ultra';
+  }
+  if (planLower.includes('business')) {
+    return 'business';
+  }
+  if (planLower.includes('pro')) {
+    return 'pro';
+  }
+  
+  // Default to pro for active subscriptions
+  return 'pro';
+}
+
+/**
  * Sync subscription from Stripe to database
  */
 export async function syncSubscriptionToDatabase(
@@ -315,12 +340,23 @@ export async function syncSubscriptionToDatabase(
       throw error;
     }
 
+    // Get current tier before updating
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('id', userId)
+      .single();
+
+    const oldTier = (currentProfile?.subscription_tier as any) || 'free';
+    
+    // Determine new tier from plan name
+    const newTier = getTierFromPlan(status.planName, status.status);
+    
     // Update profile subscription tier
-    const subscriptionTier = status.status === 'active' || status.status === 'trialing' ? 'pro' : 'free';
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        subscription_tier: subscriptionTier,
+        subscription_tier: newTier,
         trial_start: status.trialStart?.toISOString() || null,
         trial_end: status.trialEnd?.toISOString() || null,
       })
@@ -328,6 +364,17 @@ export async function syncSubscriptionToDatabase(
 
     if (profileError) {
       logger.error('Failed to update profile subscription tier:', profileError);
+    } else {
+      // Update credits if tier changed
+      if (oldTier !== newTier) {
+        try {
+          const creditUpdate = await updateCreditsOnTierChange(userId, newTier, oldTier);
+          logger.info(`Credits updated on tier change: ${oldTier} -> ${newTier}, added ${creditUpdate.creditsAdded} credits, new balance: ${creditUpdate.newBalance}`);
+        } catch (creditError: any) {
+          logger.error('Failed to update credits on tier change:', creditError);
+          // Don't throw - subscription tier was updated successfully, credit update can be retried
+        }
+      }
     }
 
     logger.info('Subscription synced to database:', subscription.id);

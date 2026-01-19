@@ -310,11 +310,23 @@ export function registerSubscriptionHandlers() {
             .single();
 
           if (profile) {
-            // Update profile to free tier
+            // Update profile to free tier and adjust credits
+            const oldTier = (profile.subscription_tier as any) || 'free';
+            
+            // Update subscription tier
             await supabase
               .from('profiles')
               .update({ subscription_tier: 'free' })
               .eq('id', profile.id);
+
+            // Update credits (will keep current balance when downgrading)
+            try {
+              const { updateCreditsOnTierChange } = await import('../../services/credit_service');
+              await updateCreditsOnTierChange(profile.id, 'free', oldTier);
+            } catch (creditError: any) {
+              logger.error('Failed to update credits on cancellation:', creditError);
+              // Don't throw - subscription was canceled successfully
+            }
 
             // Delete subscription record
             await supabase
@@ -584,7 +596,9 @@ export function registerSubscriptionHandlers() {
       }
 
       // Update local settings based on database subscription_tier
-      const tier = profile.subscription_tier === 'pro' ? 'pro' : 'free';
+      // Support all tiers: free, pro, ultra, business
+      const subscriptionTier = profile.subscription_tier as 'free' | 'pro' | 'ultra' | 'business' | null;
+      const tier = subscriptionTier || 'free';
       writeSettings({ userTier: tier });
 
       logger.info(`Subscription synced from Supabase. Tier: ${tier}`);
@@ -592,7 +606,7 @@ export function registerSubscriptionHandlers() {
       return {
         success: true,
         tier,
-        isPro: tier === 'pro',
+        isPro: tier === 'pro' || tier === 'ultra' || tier === 'business',
       };
     } catch (error: any) {
       logger.error('Failed to sync subscription from Supabase:', error);

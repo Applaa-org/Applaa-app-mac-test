@@ -18,7 +18,14 @@ export function useSubscriptionSync() {
       // Reload settings to get updated tier
       queryClient.invalidateQueries({ queryKey: ["user-settings"] });
       
-      const tierText = data.tier === "pro" ? "Pro" : "Free";
+      // Map tier to display text
+      const tierTextMap: Record<string, string> = {
+        'free': 'Free',
+        'pro': 'Pro',
+        'ultra': 'Ultra',
+        'business': 'Business',
+      };
+      const tierText = tierTextMap[data.tier] || 'Free';
       showSuccess(`Subscription synced successfully. Your tier is now: ${tierText}`);
     },
     onError: (error: Error) => {

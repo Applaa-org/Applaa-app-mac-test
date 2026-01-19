@@ -239,6 +239,79 @@ export async function resetMonthlyCredits(userId: string): Promise<{ success: bo
 }
 
 /**
+ * Update credits when subscription tier changes
+ * Adds the difference between old and new tier credits to remaining_credits
+ */
+export async function updateCreditsOnTierChange(
+  userId: string,
+  newTier: 'free' | 'pro' | 'ultra' | 'business',
+  oldTier?: 'free' | 'pro' | 'ultra' | 'business'
+): Promise<{ success: boolean; newBalance: number; creditsAdded: number }> {
+  try {
+    const adminClient = getSupabaseAdminClient();
+
+    // Get current profile to determine old tier if not provided
+    const { data: profile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('remaining_credits, subscription_tier, monthly_credits')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error(`Failed to get user profile: ${profileError?.message || 'Profile not found'}`);
+    }
+
+    const previousTier = oldTier || (profile.subscription_tier as any) || 'free';
+    const currentBalance = profile.remaining_credits ?? 0;
+    const oldMonthlyCredits = getMonthlyCredits(previousTier);
+    const newMonthlyCredits = getMonthlyCredits(newTier);
+
+    // Calculate credit difference (only add credits, never subtract)
+    let creditsToAdd = 0;
+    if (newTier !== 'free' && previousTier !== newTier) {
+      // If upgrading, add the difference
+      if (newMonthlyCredits > oldMonthlyCredits) {
+        creditsToAdd = newMonthlyCredits - oldMonthlyCredits;
+        logger.info(`Upgrading from ${previousTier} (${oldMonthlyCredits}) to ${newTier} (${newMonthlyCredits}), adding ${creditsToAdd} credits`);
+      } else {
+        // If downgrading, don't subtract credits (user keeps what they have)
+        logger.info(`Downgrading from ${previousTier} (${oldMonthlyCredits}) to ${newTier} (${newMonthlyCredits}), keeping current balance`);
+      }
+    }
+
+    const newBalance = currentBalance + creditsToAdd;
+
+    // Update credits
+    const { data: updatedProfile, error: updateError } = await adminClient
+      .from('profiles')
+      .update({
+        remaining_credits: newBalance,
+        monthly_credits: newMonthlyCredits,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select('remaining_credits')
+      .single();
+
+    if (updateError || !updatedProfile) {
+      logger.error('Failed to update credits on tier change:', updateError);
+      throw new Error(`Failed to update credits: ${updateError?.message || 'Update failed'}`);
+    }
+
+    logger.info(`Credits updated on tier change: ${previousTier} -> ${newTier}, balance: ${currentBalance} -> ${updatedProfile.remaining_credits} (added ${creditsToAdd})`);
+
+    return {
+      success: true,
+      newBalance: updatedProfile.remaining_credits,
+      creditsAdded: creditsToAdd,
+    };
+  } catch (error: any) {
+    logger.error('Error updating credits on tier change:', error);
+    throw error;
+  }
+}
+
+/**
  * Get usage history for a user
  */
 export async function getUsageHistory(

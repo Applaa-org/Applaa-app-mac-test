@@ -336,20 +336,43 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
               <div className="flex items-center gap-3">
                 <Crown className="h-5 w-5 text-yellow-500" />
+                {(() => {
+                  const tier = (profile.subscription_tier || "free") as "free" | "pro" | "ultra" | "business";
+                  const isPaidTier = tier === "pro" || tier === "ultra" || tier === "business";
+                  const tierLabel =
+                    tier === "pro"
+                      ? "Pro"
+                      : tier === "ultra"
+                      ? "Ultra"
+                      : tier === "business"
+                      ? "Business"
+                      : "Free";
+
+                  return (
                 <div>
                   <p className="font-medium">Subscription Tier</p>
                   <p className="text-sm text-muted-foreground">
-                    {profile.subscription_tier === "pro" ? "Pro" : "Free"}
+                        {tierLabel}
                   </p>
                 </div>
+                  );
+                })()}
               </div>
-              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                profile.subscription_tier === "pro"
-                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-                  : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-              }`}>
-                {profile.subscription_tier === "pro" ? "PRO" : "FREE"}
-              </div>
+              {(() => {
+                const tier = (profile.subscription_tier || "free") as "free" | "pro" | "ultra" | "business";
+                const isPaidTier = tier === "pro" || tier === "ultra" || tier === "business";
+                return (
+                  <div
+                    className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      isPaidTier
+                        ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                        : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                    }`}
+                  >
+                    {tier.toUpperCase()}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Credit Balance */}

@@ -234,9 +234,12 @@ export function useAuth() {
 export function useSubscriptionTier() {
   const { user } = useAuth();
   
+  const tier = (user?.subscriptionTier || 'free') as 'free' | 'pro' | 'ultra' | 'business';
+  const isPaidTier = tier === 'pro' || tier === 'ultra' || tier === 'business';
+
   return {
-    isPro: user?.subscriptionTier === 'pro',
-    isFree: user?.subscriptionTier === 'free',
-    tier: user?.subscriptionTier || 'free',
+    isPro: isPaidTier,
+    isFree: tier === 'free',
+    tier,
   };
 }

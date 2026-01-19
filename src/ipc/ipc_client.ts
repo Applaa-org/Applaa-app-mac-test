@@ -2198,7 +2198,7 @@ export class IpcClient {
 
   public async syncSubscriptionFromSupabase(): Promise<{
     success: boolean;
-    tier: 'free' | 'pro';
+    tier: 'free' | 'pro' | 'ultra' | 'business';
     isPro: boolean;
   }> {
     return this.ipcRenderer.invoke("subscription:sync-from-supabase");
