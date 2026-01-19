@@ -639,11 +639,9 @@ Please fix these errors immediately and ensure the app runs without issues.`;
       isAutoFixing
     });
 
-    // ✅ FIX: Enable Problems tab auto-fix for Expo apps (regardless of enabled option)
-    if (!isExpoApp) {
-      console.log('⏸️ Auto-fix only available for Expo apps', { isExpoApp, selectedAppId });
-      return;
-    }
+    // ✅ FIX: Enable auto-fix for both Expo and web apps
+    // Auto-fix should work for web apps when problems are auto-fixable
+    // Previously only worked for Expo apps, but web apps also have auto-fixable problems
     if (!chatId) {
       console.log('⏸️ No chatId available', { chats: chats?.length, selectedAppId });
       return;
@@ -671,7 +669,7 @@ Please fix these errors immediately and ensure the app runs without issues.`;
       return;
     }
 
-    console.log(`🚀 AUTO-FIX STARTING: Fixing ${autoFixableProblems.length} Problems tab errors`);
+    console.log(`🚀 AUTO-FIX STARTING: Fixing ${autoFixableProblems.length} Problems tab errors (${isExpoApp ? 'Expo' : 'Web'} app)`);
     
     // Create errors from current auto-fixable problems
     const currentProblemErrors: DetectedError[] = autoFixableProblems.map(problem => ({
@@ -694,12 +692,12 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     
     // ✅ CRITICAL: Call autoFixErrors directly (it will handle the actual fix)
     await autoFixErrors();
-  }, [isExpoApp, chatId, isStreaming, problemReport, isAutoFixing, autoFixErrors, setDetectedErrors, chats, selectedAppId]);
+  }, [chatId, isStreaming, problemReport, isAutoFixing, autoFixErrors, setDetectedErrors, chats, selectedAppId, isExpoApp]);
 
   // ✅ FIX: Re-check problems after stream completes (handled by main effect above)
   // Removed duplicate effect - main effect handles this now
 
-  // ✅ CRITICAL FIX: Auto-trigger fix when streaming stops and problems exist
+    // ✅ CRITICAL FIX: Auto-trigger fix when streaming stops and problems exist
   useEffect(() => {
     // console.log('🔍 Auto-fix effect running...', {
     //   isExpoApp,
@@ -711,11 +709,8 @@ Please fix these errors immediately and ensure the app runs without issues.`;
     //   selectedAppId
     // });
 
-    // Must have: Expo app, not streaming, problems exist
-    if (!isExpoApp) {
-      // console.log('⏸️ Not an Expo app, skipping auto-fix');
-      return;
-    }
+    // ✅ FIX: Auto-fix now works for both Expo and web apps
+    // Removed Expo-only restriction - web apps also have auto-fixable problems
     
     if (isStreaming) {
       console.log('⏸️ Chat is streaming, waiting for stream to complete...');
@@ -768,14 +763,14 @@ Please fix these errors immediately and ensure the app runs without issues.`;
       problemCount: problemReport.problems.length,
       autoFixableCount: autoFixableProblems.length,
       isStreaming,
-      isExpoApp,
+      appType: isExpoApp ? 'Expo' : 'Web',
       chatId,
       selectedAppId
     });
 
     // Trigger immediately (no delay) since streaming already stopped
     triggerProblemsAutoFix();
-  }, [isStreaming, problemReport, isExpoApp, chatId, isAutoFixing, selectedAppId, triggerProblemsAutoFix, chats]);
+  }, [isStreaming, problemReport, chatId, isAutoFixing, selectedAppId, triggerProblemsAutoFix, chats, isExpoApp]);
 
   // 🚨 NEW: Detect Expo dependency errors from terminal output
   const detectExpoDependencyErrors = useCallback((terminalOutput: string) => {
