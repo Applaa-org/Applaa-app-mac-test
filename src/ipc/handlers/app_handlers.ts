@@ -1063,6 +1063,38 @@ renderer/rendering_method="forward_plus"
         })
         .where(eq(chats.id, chat.id));
 
+      // 🚀 CRITICAL FIX: Verify chat persistence before returning
+      // Wait for up to 2 seconds for the chat to be readable via Raw SQL
+      // This solves the race condition where frontend calls get-chat before DB commit is visible
+      let verified = false;
+      for (let i = 0; i < 20; i++) {
+        const check = db.$client.prepare("SELECT id FROM chats WHERE id = ?").get(chat.id);
+        if (check) {
+          verified = true;
+          logger.info(`✅ Chat ${chat.id} verified persisted via Raw SQL (attempt ${i + 1})`);
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      if (!verified) {
+        logger.error(`❌ Chat ${chat.id} created but NOT verified in DB after 2s! Potential rollback or lost write.`);
+        // Don't throw, let frontend try its own retry logic, but this log is critical.
+      } else {
+        // Double check if we can read it back fully
+        try {
+          const checkFull = db.$client.prepare("SELECT * FROM chats WHERE id = ?").get(chat.id) as any;
+          if (checkFull && checkFull.app_id !== app.id) {
+            logger.warn(`⚠️ Chat ${chat.id} has wrong appId! Expected ${app.id}, got ${checkFull.app_id}`);
+            // Try to self-heal
+            db.$client.prepare("UPDATE chats SET app_id = ? WHERE id = ?").run(app.id, chat.id);
+            logger.info(`🛠️ Self-healed appId for chat ${chat.id}`);
+          }
+        } catch (e) {
+          logger.warn("Error during extra verification:", e);
+        }
+      }
+
       return { app, chatId: chat.id };
     },
   );
