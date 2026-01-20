@@ -477,7 +477,7 @@ export function registerSubscriptionHandlers() {
         returnUrl: 'applaa://subscription/success',
       });
 
-      const subscribeUrl = `https://applaa-one.vercel.app/subscribe?${params.toString()}`;
+      const subscribeUrl = `https://applaa.com/subscribe?${params.toString()}`;
       
       logger.info(`Redirecting to subscription page: ${subscribeUrl}`);
       await shell.openExternal(subscribeUrl);
