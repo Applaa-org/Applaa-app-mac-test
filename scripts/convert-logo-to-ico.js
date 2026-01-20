@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 async function convertLogoToIco() {
-  const inputJpeg = path.join(__dirname, '../assets/applaa-logo-new.jpeg');
+  // Use the unified logo asset as the single source of truth
+  const inputJpeg = path.join(__dirname, '../assets/logo.png');
   const tempPng = path.join(__dirname, '../assets/icon/temp-logo.png');
   const outputIco = path.join(__dirname, '../assets/icon/logo.ico');
   const outputPng = path.join(__dirname, '../assets/icon/logo.png');

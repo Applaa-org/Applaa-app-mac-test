@@ -20,7 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PreviewHeader } from "@/components/preview_panel/PreviewHeader";
-import applaaLogo from "@/assets/applaa-logo-new.jpeg";
+import applaaLogo from "../../assets/logo.png";
 import { Globe } from "lucide-react";
 
 export const TitleBar = () => {
