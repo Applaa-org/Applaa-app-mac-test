@@ -60,10 +60,11 @@ jobs:
         if: contains(matrix.os.name, 'windows')
         uses: digicert/ssm-code-signing@v1.1.0
       - name: Sync certificate (Windows)
-        if: contains(matrix.os.name, 'windows')
+        if: contains(matrix.os.name, 'windows') && secrets.DIGICERT_KEYPAIR_ALIAS != ''
         run: |
-          smctl windows certsync --keypair-alias=${{ secrets.DIGICERT_KEYPAIR_ALIAS }}
+          smctl windows certsync --keypair-alias=${{ secrets.DIGICERT_KEYPAIR_ALIAS }} || echo "Certificate sync skipped - keypair alias not configured"
         shell: bash
+        continue-on-error: true
         # Publish (Windows only)
       - name: Publish app
         env:
