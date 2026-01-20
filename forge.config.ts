@@ -145,6 +145,10 @@ const config: ForgeConfig = {
           description: "Your local AI app builder with beautiful orange and green design",
           setupIcon: "./assets/icon/logo.ico",
           noMsi: false,
+          // publisherName is required for Windows OTA updates to work
+          // This must match the certificate used for code signing (if any)
+          // For unsigned apps, this can be any name but should be consistent
+          publisherName: "Applaa Ltd",
         },
       },
     ] : []),
@@ -177,6 +181,19 @@ const config: ForgeConfig = {
     //     },
     //   },
     // ] : []),
+  ],
+  publishers: [
+    {
+      name: "@electron-forge/publisher-github",
+      config: {
+        repository: {
+          owner: "Applaa-Builder",
+          name: "Applaa-Builder-v1",
+        },
+        prerelease: false, // Set to true for beta releases
+        draft: false,
+      },
+    },
   ],
   hooks: {
     prePackage: async () => {

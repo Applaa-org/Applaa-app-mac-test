@@ -5,7 +5,7 @@ import { registerIpcHandlers } from "./ipc/ipc_host";
 import dotenv from "dotenv";
 // @ts-ignore
 import started from "electron-squirrel-startup";
-import { updateElectronApp, UpdateSourceType } from "update-electron-app";
+import { autoUpdater } from "electron-updater";
 import log from "electron-log";
 import {
   getSettingsFilePath,
@@ -83,6 +83,7 @@ console.log('🚀 App startup - Environment variables status:');
 console.log('SUPABASE_URL loaded:', !!process.env.SUPABASE_URL);
 console.log('SUPABASE_ANON_KEY loaded:', !!process.env.SUPABASE_ANON_KEY);
 console.log('BACKEND_API_URL loaded:', !!process.env.BACKEND_API_URL);
+console.log('GITHUB_TOKEN loaded:', !!process.env.GITHUB_TOKEN || !!process.env.GH_TOKEN);
 console.log('BACKEND_API_URL value:', process.env.BACKEND_API_URL || 'NOT SET (will use default: http://localhost:3000/api)');
 console.log('SUPABASE_SERVICE_ROLE_KEY loaded:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 if (process.env.SUPABASE_URL) {
@@ -208,20 +209,84 @@ export async function onReady() {
 
   logger.info("Auto-update enabled=", settings.enableAutoUpdate);
   if (settings.enableAutoUpdate) {
-    // Technically we could just pass the releaseChannel directly to the host,
-    // but this is more explicit and falls back to stable if there's an unknown
-    // release channel.
-    const postfix = settings.releaseChannel === "beta" ? "beta" : "stable";
-    const host = `https://api.applaa.dev/v1/update/${postfix}`;
-    logger.info("Auto-update release channel=", postfix);
-    updateElectronApp({
-      logger,
-      updateSource: {
-        type: UpdateSourceType.ElectronPublicUpdateService,
-        repo: "dyad-sh/dyad",
-        host,
-      },
-    }); // additional configuration options available
+    // Configure electron-updater for GitHub Releases
+    // Support for private repositories with GitHub token
+    // Note: VITE_GITHUB_TOKEN is for renderer process, we need GITHUB_TOKEN for main process
+    const githubToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.VITE_GITHUB_TOKEN;
+    const feedURLConfig: any = {
+      provider: "github",
+      owner: "Applaa-Builder",
+      repo: "Applaa-Builder-v1",
+    };
+    
+    // Add token if available (required for private repositories)
+    if (githubToken) {
+      feedURLConfig.token = githubToken;
+      logger.info("GitHub token found - private repository updates enabled");
+    } else {
+      logger.info("No GitHub token found - using public repository access");
+    }
+    
+    autoUpdater.setFeedURL(feedURLConfig);
+    
+    // Configure release channel
+    // For beta: allow pre-releases; for stable: only stable releases
+    const isBeta = settings.releaseChannel === "beta";
+    autoUpdater.allowPrerelease = isBeta;
+    autoUpdater.channel = isBeta ? "beta" : "latest";
+    logger.info("Auto-update release channel=", settings.releaseChannel, "(allowPrerelease=", isBeta, ")");
+    
+    // Configure logging
+    autoUpdater.logger = logger;
+    // Note: electron-log is already configured above, no need to set transports.file.level
+    
+    // Check for updates on startup and then every 4 hours
+    autoUpdater.checkForUpdatesAndNotify();
+    
+    // Set up update event handlers
+    autoUpdater.on("checking-for-update", () => {
+      logger.info("Checking for updates...");
+    });
+    
+    autoUpdater.on("update-available", (info) => {
+      logger.info("Update available:", info.version);
+    });
+    
+    autoUpdater.on("update-not-available", (info) => {
+      logger.info("Update not available. Current version is latest.");
+    });
+    
+    autoUpdater.on("error", (err) => {
+      logger.error("Error in auto-updater:", err);
+    });
+    
+    autoUpdater.on("download-progress", (progressObj) => {
+      let logMessage = `Download speed: ${progressObj.bytesPerSecond} - `;
+      logMessage += `Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+      logger.info(logMessage);
+    });
+    
+    autoUpdater.on("update-downloaded", (info) => {
+      logger.info("Update downloaded. Will quit and install on next app launch.");
+      // Optionally, you can prompt the user to restart now
+      // dialog.showMessageBox(mainWindow, {
+      //   type: "info",
+      //   title: "Update Ready",
+      //   message: "Update downloaded. The application will restart to apply the update.",
+      //   buttons: ["Restart Now", "Later"],
+      // }).then((result) => {
+      //   if (result.response === 0) {
+      //     autoUpdater.quitAndInstall();
+      //   }
+      // });
+    });
+    
+    // Check for updates periodically (every 4 hours)
+    setInterval(() => {
+      if (settings.enableAutoUpdate) {
+        autoUpdater.checkForUpdatesAndNotify();
+      }
+    }, 4 * 60 * 60 * 1000); // 4 hours in milliseconds
   }
 }
 

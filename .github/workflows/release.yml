@@ -8,6 +8,11 @@ permissions:
 name: Release app
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - autoreleasebranch
+      - release/ota-update-auto-trigger
+      - release/**
 jobs:
   build:
     environment: release
