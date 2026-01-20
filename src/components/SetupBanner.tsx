@@ -110,7 +110,7 @@ export function SetupBanner() {
           />
         </div>
         <h1 className="text-5xl mt-4 font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 tracking-tight">
-          Prompt → App in minutes
+          Your Idea → App instantly
         </h1>
       </div>
     );
