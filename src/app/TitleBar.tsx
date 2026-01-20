@@ -20,7 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PreviewHeader } from "@/components/preview_panel/PreviewHeader";
-import applaaLogo from "../../assets/logo.png";
+import applaasmallLogo from "../../assets/logo-small.png";
 import { Globe } from "lucide-react";
 
 export const TitleBar = () => {
@@ -106,7 +106,7 @@ export const TitleBar = () => {
         <div className={`${showWindowControls ? "pl-2" : "pl-18"}`}></div>
 
         <div className="flex items-center gap-2 mr-2">
-          <img src={applaaLogo} alt="Applaa Logo" className="w-6 h-6" />
+          <img src={applaasmallLogo} alt="Applaa Logo" className="w-6 h-6" />
           <span className="text-sm font-semibold text-foreground">Applaa</span>
         </div>
         <Button
