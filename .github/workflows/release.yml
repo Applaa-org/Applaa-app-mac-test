@@ -24,10 +24,7 @@ jobs:
       matrix:
         os: [
             { name: "windows", image: "windows-latest" },
-            # See https://github.com/dyad-sh/dyad/issues/96
-            { name: "linux", image: "ubuntu-22.04" },
-            { name: "macos-intel", image: "macos-13" },
-            { name: "macos", image: "macos-latest" },
+            # Only building Windows EXE - macOS and Linux skipped
           ]
     runs-on: ${{ matrix.os.image }}
     steps:
@@ -67,7 +64,7 @@ jobs:
         run: |
           smctl windows certsync --keypair-alias=${{ secrets.DIGICERT_KEYPAIR_ALIAS }}
         shell: bash
-        # Publish (all platforms)
+        # Publish (Windows only)
       - name: Publish app
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
