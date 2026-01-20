@@ -192,6 +192,8 @@ const config: ForgeConfig = {
         },
         prerelease: false, // Set to true for beta releases
         draft: false,
+        tagPrefix: "v", // Ensure tag prefix matches
+        generateReleaseNotes: true, // Auto-generate release notes
       },
     },
   ],
