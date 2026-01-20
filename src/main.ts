@@ -105,9 +105,29 @@ if (process.env.SUPABASE_URL) {
 // Register IPC handlers before app is ready
 registerIpcHandlers();
 
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't crash the app, just log it
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  // Show error dialog before crashing
+  dialog.showErrorBox(
+    "Uncaught Exception",
+    `An unexpected error occurred:\n\n${error.message}\n\nPlease check the logs at: ${log.transports.file.getFile().path}`
+  );
+  // Still exit, but with better error reporting
+  app.quit();
+});
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
+  logger.info("App started via Squirrel installer - quitting (this is normal)");
   app.quit();
+  return; // Exit early to prevent further execution
 }
 
 // https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app#main-process-mainjs
@@ -147,8 +167,15 @@ export async function onReady() {
     logger.info("✅ Database initialized successfully");
   } catch (e) {
     logger.error("❌ Failed to initialize database:", e);
-    // Re-throw to prevent app from starting with broken database
-    throw e;
+    // Show error dialog to user instead of silently crashing
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    dialog.showErrorBox(
+      "Database Initialization Failed",
+      `Failed to initialize the database. The application may not work correctly.\n\nError: ${errorMessage}\n\nPlease check the logs at: ${log.transports.file.getFile().path}`
+    );
+    // Don't throw - allow app to continue and show the error
+    // The app might still work with limited functionality
+    logger.warn("⚠️ Continuing app startup despite database initialization failure");
   }
 
   // 🚀 PERFORMANCE: Initialize workspace dependency manager for faster app creation
@@ -340,8 +367,9 @@ declare global {
 let mainWindow: BrowserWindow | null = null;
 
 const createWindow = () => {
-  // Create the browser window.
-  mainWindow = new BrowserWindow({
+  try {
+    // Create the browser window.
+    mainWindow = new BrowserWindow({
     width: process.env.NODE_ENV === "development" ? 1280 : 960,
     height: 700,
     titleBarStyle: "hidden",
@@ -495,6 +523,34 @@ const createWindow = () => {
     console.log(`Loading renderer from: ${indexPath}`);
     mainWindow.loadFile(indexPath);
   }
+  
+  // Add error handlers for window loading
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    logger.error(`Window failed to load: ${errorCode} - ${errorDescription} (${validatedURL})`);
+    dialog.showErrorBox(
+      "Failed to Load Application",
+      `The application window failed to load.\n\nError: ${errorDescription}\n\nCode: ${errorCode}\n\nURL: ${validatedURL}`
+    );
+  });
+  
+  mainWindow.webContents.on('crashed', (event, killed) => {
+    logger.error(`Renderer process crashed (killed: ${killed})`);
+    dialog.showErrorBox(
+      "Application Crashed",
+      "The application window has crashed. Please restart the application."
+    );
+  });
+  
+  } catch (error) {
+    logger.error("❌ Failed to create window:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    dialog.showErrorBox(
+      "Window Creation Failed",
+      `Failed to create the application window.\n\nError: ${errorMessage}\n\nPlease check the logs at: ${log.transports.file.getFile().path}`
+    );
+    // Don't quit - let the user see the error and try again
+  }
+  
   // Developer tools can be opened manually with Ctrl+Shift+I or F12
   // if (process.env.NODE_ENV === "development") {
   //   // Open the DevTools.
