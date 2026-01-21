@@ -273,39 +273,59 @@ export async function onReady() {
     // Set up update event handlers
     autoUpdater.on("checking-for-update", () => {
       logger.info("Checking for updates...");
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:checking");
+      }
     });
     
     autoUpdater.on("update-available", (info) => {
       logger.info("Update available:", info.version);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:available", {
+          version: info.version,
+          releaseDate: info.releaseDate,
+          releaseNotes: info.releaseNotes,
+        });
+      }
     });
     
     autoUpdater.on("update-not-available", (info) => {
       logger.info("Update not available. Current version is latest.");
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:not-available");
+      }
     });
     
     autoUpdater.on("error", (err) => {
       logger.error("Error in auto-updater:", err);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:error", err.message || String(err));
+      }
     });
     
     autoUpdater.on("download-progress", (progressObj) => {
       let logMessage = `Download speed: ${progressObj.bytesPerSecond} - `;
       logMessage += `Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
       logger.info(logMessage);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:download-progress", {
+          percent: progressObj.percent,
+          bytesPerSecond: progressObj.bytesPerSecond,
+          transferred: progressObj.transferred,
+          total: progressObj.total,
+        });
+      }
     });
     
     autoUpdater.on("update-downloaded", (info) => {
       logger.info("Update downloaded. Will quit and install on next app launch.");
-      // Optionally, you can prompt the user to restart now
-      // dialog.showMessageBox(mainWindow, {
-      //   type: "info",
-      //   title: "Update Ready",
-      //   message: "Update downloaded. The application will restart to apply the update.",
-      //   buttons: ["Restart Now", "Later"],
-      // }).then((result) => {
-      //   if (result.response === 0) {
-      //     autoUpdater.quitAndInstall();
-      //   }
-      // });
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:downloaded", {
+          version: info.version,
+          releaseDate: info.releaseDate,
+          releaseNotes: info.releaseNotes,
+        });
+      }
     });
     
     // Check for updates periodically (every 4 hours)

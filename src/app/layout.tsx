@@ -20,6 +20,7 @@ import { useRandomGame } from "@/hooks/useRandomGame";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
 import type { GameOption } from "@/hooks/useRandomGame";
 import { useSettings } from "@/hooks/useSettings";
+import { UpdateNotification } from "@/components/UpdateNotification";
  
 
 export default function RootLayout({
@@ -124,6 +125,11 @@ export default function RootLayout({
                 </ErrorBoundary>
               </div>
               <Toaster richColors />
+              
+              {/* Update Notification - Bottom Left Corner */}
+              <ErrorBoundary>
+                <UpdateNotification />
+              </ErrorBoundary>
               
               {/* Game Popup Window - Independent of preview refreshes */}
               <GamePopupWindow

@@ -85,6 +85,7 @@ import { registerSecurityHandlers } from "./handlers/security_handlers";
 import { registerVisualEditingHandlers } from "./handlers/visual_editing_handlers";
 import { registerPreviewImageHandlers } from "./handlers/preview_image_handlers";
 import { registerWebCloneHandlers } from "./handlers/web_clone_handlers";
+import { registerUpdateHandlers } from "./handlers/update_handlers";
 
 
 export function registerIpcHandlers() {
@@ -233,6 +234,10 @@ export function registerIpcHandlers() {
   // 🌐 Website Cloning handlers
   console.log('🌐 Registering Website Cloning handlers...');
   registerWebCloneHandlers();
+  
+  // 🔄 Update handlers
+  console.log('🔄 Registering Update handlers...');
+  registerUpdateHandlers();
   
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP
