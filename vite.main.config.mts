@@ -26,6 +26,7 @@ export default defineConfig({
         "stripe",
         "electron",
         "electron-updater",
+        "fs-extra",
         "child_process",
         "fs",
         "path",

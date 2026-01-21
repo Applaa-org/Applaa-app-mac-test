@@ -64,6 +64,9 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/electron-updater")) {
     return false; // CRITICAL: Include electron-updater in packaged app
   }
+  if (file.startsWith("/node_modules/fs-extra")) {
+    return false; // CRITICAL: Include fs-extra in packaged app
+  }
   if (file.startsWith("/.vite")) {
     return false;
   }
@@ -112,6 +115,7 @@ const config: ForgeConfig = {
       "node_modules/bindings/**",
       "node_modules/file-uri-to-path/**",
       "node_modules/electron-updater/**", // CRITICAL: Must be unpacked for OTA updates to work
+      "node_modules/fs-extra/**", // CRITICAL: Must be unpacked for file operations
       "node_modules/expo/**",
       "node_modules/@expo/**",
       "node_modules/.bin/**",
