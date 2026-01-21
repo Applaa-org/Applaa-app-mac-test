@@ -1,26 +1,63 @@
 import { useSettings } from './useSettings';
 import { useLoadApps } from './useLoadApps';
+import { useProfile } from './useProfile';
+import { IpcClient } from '@/ipc/ipc_client';
+import { useSubscriptionSync } from './useSubscriptionSync';
+import { showError, showSuccess } from '@/lib/toast';
 
 export function useApplaaPro() {
   const { settings } = useSettings();
   const { data: apps } = useLoadApps();
+  const { profile } = useProfile();
+  const { syncSubscription } = useSubscriptionSync();
   
-  // Check if user has Applaa Pro enabled and API key configured
+  // Check user tier from Supabase profile (defaults to "free") - THIS IS THE SOURCE OF TRUTH
+  const userTier = (profile?.subscription_tier || settings?.userTier || "free") as 'free' | 'pro' | 'ultra' | 'business';
+  const isPro = userTier === "pro" || userTier === "ultra" || userTier === "business";
+  
+  // Legacy support: only use if tier is not explicitly set
+  // But tier should always take precedence
   const hasProKey = !!settings?.providerSettings?.auto?.apiKey?.value;
   const isProEnabled = settings?.enableApplaaPro === true;
-  const isPro = isProEnabled && hasProKey;
+  const isLegacyPro = isProEnabled && hasProKey;
   
-  // App limits
-  const FREE_APP_LIMIT = 5;
+  // ✅ FIX: Use isPro which includes all paid tiers (pro, ultra, business), fallback to legacy only if tier is undefined
+  const isProUser = isPro || (userTier === undefined && isLegacyPro);
+  
+  // App limits - Free tier: max 3 apps, Pro: unlimited
+  const FREE_APP_LIMIT = 3;
   const currentAppCount = apps?.length || 0;
-  const isAtFreeLimit = currentAppCount >= FREE_APP_LIMIT;
-  const canCreateMoreApps = isPro || !isAtFreeLimit;
+  const isAtFreeLimit = !isProUser && currentAppCount >= FREE_APP_LIMIT;
+  const canCreateMoreApps = isProUser || !isAtFreeLimit;
   
   // Remaining apps for free users
-  const remainingFreeApps = Math.max(0, FREE_APP_LIMIT - currentAppCount);
+  const remainingFreeApps = isProUser ? Infinity : Math.max(0, FREE_APP_LIMIT - currentAppCount);
+  
+  // Helper function to redirect to subscribe page
+  const redirectToSubscribe = async () => {
+    try {
+      const ipcClient = IpcClient.getInstance();
+      await ipcClient.redirectToSubscribe();
+      showSuccess("Opening subscription page in your browser...");
+    } catch (error: any) {
+      showError(error.message || "Failed to open subscription page");
+      throw error;
+    }
+  };
+  
+  // Helper function to sync subscription
+  const syncSubscriptionStatus = async () => {
+    try {
+      await syncSubscription();
+    } catch (error) {
+      // Error is already handled in the hook
+      throw error;
+    }
+  };
   
   return {
-    isPro,
+    isPro: isProUser,
+    userTier,
     hasProKey,
     isProEnabled,
     canCreateMoreApps,
@@ -28,6 +65,10 @@ export function useApplaaPro() {
     remainingFreeApps,
     freeAppLimit: FREE_APP_LIMIT,
     isAtFreeLimit,
-    upgradeUrl: '/settings/providers/auto'
+    upgradeUrl: '/settings',
+    canDeploy: isProUser,
+    canUsePremiumModels: isProUser,
+    redirectToSubscribe,
+    syncSubscriptionStatus,
   };
 }

@@ -46,6 +46,14 @@ interface ParallelAppCreationResult {
 const taskManager = getBackgroundTaskManager();
 
 async function ensureAuthLimitForAppCreation(): Promise<void> {
+  // Check tier-based app limits first (use async version to get latest tier)
+  const { canCreateAppAsync } = await import("../utils/feature_checks");
+  const appLimitCheck = await canCreateAppAsync();
+  if (!appLimitCheck.allowed) {
+    throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
+  }
+  
+  // Legacy auth check (keep for backwards compatibility)
   const FREE_UNAUTH_LIMIT = 3;
   const { count } = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
 

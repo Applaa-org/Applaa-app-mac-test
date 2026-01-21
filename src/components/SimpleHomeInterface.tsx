@@ -50,7 +50,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const navigate = useNavigate();
   const [selectedAppType, setSelectedAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | null>(null);
   const { updateSettings } = useSettings();
-  const { isPro, remainingFreeApps, isAtFreeLimit } = useApplaaPro();
+  const { isPro, remainingFreeApps, isAtFreeLimit, userTier } = useApplaaPro();
   const [ideas, setIdeas] = useState<ExampleIdea[]>([]);
   const [visibleIdeasCount, setVisibleIdeasCount] = useState<number>(6);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);

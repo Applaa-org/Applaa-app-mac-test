@@ -2026,6 +2026,8 @@ export class IpcClient {
     email: string;
     password: string;
     fullName?: string;
+    firstName?: string;
+    lastName?: string;
   }): Promise<{
     success: boolean;
     user?: any;
@@ -2047,6 +2049,20 @@ export class IpcClient {
     error?: string;
   }> {
     return this.ipcRenderer.invoke("supabase:sign-in", params);
+  }
+
+  // ✅ NEW: Sign in with username or email (looks up username in profiles table)
+  public async supabaseSignInWithUsernameOrEmail(params: {
+    identifier: string;
+    password: string;
+  }): Promise<{
+    success: boolean;
+    user?: any;
+    session?: any;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("supabase:sign-in-with-username-or-email", params);
   }
 
   public async supabaseSignOut(): Promise<{
@@ -2159,6 +2175,216 @@ export class IpcClient {
     expiresIn: number;
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("supabase:set-session", params);
+  }
+
+  // Subscription Methods
+  public async subscriptionInitialize(secretKey: string): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:initialize", secretKey);
+  }
+
+  public async subscriptionInitializeFromSettings(): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:initialize-from-settings");
+  }
+
+  public async subscriptionGetCurrent(): Promise<{
+    subscription: {
+      id: string;
+      status: string;
+      planName: string;
+      currentPeriodStart: string;
+      currentPeriodEnd: string;
+      trialStart?: string;
+      trialEnd?: string;
+      cancelAtPeriodEnd: boolean;
+      canceledAt?: string;
+    } | null;
+    isPro: boolean;
+    tier: 'free' | 'pro' | 'ultra' | 'business';
+    trialStart?: string;
+    trialEnd?: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:get-current");
+  }
+
+  public async redirectToSubscribe(): Promise<{ success: boolean; url: string }> {
+    return this.ipcRenderer.invoke("subscription:redirect-to-subscribe");
+  }
+
+  public async syncSubscriptionFromSupabase(): Promise<{
+    success: boolean;
+    tier: 'free' | 'pro' | 'ultra' | 'business';
+    isPro: boolean;
+  }> {
+    return this.ipcRenderer.invoke("subscription:sync-from-supabase");
+  }
+
+  // Profile Management Methods
+  public async getCurrentProfile(): Promise<{
+    success: boolean;
+    profile: {
+      id: string;
+      email: string;
+      username: string | null;
+      full_name: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      avatar_url: string | null;
+      subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
+      wordpress_user_id: number | null;
+      wordpress_username: string | null;
+      wordpress_display_name: string | null;
+      wordpress_roles: string[] | null;
+      created_at: string;
+      updated_at: string;
+    };
+  }> {
+    return this.ipcRenderer.invoke("profile:get-current");
+  }
+
+  public async updateProfile(updates: {
+    username?: string;
+    full_name?: string;
+    first_name?: string;
+    last_name?: string;
+    avatar_url?: string;
+  }): Promise<{
+    success: boolean;
+    profile: {
+      id: string;
+      email: string;
+      username: string | null;
+      full_name: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      avatar_url: string | null;
+      subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
+      wordpress_user_id: number | null;
+      wordpress_username: string | null;
+      wordpress_display_name: string | null;
+      wordpress_roles: string[] | null;
+      created_at: string;
+      updated_at: string;
+    };
+  }> {
+    return this.ipcRenderer.invoke("profile:update", updates);
+  }
+
+  // Credit Management Methods
+  public async getCreditBalance(): Promise<{
+    success: boolean;
+    balance: {
+      remaining: number;
+      monthly: number;
+      totalUsed: number;
+      lastReset: string | null;
+    };
+  }> {
+    return this.ipcRenderer.invoke("credit:get-balance");
+  }
+
+  public async getCreditUsage(filters?: {
+    operationType?: string;
+    appId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    history: Array<{
+      id: string;
+      operationType: string;
+      creditsUsed: number;
+      tokensUsed: number;
+      appId: string | null;
+      chatId: string | null;
+      metadata: any;
+      createdAt: string;
+    }>;
+  }> {
+    return this.ipcRenderer.invoke("credit:get-usage", filters);
+  }
+
+  public async checkCredits(operationType: string, cost?: number): Promise<{
+    success: boolean;
+    hasCredits: boolean;
+    remaining: number;
+    required: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:check", operationType, cost);
+  }
+
+  public async resetCredits(): Promise<{
+    success: boolean;
+    newBalance?: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:reset");
+  }
+
+  public async checkAndResetCredits(): Promise<{
+    success: boolean;
+    reset: boolean;
+    newBalance?: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:check-reset");
+  }
+
+  public async topUpCredits(amount: number): Promise<{
+    success: boolean;
+    newBalance?: number;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("credit:top-up", amount);
+  }
+
+  public async subscriptionCreateCheckout(params: {
+    priceId: string;
+    trialDays?: number;
+  }): Promise<{
+    success: boolean;
+    sessionId: string;
+    url: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:create-checkout", params);
+  }
+
+  public async subscriptionCreatePortal(returnUrl: string): Promise<{
+    success: boolean;
+    url: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:create-portal", returnUrl);
+  }
+
+  public async subscriptionCancel(params: {
+    subscriptionId: string;
+    cancelAtPeriodEnd?: boolean;
+  }): Promise<{
+    success: boolean;
+    subscription: {
+      id: string;
+      status: string;
+      cancelAtPeriodEnd: boolean;
+    };
+  }> {
+    return this.ipcRenderer.invoke("subscription:cancel", params);
+  }
+
+  public async subscriptionResume(subscriptionId: string): Promise<{
+    success: boolean;
+    subscription: {
+      id: string;
+      status: string;
+      cancelAtPeriodEnd: boolean;
+    };
+  }> {
+    return this.ipcRenderer.invoke("subscription:resume", subscriptionId);
+  }
+
+  public async subscriptionWebhook(params: {
+    payload: string;
+    signature: string;
+    secret: string;
+  }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:webhook", params);
   }
 
   // R2 Storage Methods

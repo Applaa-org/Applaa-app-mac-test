@@ -247,6 +247,12 @@ async function handleCreateProject(
   event: IpcMainInvokeEvent,
   { name, appId }: CreateVercelProjectParams,
 ): Promise<void> {
+  // Check if user can deploy (Pro tier only)
+  const { canDeployApp } = await import("../utils/feature_checks");
+  const deployCheck = canDeployApp();
+  if (!deployCheck.allowed) {
+    throw new Error(deployCheck.reason || "DEPLOYMENT_NOT_ALLOWED");
+  }
   const settings = readSettings();
   const accessToken = settings.vercelAccessToken?.value;
   if (!accessToken) {
@@ -492,6 +498,13 @@ async function handleDeployToVercel(
   },
 ): Promise<{ success: boolean; url?: string; deploymentId?: string; error?: string }> {
   try {
+    // Check if user can deploy (Pro tier only)
+    const { canDeployApp } = await import("../utils/feature_checks");
+    const deployCheck = canDeployApp();
+    if (!deployCheck.allowed) {
+      throw new Error(deployCheck.reason || "DEPLOYMENT_NOT_ALLOWED");
+    }
+    
     logger.info(`Deploying to Vercel: ${githubUsername}/${repoName}`);
 
     // 1. Get GitHub repo ID

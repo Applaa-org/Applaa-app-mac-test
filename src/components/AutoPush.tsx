@@ -10,6 +10,7 @@ import { AUTOPUSH_CONFIG } from "@/config/autopush.config";
 import { toast } from "sonner";
 import { useAtom } from "jotai";
 import { globalPublishStateAtom } from "@/atoms/appAtoms";
+import { useApplaaPro } from "@/hooks/useApplaaPro";
 import log from "electron-log";
 
 const logger = log.scope("AutoPush");
@@ -474,6 +475,9 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
   // Use global state by default, or external state if provided
   const [globalPublishState, setGlobalPublishState] = useAtom(globalPublishStateAtom);
   
+  // Check user tier for deployment restrictions
+  const { canDeploy } = useApplaaPro();
+  
   // Use external state if provided, otherwise use global state
   const currentPublishState = publishState || globalPublishState;
   const currentSetPublishState = setPublishState || setGlobalPublishState;
@@ -553,7 +557,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
   const [repoName, setRepoName] = useState(projectName);
   const [vercelProjectName, setVercelProjectName] = useState(generateVercelProjectName(projectName));
   const [deployToVercel, setDeployToVercel] = useState<boolean>(AUTOPUSH_CONFIG.DEFAULT_DEPLOY_TO_VERCEL);
-  const [showInHub, setShowInHub] = useState(true);
+  const [showInHub, setShowInHub] = useState(false);
   const [vercelProjectValidation, setVercelProjectValidation] = useState<{
     valid: boolean;
     available: boolean;
@@ -797,6 +801,14 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
     if (!appId) {
       setErrorMessage("No app selected");
       setPushStatus("error");
+      return;
+    }
+
+    // Check if user can push/deploy (Pro tier only for both push and deploy)
+    if (!canDeploy) {
+      setErrorMessage("Push and Deploy are only available for Pro users. Please upgrade to Pro tier in Settings.");
+      setPushStatus("error");
+      toast.error("Push and Deploy require Pro tier. Upgrade in Settings to publish your apps.");
       return;
     }
 
@@ -1207,8 +1219,14 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               type="checkbox"
               id="deploy-vercel"
               checked={deployToVercel}
-              onChange={(e) => setDeployToVercel(e.target.checked)}
-              disabled={isPushing}
+              onChange={(e) => {
+                if (!canDeploy) {
+                  toast.error("Push and Deploy require Pro tier. Upgrade in Settings to publish your apps.");
+                  return;
+                }
+                setDeployToVercel(e.target.checked);
+              }}
+              disabled={isPushing || !canDeploy}
               className="rounded border-gray-300"
             />
             <Label htmlFor="deploy-vercel" className="text-sm">
@@ -1316,9 +1334,34 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           </div>
         </div>
 
+        {!canDeploy && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+            <div className="space-y-3">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>Pro Feature:</strong> Push and Deploy are only available for Pro users. Please upgrade to Pro tier to publish your apps.
+              </p>
+              <Button
+                onClick={async () => {
+                  try {
+                    await IpcClient.getInstance().redirectToSubscribe();
+                    toast.success("Opening subscription page in your browser...");
+                  } catch (error: any) {
+                    toast.error(error.message || "Failed to open subscription page");
+                  }
+                }}
+                variant="default"
+                size="sm"
+                className="w-full"
+              >
+                Upgrade to Pro
+              </Button>
+            </div>
+          </div>
+        )}
         <Button 
           onClick={handleAutoPush} 
           disabled={
+            !canDeploy ||
             isPushing || 
             !repoName.trim() || 
             (deployToVercel && !vercelToken.trim()) ||

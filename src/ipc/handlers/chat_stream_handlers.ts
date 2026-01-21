@@ -57,6 +57,10 @@ import { validateChatContext } from "../utils/context_paths_utils";
 import { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 
 import { getExtraProviderOptions } from "../utils/thinking_utils";
+import { checkCredits, deductCredits } from "../../services/credit_service";
+import { trackTokenUsage } from "../../services/token_tracking_service";
+import { getChatCreditCost } from "../../utils/credit_costs";
+import { getSupabaseAuth } from "../../lib/supabase";
 
 import { safeSend } from "../utils/safe_sender";
 import { cleanFullResponse } from "../utils/cleanFullResponse";
@@ -434,6 +438,11 @@ export function registerChatStreamHandlers() {
       // Create an AbortController for this stream
       const abortController = new AbortController();
       activeStreams.set(req.chatId, abortController);
+
+      // Declare userId, creditCost, and tokensUsed at the top level so they're accessible throughout the handler
+      let userId: string | null = null;
+      let creditCost = 0;
+      let tokensUsed = 0;
 
       // Get the chat to check for existing messages FIRST
       const chat = await db.query.chats.findFirst({
@@ -1032,6 +1041,7 @@ This conversation includes one or more image attachments. When the user uploads 
           const defaultMaxTokens = await getMaxTokens(settings.selectedModel);
           const safeMaxTokens = Math.min(defaultMaxTokens || 8192, 8192); // Cap at 8K tokens
           
+          // Return full result object (includes usage) instead of just fullStream
           return streamText({
             maxTokens: safeMaxTokens,
             temperature: await getTemperature(settings.selectedModel),
@@ -1197,11 +1207,49 @@ This conversation includes one or more image attachments. When the user uploads 
           return fullResponse;
         };
 
+        // 💎 CREDIT CHECK: Verify user has enough credits before streaming
+        try {
+          const auth = getSupabaseAuth();
+          const supabaseUser = await auth.getCurrentUser();
+          if (supabaseUser) {
+            userId = supabaseUser.id;
+          } else {
+            // Try WordPress auth as fallback
+            const settings = readSettings();
+            const wordpressAuth = settings.wordpressAuth;
+            if (wordpressAuth?.isAuthenticated && wordpressAuth?.user) {
+              const profile = await auth.getProfileByEmailOrUsername(wordpressAuth.user.email || wordpressAuth.user.username || wordpressAuth.user.display_name || '');
+              if (profile) {
+                userId = profile.id;
+              }
+            }
+          }
+
+          if (userId) {
+            creditCost = getChatCreditCost(settings.selectedModel?.name, settings.selectedModel?.provider);
+            const creditCheck = await checkCredits(userId, 'chat_message', creditCost);
+            if (!creditCheck.hasCredits) {
+              throw new Error(`Insufficient credits. You need ${creditCheck.required} credits for this chat message but only have ${creditCheck.remaining} remaining.`);
+            }
+          }
+        } catch (creditError: any) {
+          // If it's an insufficient credits error, throw it
+          if (creditError.message?.includes('Insufficient credits')) {
+            throw creditError;
+          }
+          // Otherwise, log and continue (don't block chat if credit check fails)
+          logger.warn('Credit check failed, continuing anyway:', creditError);
+        }
+
         // When calling streamText, the messages need to be properly formatted for mixed content
-        const { fullStream } = await simpleStreamText({
+        const streamResult = await simpleStreamText({
           chatMessages,
           modelClient,
         });
+        const { fullStream } = streamResult;
+
+        // Reset tokensUsed for this stream
+        tokensUsed = 0;
 
         // Process the stream as before
         try {
@@ -1213,6 +1261,25 @@ This conversation includes one or more image attachments. When the user uploads 
             processResponseChunkUpdate,
           });
           fullResponse = result.fullResponse;
+
+          // Get usage information from stream result (available after stream completes)
+          try {
+            // In Vercel AI SDK, usage is available after stream is consumed
+            // Wait for usage to be available (it's a Promise that resolves after stream completion)
+            const usage = await streamResult.usage;
+            if (usage) {
+              tokensUsed = usage.totalTokens || ((usage.promptTokens || 0) + (usage.completionTokens || 0));
+              logger.info(`Token usage for chat ${req.chatId}: ${tokensUsed} tokens (prompt: ${usage.promptTokens || 0}, completion: ${usage.completionTokens || 0})`);
+            } else {
+              // Fallback: estimate tokens from response if usage is not available
+              tokensUsed = Math.ceil(fullResponse.length / 4); // Rough estimate: 4 chars per token
+              logger.warn(`Token usage not available from AI provider, estimated: ${tokensUsed} tokens`);
+            }
+          } catch (usageError: any) {
+            logger.warn('Failed to get token usage from stream result:', usageError);
+            // Fallback: estimate tokens from response
+            tokensUsed = Math.ceil(fullResponse.length / 4);
+          }
 
           if (
             !abortController.signal.aborted &&
@@ -1618,6 +1685,50 @@ ${problemReport.problems
             );
           }
 
+          // 💎 CREDIT DEDUCTION: Deduct credits after successful completion
+          if (userId && creditCost > 0) {
+            try {
+              await deductCredits(userId, 'chat_message', creditCost, {
+                chatId: req.chatId,
+                appId: updatedChat.app.id,
+                model: settings.selectedModel?.name,
+                provider: settings.selectedModel?.provider,
+                tokensUsed: tokensUsed, // Include token usage in metadata
+              });
+            } catch (creditError: any) {
+              // Log but don't throw - the chat was successful
+              logger.error('Failed to deduct credits after chat completion:', creditError);
+            }
+          }
+
+          // 📊 TOKEN TRACKING: Track token usage after successful completion
+          if (!userId) {
+            logger.warn(`Token tracking skipped: No userId found for chat ${req.chatId}`);
+          } else if (tokensUsed <= 0) {
+            logger.warn(`Token tracking skipped: tokensUsed is ${tokensUsed} for chat ${req.chatId}`);
+          } else {
+            try {
+              logger.info(`Tracking token usage: ${tokensUsed} tokens for user ${userId}, chat ${req.chatId}`);
+              await trackTokenUsage(userId, tokensUsed, 'chat_message', {
+                chatId: req.chatId,
+                appId: updatedChat.app.id,
+                model: settings.selectedModel?.name,
+                provider: settings.selectedModel?.provider,
+              });
+              logger.info(`✅ Successfully tracked ${tokensUsed} tokens for user ${userId}`);
+            } catch (tokenError: any) {
+              // Log but don't throw - the chat was successful
+              logger.error('Failed to track token usage after chat completion:', tokenError);
+              logger.error('Token tracking error details:', {
+                userId,
+                tokensUsed,
+                chatId: req.chatId,
+                appId: updatedChat.app.id,
+                error: tokenError.message,
+              });
+            }
+          }
+
           // Signal that the stream has completed
           safeSend(event.sender, "chat:response:end", {
             chatId: req.chatId,
@@ -1633,6 +1744,47 @@ ${problemReport.problems
             logger.warn(`⚠️ Failed to notify preview completion:`, error);
           }
         } else {
+          // 💎 CREDIT DEDUCTION: Deduct credits for simple completion (ask mode)
+          if (userId && creditCost > 0) {
+            try {
+              await deductCredits(userId, 'chat_message', creditCost, {
+                chatId: req.chatId,
+                model: settings.selectedModel?.name,
+                provider: settings.selectedModel?.provider,
+                tokensUsed: tokensUsed, // Include token usage in metadata
+              });
+            } catch (creditError: any) {
+              // Log but don't throw - the chat was successful
+              logger.error('Failed to deduct credits after chat completion:', creditError);
+            }
+          }
+
+          // 📊 TOKEN TRACKING: Track token usage for simple completion (ask mode)
+          if (!userId) {
+            logger.warn(`Token tracking skipped (ask mode): No userId found for chat ${req.chatId}`);
+          } else if (tokensUsed <= 0) {
+            logger.warn(`Token tracking skipped (ask mode): tokensUsed is ${tokensUsed} for chat ${req.chatId}`);
+          } else {
+            try {
+              logger.info(`Tracking token usage (ask mode): ${tokensUsed} tokens for user ${userId}, chat ${req.chatId}`);
+              await trackTokenUsage(userId, tokensUsed, 'chat_message', {
+                chatId: req.chatId,
+                model: settings.selectedModel?.name,
+                provider: settings.selectedModel?.provider,
+              });
+              logger.info(`✅ Successfully tracked ${tokensUsed} tokens for user ${userId} (ask mode)`);
+            } catch (tokenError: any) {
+              // Log but don't throw - the chat was successful
+              logger.error('Failed to track token usage after chat completion (ask mode):', tokenError);
+              logger.error('Token tracking error details:', {
+                userId,
+                tokensUsed,
+                chatId: req.chatId,
+                error: tokenError.message,
+              });
+            }
+          }
+
           safeSend(event.sender, "chat:response:end", {
             chatId: req.chatId,
             updatedFiles: false,

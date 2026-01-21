@@ -7,9 +7,11 @@ import {
   Mail, 
   Crown, 
   LogOut, 
-  Calendar
+  Calendar,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from '@tanstack/react-router';
 
 interface UserDropdownProps {
   isOpen: boolean;
@@ -17,6 +19,7 @@ interface UserDropdownProps {
 }
 
 export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const { 
     user, 
     session, 
@@ -50,13 +53,17 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
   };
 
   const getSubscriptionBadgeColor = (tier: string) => {
-    switch (tier) {
+    switch (tier.toLowerCase()) {
+      case 'free':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
       case 'pro':
         return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white';
-      case 'free':
-        return 'bg-gray-100 text-gray-800';
+      case 'ultra':
+        return 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white';
+      case 'business':
+        return 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
     }
   };
 
@@ -114,7 +121,19 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
 
 
           {/* Actions */}
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                navigate({ to: '/profile' });
+                onClose();
+              }}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              View Full Profile
+            </Button>
             <Button
               variant="ghost"
               size="sm"

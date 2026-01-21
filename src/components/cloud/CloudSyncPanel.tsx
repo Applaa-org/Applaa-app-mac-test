@@ -137,7 +137,19 @@ export const CloudSyncPanel: React.FC = () => {
               <div>
                 <p className="font-medium">{user.fullName || user.email}</p>
                 <p className="text-sm text-muted-foreground">
-                  {user.subscriptionTier === 'pro' ? 'Pro Plan' : 'Free Plan'}
+                  {(() => {
+                    const tier = (user.subscriptionTier || 'free') as 'free' | 'pro' | 'ultra' | 'business';
+                    switch (tier) {
+                      case 'pro':
+                        return 'Pro Plan';
+                      case 'ultra':
+                        return 'Ultra Plan';
+                      case 'business':
+                        return 'Business Plan';
+                      default:
+                        return 'Free Plan';
+                    }
+                  })()}
                 </p>
               </div>
             </div>

@@ -11,7 +11,7 @@ import { ThinkingBudgetSelector } from "@/components/ThinkingBudgetSelector";
 import { useSettings } from "@/hooks/useSettings";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
 import { useRouter, Outlet, useLocation } from "@tanstack/react-router";
 import { GitHubIntegration } from "@/components/GitHubIntegration";
 import { VercelIntegration } from "@/components/VercelIntegration";
@@ -28,34 +28,6 @@ import { NeonIntegration } from "@/components/NeonIntegration";
 import { CloudServicesSettings } from "@/components/settings/CloudServicesSettings";
 import { CacheDebugPanel } from "@/components/settings/CacheDebugPanel";
 
-// Temporary Pro Toggle for Development
-function DevProToggle() {
-  const { settings, updateSettings } = useSettings();
-  
-  const togglePro = () => {
-    updateSettings({
-      enableApplaaPro: !settings?.enableApplaaPro,
-    });
-  };
-
-  return (
-    <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-      <div className="space-y-1">
-        <Label htmlFor="dev-pro-toggle" className="text-sm font-medium text-amber-800 dark:text-amber-200">
-          🚧 Development Pro Mode
-        </Label>
-        <p className="text-xs text-amber-600 dark:text-amber-400">
-          Temporary toggle for development and testing (will be removed later)
-        </p>
-      </div>
-      <Switch
-        id="dev-pro-toggle"
-        checked={settings?.enableApplaaPro || false}
-        onCheckedChange={togglePro}
-      />
-    </div>
-  );
-}
 
 export default function SettingsPage() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -341,9 +313,6 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
         </div>
 
         <CustomAppsDirectorySelector />
-        
-        {/* Temporary Pro Toggle for Development */}
-        <DevProToggle />
       </div>
 
       <div className="space-y-1 mt-4">
