@@ -25,6 +25,7 @@ export default defineConfig({
         "@google/generative-ai",
         "stripe",
         "electron",
+        "electron-updater",
         "child_process",
         "fs",
         "path",
