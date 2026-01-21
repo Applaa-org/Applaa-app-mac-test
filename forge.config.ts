@@ -120,8 +120,9 @@ const config: ForgeConfig = {
   } as any,
   rebuildConfig: {
     // Use onlyModules to explicitly control which modules to rebuild
-    // This prevents auto-detection of better-sqlite3 which requires Windows SDK
+    // better-sqlite3 MUST be rebuilt for Electron to avoid MODULE_VERSION mismatch
     onlyModules: [
+      "better-sqlite3", // CRITICAL: Must rebuild for Electron's Node.js version
       "onnxruntime-react-native", 
       "react-native-transformers",
       "@react-native-async-storage/async-storage",
