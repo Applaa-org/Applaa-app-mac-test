@@ -23,6 +23,7 @@ import { handleNeonOAuthReturn } from "./neon_admin/neon_return_handler";
 import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
+import { initializeSupabase, getSupabaseAuth, type SupabaseConfig } from "./lib/supabase";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -148,6 +149,46 @@ export async function onReady() {
     logger.error("❌ Failed to initialize database:", e);
     // Re-throw to prevent app from starting with broken database
     throw e;
+  }
+
+  // ✅ FIX: Initialize Supabase early from environment variables
+  // This ensures profile and credit handlers can work immediately
+  try {
+    const envUrl = process.env.AUTH_SUPABASE_URL || process.env.SUPABASE_URL;
+    const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (envUrl && envAnonKey) {
+      const config: SupabaseConfig = {
+        url: envUrl,
+        anonKey: envAnonKey,
+        serviceRoleKey: envServiceRoleKey,
+      };
+      
+      initializeSupabase(config);
+      const auth = getSupabaseAuth();
+      
+      // Set up auth state listener
+      auth.onAuthStateChange(async (event, session) => {
+        logger.info(`Auth state changed: ${event}`);
+        
+        if (session) {
+          // ✅ Ensure profile exists when user signs in
+          try {
+            await auth.ensureProfileExists(session.user);
+          } catch (error) {
+            logger.warn('Failed to ensure profile exists:', error);
+          }
+        }
+      });
+      
+      logger.info("✅ Supabase initialized successfully from environment variables");
+    } else {
+      logger.warn("⚠️ Supabase credentials not found in environment variables. Profile and credit features may not work until Supabase is initialized.");
+    }
+  } catch (error) {
+    logger.error("❌ Failed to initialize Supabase from environment variables:", error);
+    // Don't block app startup if Supabase init fails
   }
 
   // 🚀 PERFORMANCE: Initialize workspace dependency manager for faster app creation

@@ -63,7 +63,11 @@ export async function getCreditBalance(userId: string): Promise<{
       };
     }
 
-    const monthlyAllocation = profile.monthly_credits || getMonthlyCredits((profile.subscription_tier as any) || 'free');
+    // ✅ Use database value as source of truth, with tier-based fallback
+    const tier = (profile.subscription_tier || 'free') as 'free' | 'pro' | 'ultra' | 'business';
+    const monthlyAllocation = profile.monthly_credits ?? getMonthlyCredits(tier);
+    
+    logger.info(`Credit balance for user ${userId}: tier=${tier}, monthly=${monthlyAllocation}, db_monthly=${profile.monthly_credits}, remaining=${profile.remaining_credits}`);
 
     return {
       remaining: profile.remaining_credits ?? monthlyAllocation,

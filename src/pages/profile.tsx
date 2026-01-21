@@ -122,13 +122,40 @@ export default function ProfilePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-            <Button variant="outline" onClick={() => router.navigate({ to: "/" })}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Go Home
+            <div className="flex gap-3">
+              <Button onClick={() => refetch()} className="flex-1">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => router.navigate({ to: "/" })}
+                className="flex-1"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go Home
+              </Button>
+            </div>
+            <Button 
+              onClick={async () => {
+                setIsRedirecting(true);
+                try {
+                  const ipcClient = IpcClient.getInstance();
+                  await ipcClient.redirectToSubscribe();
+                  showSuccess("Opening subscription page in your browser...");
+                } catch (error) {
+                  showError(
+                    error instanceof Error ? error.message : "Failed to open subscription page"
+                  );
+                } finally {
+                  setIsRedirecting(false);
+                }
+              }}
+              disabled={isRedirecting}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              {isRedirecting ? "Opening..." : "Upgrade Subscription"}
             </Button>
           </CardContent>
         </Card>
@@ -147,13 +174,40 @@ export default function ProfilePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-            <Button variant="outline" onClick={() => router.navigate({ to: "/" })}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Go Home
+            <div className="flex gap-3">
+              <Button onClick={() => refetch()} className="flex-1">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => router.navigate({ to: "/" })}
+                className="flex-1"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go Home
+              </Button>
+            </div>
+            <Button 
+              onClick={async () => {
+                setIsRedirecting(true);
+                try {
+                  const ipcClient = IpcClient.getInstance();
+                  await ipcClient.redirectToSubscribe();
+                  showSuccess("Opening subscription page in your browser...");
+                } catch (error) {
+                  showError(
+                    error instanceof Error ? error.message : "Failed to open subscription page"
+                  );
+                } finally {
+                  setIsRedirecting(false);
+                }
+              }}
+              disabled={isRedirecting}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              {isRedirecting ? "Opening..." : "Upgrade Subscription"}
             </Button>
           </CardContent>
         </Card>
