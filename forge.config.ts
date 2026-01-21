@@ -61,6 +61,9 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/file-uri-to-path")) {
     return false;
   }
+  if (file.startsWith("/node_modules/electron-updater")) {
+    return false; // CRITICAL: Include electron-updater in packaged app
+  }
   if (file.startsWith("/.vite")) {
     return false;
   }
@@ -108,6 +111,7 @@ const config: ForgeConfig = {
       "node_modules/.pnpm/better-sqlite3@*/**",
       "node_modules/bindings/**",
       "node_modules/file-uri-to-path/**",
+      "node_modules/electron-updater/**", // CRITICAL: Must be unpacked for OTA updates to work
       "node_modules/expo/**",
       "node_modules/@expo/**",
       "node_modules/.bin/**",
