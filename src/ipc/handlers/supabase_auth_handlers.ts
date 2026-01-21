@@ -44,6 +44,13 @@ export function registerSupabaseAuthHandlers() {
           currentSession = session;
           currentUser = session.user;
           
+          // ✅ Ensure profile exists when user signs in
+          try {
+            await auth.ensureProfileExists(session.user);
+          } catch (error) {
+            log.warn('Failed to ensure profile exists:', error);
+          }
+          
           // Get full profile data
           try {
             const profile = await auth.getProfile(session.user.id);

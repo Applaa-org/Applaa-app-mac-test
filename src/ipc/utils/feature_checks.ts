@@ -7,9 +7,32 @@ import { readSettings } from "../../main/settings";
 import { db } from "@/db";
 import type { UserTier } from "@/lib/schemas";
 import { getSupabaseAuth } from "../../lib/supabase";
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../lib/supabase';
 import log from "electron-log";
 
 const logger = log.scope("feature-checks");
+
+// Helper function to get Supabase admin client (bypasses RLS)
+function getSupabaseAdminClient() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL;
+
+  if (!serviceRoleKey || !supabaseUrl) {
+    throw new Error('Supabase service role key or URL not configured');
+  }
+
+  return createClient<Database>(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
 
 /**
  * Get the current user tier from Supabase profile (defaults to "free")
@@ -17,18 +40,34 @@ const logger = log.scope("feature-checks");
  */
 export async function getUserTier(): Promise<UserTier> {
   try {
-    const auth = getSupabaseAuth();
-    const supabaseUser = await auth.getCurrentUser();
+    // ✅ FIX: Use admin client to bypass RLS and Supabase initialization issues
+    const adminClient = getSupabaseAdminClient();
     
-    if (supabaseUser) {
-      // Try to get profile by user ID
-      const profile = await auth.getProfile(supabaseUser.id);
-      if (profile?.subscription_tier) {
-        return profile.subscription_tier as UserTier;
+    // First, try to get current Supabase user session
+    try {
+      const auth = getSupabaseAuth();
+      const supabaseUser = await auth.getCurrentUser();
+      
+      if (supabaseUser) {
+        // Query using admin client to bypass RLS
+        const { data: profile } = await adminClient
+          .from('profiles')
+          .select('subscription_tier')
+          .eq('id', supabaseUser.id)
+          .maybeSingle() as { data: { subscription_tier: string } | null };
+          
+        if (profile?.subscription_tier) {
+          const tier = profile.subscription_tier as UserTier;
+          logger.info(`✅ Got tier from Supabase user session: ${tier}`);
+          return tier;
+        }
       }
+    } catch (error) {
+      // Supabase client not initialized or session not available
+      logger.debug('Supabase session check failed, trying WordPress auth:', error);
     }
     
-    // Fallback: Try WordPress auth
+    // Fallback: Try WordPress auth with admin client lookup
     const settings = readSettings();
     const wordpressAuth = settings.wordpressAuth;
     
@@ -37,25 +76,46 @@ export async function getUserTier(): Promise<UserTier> {
       const wordpressUsername = wordpressAuth.user.username;
       const wordpressDisplayName = wordpressAuth.user.display_name;
 
-      // Try multiple lookup strategies
+      // Try multiple lookup strategies using admin client
       if (userEmail && userEmail !== 'unknown@example.com') {
-        const profile = await auth.getProfileByEmailOrUsername(userEmail);
+        const { data: profile } = await adminClient
+          .from('profiles')
+          .select('subscription_tier')
+          .eq('email', userEmail)
+          .maybeSingle() as { data: { subscription_tier: string } | null };
+          
         if (profile?.subscription_tier) {
-          return profile.subscription_tier as UserTier;
+          const tier = profile.subscription_tier as UserTier;
+          logger.info(`✅ Got tier from WordPress email: ${tier}`);
+          return tier;
         }
       }
 
       if (wordpressDisplayName) {
-        const profile = await auth.getProfileByEmailOrUsername(wordpressDisplayName);
+        const { data: profile } = await adminClient
+          .from('profiles')
+          .select('subscription_tier')
+          .eq('wordpress_display_name', wordpressDisplayName)
+          .maybeSingle() as { data: { subscription_tier: string } | null };
+          
         if (profile?.subscription_tier) {
-          return profile.subscription_tier as UserTier;
+          const tier = profile.subscription_tier as UserTier;
+          logger.info(`✅ Got tier from WordPress display name: ${tier}`);
+          return tier;
         }
       }
 
       if (wordpressUsername) {
-        const profile = await auth.getProfileByEmailOrUsername(wordpressUsername);
+        const { data: profile } = await adminClient
+          .from('profiles')
+          .select('subscription_tier')
+          .eq('wordpress_username', wordpressUsername)
+          .maybeSingle() as { data: { subscription_tier: string } | null };
+          
         if (profile?.subscription_tier) {
-          return profile.subscription_tier as UserTier;
+          const tier = profile.subscription_tier as UserTier;
+          logger.info(`✅ Got tier from WordPress username: ${tier}`);
+          return tier;
         }
       }
     }
@@ -65,7 +125,9 @@ export async function getUserTier(): Promise<UserTier> {
   
   // Final fallback: use settings (for backwards compatibility)
   const settings = readSettings();
-  return (settings.userTier || "free") as UserTier;
+  const tier: UserTier = (settings.userTier as UserTier) || "free";
+  logger.info(`⚠️ Using fallback tier from settings: ${tier}`);
+  return tier;
 }
 
 /**
@@ -86,7 +148,7 @@ export function getUserTierSync(): UserTier {
   
   // Fallback to settings immediately, then update cache asynchronously
   const settings = readSettings();
-  const fallbackTier = (settings.userTier || "free") as UserTier;
+  const fallbackTier: UserTier = (settings.userTier as UserTier) || "free";
   
   // Update cache asynchronously
   getUserTier().then(tier => {

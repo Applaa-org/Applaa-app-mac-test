@@ -178,7 +178,7 @@ export type ContextPathResults = {
 export const ReleaseChannelSchema = z.enum(["stable", "beta"]);
 export type ReleaseChannel = z.infer<typeof ReleaseChannelSchema>;
 
-export const UserTierSchema = z.enum(["free", "pro"]);
+export const UserTierSchema = z.enum(["free", "pro", "ultra", "business"]);
 export type UserTier = z.infer<typeof UserTierSchema>;
 
 /**
