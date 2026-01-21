@@ -503,6 +503,35 @@ export class SupabaseAuth {
     }
   }
 
+  // Sign in with username or email - looks up username in profiles table to get email
+  async signInWithUsernameOrEmail(identifier: string, password: string) {
+    try {
+      // Check if identifier looks like an email
+      if (identifier.includes('@')) {
+        // It's an email, sign in directly
+        return await this.signIn(identifier, password);
+      }
+
+      // It's a username - look it up in profiles table
+      const profile = await this.getProfileByEmailOrUsername(identifier);
+      
+      if (!profile || !profile.email) {
+        throw new Error('User not found. Please check your username or email.');
+      }
+
+      // Use the email from profile to sign in
+      log.info('Username found in profile, using associated email for sign-in:', {
+        username: identifier,
+        email: profile.email,
+      });
+
+      return await this.signIn(profile.email, password);
+    } catch (error) {
+      log.error('Sign in with username/email error:', error);
+      throw error;
+    }
+  }
+
   // Sign out
   async signOut() {
     try {

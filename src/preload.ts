@@ -99,6 +99,7 @@ const validInvokeChannels = [
   "supabase:initialize-from-settings",
   "supabase:sign-up",
   "supabase:sign-in",
+  "supabase:sign-in-with-username-or-email",
   "supabase:sign-out",
   "supabase:get-current-user",
   "supabase:get-current-session",

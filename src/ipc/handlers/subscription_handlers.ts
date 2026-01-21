@@ -99,7 +99,10 @@ export function registerSubscriptionHandlers() {
           };
         }
 
-        const isPro = subscription.status === 'active' || subscription.status === 'trialing';
+        const isActive = subscription.status === 'active' || subscription.status === 'trialing';
+        // ✅ FIX: Get actual tier from profile or Stripe plan name, support all tiers
+        const tier = (profile.subscription_tier || 'free') as 'free' | 'pro' | 'ultra' | 'business';
+        const isPro = isActive && (tier === 'pro' || tier === 'ultra' || tier === 'business');
 
         return {
           subscription: {
@@ -114,15 +117,17 @@ export function registerSubscriptionHandlers() {
             canceledAt: subscription.canceledAt?.toISOString(),
           },
           isPro,
-          tier: isPro ? 'pro' : 'free',
+          tier,
         };
       } catch (stripeError: any) {
         logger.error('Failed to get subscription from Stripe:', stripeError);
-        // Fallback to profile subscription_tier
+        // ✅ FIX: Fallback to profile subscription_tier, support all tiers
+        const tier = (profile.subscription_tier || 'free') as 'free' | 'pro' | 'ultra' | 'business';
+        const isPro = tier === 'pro' || tier === 'ultra' || tier === 'business';
         return {
           subscription: null,
-          isPro: profile.subscription_tier === 'pro',
-          tier: profile.subscription_tier || 'free',
+          isPro,
+          tier,
         };
       }
     } catch (error: any) {

@@ -102,7 +102,7 @@ export function registerSupabaseAuthHandlers() {
     }
   });
 
-  // Sign in
+  // Sign in with email
   ipcMain.handle('supabase:sign-in', async (_, { email, password }: { 
     email: string; 
     password: string; 
@@ -124,6 +124,32 @@ export function registerSupabaseAuthHandlers() {
       };
     } catch (error) {
       log.error('Sign in failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Sign in with username or email
+  ipcMain.handle('supabase:sign-in-with-username-or-email', async (_, { identifier, password }: { 
+    identifier: string; 
+    password: string; 
+  }) => {
+    try {
+      if (!isInitialized) {
+        throw new Error('Supabase not initialized');
+      }
+
+      const auth = getSupabaseAuth();
+      const result = await auth.signInWithUsernameOrEmail(identifier, password);
+      
+      log.info('User signed in successfully with username/email');
+      return { 
+        success: true, 
+        user: result.user,
+        session: result.session,
+        message: 'Signed in successfully' 
+      };
+    } catch (error) {
+      log.error('Sign in with username/email failed:', error);
       return { success: false, error: error.message };
     }
   });

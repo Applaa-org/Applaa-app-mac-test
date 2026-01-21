@@ -100,8 +100,9 @@ export function AppSidebar() {
   const navigate = useNavigate();
   
   // Get subscription tier from profile
-  const subscriptionTier = profile?.subscription_tier || 'free';
+  const subscriptionTier = (profile?.subscription_tier || 'free') as 'free' | 'pro' | 'ultra' | 'business';
   const isPro = subscriptionTier === 'pro' || subscriptionTier === 'ultra' || subscriptionTier === 'business';
+  const isPaidTier = isPro;
   
   // Authentication state is now managed by useSupabaseAuth hook
 
@@ -243,7 +244,9 @@ export function AppSidebar() {
                           ? wordpressUser.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
                           : wordpressUser?.username?.[0]?.toUpperCase() || "U"}
                       {isPro && (
-                        <span className="ml-1 text-[10px]">PRO</span>
+                        <span className="ml-1 text-[10px]">
+                          {subscriptionTier.toUpperCase()}
+                        </span>
                       )}
                     </>
                   ) : "Sign In"}

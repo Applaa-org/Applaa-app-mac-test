@@ -53,13 +53,17 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
   };
 
   const getSubscriptionBadgeColor = (tier: string) => {
-    switch (tier) {
+    switch (tier.toLowerCase()) {
+      case 'free':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
       case 'pro':
         return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white';
-      case 'free':
-        return 'bg-gray-100 text-gray-800';
+      case 'ultra':
+        return 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white';
+      case 'business':
+        return 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
     }
   };
 

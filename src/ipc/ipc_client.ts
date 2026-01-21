@@ -2051,6 +2051,20 @@ export class IpcClient {
     return this.ipcRenderer.invoke("supabase:sign-in", params);
   }
 
+  // ✅ NEW: Sign in with username or email (looks up username in profiles table)
+  public async supabaseSignInWithUsernameOrEmail(params: {
+    identifier: string;
+    password: string;
+  }): Promise<{
+    success: boolean;
+    user?: any;
+    session?: any;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("supabase:sign-in-with-username-or-email", params);
+  }
+
   public async supabaseSignOut(): Promise<{
     success: boolean;
     message?: string;
@@ -2185,7 +2199,7 @@ export class IpcClient {
       canceledAt?: string;
     } | null;
     isPro: boolean;
-    tier: 'free' | 'pro';
+    tier: 'free' | 'pro' | 'ultra' | 'business';
     trialStart?: string;
     trialEnd?: string;
   }> {
@@ -2215,7 +2229,7 @@ export class IpcClient {
       first_name: string | null;
       last_name: string | null;
       avatar_url: string | null;
-      subscription_tier: 'free' | 'pro' | null;
+      subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
       wordpress_user_id: number | null;
       wordpress_username: string | null;
       wordpress_display_name: string | null;
@@ -2243,7 +2257,7 @@ export class IpcClient {
       first_name: string | null;
       last_name: string | null;
       avatar_url: string | null;
-      subscription_tier: 'free' | 'pro' | null;
+      subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
       wordpress_user_id: number | null;
       wordpress_username: string | null;
       wordpress_display_name: string | null;

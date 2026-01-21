@@ -191,7 +191,7 @@ export async function resetMonthlyCredits(userId: string): Promise<{ success: bo
       .eq('id', userId)
       .single();
 
-    if (profileError || !profileError) {
+    if (profileError || !profile) {
       throw new Error(`Failed to get user profile: ${profileError?.message || 'Profile not found'}`);
     }
 
@@ -266,27 +266,29 @@ export async function updateCreditsOnTierChange(
     const oldMonthlyCredits = getMonthlyCredits(previousTier);
     const newMonthlyCredits = getMonthlyCredits(newTier);
 
-    // Calculate credit difference (only add credits, never subtract)
+    // Calculate credit change
+    // Desired behaviour:
+    // - On upgrade: keep existing balance AND add the full allocation of the new tier
+    //   (e.g., had 500 remaining, upgrade adds 1000 => 1500 total)
+    // - On downgrade: keep current balance, do not subtract
     let creditsToAdd = 0;
-    if (newTier !== 'free' && previousTier !== newTier) {
-      // If upgrading, add the difference
-      if (newMonthlyCredits > oldMonthlyCredits) {
-        creditsToAdd = newMonthlyCredits - oldMonthlyCredits;
-        logger.info(`Upgrading from ${previousTier} (${oldMonthlyCredits}) to ${newTier} (${newMonthlyCredits}), adding ${creditsToAdd} credits`);
-      } else {
-        // If downgrading, don't subtract credits (user keeps what they have)
-        logger.info(`Downgrading from ${previousTier} (${oldMonthlyCredits}) to ${newTier} (${newMonthlyCredits}), keeping current balance`);
-      }
+    if (newTier !== 'free' && previousTier !== newTier && newMonthlyCredits > oldMonthlyCredits) {
+      creditsToAdd = newMonthlyCredits; // add full new tier allocation
+      logger.info(`Upgrading from ${previousTier} (${oldMonthlyCredits}) to ${newTier} (${newMonthlyCredits}), adding full allocation ${creditsToAdd} plus current balance ${currentBalance}`);
+    } else if (newTier !== previousTier) {
+      logger.info(`Changing tier from ${previousTier} to ${newTier}, keeping current balance ${currentBalance}`);
     }
 
     const newBalance = currentBalance + creditsToAdd;
+    // Display monthly_credits as the new effective pool (current balance + new allocation) so UI reflects total available after upgrade
+    const newMonthlyValue = newBalance > newMonthlyCredits ? newBalance : newMonthlyCredits;
 
     // Update credits
     const { data: updatedProfile, error: updateError } = await adminClient
       .from('profiles')
       .update({
         remaining_credits: newBalance,
-        monthly_credits: newMonthlyCredits,
+        monthly_credits: newMonthlyValue,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId)

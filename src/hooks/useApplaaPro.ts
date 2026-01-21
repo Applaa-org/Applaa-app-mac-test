@@ -21,8 +21,8 @@ export function useApplaaPro() {
   const isProEnabled = settings?.enableApplaaPro === true;
   const isLegacyPro = isProEnabled && hasProKey;
   
-  // FIXED: Tier takes absolute precedence. Only use legacy if tier is undefined/null
-  const isProUser = userTier === "pro" || (userTier === undefined && isLegacyPro);
+  // ✅ FIX: Use isPro which includes all paid tiers (pro, ultra, business), fallback to legacy only if tier is undefined
+  const isProUser = isPro || (userTier === undefined && isLegacyPro);
   
   // App limits - Free tier: max 3 apps, Pro: unlimited
   const FREE_APP_LIMIT = 3;

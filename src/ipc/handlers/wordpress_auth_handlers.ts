@@ -92,8 +92,9 @@ export function registerWordPressAuthHandlers() {
         throw new Error('No token received from server');
       }
       
-      // Get user details using the token
-      const userResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/users/me`, {
+      // ✅ FIX: Get user details using the token with context=edit to include email
+      // WordPress REST API requires context=edit to return email field for privacy/security
+      const userResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/users/me?context=edit`, {
         headers: {
           'Authorization': `Bearer ${authData.token}`,
           'Content-Type': 'application/json',
@@ -363,8 +364,8 @@ export function registerWordPressAuthHandlers() {
         return { isValid: false };
       }
 
-      // Validate with WordPress API
-      const response = await fetch(`${wordpressUrl}/wp-json/wp/v2/users/me`, {
+      // ✅ FIX: Validate with WordPress API using context=edit to get email
+      const response = await fetch(`${wordpressUrl}/wp-json/wp/v2/users/me?context=edit`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,

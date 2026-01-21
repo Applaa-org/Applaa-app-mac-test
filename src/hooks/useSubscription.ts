@@ -18,7 +18,7 @@ export interface Subscription {
 export interface SubscriptionStatus {
   subscription: Subscription | null;
   isPro: boolean;
-  tier: 'free' | 'pro';
+  tier: 'free' | 'pro' | 'ultra' | 'business';
   trialStart?: string;
   trialEnd?: string;
 }

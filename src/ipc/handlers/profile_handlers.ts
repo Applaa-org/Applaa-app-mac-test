@@ -114,10 +114,47 @@ export function registerProfileHandlers() {
           throw new Error('User not authenticated. Please sign in to view profile.');
         }
 
-        // Get email from WordPress user
-        const userEmail = wordpressAuth.user.email;
-        const wordpressUsername = wordpressAuth.user.username;
-        const wordpressDisplayName = wordpressAuth.user.display_name;
+        // ✅ FIX: Get email from WordPress user - refresh from WordPress API if email is invalid
+        let userEmail = wordpressAuth.user.email;
+        let wordpressUsername = wordpressAuth.user.username;
+        let wordpressDisplayName = wordpressAuth.user.display_name;
+        
+        // If WordPress email is invalid, try to refresh from WordPress API
+        if (!userEmail || userEmail === 'unknown@example.com') {
+          logger.info('WordPress email is invalid, refreshing from WordPress API...');
+          try {
+            const settings = readSettings();
+            const wordpressUrl = process.env.WORDPRESS_URL || 'https://app.applaa.com';
+            const authToken = wordpressAuth.token;
+            
+            if (authToken) {
+              // ✅ FIX: Use context=edit to get email from WordPress API
+              const refreshResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/users/me?context=edit`, {
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              
+              if (refreshResponse.ok) {
+                const refreshedUserData = await refreshResponse.json();
+                if (refreshedUserData.email && refreshedUserData.email !== 'unknown@example.com') {
+                  userEmail = refreshedUserData.email;
+                  wordpressUsername = refreshedUserData.username || wordpressUsername;
+                  wordpressDisplayName = refreshedUserData.name || wordpressDisplayName;
+                  logger.info('Successfully refreshed email from WordPress API:', {
+                    email: userEmail,
+                    username: wordpressUsername,
+                    displayName: wordpressDisplayName,
+                  });
+                }
+              }
+            }
+          } catch (refreshError) {
+            logger.warn('Failed to refresh email from WordPress API:', refreshError);
+            // Continue with existing email even if refresh fails
+          }
+        }
         
         console.log('🔍 [Profile Handler] WordPress user data:', {
           email: userEmail,
@@ -186,29 +223,60 @@ export function registerProfileHandlers() {
           isUnknownEmail: profile.email === 'unknown@example.com' || userEmail === 'unknown@example.com',
         });
 
-        // ALWAYS use email from Supabase profile - it's the source of truth
-        // Only log if there's a mismatch (for debugging)
-        if (profile.email && profile.email !== userEmail && profile.email !== 'unknown@example.com') {
-          logger.info('Using email from Supabase profile (different from WordPress email):', {
+        // ✅ FIX: Prioritize valid email from WordPress if Supabase profile has invalid email
+        // Strategy: Use Supabase profile email if it's valid (not 'unknown@example.com')
+        // Otherwise, use WordPress email and update Supabase profile
+        const isSupabaseEmailValid = profile.email && profile.email !== 'unknown@example.com';
+        const isWordPressEmailValid = userEmail && userEmail !== 'unknown@example.com';
+
+        if (isSupabaseEmailValid && profile.email !== userEmail) {
+          // Supabase has valid email, use it even if different from WordPress
+          logger.info('Using email from Supabase profile (valid email, different from WordPress):', {
             supabaseEmail: profile.email,
             wordpressEmail: userEmail,
           });
-        }
-
-        // Only use WordPress email as fallback if profile email is truly missing or invalid
-        // BUT if both are 'unknown@example.com', keep the Supabase one (don't overwrite)
-        if ((!profile.email || profile.email === 'unknown@example.com') && userEmail && userEmail !== 'unknown@example.com') {
-          logger.warn('Profile email missing or invalid in Supabase, using WordPress email as fallback:', {
+        } else if (!isSupabaseEmailValid && isWordPressEmailValid) {
+          // Supabase email is invalid but WordPress has valid email - use WordPress email and update Supabase
+          logger.warn('Supabase profile has invalid email, using WordPress email and updating Supabase:', {
             profileEmail: profile.email,
             wordpressEmail: userEmail,
           });
+          
+          // Update Supabase profile with WordPress email
+          try {
+            const adminClient = getSupabaseAdminClient();
+            const { error: updateError } = await adminClient
+              .from('profiles')
+              .update({ 
+                email: userEmail,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', profile.id);
+            
+            if (updateError) {
+              logger.error('Failed to update Supabase profile email:', updateError);
+            } else {
+              logger.info('Successfully updated Supabase profile email from WordPress:', {
+                profileId: profile.id,
+                newEmail: userEmail,
+              });
+            }
+          } catch (updateError) {
+            logger.error('Error updating Supabase profile email:', updateError);
+          }
+          
+          // Use WordPress email
           profile.email = userEmail;
-        } else if (profile.email === 'unknown@example.com' && userEmail === 'unknown@example.com') {
-          logger.warn('Both Supabase and WordPress have unknown@example.com - email needs to be updated in database:', {
+        } else if (!isSupabaseEmailValid && !isWordPressEmailValid) {
+          // Both emails are invalid
+          logger.warn('Both Supabase and WordPress have invalid email (unknown@example.com) - email needs to be updated in database:', {
             profileId: profile.id,
             wordpressUserId: wordpressAuth.user.id,
+            supabaseEmail: profile.email,
+            wordpressEmail: userEmail,
           });
           console.warn('⚠️ [Profile Handler] Email issue: Both sources have unknown@example.com. Please update email in Supabase profiles table.');
+          // Keep the Supabase one (don't change to WordPress if it's also invalid)
         }
 
         logger.info('Profile retrieved successfully for WordPress user:', {
