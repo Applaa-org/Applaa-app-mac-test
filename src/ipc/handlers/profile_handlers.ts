@@ -67,8 +67,47 @@ export function registerProfileHandlers() {
           }
         }
 
+        // ✅ FIX: Auto-create profile if it doesn't exist
         if (!profile) {
-          throw new Error('User profile not found in database.');
+          logger.warn('Profile not found, creating new profile for user:', {
+            userId: supabaseUser.id,
+            email: supabaseUser.email,
+          });
+          
+          try {
+            const { data: newProfile, error: createError } = await adminClient
+              .from('profiles')
+              .insert({
+                id: supabaseUser.id,
+                email: supabaseUser.email || 'unknown@example.com',
+                full_name: supabaseUser.user_metadata?.full_name || 
+                          supabaseUser.user_metadata?.name ||
+                          null,
+                first_name: supabaseUser.user_metadata?.first_name || null,
+                last_name: supabaseUser.user_metadata?.last_name || null,
+                subscription_tier: 'free',
+                monthly_credits: 50,  // Free tier: 50 credits/month
+                remaining_credits: 50,  // Free tier: 50 credits initial balance
+                total_credits_used: 0,
+                total_tokens_used: 0,
+              })
+              .select('id, email, username, full_name, first_name, last_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, total_tokens_used, created_at, updated_at')
+              .single();
+            
+            if (createError) {
+              logger.error('Failed to create profile:', createError);
+              throw new Error(`Failed to create user profile: ${createError.message}`);
+            }
+            
+            profile = newProfile;
+            logger.info('✅ Successfully created missing profile for user:', {
+              userId: supabaseUser.id,
+              email: profile.email,
+            });
+          } catch (createError: any) {
+            logger.error('Error creating profile:', createError);
+            throw new Error(`Failed to create user profile: ${createError.message}`);
+          }
         }
 
         // Ensure email is set - use auth user email if profile email is missing or invalid
@@ -207,12 +246,48 @@ export function registerProfileHandlers() {
           }
         }
         
+        // ✅ FIX: Auto-create profile if it doesn't exist for WordPress users
         if (!profile) {
-          logger.error('WordPress user profile not found in Supabase:', {
+          logger.warn('WordPress user profile not found in Supabase, creating new profile:', {
             email: userEmail,
             username: wordpressAuth.user.username,
+            wordpressUserId: wordpressAuth.user.id,
           });
-          throw new Error('User profile not found in database. Please contact support.');
+          
+          try {
+            const adminClient = getSupabaseAdminClient();
+            const { data: newProfile, error: createError } = await adminClient
+              .from('profiles')
+              .insert({
+                email: userEmail || 'unknown@example.com',
+                full_name: wordpressDisplayName || null,
+                wordpress_user_id: wordpressAuth.user.id || null,
+                wordpress_username: wordpressUsername || null,
+                wordpress_display_name: wordpressDisplayName || null,
+                subscription_tier: 'free',
+                monthly_credits: 50,  // Free tier: 50 credits/month
+                remaining_credits: 50,  // Free tier: 50 credits initial balance
+                total_credits_used: 0,
+                total_tokens_used: 0,
+              })
+              .select('id, email, username, full_name, first_name, last_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, total_tokens_used, created_at, updated_at')
+              .single();
+            
+            if (createError) {
+              logger.error('Failed to create profile for WordPress user:', createError);
+              throw new Error(`Failed to create user profile: ${createError.message}`);
+            }
+            
+            profile = newProfile;
+            logger.info('✅ Successfully created missing profile for WordPress user:', {
+              profileId: profile.id,
+              email: profile.email,
+              wordpressUserId: wordpressAuth.user.id,
+            });
+          } catch (createError: any) {
+            logger.error('Error creating profile for WordPress user:', createError);
+            throw new Error(`Failed to create user profile: ${createError.message}`);
+          }
         }
 
         // Log what we found
