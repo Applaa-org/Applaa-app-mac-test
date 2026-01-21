@@ -380,6 +380,50 @@ export interface Database {
           updated_at?: string;
         };
       };
+      web_apps: {
+        Row: {
+          id: string;
+          name: string;
+          details: string;
+          category: string;
+          preview_url: string | null;
+          image_url: string | null;
+          emoji: string | null;
+          app_type: 'web' | 'expo' | 'flutter' | 'godot';
+          is_default: boolean;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          details: string;
+          category: string;
+          preview_url?: string | null;
+          image_url?: string | null;
+          emoji?: string | null;
+          app_type?: 'web' | 'expo' | 'flutter' | 'godot';
+          is_default?: boolean;
+          display_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          details?: string;
+          category?: string;
+          preview_url?: string | null;
+          image_url?: string | null;
+          emoji?: string | null;
+          app_type?: 'web' | 'expo' | 'flutter' | 'godot';
+          is_default?: boolean;
+          display_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       sqlite_backups: {
         Row: {
           id: string;

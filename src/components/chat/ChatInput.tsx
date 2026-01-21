@@ -151,6 +151,30 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     }
   }, [error]);
 
+  // Listen for "Edit with AI" button click to focus chat input
+  useEffect(() => {
+    const handleFocusChatInput = (event: CustomEvent) => {
+      console.log('Focus chat input event received:', event.detail);
+      // Scroll to chat input container
+      const chatInputContainer = document.querySelector('[data-testid="chat-input-container"]');
+      if (chatInputContainer) {
+        chatInputContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Try to focus the Lexical editor after a short delay
+        setTimeout(() => {
+          const contentEditable = chatInputContainer.querySelector('[contenteditable="true"]');
+          if (contentEditable instanceof HTMLElement) {
+            contentEditable.focus();
+          }
+        }, 100);
+      }
+    };
+
+    window.addEventListener('focus-chat-input', handleFocusChatInput as EventListener);
+    return () => {
+      window.removeEventListener('focus-chat-input', handleFocusChatInput as EventListener);
+    };
+  }, []);
+
   // Prompt optimization handlers removed for app-specific chat
 
   // Voice input disabled for MVP
@@ -360,7 +384,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
               onSubmit={handleSubmit}
               onPaste={handlePaste}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Applaa to build..."
+              placeholder={selectedComponent ? "What would you like to change about this component?" : "Ask Applaa to build..."}
               excludeCurrentApp={false}
             />
 

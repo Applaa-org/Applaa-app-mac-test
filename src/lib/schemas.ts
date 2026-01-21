@@ -249,6 +249,9 @@ export const UserSettingsSchema = z.object({
   // Game Window Settings
   enableGameWindowDuringStream: z.boolean().optional(),
 
+  // UI State Settings
+  deployedAppsSectionExpanded: z.boolean().optional(),
+
   // WordPress Authentication Settings
   wordpressAuth: z.object({
     isAuthenticated: z.boolean(),

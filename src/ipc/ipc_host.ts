@@ -76,6 +76,7 @@ import { registerPrerequisiteInstallerHandlers } from "./handlers/prerequisite_i
 import { registerGodotHandlers } from "./handlers/godot_handlers";
 import { registerGamesHandlers } from "./handlers/games_handlers";
 import { registerGameTemplatesHandlers } from "./handlers/game_templates_handlers";
+import { registerWebAppsHandlers } from "./handlers/web_apps_handlers";
 import { registerBackendDeployHandlers } from "./handlers/backend_deploy_handlers";
 import { registerDatabaseHandlers } from "./handlers/database_handlers";
 import { registerVaultHandlers } from "./handlers/vault_handlers";
@@ -199,6 +200,10 @@ export function registerIpcHandlers() {
   // 🎮 Game Templates Management
   console.log('🎮 Registering game templates handlers...');
   registerGameTemplatesHandlers();
+  
+  // 🌐 Web Apps Templates Management
+  console.log('🌐 Registering web apps handlers...');
+  registerWebAppsHandlers();
   
   // 🚀 Backend Auto-Deployment
   console.log('🚀 Registering backend deployment handlers...');

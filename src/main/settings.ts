@@ -62,6 +62,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   
   // User tier - defaults to "free"
   userTier: "free" as const,
+  // UI State defaults (expanded by default)
+  deployedAppsSectionExpanded: true,
 };
 
 // Use different settings file for packaged apps to avoid loading dev settings

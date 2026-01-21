@@ -3750,6 +3750,24 @@ export class IpcClient {
     return this.ipcRenderer.invoke("game-templates:list", params || {});
   }
 
+  // Web Apps Templates Management Methods
+  public async listWebApps(params?: { category?: string; appType?: 'web' | 'expo' | 'flutter' | 'godot' }): Promise<Array<{
+    id: string;
+    name: string;
+    details: string;
+    category: string;
+    previewUrl?: string | null;
+    imageUrl?: string | null;
+    emoji?: string | null;
+    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    isDefault?: boolean;
+    displayOrder?: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>> {
+    return this.ipcRenderer.invoke("web-apps:list", params || {});
+  }
+
   public async createGameTemplate(params: {
     name: string;
     details: string;
