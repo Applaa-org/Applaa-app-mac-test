@@ -127,7 +127,7 @@ process.on('uncaughtException', (error) => {
 if (started) {
   logger.info("App started via Squirrel installer - quitting (this is normal)");
   app.quit();
-  return; // Exit early to prevent further execution
+  // app.quit() will exit the process, no need for return statement
 }
 
 // https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app#main-process-mainjs
