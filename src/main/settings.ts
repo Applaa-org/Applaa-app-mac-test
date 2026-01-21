@@ -82,7 +82,8 @@ export function readSettings(): UserSettings {
   // CRITICAL: Prevent recursive calls that cause infinite loops
   if (_isReadingSettings) {
     console.warn('[readSettings] Recursive call detected, returning cached or default settings');
-    return _settingsCache || DEFAULT_SETTINGS;
+    // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
+    return _settingsCache ? { ..._settingsCache } : { ...DEFAULT_SETTINGS };
   }
   
   // PERFORMANCE: Use cache if it's still valid (within 5 seconds)
@@ -92,7 +93,9 @@ export function readSettings(): UserSettings {
     if (_readCount % 50 === 0) { // Log every 50th call to avoid spam
       console.log(`[PERF] Settings cache hit ${_cacheHits}/${_readCount} (${Math.round(_cacheHits/_readCount*100)}% hit rate)`);
     }
-    return _settingsCache;
+    // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
+    // Shallow clone ensures state management libraries detect changes
+    return { ..._settingsCache };
   }
   
   try {
@@ -103,7 +106,8 @@ export function readSettings(): UserSettings {
     if (!fs.existsSync(filePath)) {
       console.log(`[readSettings] Settings file doesn't exist, creating default settings`);
       fs.writeFileSync(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
-      return DEFAULT_SETTINGS;
+      // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
+      return { ...DEFAULT_SETTINGS };
     }
     const rawSettings = JSON.parse(fs.readFileSync(filePath, "utf-8"));
     const combinedSettings: UserSettings = {
@@ -211,10 +215,12 @@ export function readSettings(): UserSettings {
     
     console.log(`[PERF] Settings loaded from disk (read #${_readCount})`);
 
-    return validatedSettings;
+    // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
+    return { ...validatedSettings };
   } catch (error) {
     logger.error("Error reading settings:", error);
-    return DEFAULT_SETTINGS;
+    // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
+    return { ...DEFAULT_SETTINGS };
   } finally {
     // CRITICAL: Always reset the flag to prevent permanent lock
     _isReadingSettings = false;

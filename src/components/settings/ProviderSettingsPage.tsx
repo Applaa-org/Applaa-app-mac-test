@@ -121,9 +121,11 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
           [provider]: providerSettings,
         },
       };
-      if (isApplaa) {
-        settingsUpdate.enableApplaaPro = true;
-      }
+      // ✅ FIX: Don't automatically enable gateway routing
+      // All users (free/pro/ultra/business) use direct provider keys
+      // if (isApplaa) {
+      //   settingsUpdate.enableApplaaPro = true;
+      // }
       await updateSettings(settingsUpdate);
       setApiKeyInput(""); // Clear input on success
       setApiBaseUrlInput(""); // Clear API Base URL input on success
