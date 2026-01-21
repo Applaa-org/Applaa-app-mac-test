@@ -8,9 +8,11 @@ import {
   Crown, 
   LogOut, 
   Calendar,
-  Shield
+  Shield,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from '@tanstack/react-router';
 
 interface WordPressUserProfileProps {
   isOpen: boolean;
@@ -18,6 +20,7 @@ interface WordPressUserProfileProps {
 }
 
 export const WordPressUserProfile: React.FC<WordPressUserProfileProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const { 
     user, 
     logout, 
@@ -149,7 +152,19 @@ export const WordPressUserProfile: React.FC<WordPressUserProfileProps> = ({ isOp
           )}
 
           {/* Actions */}
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                navigate({ to: '/profile' });
+                onClose();
+              }}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              View Full Profile
+            </Button>
             <Button
               variant="ghost"
               size="sm"

@@ -10,8 +10,8 @@ export interface AuthUser {
   full_name?: string; // Database field name
   avatarUrl?: string;
   avatar_url?: string; // Database field name
-  subscriptionTier: 'free' | 'pro';
-  subscription_tier?: 'free' | 'pro'; // Database field name
+  subscriptionTier: 'free' | 'pro' | 'ultra' | 'business';
+  subscription_tier?: 'free' | 'pro' | 'ultra' | 'business'; // Database field name
   createdAt: string;
   created_at?: string; // Database field name
   updatedAt: string;
@@ -150,7 +150,7 @@ export function useSupabaseAuth() {
 
   // Sign up mutation
   const signUpMutation = useMutation({
-    mutationFn: async (params: { email: string; password: string; fullName?: string }) => {
+    mutationFn: async (params: { email: string; password: string; fullName?: string; firstName?: string; lastName?: string }) => {
       const result = await IpcClient.getInstance().supabaseSignUp(params);
       if (!result.success) {
         throw new Error(result.error || 'Sign up failed');
@@ -319,10 +319,13 @@ export function useSupabaseAuth() {
 export function useSubscriptionTier() {
   const { user } = useSupabaseAuth();
   
+  const tier = (user?.subscriptionTier || 'free') as 'free' | 'pro' | 'ultra' | 'business';
+  const isPaidTier = tier === 'pro' || tier === 'ultra' || tier === 'business';
+
   return {
-    tier: user?.subscriptionTier || 'free',
-    isPro: user?.subscriptionTier === 'pro',
-    isFree: user?.subscriptionTier === 'free' || !user?.subscriptionTier,
+    tier,
+    isPro: isPaidTier,
+    isFree: tier === 'free',
   };
 }
 

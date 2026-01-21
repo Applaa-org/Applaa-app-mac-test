@@ -77,16 +77,23 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
     const { emailOrUsername, password } = signInForm;
 
     try {
-      // Try Supabase first (uses email)
-      if (supabaseConfig?.isConfigured && emailOrUsername.includes('@')) {
+      // ✅ FIX: Try Supabase first (supports both email and username)
+      if (supabaseConfig?.isConfigured) {
         try {
-          await supabaseSignIn({
-            email: emailOrUsername,
+          // Use new method that supports both username and email
+          const ipcClient = IpcClient.getInstance();
+          const result = await ipcClient.supabaseSignInWithUsernameOrEmail({
+            identifier: emailOrUsername,
             password: password,
           });
-          toast.success('Signed in successfully');
-          onOpenChange(false);
-          return;
+          
+          if (result.success) {
+            toast.success('Signed in successfully');
+            onOpenChange(false);
+            return;
+          } else {
+            throw new Error(result.error || 'Sign in failed');
+          }
         } catch (supabaseError: any) {
           // If Supabase fails, try WordPress
           console.log('Supabase sign in failed, trying WordPress:', supabaseError.message);
@@ -98,7 +105,7 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
         await wpLogin({
           username: emailOrUsername,
           password: password,
-      });
+        });
         toast.success('Signed in successfully');
       onOpenChange(false);
       } catch (wpError: any) {
@@ -146,6 +153,8 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
           email: email,
           password: password,
           fullName: fullName,
+          firstName: finalFirstName,
+          lastName: finalLastName,
         });
         supabaseSuccess = true;
         console.log('✅ Supabase sign up successful');

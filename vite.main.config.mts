@@ -23,6 +23,7 @@ export default defineConfig({
         "googleapis",
         "google-auth-library",
         "@google/generative-ai",
+        "stripe",
         "electron",
         "child_process",
         "fs",

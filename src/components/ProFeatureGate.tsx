@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Crown, Lock, Sparkles, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useIsPro } from '@/hooks/useSubscription';
+import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog';
 
 interface ProFeatureGateProps {
   feature: string;
@@ -21,15 +23,22 @@ export function ProFeatureGate({
   showUpgrade = true,
   onUpgrade 
 }: ProFeatureGateProps) {
+  const { isPro } = useIsPro();
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
   
   const handleUpgrade = () => {
     if (onUpgrade) {
       onUpgrade();
     } else {
-      // Default upgrade action - navigate to settings
-      window.location.hash = '/settings/providers/auto';
+      // Open subscription dialog
+      setShowSubscriptionDialog(true);
     }
   };
+
+  // If user has Pro, show children
+  if (isPro) {
+    return <>{children}</>;
+  }
 
   if (variant === 'inline') {
     return (
@@ -85,43 +94,49 @@ export function ProFeatureGate({
 
   // Default card variant
   return (
-    <Card className="border-2 border-dashed border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10">
-      <CardHeader className="text-center pb-4">
-        <div className="mx-auto w-12 h-12 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full flex items-center justify-center mb-3">
-          <Lock className="h-6 w-6 text-white" />
-        </div>
-        <CardTitle className="flex items-center justify-center gap-2">
-          <Crown className="h-5 w-5 text-amber-600" />
-          {feature}
-        </CardTitle>
-        <CardDescription className="text-center">
-          {description}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="text-center">
-        {children}
-        {showUpgrade && (
-          <Button 
-            onClick={handleUpgrade}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Upgrade to Applaa Pro
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+    <>
+      <Card className="border-2 border-dashed border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10">
+        <CardHeader className="text-center pb-4">
+          <div className="mx-auto w-12 h-12 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full flex items-center justify-center mb-3">
+            <Lock className="h-6 w-6 text-white" />
+          </div>
+          <CardTitle className="flex items-center justify-center gap-2">
+            <Crown className="h-5 w-5 text-amber-600" />
+            {feature}
+          </CardTitle>
+          <CardDescription className="text-center">
+            {description}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center">
+          {children}
+          {showUpgrade && (
+            <Button 
+              onClick={handleUpgrade}
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Upgrade to Applaa Pro
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+      <SubscriptionDialog 
+        open={showSubscriptionDialog} 
+        onOpenChange={setShowSubscriptionDialog} 
+      />
+    </>
   );
 }
 
-// Hook to check if user has Pro
+// Hook to check if user has Pro (updated to use subscription system)
 export function useApplaaPro() {
-  // This would typically come from your settings/user context
-  // For now, return false to show the gates
+  const { isPro, tier } = useIsPro();
   return {
-    isPro: false,
-    hasProKey: false,
-    upgradeUrl: '/settings/providers/auto'
+    isPro,
+    hasProKey: isPro,
+    tier,
+    upgradeUrl: '/subscription'
   };
 }
 
@@ -132,7 +147,7 @@ export function withProGate<T extends object>(
   description: string
 ) {
   return function ProGatedComponent(props: T) {
-    const { isPro } = useApplaaPro();
+    const { isPro } = useIsPro();
     
     if (!isPro) {
       return (

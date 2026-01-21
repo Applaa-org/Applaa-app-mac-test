@@ -72,7 +72,14 @@ export function registerWebCloneHandlers() {
         throw new Error(`Invalid URL: ${params.url}`);
       }
 
-      // Check authentication (same limit as create-app)
+      // Check tier-based app limits (use async version to get latest tier)
+      const { canCreateAppAsync } = await import("../utils/feature_checks");
+      const appLimitCheck = await canCreateAppAsync();
+      if (!appLimitCheck.allowed) {
+        throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
+      }
+      
+      // Legacy auth check (keep for backwards compatibility)
       const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
       const FREE_UNAUTH_LIMIT = 3;
       const isAuthenticated = await isUserAuthenticated();

@@ -9,6 +9,7 @@ import { providerSettingsRoute } from "./routes/settings/providers/$provider";
 import { appDetailsRoute } from "./routes/app-details";
 import { hubRoute } from "./routes/hub";
 import { automationRoute } from "./routes/automation";
+import { profileRoute } from "./routes/profile";
 
 
 const routeTree = rootRoute.addChildren([
@@ -20,6 +21,7 @@ const routeTree = rootRoute.addChildren([
   settingsRoute.addChildren([providerSettingsRoute]),
   docsRoute,
   automationRoute,
+  profileRoute,
 ]);
 
 // src/components/NotFoundRedirect.tsx
