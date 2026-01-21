@@ -44,7 +44,7 @@ export async function getCreditBalance(userId: string): Promise<{
       .from('profiles')
       .select('remaining_credits, monthly_credits, total_credits_used, credits_last_reset, subscription_tier')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       logger.error('Failed to get credit balance:', error);
@@ -52,7 +52,15 @@ export async function getCreditBalance(userId: string): Promise<{
     }
 
     if (!profile) {
-      throw new Error('User profile not found');
+      // Profile doesn't exist yet - return default values for free tier
+      const defaultMonthly = getMonthlyCredits('free');
+      logger.warn(`Profile not found for user ${userId}, returning default free tier credits`);
+      return {
+        remaining: defaultMonthly,
+        monthly: defaultMonthly,
+        totalUsed: 0,
+        lastReset: null,
+      };
     }
 
     const monthlyAllocation = profile.monthly_credits || getMonthlyCredits((profile.subscription_tier as any) || 'free');
