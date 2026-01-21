@@ -80,15 +80,14 @@ export async function getModelClient(
     throw new Error(`Configuration not found for provider: ${model.provider}`);
   }
 
-  // 🔧 APPLAA PRO: Handle Applaa Pro override with proper fallback
-  if (settings.enableApplaaPro) {
-    if (!dyadApiKey) {
-      logger.warn(
-        `🚨 Applaa Pro is enabled but no 'auto' provider API key found. Falling back to direct provider: ${model.provider}`
-      );
-      logger.info(`🔧 FALLBACK: Using direct provider API key for ${model.provider}`);
-      // Fall through to regular provider logic - this should work
-    } else if (providerConfig.gatewayPrefix != null || dyadEngineUrl) {
+  // 🔧 APPLAA PRO GATEWAY: DISABLED FOR ALL USERS
+  // All users (free/pro/ultra/business) use direct provider keys (OpenAI, Anthropic, etc.)
+  // The subscription tier only affects credits and feature limits, NOT the routing
+  const GATEWAY_DISABLED = true; // Set to false to re-enable gateway for advanced users
+  
+  if (!GATEWAY_DISABLED && settings.enableApplaaPro && dyadApiKey) {
+    logger.info(`🔍 Applaa Pro gateway is enabled and API key is configured`);
+    if (providerConfig.gatewayPrefix != null || dyadEngineUrl) {
       // Check if the selected provider supports Applaa Pro (has a gateway prefix) OR
       // we're using local engine.
       // IMPORTANT: some providers like OpenAI have an empty string gateway prefix,
@@ -150,11 +149,21 @@ export async function getModelClient(
         isEngineEnabled,
       };
     } else {
-      logger.warn(
-        `Applaa Pro enabled, but provider ${model.provider} does not have a gateway prefix defined. Falling back to direct provider connection.`,
+      logger.info(
+        `Applaa Pro gateway enabled, but provider ${model.provider} does not have a gateway prefix defined. Using direct provider connection.`,
       );
       // Fall through to regular provider logic if gateway prefix is missing
     }
+  } else if (settings.enableApplaaPro && !dyadApiKey) {
+    logger.info(
+      `🔧 Gateway routing disabled. All users use direct provider keys (OpenAI, Anthropic, etc.).`
+    );
+    // Fall through to regular provider logic - all users (free/pro/ultra/business) use direct keys
+  } else if (GATEWAY_DISABLED) {
+    logger.info(
+      `🔧 Gateway routing is disabled globally. Using direct provider keys for all users.`
+    );
+    // Fall through to regular provider logic
   }
   // Handle 'auto' provider by trying each model in AUTO_MODELS until one works
   if (model.provider === "auto") {

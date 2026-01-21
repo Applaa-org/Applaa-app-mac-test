@@ -34,6 +34,7 @@ import {
   removeAppIfCurrentProcess,
 } from "../utils/process_manager";
 import { getEnvVar } from "../utils/read_env";
+import { getUserTier } from "../utils/feature_checks";
 // (duplicate import removed)
 
 import fixPath from "fix-path";
@@ -654,9 +655,12 @@ export function registerAppHandlers() {
         const permissionCheckStart = performance.now();
         updateProgress(5, "Checking user permissions...");
         const settings = readSettings(); // Cached by our settings optimization
-        const isProUser = settings.enableApplaaPro === true;
+        // ✅ FIX: Use subscription tier instead of enableApplaaPro
+        const tier = await getUserTier();
+        const isProUser = tier === "pro" || tier === "ultra" || tier === "business";
         const permissionCheckEnd = performance.now();
         console.log(`🔐 [PERF] Permission check took: ${(permissionCheckEnd - permissionCheckStart).toFixed(2)}ms`);
+        console.log(`🔐 [PERF] User tier: ${tier}, isProUser: ${isProUser}`);
         
         if (!isProUser) {
           const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
