@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "394_camp_394",
+    "description": "more templates - 394_camp_394",
+    "uuid": "634d7003-22de-4629-800c-d3676f4273f6",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "f3d33aa3-64b9-4421-a4ea-ea39452a1ca4",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

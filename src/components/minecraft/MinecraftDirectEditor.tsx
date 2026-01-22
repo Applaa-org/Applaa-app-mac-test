@@ -38,18 +38,19 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
     const saveCode = useCallback(async (content: string) => {
         try {
             const ipcClient = IpcClient.getInstance();
-            // Ensure we're writing to the correct path
-            const filePath = `apps/${appPath.split('apps/')[1] || appPath}/behavior_pack/functions/main.mcfunction`;
+            // Write to the correct behavior pack path (relative from app root)
+            const filePath = 'behavior_pack/functions/main.mcfunction';
 
-            console.log('[MinecraftDirectEditor] Saving code to:', filePath);
+            console.log('[MinecraftDirectEditor] Saving code for appId:', appId, 'to:', filePath);
 
             await ipcClient.editAppFile(parseInt(appId), filePath, content);
             setLastSavedCode(content);
+            console.log('[MinecraftDirectEditor] ✅ File saved successfully');
         } catch (error) {
             console.error('[MinecraftDirectEditor] Failed to save code:', error);
             showError('Failed to save changes to disk');
         }
-    }, [appId, appPath]);
+    }, [appId]);
 
     // Parse code and update 3D preview
     const updatePreview = useCallback(() => {
@@ -70,20 +71,24 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
     const loadFile = useCallback(async () => {
         try {
             const ipcClient = IpcClient.getInstance();
-            const filePath = `apps/${appPath.split('apps/')[1] || appPath}/behavior_pack/functions/main.mcfunction`;
+            // readAppFile expects a relative path from the app directory
+            const filePath = 'behavior_pack/functions/main.mcfunction';
 
-            console.log('[MinecraftDirectEditor] Loading code from:', filePath);
+            console.log('[MinecraftDirectEditor] Loading code for appId:', appId, 'from:', filePath);
 
             const content = await ipcClient.readAppFile(parseInt(appId), filePath);
             if (content) {
+                console.log('[MinecraftDirectEditor] ✅ Successfully loaded file, length:', content.length);
                 setCode(content);
                 setLastSavedCode(content);
-                showSuccess('File loaded');
+                // Don't show success toast on auto-load to avoid spam
+            } else {
+                console.log('[MinecraftDirectEditor] ⚠️ File returned empty content');
             }
         } catch (error) {
-            console.log('[MinecraftDirectEditor] No existing file found or failed to load, using default.');
+            console.log('[MinecraftDirectEditor] ℹ️ No existing file found or failed to load, using default.', error);
         }
-    }, [appId, appPath]);
+    }, [appId]);
 
     // Check localStorage for template on mount AND save it
     useEffect(() => {
@@ -106,6 +111,14 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
             loadFile();
         }
     }, [saveCode, loadFile, initialCode, lastSavedCode]);
+
+    // 🚀 AUTO-RELOAD: When appId or appPath changes, reload the file and preview
+    useEffect(() => {
+        if (appId && appPath) {
+            console.log('[MinecraftDirectEditor] Auto-reloading file for appId:', appId);
+            loadFile();
+        }
+    }, [appId, appPath, loadFile]);
 
     // Update preview when code changes
     useEffect(() => {

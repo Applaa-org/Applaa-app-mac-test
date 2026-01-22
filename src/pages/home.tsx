@@ -63,6 +63,7 @@ export default function HomePage() {
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [showNamingDialog, setShowNamingDialog] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState('');
+  const [pendingAppType, setPendingAppType] = useState<HomeSubmitOptions['appType']>(undefined);
   const [pendingAttachments, setPendingAttachments] = useState<FileAttachment[]>([]);
   const [pendingDbOptions, setPendingDbOptions] = useState<{
     createDatabase?: boolean;
@@ -180,6 +181,7 @@ export default function HomePage() {
 
     // Show naming dialog first, capture DB options, attachments, and game data option
     setPendingPrompt(inputValue);
+    setPendingAppType(options?.appType);
     setPendingAttachments(attachments);
     setPendingDbOptions({
       createDatabase: options?.createDatabase,
@@ -232,10 +234,15 @@ ${extraDbText}`;
       const promptLower = finalPrompt.toLowerCase();
       const isMinecraftPrompt = ['minecraft', 'mod', 'creeper', 'zombie', 'spawn', 'blocks', 'craft', 'mine', 'agent'].some(keyword => promptLower.includes(keyword));
 
-      // Determine appType from settings (selectedPlatform) OR auto-detect from prompt
+      // Determine appType from explicit selection, settings, OR auto-detect
       type AppType = 'web' | 'mobile' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'godot';
       let appType: AppType;
-      if (isMinecraftPrompt && settings?.selectedPlatform !== 'minecraft') {
+
+      if (pendingAppType) {
+        // Explicit type passed from UI (e.g. Minecraft Sample Prompt)
+        appType = pendingAppType;
+        console.log(`[Home] Using explicit appType: ${appType}`);
+      } else if (isMinecraftPrompt && settings?.selectedPlatform !== 'minecraft') {
         // Auto-detect Minecraft from prompt keywords
         appType = 'minecraft';
         console.log('[Home] Auto-detected Minecraft prompt, setting appType to minecraft');
@@ -328,6 +335,7 @@ ${extraDbText}`;
 
       // Clear pending state after using them
       setPendingPrompt('');
+      setPendingAppType(undefined);
       setPendingAttachments([]);
 
       // 🚀 FIX: Navigate to chat with initialPrompt param (Dyad-style)

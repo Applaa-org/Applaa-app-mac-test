@@ -335,12 +335,49 @@ export function PromptToProjectScreen({ onProjectCreated }: PromptToProjectScree
                 });
 
                 setGeneratedProject(project);
-                setIsGenerating(false);
 
-                // Now create the app with the generated code
-                await handleCreateApp();
+                // 🚀 CRITICAL FIX: Create app directly with the project data instead of calling handleCreateApp()
+                // handleCreateApp uses stale state due to React's async state updates
+                try {
+                    const result = await createAppWithRetry(project.title, appType, routing.frameworkId!);
+                    const appId = result.app.id;
+
+                    // Save the generated code to the app
+                    if (project.payload?.minecraftMod) {
+                        await ipcClient.writeFile({
+                            appId: appId,
+                            filePath: project.payload.minecraftMod.fileName || 'Mod.java',
+                            content: project.payload.minecraftMod.code,
+                        });
+                    }
+
+                    setIsGenerating(false);
+                    showSuccess(`App "${project.title}" created successfully!`);
+                    setCreatedAppPath(result.app.path);
+
+                    // Navigate to chat page for Minecraft apps
+                    if (onProjectCreated) {
+                        onProjectCreated(appId);
+                    } else {
+                        navigate({ to: '/chat', search: { id: result.chatId, initialPrompt: starterPrompt } as any });
+                    }
+                } catch (error) {
+                    console.error('Error creating Minecraft app:', error);
+                    setIsGenerating(false);
+
+                    // Fallback to manual naming
+                    setPendingCreation({
+                        type: 'generated',
+                        appType,
+                        frameworkId: routing.frameworkId!,
+                        payload: project
+                    });
+                    setCustomName(project.title);
+                    setIsNameDialogOpen(true);
+                }
                 return;
             }
+
 
             // For other types, create an empty app
             const result = await createAppWithRetry(

@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "193_shrine_193",
+    "description": "more templates - 193_shrine_193",
+    "uuid": "af4cafbd-e150-47eb-88f5-a38912e9e503",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "f5c1a5f1-890e-4af0-bf39-38cdba2667a5",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

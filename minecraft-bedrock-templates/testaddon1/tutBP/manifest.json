@@ -1,0 +1,29 @@
+{
+	"format_version": 1,
+	"header": {
+		"description": "Test Addon",
+		"name": "test by dakonblackrose BP",
+		"uuid": "216a5012-3d75-11ea-b77f-2e728ce88125",
+		"version": [
+			1,
+			0,
+			0
+		],
+		"min_engine_version": [
+			1,
+			0,
+			0
+		]
+	},
+	"modules": [
+		{
+			"type": "data",
+			"uuid": "216a531e-3d75-11ea-b77f-2e728ce88125",
+			"version": [
+				1,
+				0,
+				0
+			]
+		}
+	]
+}

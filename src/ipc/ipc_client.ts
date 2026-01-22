@@ -1,82 +1,85 @@
-import type { IpcRenderer } from "electron";
-import {
-  type ChatSummary,
-  ChatSummariesSchema,
-  type UserSettings,
-  type ContextPathResults,
-  type PromptItem,
-} from "../lib/schemas";
-import type {
-  AppOutput,
-  Chat,
-  ChatResponseEnd,
-  ChatProblemsEvent,
-  CreateAppParams,
-  CreateAppResult,
-  ListAppsResponse,
-  NodeSystemInfo,
-  Message,
-  Version,
-  SystemDebugInfo,
-  EASStatus,
-  EASBuildResult,
-  EASDeployResult,
-  EASProject,
-  EASBuildStatus,
-  LocalModel,
-  TokenCountParams,
-  TokenCountResult,
-  ChatLogsData,
-  BranchResult,
-  LanguageModelProvider,
-  LanguageModel,
-  CreateCustomLanguageModelProviderParams,
-  CreateCustomLanguageModelParams,
-  DoesReleaseNoteExistParams,
-  ApproveProposalResult,
-  ImportAppResult,
-  ImportAppParams,
-  RenameBranchParams,
-  UserBudgetInfo,
-  CopyAppParams,
-  App,
-  ComponentSelection,
-  AppUpgrade,
-  ProblemReport,
-  EditAppFileReturnType,
-  GetAppEnvVarsParams,
-  SetAppEnvVarsParams,
-  ConnectToExistingVercelProjectParams,
-  IsVercelProjectAvailableResponse,
-  CreateVercelProjectParams,
-  VercelDeployment,
-  GetVercelDeploymentsParams,
-  DisconnectVercelProjectParams,
-  IsVercelProjectAvailableParams,
-  SaveVercelAccessTokenParams,
-  GetVercelDeploymentStatusParams,
-  VercelDeploymentStatus,
-  VercelProject,
-  UpdateChatParams,
-  FileAttachment,
-  CreateNeonProjectParams,
-  NeonProject,
-  GetNeonProjectParams,
-  GetNeonProjectResponse,
-  RevertVersionResponse,
-  RevertVersionParams,
-  RespondToAppInputParams,
-  ReadFileParams,
-  ReadFileResult,
-  WriteFileParams,
-  WriteFileResult,
-  LocalBuildResult,
-  LocalBuildStatus,
-} from "./ipc_types";
-import type { Template } from "../shared/templates";
-import type { OptimizePromptParams, OptimizePromptResponse } from "./handlers/prompt_optimization_handlers";
 import type { AppChatContext, ProposalResult } from "@/lib/schemas";
 import { showError } from "@/lib/toast";
+import type { IpcRenderer } from "electron";
+import {
+  ChatSummariesSchema,
+  type ChatSummary,
+  type ContextPathResults,
+  type PromptItem,
+  type UserSettings,
+} from "../lib/schemas";
+import type { Template } from "../shared/templates";
+import type {
+  OptimizePromptParams,
+  OptimizePromptResponse,
+} from "./handlers/prompt_optimization_handlers";
+import type {
+  App,
+  AppOutput,
+  AppUpgrade,
+  ApproveProposalResult,
+  BranchResult,
+  Chat,
+  ChatLogsData,
+  ChatProblemsEvent,
+  ChatResponseEnd,
+  ComponentSelection,
+  ConnectToExistingVercelProjectParams,
+  CopyAppParams,
+  CreateAppParams,
+  CreateAppResult,
+  CreateCustomLanguageModelParams,
+  CreateCustomLanguageModelProviderParams,
+  CreateNeonProjectParams,
+  CreateVercelProjectParams,
+  DisconnectVercelProjectParams,
+  DoesReleaseNoteExistParams,
+  EASBuildResult,
+  EASBuildStatus,
+  EASDeployResult,
+  EASProject,
+  EASStatus,
+  EditAppFileReturnType,
+  FileAttachment,
+  GetAppEnvVarsParams,
+  GetNeonProjectParams,
+  GetNeonProjectResponse,
+  GetVercelDeploymentStatusParams,
+  GetVercelDeploymentsParams,
+  ImportAppParams,
+  ImportAppResult,
+  IsVercelProjectAvailableParams,
+  IsVercelProjectAvailableResponse,
+  LanguageModel,
+  LanguageModelProvider,
+  ListAppsResponse,
+  LocalBuildResult,
+  LocalBuildStatus,
+  LocalModel,
+  Message,
+  NeonProject,
+  NodeSystemInfo,
+  ProblemReport,
+  ReadFileParams,
+  ReadFileResult,
+  RenameBranchParams,
+  RespondToAppInputParams,
+  RevertVersionParams,
+  RevertVersionResponse,
+  SaveVercelAccessTokenParams,
+  SetAppEnvVarsParams,
+  SystemDebugInfo,
+  TokenCountParams,
+  TokenCountResult,
+  UpdateChatParams,
+  UserBudgetInfo,
+  VercelDeployment,
+  VercelDeploymentStatus,
+  VercelProject,
+  Version,
+  WriteFileParams,
+  WriteFileResult,
+} from "./ipc_types";
 
 export interface ChatStreamCallbacks {
   onUpdate: (messages: Message[]) => void;
@@ -100,25 +103,29 @@ export interface GitHubDeviceFlowSuccessData {
 
 export interface StarterProjectRequest {
   prompt: string;
-  frameworkId: 'makecode-arcade' | 'microbit' | 'minecraft-makecode' | 'blockly';
+  frameworkId:
+    | "makecode-arcade"
+    | "microbit"
+    | "minecraft-makecode"
+    | "blockly";
 }
 
 export interface StarterProject {
   title: string;
-  type: 'ARCADE' | 'MICROBIT' | 'MINECRAFT' | 'BLOCKLY';
+  type: "ARCADE" | "MICROBIT" | "MINECRAFT" | "BLOCKLY";
   explanationForKid: string;
   stepsToTry: string[];
   payload: {
     makecode?: {
-      target: 'arcade' | 'microbit' | 'minecraft';
-      preferredLanguage: 'blocks' | 'typescript';
+      target: "arcade" | "microbit" | "minecraft";
+      preferredLanguage: "blocks" | "typescript";
       typescript: string;
       notes: string[];
       sprites?: Array<{ name: string; data: string }>;
     };
     blockly?: {
       workspaceJson: any;
-      generatedCode: { language: 'js' | 'py'; code: string };
+      generatedCode: { language: "js" | "py"; code: string };
       variables: string[];
     };
   };
@@ -148,62 +155,68 @@ class MockIpcRenderer {
   }
 
   async invoke(channel: string, ...args: any[]): Promise<any> {
-    console.warn(`[IPC] Mock: Cannot invoke '${channel}' in browser environment`);
+    console.warn(
+      `[IPC] Mock: Cannot invoke '${channel}' in browser environment`,
+    );
     // Return mock data for common channels
     switch (channel) {
-      case 'get-system-platform':
-        return 'web';
-      case 'get-templates':
+      case "get-system-platform":
+        return "web";
+      case "get-templates":
         return [];
-      case 'get-user-settings':
+      case "get-user-settings":
         return {
-          theme: 'light',
-          language: 'en',
+          theme: "light",
+          language: "en",
           providerSettings: {
-            openai: { apiKey: { value: '' } },
-            anthropic: { apiKey: { value: '' } },
-            auto: { apiKey: { value: '' } }
+            openai: { apiKey: { value: "" } },
+            anthropic: { apiKey: { value: "" } },
+            auto: { apiKey: { value: "" } },
           },
           selectedModel: {
-            name: 'gpt-4',
-            provider: 'openai'
-          }
+            name: "gpt-4",
+            provider: "openai",
+          },
         };
-      case 'list-apps':
+      case "list-apps":
         return { apps: [] };
-      case 'get-chats':
+      case "get-chats":
         return [];
-      case 'get-language-model-providers':
+      case "get-language-model-providers":
         return [
           {
-            id: 'openai',
-            name: 'OpenAI',
-            provider: 'openai',
-            envVarName: 'OPENAI_API_KEY'
+            id: "openai",
+            name: "OpenAI",
+            provider: "openai",
+            envVarName: "OPENAI_API_KEY",
           },
           {
-            id: 'anthropic',
-            name: 'Anthropic',
-            provider: 'anthropic',
-            envVarName: 'ANTHROPIC_API_KEY'
-          }
+            id: "anthropic",
+            name: "Anthropic",
+            provider: "anthropic",
+            envVarName: "ANTHROPIC_API_KEY",
+          },
         ];
-      case 'get-env-vars':
+      case "get-env-vars":
         return {
-          OPENAI_API_KEY: '',
-          ANTHROPIC_API_KEY: '',
-          NODE_ENV: 'development'
+          OPENAI_API_KEY: "",
+          ANTHROPIC_API_KEY: "",
+          NODE_ENV: "development",
         };
-      case 'prompts:list':
+      case "prompts:list":
         return [];
-      case 'window:minimize':
-      case 'window:maximize':
-      case 'window:close':
-        console.log(`[IPC] Mock: Window operation '${channel}' ignored in browser`);
+      case "window:minimize":
+      case "window:maximize":
+      case "window:close":
+        console.log(
+          `[IPC] Mock: Window operation '${channel}' ignored in browser`,
+        );
         return;
       default:
         // For other methods, just log and return empty/default values
-        console.log(`[IPC] Mock: Method '${channel}' not implemented, returning null`);
+        console.log(
+          `[IPC] Mock: Method '${channel}' not implemented, returning null`,
+        );
         return null;
     }
   }
@@ -219,14 +232,16 @@ export class IpcClient {
 
   private constructor() {
     // Check if we're in an Electron environment
-    this.isElectron = typeof window !== 'undefined' && !!(
-      (window as any).electron &&
-      (window as any).electron.ipcRenderer);
+    this.isElectron =
+      typeof window !== "undefined" &&
+      !!((window as any).electron && (window as any).electron.ipcRenderer);
 
     if (this.isElectron) {
       this.ipcRenderer = (window as any).electron.ipcRenderer as IpcRenderer;
     } else {
-      console.warn('[IPC] Running in browser mode - IPC functionality will be mocked');
+      console.warn(
+        "[IPC] Running in browser mode - IPC functionality will be mocked",
+      );
       this.ipcRenderer = new MockIpcRenderer();
     }
 
@@ -263,7 +278,9 @@ export class IpcClient {
             this.loggedMissingCallbacks = new Set();
           }
           if (!this.loggedMissingCallbacks.has(chatId)) {
-            console.warn(`[IPC] No callbacks found for chat ${chatId} - this will only be logged once`);
+            console.warn(
+              `[IPC] No callbacks found for chat ${chatId} - this will only be logged once`,
+            );
             this.loggedMissingCallbacks.add(chatId);
           }
         }
@@ -295,7 +312,9 @@ export class IpcClient {
       const callbacks = this.chatStreams.get(chatId);
       if (callbacks) {
         callbacks.onEnd(payload as unknown as ChatResponseEnd);
-        console.log(`[IPC] ✅ Stream ended for chat ${chatId}, cleaning up callbacks`);
+        console.log(
+          `[IPC] ✅ Stream ended for chat ${chatId}, cleaning up callbacks`,
+        );
         this.chatStreams.delete(chatId);
         // Also clear from logged missing callbacks
         if (this.loggedMissingCallbacks) {
@@ -353,7 +372,9 @@ export class IpcClient {
     audience?: string;
     tone?: string;
     features?: string[];
-  }): Promise<Array<{ display_name: string; package_id: string; slug: string }>> {
+  }): Promise<
+    Array<{ display_name: string; package_id: string; slug: string }>
+  > {
     return this.ipcRenderer.invoke("generate-app-names", params);
   }
 
@@ -366,15 +387,17 @@ export class IpcClient {
     excludePaths?: string[];
     includeOtherApps?: boolean;
     mentionedApps?: string[];
-  }): Promise<Array<{
-    filePath: string;
-    similarity: number;
-    relevanceScore: number;
-    summary: string;
-    language: string;
-    tokens: number;
-    reason: string;
-  }>> {
+  }): Promise<
+    Array<{
+      filePath: string;
+      similarity: number;
+      relevanceScore: number;
+      summary: string;
+      language: string;
+      tokens: number;
+      reason: string;
+    }>
+  > {
     return this.ipcRenderer.invoke("semantic-context:get-suggestions", params);
   }
 
@@ -417,9 +440,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("semantic-context:record-feedback", params);
   }
 
-  public async getSemanticAnalytics(params: {
-    appId?: number;
-  }): Promise<{
+  public async getSemanticAnalytics(params: { appId?: number }): Promise<{
     totalDocuments: number;
     topFiles: any[];
     averageAcceptanceRate: number;
@@ -428,9 +449,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("semantic-context:get-analytics", params);
   }
 
-  public async isAppIndexed(params: {
-    appId: number;
-  }): Promise<boolean> {
+  public async isAppIndexed(params: { appId: number }): Promise<boolean> {
     return this.ipcRenderer.invoke("semantic-context:is-app-indexed", params);
   }
 
@@ -743,16 +762,28 @@ export class IpcClient {
   }
 
   // Background dependency installation methods
-  public async checkDependenciesNeeded(params: { appId: number }): Promise<{ needed: boolean; reason: string }> {
+  public async checkDependenciesNeeded(params: {
+    appId: number;
+  }): Promise<{ needed: boolean; reason: string }> {
     return await this.ipcRenderer.invoke("check-dependencies-needed", params);
   }
 
-  public async installDependenciesBackground(params: { appId: number }): Promise<void> {
-    return await this.ipcRenderer.invoke("install-dependencies-background", params);
+  public async installDependenciesBackground(params: {
+    appId: number;
+  }): Promise<void> {
+    return await this.ipcRenderer.invoke(
+      "install-dependencies-background",
+      params,
+    );
   }
 
-  public async getDependencyInstallationStatus(params: { appId: number }): Promise<{ status: string; timestamp?: number; ageMinutes?: number }> {
-    return await this.ipcRenderer.invoke("get-dependency-installation-status", params);
+  public async getDependencyInstallationStatus(params: {
+    appId: number;
+  }): Promise<{ status: string; timestamp?: number; ageMinutes?: number }> {
+    return await this.ipcRenderer.invoke(
+      "get-dependency-installation-status",
+      params,
+    );
   }
 
   // Run an app
@@ -1119,7 +1150,12 @@ export class IpcClient {
     repoName: string;
     githubToken: string;
     appId?: number;
-  }): Promise<{ success: boolean; url?: string; deploymentId?: string; error?: string }> {
+  }): Promise<{
+    success: boolean;
+    url?: string;
+    deploymentId?: string;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("vercel:deploy", params);
   }
 
@@ -1343,8 +1379,8 @@ export class IpcClient {
     userDisplayName?: string | null;
     userAppsCount?: number;
     allApps?: any[];
-    userApps?: any[];  // Current user's apps
-    publicApps?: any[];  // All public apps
+    userApps?: any[]; // Current user's apps
+    publicApps?: any[]; // All public apps
     sampleApp?: any;
     error?: string;
   }> {
@@ -1359,7 +1395,11 @@ export class IpcClient {
       config: { hasUrl: boolean; hasServiceKey: boolean; url: string | null };
       wordpress: { hasDisplayName: boolean; displayName: string | null };
       tableExists: { success: boolean; error: string | null };
-      testInsert: { success: boolean; error: string | null; recordId: string | null };
+      testInsert: {
+        success: boolean;
+        error: string | null;
+        recordId: string | null;
+      };
       testRead: { success: boolean; error: string | null; data: any };
       testDelete: { success: boolean; error: string | null };
     };
@@ -1520,7 +1560,13 @@ export class IpcClient {
     return this.ipcRenderer.invoke("select-app-folder");
   }
 
-  public async selectDirectory({ title, defaultPath }: { title?: string; defaultPath?: string }): Promise<{ path: string | null }> {
+  public async selectDirectory({
+    title,
+    defaultPath,
+  }: {
+    title?: string;
+    defaultPath?: string;
+  }): Promise<{ path: string | null }> {
     return this.ipcRenderer.invoke("select-directory", { title, defaultPath });
   }
 
@@ -1632,7 +1678,9 @@ export class IpcClient {
   }
 
   // Expo methods
-  public async expoStart(params: { appId?: number; useTunnel?: boolean; native?: boolean } = {}): Promise<any> {
+  public async expoStart(
+    params: { appId?: number; useTunnel?: boolean; native?: boolean } = {},
+  ): Promise<any> {
     return this.ipcRenderer.invoke("expo:start", params);
   }
 
@@ -1648,7 +1696,7 @@ export class IpcClient {
     qrUrl?: string;
     terminalOutput?: string;
     lastHotReload?: number;
-    buildStatus?: 'idle' | 'building' | 'success' | 'error';
+    buildStatus?: "idle" | "building" | "success" | "error";
     buildProgress?: string;
   }> {
     return this.ipcRenderer.invoke("expo:status");
@@ -1703,7 +1751,10 @@ export class IpcClient {
     return this.ipcRenderer.invoke("snack:get-watched-apps");
   }
 
-  public async snackManualTrigger(params: { appId: number; reason?: string }): Promise<{
+  public async snackManualTrigger(params: {
+    appId: number;
+    reason?: string;
+  }): Promise<{
     success: boolean;
     error?: string;
   }> {
@@ -1731,8 +1782,8 @@ export class IpcClient {
     warnings: number;
     info: number;
     problems: Array<{
-      type: 'error' | 'warning' | 'info';
-      category: 'syntax' | 'dependency' | 'runtime' | 'platform';
+      type: "error" | "warning" | "info";
+      category: "syntax" | "dependency" | "runtime" | "platform";
       file: string;
       line?: number;
       column?: number;
@@ -1750,8 +1801,8 @@ export class IpcClient {
   public async autoFixProblem(params: {
     appId: number;
     problem: {
-      type: 'error' | 'warning' | 'info';
-      category: 'syntax' | 'dependency' | 'runtime' | 'platform';
+      type: "error" | "warning" | "info";
+      category: "syntax" | "dependency" | "runtime" | "platform";
       file: string;
       message: string;
       fix?: string;
@@ -1803,7 +1854,9 @@ export class IpcClient {
     return this.ipcRenderer.invoke("chrome-devtools:stop");
   }
 
-  async navigateChromeDevTools(params: { url: string }): Promise<{ success: boolean; error?: string }> {
+  async navigateChromeDevTools(params: {
+    url: string;
+  }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("chrome-devtools:navigate", params);
   }
 
@@ -1815,7 +1868,11 @@ export class IpcClient {
     return this.ipcRenderer.invoke("chrome-devtools:network-requests");
   }
 
-  async takeScreenshot(): Promise<{ success: boolean; data?: string; error?: string }> {
+  async takeScreenshot(): Promise<{
+    success: boolean;
+    data?: string;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("chrome-devtools:screenshot");
   }
 
@@ -1852,7 +1909,7 @@ export class IpcClient {
     line: number;
     column: number;
     message: string;
-    severity: 'error' | 'warning' | 'info';
+    severity: "error" | "warning" | "info";
     code: string;
     autoFixable: boolean;
     source: string;
@@ -1871,16 +1928,18 @@ export class IpcClient {
     return this.ipcRenderer.invoke("problems:fix-haptics", params);
   }
 
-  async getRuntimeProblems(appId: number): Promise<Array<{
-    file: string;
-    line: number;
-    column: number;
-    message: string;
-    severity: 'error' | 'warning' | 'info';
-    code: string;
-    autoFixable: boolean;
-    source: string;
-  }>> {
+  async getRuntimeProblems(appId: number): Promise<
+    Array<{
+      file: string;
+      line: number;
+      column: number;
+      message: string;
+      severity: "error" | "warning" | "info";
+      code: string;
+      autoFixable: boolean;
+      source: string;
+    }>
+  > {
     return this.ipcRenderer.invoke("problems:get-runtime", appId);
   }
 
@@ -1960,9 +2019,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("supabase:get-current-session");
   }
 
-  public async supabaseResetPassword(params: {
-    email: string;
-  }): Promise<{
+  public async supabaseResetPassword(params: { email: string }): Promise<{
     success: boolean;
     message?: string;
     error?: string;
@@ -2014,7 +2071,7 @@ export class IpcClient {
 
   public async supabaseCheckConfiguration(): Promise<{
     isConfigured: boolean;
-    source: 'settings' | 'environment' | 'none' | 'error';
+    source: "settings" | "environment" | "none" | "error";
     hasUrl?: boolean;
     hasAnonKey?: boolean;
     hasServiceRoleKey?: boolean;
@@ -2099,9 +2156,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("r2:download-file", params);
   }
 
-  public async r2DeleteFile(params: {
-    r2Key: string;
-  }): Promise<{
+  public async r2DeleteFile(params: { r2Key: string }): Promise<{
     success: boolean;
     message?: string;
     error?: string;
@@ -2120,9 +2175,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("r2:list-files", params);
   }
 
-  public async r2FileExists(params: {
-    r2Key: string;
-  }): Promise<{
+  public async r2FileExists(params: { r2Key: string }): Promise<{
     success: boolean;
     exists?: boolean;
     error?: string;
@@ -2158,9 +2211,16 @@ export class IpcClient {
     return this.ipcRenderer.invoke("r2:restore-app", params);
   }
 
-  public async r2GetAppSyncStatus(params: {
-    appId: number;
-  }): Promise<{
+  // Minecraft Template Methods
+  public async listTemplateFiles(params: { path: string }): Promise<string[]> {
+    return this.ipcRenderer.invoke("template:list-files", params);
+  }
+
+  public async readTemplateFile(params: { path: string }): Promise<string> {
+    return this.ipcRenderer.invoke("template:read-file", params);
+  }
+
+  public async r2GetAppSyncStatus(params: { appId: number }): Promise<{
     success: boolean;
     status?: {
       fileCount: number;
@@ -2185,7 +2245,7 @@ export class IpcClient {
   public async analyticsInitialize(config: {
     ga4MeasurementId?: string;
     sentryDsn?: string;
-    environment: 'development' | 'production';
+    environment: "development" | "production";
     userId?: string;
     consent: {
       essential: boolean;
@@ -2329,30 +2389,33 @@ export class IpcClient {
   }
 
   public async analyticsGithubSyncUsed(params: {
-    action: 'push' | 'pull' | 'clone';
+    action: "push" | "pull" | "clone";
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("analytics:github-sync-used", params);
   }
 
   public async analyticsCloudStorageUsed(params: {
-    action: 'upload' | 'download' | 'sync';
+    action: "upload" | "download" | "sync";
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("analytics:cloud-storage-used", params);
   }
 
   public async analyticsUserSignedIn(params: {
-    method?: 'email' | 'oauth';
+    method?: "email" | "oauth";
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("analytics:user-signed-in", params);
   }
 
   public async analyticsUserSignedUp(params: {
-    method?: 'email' | 'oauth';
+    method?: "email" | "oauth";
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("analytics:user-signed-up", params);
   }
 
-  public async analyticsUserSignedOut(): Promise<{ success: boolean; error?: string }> {
+  public async analyticsUserSignedOut(): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("analytics:user-signed-out");
   }
 
@@ -2378,9 +2441,9 @@ export class IpcClient {
     return this.ipcRenderer.invoke("analytics:sync-failed", params);
   }
 
-
-
-  public async optimizePrompt(params: OptimizePromptParams): Promise<OptimizePromptResponse> {
+  public async optimizePrompt(
+    params: OptimizePromptParams,
+  ): Promise<OptimizePromptResponse> {
     return this.ipcRenderer.invoke("prompt:optimize", params);
   }
 
@@ -2412,13 +2475,20 @@ export class IpcClient {
     return this.expoStatus();
   }
 
-  public async startExpo(params: { appId?: number; useTunnel?: boolean; native?: boolean } = {}): Promise<any> {
+  public async startExpo(
+    params: { appId?: number; useTunnel?: boolean; native?: boolean } = {},
+  ): Promise<any> {
     // Try new dual handler first, fallback to original if not available
     if (params.appId) {
       try {
-        return await this.ipcRenderer.invoke("expo:start-dual", { appId: params.appId });
+        return await this.ipcRenderer.invoke("expo:start-dual", {
+          appId: params.appId,
+        });
       } catch (error) {
-        console.warn("Dual Expo handler not available, falling back to original:", error);
+        console.warn(
+          "Dual Expo handler not available, falling back to original:",
+          error,
+        );
         return this.expoStart(params);
       }
     }
@@ -2431,7 +2501,10 @@ export class IpcClient {
       try {
         return await this.ipcRenderer.invoke("expo:stop-dual", { appId });
       } catch (error) {
-        console.warn("Dual Expo stop handler not available, falling back to original:", error);
+        console.warn(
+          "Dual Expo stop handler not available, falling back to original:",
+          error,
+        );
         return this.expoStop();
       }
     }
@@ -2466,7 +2539,7 @@ export class IpcClient {
     content: string;
     category?: string;
   }): Promise<PromptItem> {
-    throw new Error('Prompts feature disabled for MVP');
+    throw new Error("Prompts feature disabled for MVP");
   }
 
   public async updatePrompt(params: {
@@ -2476,23 +2549,23 @@ export class IpcClient {
     content: string;
     category?: string;
   }): Promise<void> {
-    throw new Error('Prompts feature disabled for MVP');
+    throw new Error("Prompts feature disabled for MVP");
   }
 
   public async deletePrompt(id: number): Promise<void> {
-    throw new Error('Prompts feature disabled for MVP');
+    throw new Error("Prompts feature disabled for MVP");
   }
 
   public async seedPrompts(): Promise<{ success: boolean; message: string }> {
-    return { success: false, message: 'Prompts feature disabled for MVP' };
+    return { success: false, message: "Prompts feature disabled for MVP" };
   }
 
   public async clearPrompts(): Promise<{ success: boolean; message: string }> {
-    return { success: false, message: 'Prompts feature disabled for MVP' };
+    return { success: false, message: "Prompts feature disabled for MVP" };
   }
 
   public async reseedPrompts(): Promise<{ success: boolean; message: string }> {
-    return { success: false, message: 'Prompts feature disabled for MVP' };
+    return { success: false, message: "Prompts feature disabled for MVP" };
   }
 
   public async readFile(params: ReadFileParams): Promise<ReadFileResult> {
@@ -2504,22 +2577,30 @@ export class IpcClient {
   }
 
   // Flutter Environment Management
-  async flutterDoctor(): Promise<import('@/lib/mobile/types').FlutterDoctorResult> {
-    return this.ipcRenderer.invoke('flutter:doctor');
+  async flutterDoctor(): Promise<
+    import("@/lib/mobile/types").FlutterDoctorResult
+  > {
+    return this.ipcRenderer.invoke("flutter:doctor");
   }
 
-  async checkFlutterSDK(): Promise<{ installed: boolean; version?: string; channel?: string }> {
-    return this.ipcRenderer.invoke('flutter:check-sdk');
+  async checkFlutterSDK(): Promise<{
+    installed: boolean;
+    version?: string;
+    channel?: string;
+  }> {
+    return this.ipcRenderer.invoke("flutter:check-sdk");
   }
 
-  async getFlutterVersion(): Promise<import('@/lib/mobile/types').Result<{
-    flutter: string;
-    channel: string;
-    dart: string;
-    framework: string;
-    engine: string;
-  }>> {
-    return this.ipcRenderer.invoke('flutter:get-version');
+  async getFlutterVersion(): Promise<
+    import("@/lib/mobile/types").Result<{
+      flutter: string;
+      channel: string;
+      dart: string;
+      framework: string;
+      engine: string;
+    }>
+  > {
+    return this.ipcRenderer.invoke("flutter:get-version");
   }
 
   // Cost Analytics Methods
@@ -2533,11 +2614,11 @@ export class IpcClient {
     topProviders: Array<{ provider: string; requests: number }>;
     cachingStrategies: Record<string, string[]>;
   }> {
-    return this.ipcRenderer.invoke('cost-analytics:get-stats');
+    return this.ipcRenderer.invoke("cost-analytics:get-stats");
   }
 
   async resetCostAnalytics(): Promise<void> {
-    return this.ipcRenderer.invoke('cost-analytics:reset-stats');
+    return this.ipcRenderer.invoke("cost-analytics:reset-stats");
   }
 
   // Batch Processing Methods
@@ -2561,13 +2642,18 @@ export class IpcClient {
       savingsPercentage: number;
     };
   }> {
-    return this.ipcRenderer.invoke('batch:create-optimized', request);
+    return this.ipcRenderer.invoke("batch:create-optimized", request);
   }
 
   async getBatchStatus(batchId: string): Promise<{
     id: string;
     type: "message_batch";
-    processing_status: "in_progress" | "completed" | "failed" | "canceled" | "expired";
+    processing_status:
+      | "in_progress"
+      | "completed"
+      | "failed"
+      | "canceled"
+      | "expired";
     request_counts: {
       processing: number;
       succeeded: number;
@@ -2579,77 +2665,96 @@ export class IpcClient {
     created_at: string;
     expires_at: string;
   }> {
-    return this.ipcRenderer.invoke('batch:get-status', batchId);
+    return this.ipcRenderer.invoke("batch:get-status", batchId);
   }
 
-  async getBatchResults(batchId: string): Promise<Array<{
-    custom_id: string;
-    result: {
-      type: "succeeded" | "errored" | "canceled" | "expired";
-      message?: any;
-      error?: {
-        type: string;
-        message: string;
+  async getBatchResults(batchId: string): Promise<
+    Array<{
+      custom_id: string;
+      result: {
+        type: "succeeded" | "errored" | "canceled" | "expired";
+        message?: any;
+        error?: {
+          type: string;
+          message: string;
+        };
       };
-    };
-  }>> {
-    return this.ipcRenderer.invoke('batch:get-results', batchId);
+    }>
+  > {
+    return this.ipcRenderer.invoke("batch:get-results", batchId);
   }
 
   async cancelBatch(batchId: string): Promise<any> {
-    return this.ipcRenderer.invoke('batch:cancel', batchId);
+    return this.ipcRenderer.invoke("batch:cancel", batchId);
   }
 
-  async installFlutterSDK(): Promise<import('@/lib/mobile/types').Result<{
-    platform: string;
-    downloadUrl: string;
-    instructions: string[];
-    requirements: string[];
-  }>> {
-    return this.ipcRenderer.invoke('flutter:install-sdk');
+  async installFlutterSDK(): Promise<
+    import("@/lib/mobile/types").Result<{
+      platform: string;
+      downloadUrl: string;
+      instructions: string[];
+      requirements: string[];
+    }>
+  > {
+    return this.ipcRenderer.invoke("flutter:install-sdk");
   }
 
   async isFlutterInPath(): Promise<boolean> {
-    return this.ipcRenderer.invoke('flutter:is-in-path');
+    return this.ipcRenderer.invoke("flutter:is-in-path");
   }
 
-  async getFlutterPath(): Promise<import('@/lib/mobile/types').Result<string>> {
-    return this.ipcRenderer.invoke('flutter:get-path');
+  async getFlutterPath(): Promise<import("@/lib/mobile/types").Result<string>> {
+    return this.ipcRenderer.invoke("flutter:get-path");
   }
 
-  async validateFlutterEnvironment(): Promise<import('@/lib/mobile/types').Result<{
-    ready: boolean;
-    issues: string[];
-    recommendations: string[];
-  }>> {
-    return this.ipcRenderer.invoke('flutter:validate-environment');
+  async validateFlutterEnvironment(): Promise<
+    import("@/lib/mobile/types").Result<{
+      ready: boolean;
+      issues: string[];
+      recommendations: string[];
+    }>
+  > {
+    return this.ipcRenderer.invoke("flutter:validate-environment");
   }
 
   // Flutter Project Management
-  async createFlutterProject(options: import('@/lib/mobile/types').ProjectCreationOptions): Promise<import('@/lib/mobile/types').Result<import('@/lib/mobile/types').FlutterProject>> {
-    return this.ipcRenderer.invoke('flutter:create-project', options);
+  async createFlutterProject(
+    options: import("@/lib/mobile/types").ProjectCreationOptions,
+  ): Promise<
+    import("@/lib/mobile/types").Result<
+      import("@/lib/mobile/types").FlutterProject
+    >
+  > {
+    return this.ipcRenderer.invoke("flutter:create-project", options);
   }
 
-  async validateFlutterProject(projectPath: string): Promise<import('@/lib/mobile/types').Result<{
-    valid: boolean;
-    issues: string[];
-    warnings: string[];
-    projectType?: 'flutter' | 'unknown';
-  }>> {
-    return this.ipcRenderer.invoke('flutter:validate-project', projectPath);
+  async validateFlutterProject(projectPath: string): Promise<
+    import("@/lib/mobile/types").Result<{
+      valid: boolean;
+      issues: string[];
+      warnings: string[];
+      projectType?: "flutter" | "unknown";
+    }>
+  > {
+    return this.ipcRenderer.invoke("flutter:validate-project", projectPath);
   }
 
-  async getFlutterProjectDependencies(projectPath: string): Promise<import('@/lib/mobile/types').Result<{
-    dependencies: Record<string, string>;
-    devDependencies: Record<string, string>;
-    flutterVersion: string;
-    dartVersion: string;
-  }>> {
-    return this.ipcRenderer.invoke('flutter:get-dependencies', projectPath);
+  async getFlutterProjectDependencies(projectPath: string): Promise<
+    import("@/lib/mobile/types").Result<{
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+      flutterVersion: string;
+      dartVersion: string;
+    }>
+  > {
+    return this.ipcRenderer.invoke("flutter:get-dependencies", projectPath);
   }
 
   // Simple Expo methods - RORK-style approach
-  public async simpleExpoStart(params: { appId: number; useTunnel?: boolean }): Promise<{
+  public async simpleExpoStart(params: {
+    appId: number;
+    useTunnel?: boolean;
+  }): Promise<{
     success: boolean;
     isRunning: boolean;
     webUrl?: string;
@@ -2665,11 +2770,17 @@ export class IpcClient {
     return this.ipcRenderer.invoke("simple-expo:stop");
   }
 
-  public async simpleExpoMetroRecovery(): Promise<{ success: boolean; portFree: boolean; message: string }> {
+  public async simpleExpoMetroRecovery(): Promise<{
+    success: boolean;
+    portFree: boolean;
+    message: string;
+  }> {
     return this.ipcRenderer.invoke("simple-expo:metro-recovery");
   }
 
-  public async simpleExpoUpdatePackages(params: { appId: number }): Promise<{ success: boolean; output: string; message: string }> {
+  public async simpleExpoUpdatePackages(params: {
+    appId: number;
+  }): Promise<{ success: boolean; output: string; message: string }> {
     return this.ipcRenderer.invoke("simple-expo:update-packages", params);
   }
 
@@ -2679,8 +2790,8 @@ export class IpcClient {
     displayName?: string;
     packageId?: string;
     slug?: string;
-    appType: 'web' | 'mobile' | 'godot';
-    framework: 'web' | 'expo' | 'flutter';
+    appType: "web" | "mobile" | "godot";
+    framework: "web" | "expo" | "flutter";
     prompt?: string;
     attachments?: any[];
   }): Promise<{
@@ -2693,7 +2804,7 @@ export class IpcClient {
   }
 
   public async getAppCreationStatus(taskId: string): Promise<{
-    status: 'running' | 'completed' | 'error';
+    status: "running" | "completed" | "error";
     progress: number;
     message: string;
     error?: any;
@@ -2702,25 +2813,27 @@ export class IpcClient {
     return this.ipcRenderer.invoke("get-app-creation-status", taskId);
   }
 
-  public async cleanupAppCreationTask(taskId: string): Promise<{ success: boolean }> {
+  public async cleanupAppCreationTask(
+    taskId: string,
+  ): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("cleanup-app-creation-task", taskId);
   }
 
   // Design Generation Methods
   public async generateAppIcons(options: {
     prompt: string;
-    model?: 'gpt-image-1' | 'dall-e-3' | 'dall-e-2';
+    model?: "gpt-image-1" | "dall-e-3" | "dall-e-2";
     size?: string;
     quality?: string;
     numImages?: number;
-    style?: 'vivid' | 'natural';
+    style?: "vivid" | "natural";
   }): Promise<any[]> {
     return this.ipcRenderer.invoke("generate-app-icons", options);
   }
 
   public async generateGeminiIcons(options: {
     prompt: string;
-    model?: 'gemini-2.5-flash-image';
+    model?: "gemini-2.5-flash-image";
     size?: string;
     numImages?: number;
   }): Promise<any[]> {
@@ -2744,23 +2857,43 @@ export class IpcClient {
     return this.ipcRenderer.invoke("generate-ui-designs", options);
   }
 
-  public async generateAppTypeDesigns(appType: string, appDescription: string): Promise<any[]> {
-    return this.ipcRenderer.invoke("generate-app-type-designs", appType, appDescription);
+  public async generateAppTypeDesigns(
+    appType: string,
+    appDescription: string,
+  ): Promise<any[]> {
+    return this.ipcRenderer.invoke(
+      "generate-app-type-designs",
+      appType,
+      appDescription,
+    );
   }
 
   // Auto-generate icons and UI designs based on app prompt
-  public async autoGenerateAppAssets(appPrompt: string, appId: number): Promise<{
+  public async autoGenerateAppAssets(
+    appPrompt: string,
+    appId: number,
+  ): Promise<{
     icons: any[];
     uiDesigns: any[];
   }> {
-    return this.ipcRenderer.invoke("auto-generate-app-assets", appPrompt, appId);
+    return this.ipcRenderer.invoke(
+      "auto-generate-app-assets",
+      appPrompt,
+      appId,
+    );
   }
 
-  public async applyIconToApp(params: { appId: number; iconPath: string }): Promise<{ success: boolean }> {
+  public async applyIconToApp(params: {
+    appId: number;
+    iconPath: string;
+  }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("apply-icon-to-app", params);
   }
 
-  public async applyUIDesignToApp(params: { appId: number; design: any }): Promise<{ success: boolean }> {
+  public async applyUIDesignToApp(params: {
+    appId: number;
+    design: any;
+  }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("apply-ui-design-to-app", params);
   }
 
@@ -2775,7 +2908,9 @@ export class IpcClient {
     return this.ipcRenderer.invoke("simple-expo:status");
   }
 
-  public async simpleExpoInput(input: string): Promise<{ success: boolean; error?: string }> {
+  public async simpleExpoInput(
+    input: string,
+  ): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("simple-expo:input", { input });
   }
 
@@ -2799,7 +2934,9 @@ export class IpcClient {
   }
 
   // Playwright MCP Integration
-  async startPlaywrightMCPServer(port?: number): Promise<{ success: boolean; port: number; error?: string }> {
+  async startPlaywrightMCPServer(
+    port?: number,
+  ): Promise<{ success: boolean; port: number; error?: string }> {
     return this.ipcRenderer.invoke("playwright-mcp:start-server", { port });
   }
 
@@ -2807,7 +2944,11 @@ export class IpcClient {
     return this.ipcRenderer.invoke("playwright-mcp:stop-server");
   }
 
-  async runPlaywrightTest(params: { appId: number; appUrl: string; testType?: 'smoke' | 'full' | 'accessibility' }): Promise<{
+  async runPlaywrightTest(params: {
+    appId: number;
+    appUrl: string;
+    testType?: "smoke" | "full" | "accessibility";
+  }): Promise<{
     success: boolean;
     screenshots: string[];
     errors: string[];
@@ -2817,16 +2958,20 @@ export class IpcClient {
     return this.ipcRenderer.invoke("playwright-mcp:run-test", params);
   }
 
-  async getPlaywrightMCPStatus(): Promise<{ running: boolean; port: number | null; uptime?: number }> {
+  async getPlaywrightMCPStatus(): Promise<{
+    running: boolean;
+    port: number | null;
+    uptime?: number;
+  }> {
     return this.ipcRenderer.invoke("playwright-mcp:status");
   }
 
   // Gemini methods removed for MVP
 
-
-
   // Background Task Management
-  public async createAppBackground(params: any): Promise<{ taskId: string; app: any; chatId: number }> {
+  public async createAppBackground(
+    params: any,
+  ): Promise<{ taskId: string; app: any; chatId: number }> {
     return this.ipcRenderer.invoke("create-app-background", params);
   }
 
@@ -2849,7 +2994,7 @@ export class IpcClient {
   // 🌍 Global Container Management with Transformers.js
   public async createContainer(params: {
     appId: string;
-    appType: 'web' | 'mobile' | 'flutter';
+    appType: "web" | "mobile" | "flutter";
     region?: string;
     config?: any;
   }): Promise<{
@@ -2896,7 +3041,7 @@ export class IpcClient {
 
   public async deployGlobally(params: {
     appId: string;
-    appType: 'web' | 'mobile' | 'flutter';
+    appType: "web" | "mobile" | "flutter";
   }): Promise<{
     success: boolean;
     deployments?: any[];
@@ -2957,11 +3102,13 @@ export class IpcClient {
   }
 
   // 🎤 Native Speech Recognition Methods
-  public async startNativeSpeechRecognition(options: {
-    language?: string;
-    continuous?: boolean;
-    timeout?: number;
-  } = {}): Promise<{ success: boolean }> {
+  public async startNativeSpeechRecognition(
+    options: {
+      language?: string;
+      continuous?: boolean;
+      timeout?: number;
+    } = {},
+  ): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("speech:start-native", options);
   }
 
@@ -3003,7 +3150,9 @@ export class IpcClient {
     return this.ipcRenderer.invoke("hermetic-runtime:verify");
   }
 
-  public async getBestPackageManager(cwd?: string): Promise<"pnpm" | "yarn" | "npm"> {
+  public async getBestPackageManager(
+    cwd?: string,
+  ): Promise<"pnpm" | "yarn" | "npm"> {
     return this.ipcRenderer.invoke("hermetic-runtime:get-package-manager", cwd);
   }
 
@@ -3053,9 +3202,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("eas:list-projects");
   }
 
-  public async checkEASAppReadiness(params: {
-    appId: number;
-  }): Promise<{
+  public async checkEASAppReadiness(params: { appId: number }): Promise<{
     success: boolean;
     isExpoApp?: boolean;
     isEASConfigured?: boolean;
@@ -3065,39 +3212,72 @@ export class IpcClient {
     return this.ipcRenderer.invoke("eas:check-app-readiness", params);
   }
 
-
-
-  public async listFiles(appId: number, path?: string): Promise<{ success: boolean; files: Array<{ name: string; path: string; isDirectory: boolean }>; error?: string }> {
+  public async listFiles(
+    appId: number,
+    path?: string,
+  ): Promise<{
+    success: boolean;
+    files: Array<{ name: string; path: string; isDirectory: boolean }>;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("app:list-files", { appId, path });
   }
 
-  async extractAssets(jarPath: string): Promise<{ success: boolean; assets: Array<{ name: string; path: string; type: 'structure' | 'model' | 'texture' | 'unknown'; relativePath: string }>; error?: string }> {
+  async extractAssets(
+    jarPath: string,
+  ): Promise<{
+    success: boolean;
+    assets: Array<{
+      name: string;
+      path: string;
+      type: "structure" | "model" | "texture" | "unknown";
+      relativePath: string;
+    }>;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("minecraft:extract-assets", jarPath);
   }
 
   public async checkEASKeystores(params: {
     appId: number;
-  }): Promise<{ success: boolean; android?: boolean; ios?: boolean; both?: boolean; error?: string }> {
+  }): Promise<{
+    success: boolean;
+    android?: boolean;
+    ios?: boolean;
+    both?: boolean;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("eas:check-keystores", params);
   }
 
   public async setupEASKeystores(params: {
     appId: number;
     platforms: string[];
-  }): Promise<{ success: boolean; results?: Array<{ platform: string; success: boolean; error?: string }>; message?: string; error?: string }> {
+  }): Promise<{
+    success: boolean;
+    results?: Array<{ platform: string; success: boolean; error?: string }>;
+    message?: string;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("eas:setup-keystores", params);
   }
 
   // Local Build Methods
-  public async buildAndroidAPK(params: { appId: number }): Promise<LocalBuildResult> {
+  public async buildAndroidAPK(params: {
+    appId: number;
+  }): Promise<LocalBuildResult> {
     return this.ipcRenderer.invoke("local-build:android-apk", params);
   }
 
-  public async buildAndroidAAB(params: { appId: number }): Promise<LocalBuildResult> {
+  public async buildAndroidAAB(params: {
+    appId: number;
+  }): Promise<LocalBuildResult> {
     return this.ipcRenderer.invoke("local-build:android-aab", params);
   }
 
-  public async buildIOSIPA(params: { appId: number }): Promise<LocalBuildResult> {
+  public async buildIOSIPA(params: {
+    appId: number;
+  }): Promise<LocalBuildResult> {
     return this.ipcRenderer.invoke("local-build:ios-ipa", params);
   }
 
@@ -3105,7 +3285,10 @@ export class IpcClient {
     return this.ipcRenderer.invoke("local-build:status");
   }
 
-  public async cancelLocalBuild(): Promise<{ success: boolean; error?: string }> {
+  public async cancelLocalBuild(): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("local-build:cancel");
   }
 
@@ -3161,11 +3344,10 @@ export class IpcClient {
     return this.ipcRenderer.invoke("prerequisites:progress");
   }
 
-
   // URL Management
   public async saveDeploymentUrl(params: {
     appId: number;
-    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment';
+    urlType: "vercel" | "github" | "eas-build" | "eas-deployment";
     url: string;
     projectId?: string;
     buildId?: string;
@@ -3175,13 +3357,24 @@ export class IpcClient {
 
   public async getDeploymentUrls(params: {
     appId: number;
-  }): Promise<{ success: boolean; deployments?: Array<{ type: string; name: string; url: string; projectId?: string; buildId?: string; lastDeploymentAt?: Date }>; error?: string }> {
+  }): Promise<{
+    success: boolean;
+    deployments?: Array<{
+      type: string;
+      name: string;
+      url: string;
+      projectId?: string;
+      buildId?: string;
+      lastDeploymentAt?: Date;
+    }>;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("url:get-deployments", params);
   }
 
   public async deleteDeploymentUrl(params: {
     appId: number;
-    urlType: 'vercel' | 'github' | 'eas-build' | 'eas-deployment';
+    urlType: "vercel" | "github" | "eas-build" | "eas-deployment";
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("url:delete-deployment", params);
   }
@@ -3189,7 +3382,7 @@ export class IpcClient {
   // WordPress Authentication Methods
   public async wordpressCheckConfiguration(): Promise<{
     isConfigured: boolean;
-    source: 'environment' | 'none' | 'error';
+    source: "environment" | "none" | "error";
     hasUrl?: boolean;
     hasApplicationPassword?: boolean;
     error?: string;
@@ -3197,7 +3390,10 @@ export class IpcClient {
     return this.ipcRenderer.invoke("wordpress:check-configuration");
   }
 
-  public async wordpressLogin(params: { username: string; password: string }): Promise<{
+  public async wordpressLogin(params: {
+    username: string;
+    password: string;
+  }): Promise<{
     success: boolean;
     user?: any;
     token?: string;
@@ -3207,7 +3403,13 @@ export class IpcClient {
     return this.ipcRenderer.invoke("wordpress:login", params);
   }
 
-  public async wordpressRegister(params: { username: string; email: string; password: string; first_name: string; last_name: string }): Promise<{
+  public async wordpressRegister(params: {
+    username: string;
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+  }): Promise<{
     success: boolean;
     user_id?: number;
     username?: string;
@@ -3243,7 +3445,9 @@ export class IpcClient {
     return this.ipcRenderer.invoke("wordpress:get-current-user");
   }
 
-  public async wordpressCheckCapability(params: { capability: string }): Promise<{
+  public async wordpressCheckCapability(params: {
+    capability: string;
+  }): Promise<{
     hasCapability: boolean;
   }> {
     return this.ipcRenderer.invoke("wordpress:check-capability", params);
@@ -3298,9 +3502,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("godot:export-web", params);
   }
 
-  public async getGodotProjectStatus(params: {
-    appId: number;
-  }): Promise<{
+  public async getGodotProjectStatus(params: { appId: number }): Promise<{
     hasProject: boolean;
     hasSpec: boolean;
     isBuilding: boolean;
@@ -3312,34 +3514,44 @@ export class IpcClient {
 
   public async getGodotWebExportUrl(params: {
     appId: number;
-  }): Promise<{ hasExport: boolean; exportUrl?: string; exportPath?: string; error?: string; errorDetails?: any }> {
+  }): Promise<{
+    hasExport: boolean;
+    exportUrl?: string;
+    exportPath?: string;
+    error?: string;
+    errorDetails?: any;
+  }> {
     return this.ipcRenderer.invoke("godot:get-web-export-url", params);
   }
 
-  public async stopGodotServer(params: {
-    appId: number;
-  }): Promise<void> {
+  public async stopGodotServer(params: { appId: number }): Promise<void> {
     return this.ipcRenderer.invoke("godot:stop-server", params);
   }
 
-  public async checkGodotEngine(): Promise<{ installed: boolean; path?: string; version?: string }> {
+  public async checkGodotEngine(): Promise<{
+    installed: boolean;
+    path?: string;
+    version?: string;
+  }> {
     return this.ipcRenderer.invoke("godot:check-engine");
   }
 
   // Custom Games Management Methods
-  public async listCustomGames(): Promise<Array<{
-    id: string;
-    name: string;
-    imageUrl: string;
-    gameUrl: string;
-    isDefault?: boolean;
-    displayOrder?: number;
-    viewCount?: number;
-    likeCount?: number;
-    userLiked?: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-  }>> {
+  public async listCustomGames(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      imageUrl: string;
+      gameUrl: string;
+      isDefault?: boolean;
+      displayOrder?: number;
+      viewCount?: number;
+      likeCount?: number;
+      userLiked?: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    }>
+  > {
     return this.ipcRenderer.invoke("games:list");
   }
 
@@ -3384,40 +3596,75 @@ export class IpcClient {
     return this.ipcRenderer.invoke("games:increment-view", params);
   }
 
-  public async toggleGameLike(params: { gameId: string; userDisplayName: string }): Promise<{
+  public async toggleGameLike(params: {
+    gameId: string;
+    userDisplayName: string;
+  }): Promise<{
     liked: boolean;
     likeCount: number;
   }> {
     return this.ipcRenderer.invoke("games:toggle-like", params);
   }
 
-  public async deleteCustomGame(params: { id: string }): Promise<{ success: boolean }> {
+  public async deleteCustomGame(params: {
+    id: string;
+  }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("games:delete", params);
   }
 
   // Image URL Testing Methods
-  public async testImageUrl(params: { url: string }): Promise<{ accessible: boolean; statusCode?: number; error?: string }> {
+  public async testImageUrl(params: {
+    url: string;
+  }): Promise<{ accessible: boolean; statusCode?: number; error?: string }> {
     return this.ipcRenderer.invoke("games:test-image-url", params);
   }
 
-  public async testAllImageUrls(): Promise<Array<{ gameName: string; imageUrl: string; accessible: boolean; statusCode?: number; error?: string }>> {
+  public async testAllImageUrls(): Promise<
+    Array<{
+      gameName: string;
+      imageUrl: string;
+      accessible: boolean;
+      statusCode?: number;
+      error?: string;
+    }>
+  > {
     return this.ipcRenderer.invoke("games:test-all-images");
   }
 
   // Game Templates Management Methods
-  public async listGameTemplates(params?: { appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' }): Promise<Array<{
-    id: string;
-    name: string;
-    details: string;
-    previewUrl?: string | null;
-    imageUrl?: string | null;
-    emoji?: string | null;
-    appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
-    isDefault?: boolean;
-    displayOrder?: number;
-    createdAt: Date;
-    updatedAt: Date;
-  }>> {
+  public async listGameTemplates(params?: {
+    appType?:
+      | "web"
+      | "expo"
+      | "flutter"
+      | "godot"
+      | "arcade"
+      | "microbit"
+      | "minecraft"
+      | "blockly";
+  }): Promise<
+    Array<{
+      id: string;
+      name: string;
+      details: string;
+      previewUrl?: string | null;
+      imageUrl?: string | null;
+      emoji?: string | null;
+      appType:
+        | "web"
+        | "expo"
+        | "flutter"
+        | "godot"
+        | "arcade"
+        | "microbit"
+        | "minecraft"
+        | "blockly";
+      isDefault?: boolean;
+      displayOrder?: number;
+      createdAt: Date;
+      updatedAt: Date;
+    }>
+  > {
     return this.ipcRenderer.invoke("game-templates:list", params || {});
   }
 
@@ -3427,7 +3674,15 @@ export class IpcClient {
     previewUrl?: string;
     imageUrl?: string;
     emoji?: string;
-    appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
+    appType:
+      | "web"
+      | "expo"
+      | "flutter"
+      | "godot"
+      | "arcade"
+      | "microbit"
+      | "minecraft"
+      | "blockly";
     displayOrder?: number;
   }): Promise<{
     id: string;
@@ -3436,7 +3691,15 @@ export class IpcClient {
     previewUrl?: string | null;
     imageUrl?: string | null;
     emoji?: string | null;
-    appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
+    appType:
+      | "web"
+      | "expo"
+      | "flutter"
+      | "godot"
+      | "arcade"
+      | "microbit"
+      | "minecraft"
+      | "blockly";
     isDefault?: boolean;
     displayOrder?: number;
     createdAt: Date;
@@ -3452,7 +3715,15 @@ export class IpcClient {
     previewUrl?: string;
     imageUrl?: string;
     emoji?: string;
-    appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
+    appType?:
+      | "web"
+      | "expo"
+      | "flutter"
+      | "godot"
+      | "arcade"
+      | "microbit"
+      | "minecraft"
+      | "blockly";
     displayOrder?: number;
   }): Promise<{
     id: string;
@@ -3461,7 +3732,15 @@ export class IpcClient {
     previewUrl?: string | null;
     imageUrl?: string | null;
     emoji?: string | null;
-    appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
+    appType:
+      | "web"
+      | "expo"
+      | "flutter"
+      | "godot"
+      | "arcade"
+      | "microbit"
+      | "minecraft"
+      | "blockly";
     isDefault?: boolean;
     displayOrder?: number;
     createdAt: Date;
@@ -3470,11 +3749,15 @@ export class IpcClient {
     return this.ipcRenderer.invoke("game-templates:update", params);
   }
 
-  public async deleteGameTemplate(params: { id: string }): Promise<{ success: boolean }> {
+  public async deleteGameTemplate(params: {
+    id: string;
+  }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("game-templates:delete", params);
   }
 
-  async generateStarterProject(request: StarterProjectRequest): Promise<StarterProject> {
+  async generateStarterProject(
+    request: StarterProjectRequest,
+  ): Promise<StarterProject> {
     return this.ipcRenderer.invoke("creator:generate-starter-project", request);
   }
 
@@ -3512,11 +3795,11 @@ export class IpcClient {
     return this.ipcRenderer.invoke("install-minecraft-tools");
   }
 
-
   onMinecraftInstallProgress(callback: (log: string) => void) {
-    this.ipcRenderer.on("minecraft-install-progress", (_: any, log: string) => callback(log));
+    this.ipcRenderer.on("minecraft-install-progress", (_: any, log: string) =>
+      callback(log),
+    );
   }
-
 
   // 🤖 Applaa Buddy - AI Assistant Browser
   async launchBuddy(): Promise<{ success: boolean; error?: string }> {
@@ -3527,25 +3810,48 @@ export class IpcClient {
     return this.ipcRenderer.invoke("buddy:close");
   }
 
-  async getBuddyServiceStatus(): Promise<{ success: boolean; isRunning?: boolean; error?: string }> {
+  async getBuddyServiceStatus(): Promise<{
+    success: boolean;
+    isRunning?: boolean;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("buddy:status");
   }
 
   // 🌐 Browser Agent
   async testBrowserPing(): Promise<{ success: boolean; message?: string }> {
-    console.log('[IPC Client] Calling browser-agent:test-ping...');
+    console.log("[IPC Client] Calling browser-agent:test-ping...");
     return this.ipcRenderer.invoke("browser-agent:test-ping");
   }
 
-  async navigateBrowser(params: { url: string }): Promise<{ success: boolean; url?: string; title?: string; error?: string }> {
+  async navigateBrowser(params: {
+    url: string;
+  }): Promise<{
+    success: boolean;
+    url?: string;
+    title?: string;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("browser-agent:navigate", params);
   }
 
-  async setBrowserBounds(params: { x: number; y: number; width: number; height: number }): Promise<{ success: boolean; error?: string }> {
+  async setBrowserBounds(params: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("browser-agent:set-bounds", params);
   }
 
-  async getBrowserPageInfo(): Promise<{ success: boolean; url?: string; title?: string; canGoBack?: boolean; canGoForward?: boolean; error?: string }> {
+  async getBrowserPageInfo(): Promise<{
+    success: boolean;
+    url?: string;
+    title?: string;
+    canGoBack?: boolean;
+    canGoForward?: boolean;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("browser-agent:get-page-info");
   }
 
@@ -3577,28 +3883,44 @@ export class IpcClient {
     return this.ipcRenderer.invoke("browser-agent:inject-annotation");
   }
 
-  async toggleAnnotation(params: { enabled: boolean }): Promise<{ success: boolean; error?: string }> {
+  async toggleAnnotation(params: {
+    enabled: boolean;
+  }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("browser-agent:toggle-annotation", params);
   }
 
-  async clearAnnotationSelection(params: { selector: string }): Promise<{ success: boolean; error?: string }> {
+  async clearAnnotationSelection(params: {
+    selector: string;
+  }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("browser-agent:clear-selection", params);
   }
 
-  async getBrowserCdpUrl(): Promise<{ success: boolean; port?: number; error?: string }> {
+  async getBrowserCdpUrl(): Promise<{
+    success: boolean;
+    port?: number;
+    error?: string;
+  }> {
     return this.ipcRenderer.invoke("browser-agent:get-cdp-url");
   }
 
-  async generateAutomationPlan(params: { prompt: string; context?: any }): Promise<{ success: boolean; plan?: any; error?: string }> {
+  async generateAutomationPlan(params: {
+    prompt: string;
+    context?: any;
+  }): Promise<{ success: boolean; plan?: any; error?: string }> {
     return this.ipcRenderer.invoke("browser-agent:generate-plan", params);
   }
 
-  async executeAutomationPlan(params: { plan: any; port?: number }): Promise<{ success: boolean; result?: any; error?: string }> {
+  async executeAutomationPlan(params: {
+    plan: any;
+    port?: number;
+  }): Promise<{ success: boolean; result?: any; error?: string }> {
     return this.ipcRenderer.invoke("browser-agent:execute-plan", params);
   }
 
   onAutomationProgress(callback: (update: any) => void) {
-    this.ipcRenderer.on("browser-agent:automation-progress", (update: any) => callback(update));
+    this.ipcRenderer.on("browser-agent:automation-progress", (update: any) =>
+      callback(update),
+    );
   }
 
   // 🤖 Gemini AI Browser Automation
@@ -3606,7 +3928,10 @@ export class IpcClient {
     return this.ipcRenderer.invoke("automation:init");
   }
 
-  async automationPlan(params: { instruction: string; model?: string }): Promise<{
+  async automationPlan(params: {
+    instruction: string;
+    model?: string;
+  }): Promise<{
     success: boolean;
     plan: string;
     message?: string;
@@ -3614,7 +3939,10 @@ export class IpcClient {
     return this.ipcRenderer.invoke("automation:plan", params);
   }
 
-  async automationTranscribe(params: { audioBase64: string; mimeType: string }): Promise<{
+  async automationTranscribe(params: {
+    audioBase64: string;
+    mimeType: string;
+  }): Promise<{
     success: boolean;
     text: string;
     message?: string;
@@ -3651,7 +3979,10 @@ export class IpcClient {
     return this.ipcRenderer.invoke("tabs:create", params);
   }
 
-  async updateTab(params: { tabId: number;[key: string]: any }): Promise<{ success: boolean }> {
+  async updateTab(params: {
+    tabId: number;
+    [key: string]: any;
+  }): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("tabs:update", params);
   }
 
@@ -3712,10 +4043,11 @@ export class IpcClient {
     return this.ipcRenderer.invoke("minecraft-sandbox:status");
   }
 
-  async minecraftSandboxLoadMod(modPath: string): Promise<{ success: boolean }> {
+  async minecraftSandboxLoadMod(
+    modPath: string,
+  ): Promise<{ success: boolean }> {
     return this.ipcRenderer.invoke("minecraft-sandbox:load-mod", modPath);
   }
-
 
   async minecraftSandboxTestItem(itemName: string): Promise<{
     success: boolean;
@@ -3732,6 +4064,35 @@ export class IpcClient {
     generatedCode: Record<string, string>;
   }): Promise<{ success: boolean; savedAt?: string; error?: string }> {
     return this.ipcRenderer.invoke("blockly:save-workspace", params);
+  }
+
+  // Bedrock Pack Builder
+  async buildBedrockPack(moduleSpecJson: string): Promise<{
+    success: boolean;
+    files: Array<{ path: string; content: string }>;
+    errors: string[];
+    previewContract: any;
+  }> {
+    return this.ipcRenderer.invoke("build-bedrock-pack", moduleSpecJson);
+  }
+
+  // Generate Preview from pack files
+  async generatePreview(params: {
+    contractJson: string;
+    mcfunctionContent: string;
+  }): Promise<{
+    success: boolean;
+    type: string;
+    blocks: Array<{ x: number; y: number; z: number; type: string }>;
+    messages: string[];
+    errors: string[];
+    bounds: { width: number; height: number; depth: number };
+    camera?: { x: number; y: number; z: number };
+    target?: { x: number; y: number; z: number };
+    error?: string;
+    errorCode?: string;
+  }> {
+    return this.ipcRenderer.invoke("generate-preview", params);
   }
 }
 

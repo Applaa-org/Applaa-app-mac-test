@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "403_bridge_403",
+    "description": "more templates - 403_bridge_403",
+    "uuid": "f821ec4d-3ca9-4591-b891-3e5ca6060b4d",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "63e47219-706f-4b3c-9636-8adff58d85b2",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

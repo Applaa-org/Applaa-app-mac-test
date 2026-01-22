@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "404_cottage_404",
+    "description": "more templates - 404_cottage_404",
+    "uuid": "37db7ab9-f8d4-48cb-bb24-fe08dfbb0846",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "3e3f561b-3787-4911-91c9-342ae0bf577d",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

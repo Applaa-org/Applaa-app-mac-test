@@ -156,4 +156,54 @@ say House complete!
 `;
 }
 
-export default { parseMcfunction, generateSampleHouse };
+/**
+ * Generate complete preview data from contract and mcfunction
+ */
+/**
+ * Generate complete preview data from contract and mcfunction
+ */
+export function generatePreviewData(
+    contract: any, // Using any to avoid strict type dependency if import is tricky, but preferably typed
+    mcfunctionContent: string
+): {
+    blocks: MinecraftBlock[];
+    cameraPosition: [number, number, number];
+    cameraTarget: [number, number, number];
+    hasPreview: boolean;
+} {
+    // Check if preview is supported
+    if (!contract || contract.type === 'none' || contract.type === 'pack' || (contract.type === 'behavior' as any)) {
+        return {
+            blocks: [],
+            cameraPosition: [10, 10, 10],
+            cameraTarget: [0, 0, 0],
+            hasPreview: false
+        };
+    }
+
+    const parseResult = parseMcfunction(mcfunctionContent);
+
+    // Default camera if not in contract
+    const defaultCam: [number, number, number] = [10, 10, 10];
+    const defaultTarget: [number, number, number] = [0, 0, 0];
+
+    let cameraPosition = defaultCam;
+    let cameraTarget = defaultTarget;
+
+    if (contract && contract.camera) {
+        cameraPosition = [contract.camera.x, contract.camera.y, contract.camera.z];
+    }
+
+    if (contract && contract.anchor) {
+        cameraTarget = [contract.anchor.x, contract.anchor.y, contract.anchor.z];
+    }
+
+    return {
+        blocks: parseResult.blocks,
+        cameraPosition,
+        cameraTarget,
+        hasPreview: true
+    };
+}
+
+export default { parseMcfunction, generateSampleHouse, generatePreviewData };

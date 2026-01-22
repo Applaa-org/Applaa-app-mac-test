@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "god_mode",
+    "description": "powers - god_mode",
+    "uuid": "25e4bfa7-f3f7-4dc5-86aa-b5e8a08e24cb",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "909c16c1-daed-4014-9f23-d98ee346073d",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

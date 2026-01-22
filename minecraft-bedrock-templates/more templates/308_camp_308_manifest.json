@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "308_camp_308",
+    "description": "more templates - 308_camp_308",
+    "uuid": "78642f11-0329-4058-9d6d-e37d1d47d295",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "5ec5d5ae-189b-40d5-bb8f-a6cfed1fb13d",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

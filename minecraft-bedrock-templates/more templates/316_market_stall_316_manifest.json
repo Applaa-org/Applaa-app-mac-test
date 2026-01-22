@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "316_market_stall_316",
+    "description": "more templates - 316_market_stall_316",
+    "uuid": "3b04884a-a33f-426d-b287-1657acf9cd86",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "7ee8890b-74a2-4c5d-97a3-4573179d7bda",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

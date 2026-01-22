@@ -47,6 +47,9 @@ type ExampleIdea = {
   previewUrl?: string; // Optional preview URL
 };
 
+// Stable empty array reference to prevent infinite loops
+const EMPTY_ARRAY: any[] = [];
+
 export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) {
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
   const navigate = useNavigate();
@@ -158,9 +161,62 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
       });
 
       console.log('[Minecraft] App created:', result);
+      const appId = result.app.id;
 
-      // Store template code and info for the editor to pick up
-      localStorage.setItem('minecraft-template-code', pendingMinecraftTemplate.prompt);
+      // 🚀 WRITE ALL 3 BEHAVIOR PACK FILES
+      const mcfunctionCode = pendingMinecraftTemplate.prompt;
+
+      // Generate unique UUIDs for manifest
+      const headerUuid = crypto.randomUUID();
+      const moduleUuid = crypto.randomUUID();
+
+      // 1. Create manifest.json
+      const manifest = {
+        format_version: 2,
+        header: {
+          name: name,
+          description: `${pendingMinecraftTemplate.title} - Created with Applaa`,
+          uuid: headerUuid,
+          version: [1, 0, 0],
+          min_engine_version: [1, 20, 0]
+        },
+        modules: [{
+          type: "data",
+          uuid: moduleUuid,
+          version: [1, 0, 0]
+        }]
+      };
+
+      // 2. Create tick.json
+      const tick = {
+        values: ["main"]
+      };
+
+      // Write all 3 files to the behavior pack
+      console.log('[Minecraft] Writing behavior pack files for appId:', appId);
+
+      await ipcClient.writeFile({
+        appId,
+        filePath: 'behavior_pack/manifest.json',
+        content: JSON.stringify(manifest, null, 2),
+      });
+
+      await ipcClient.writeFile({
+        appId,
+        filePath: 'behavior_pack/functions/tick.json',
+        content: JSON.stringify(tick, null, 2),
+      });
+
+      await ipcClient.writeFile({
+        appId,
+        filePath: 'behavior_pack/functions/main.mcfunction',
+        content: mcfunctionCode,
+      });
+
+      console.log('[Minecraft] ✅ All 3 behavior pack files written successfully');
+
+      // Store for editor to pick up (backup, in case file load fails)
+      localStorage.setItem('minecraft-template-code', mcfunctionCode);
       localStorage.setItem('minecraft-template-name', pendingMinecraftTemplate.title);
       localStorage.setItem('minecraft-template-features', pendingMinecraftTemplate.description);
       localStorage.setItem('minecraft-template-show-welcome', 'true');
@@ -171,9 +227,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
       // Clear pending template
       setPendingMinecraftTemplate(null);
 
-      // Navigate to chat page with this app using router
-      console.log('[Minecraft] Navigating to chat with app:', result.app.id);
-      navigate({ to: '/chat', search: { id: result.app.id } });
+      // Navigate to chat page with CHAT ID (not app ID!)
+      console.log('[Minecraft] Navigating to chat with chatId:', result.chatId, 'appId:', appId);
+      navigate({ to: '/chat', search: { id: result.chatId } });
     } catch (error: any) {
       toast.dismiss();
       console.error('[Minecraft] Failed to create app:', error);
@@ -182,7 +238,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   };
 
   // Fetch game templates from Supabase
-  const { data: gameTemplates = [], isLoading: isLoadingTemplates } = useQuery({
+  const { data: gameTemplates = EMPTY_ARRAY, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['game-templates', selectedAppType],
     queryFn: async () => {
       if (!selectedAppType) return [];
@@ -201,6 +257,15 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   // When app type changes, load ideas from Supabase or fallback to static
   useEffect(() => {
     if (selectedAppType) {
+      // 🚀 MINECRAFT FIX: Always use static templates (they have actual mcfunction code)
+      // Supabase templates have 'details' as description text, not actual code
+      if (selectedAppType === 'minecraft') {
+        console.log('[SimpleHomeInterface] Using static Minecraft templates (with mcfunction code)');
+        setIdeas(getStaticIdeas('minecraft'));
+        setVisibleIdeasCount(6);
+        return;
+      }
+
       if (gameTemplates.length > 0) {
         // Convert Supabase templates to ExampleIdea format
         const templateIdeas: ExampleIdea[] = gameTemplates.map(template => {
@@ -543,15 +608,9 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
                         onClick={async () => {
                           console.log('[Template Click] selectedAppType:', selectedAppType, 'idea.title:', idea.title);
 
-                          // For Minecraft templates, show naming dialog first
-                          if (selectedAppType === 'minecraft') {
-                            console.log('[Minecraft] Opening naming dialog for template:', idea.title);
-                            setPendingMinecraftTemplate(idea);
-                            setIsMinecraftNamingDialogOpen(true);
-                          } else {
-                            // For other app types, use normal flow
-                            setInputValue(idea.prompt);
-                          }
+                          // For Minecraft, just populate the prompt like web/mobile
+                          // This enables the new "Prompt-First" flow
+                          setInputValue(idea.prompt);
                         }}
                         className="w-full text-left"
                       >
@@ -881,14 +940,44 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 
       }
     ];
   } else if (type === 'minecraft') {
-    // Use new Minecraft Templates Hub (45+ templates)
-    const shuffled = [...MINECRAFT_TEMPLATES].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 12).map(template => ({
-      title: template.name,
-      description: template.description + '\n' + template.features.slice(0, 2).join(' • '),
-      emoji: template.icon,
-      prompt: template.mcfunction,
-    }));
+    return [
+      {
+        title: "Cozy Cottage",
+        description: "A charming small house with a flower garden.",
+        emoji: "🏡",
+        prompt: "Build a cozy rustic cottage made of oak planks and cobblestone. Include a slanted roof with a chimney, a welcoming front porch with lanterns, and a small flower garden surrounding the house with roses and tulips. Add windows with glass panes and a wooden door."
+      },
+      {
+        title: "Castle Watchtower",
+        description: "A tall defensive tower with battlements.",
+        emoji: "🏰",
+        prompt: "Create a tall medieval stone watchtower. The base should be wide and sturdy, tapering slightly as it goes up. Include a spiral staircase inside, arrow slit windows, and a battlements platform at the top with a flag flying. Use stone bricks and mossy stone for texture."
+      },
+      {
+        title: "Zombie Arena",
+        description: "A combat zone with spawners and loot.",
+        emoji: "🧟",
+        prompt: "Design a gladiatorial combat arena for fighting zombies. Create a circular stone wall enclosure with an iron gate. Inside, place obstacle pillars, a few zombie spawners in the corners, and hidden chests containing iron swords and healing potions. Add lighting with torches for a dramatic effect."
+      },
+      {
+        title: "Parkour Challenge",
+        description: "Floating platforms and jumps to test your skills.",
+        emoji: "🏃",
+        prompt: "Build a thrilling parkour course in the sky. Start with easy jumps on grass blocks, then progress to harder jumps involving ice blocks (slippery) and slime blocks (bouncy). Create 5 distinct floating platforms that ascend in height, ending with a gold block pedestal as the finish line."
+      },
+      {
+        title: "Ocean Base",
+        description: "A glass dome base on the ocean floor.",
+        emoji: "🌊",
+        prompt: "Construct a futuristic underwater base. Create a large glass dome structure on the sea floor so players can look out at the water. Inside, add a conduit for water breathing, sea lanterns for lighting, and a central command are with blue concrete accents. Connect it to a surface entrance via a glass tube."
+      },
+      {
+        title: "Pixel Art Heart",
+        description: "A giant red heart made of wool.",
+        emoji: "❤️",
+        prompt: "Build a massive 3D pixel art heart structure. Use red wool and red concrete for the main body, with white wool highlights to give it a shiny, glossy look. The heart should be at least 15 blocks tall and wide, hovering slightly off the ground."
+      }
+    ];
   } else if (type === 'blockly') {
     return [
       {

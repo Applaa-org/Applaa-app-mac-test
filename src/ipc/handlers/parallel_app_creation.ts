@@ -741,79 +741,86 @@ async function createMinecraftModTemplate(
   fullAppPath: string,
   params: ParallelAppCreationParams
 ) {
-  logger.info(`⛏️ Creating Minecraft Blockly template at ${fullAppPath}`);
+  logger.info(`⛏️ Creating Minecraft Bedrock template at ${fullAppPath}`);
 
   // Create the app directory
   fs.mkdirSync(fullAppPath, { recursive: true });
 
-  // Create a starter Blockly workspace with a simple spawn command
-  const starterWorkspace = {
-    blocks: {
-      languageVersion: 0,
-      blocks: [
-        {
-          type: "minecraft_on_chat",
-          x: 50,
-          y: 50,
-          fields: { COMMAND: "hello" },
-          inputs: {
-            DO: {
-              block: {
-                type: "minecraft_say",
-                inputs: {
-                  MESSAGE: {
-                    shadow: {
-                      type: "text",
-                      fields: { TEXT: "Hello from " + (params.displayName || params.name) + "!" }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      ]
-    }
+  // Create behavior pack structure
+  const bpPath = path.join(fullAppPath, 'behavior_pack');
+  const functionsPath = path.join(bpPath, 'functions');
+  fs.mkdirSync(functionsPath, { recursive: true });
+
+  // 1. Generate Manifest
+  const manifest = {
+    format_version: 2,
+    header: {
+      name: params.displayName || params.name,
+      description: "Created with Applaa Builder",
+      uuid: require('crypto').randomUUID(),
+      version: [1, 0, 0],
+      min_engine_version: [1, 20, 0]
+    },
+    modules: [
+      {
+        type: "data",
+        uuid: require('crypto').randomUUID(),
+        version: [1, 0, 0]
+      }
+    ]
   };
 
-  // Save workspace.json (Blockly format)
   fs.writeFileSync(
-    path.join(fullAppPath, 'workspace.json'),
-    JSON.stringify(starterWorkspace, null, 2)
+    path.join(bpPath, 'manifest.json'),
+    JSON.stringify(manifest, null, 2)
   );
 
-  // Create README with Blockly instructions
+  // 2. Generate Initial Function
+  const initialMcFunction = `# ${params.displayName || params.name}
+# Welcome to your Bedrock Behavior Pack!
+# The AI will add your commands here.
+
+say Hello from Applaa!
+`;
+
+  fs.writeFileSync(
+    path.join(functionsPath, 'main.mcfunction'),
+    initialMcFunction
+  );
+
+  // 3. Generate Preview Contract
+  const previewContract = {
+    type: "structure",
+    entry: "main",
+    bounds: { width: 16, height: 16, depth: 16 },
+    anchor: { x: 0, y: 0, z: 0 },
+    camera: { x: 10, y: 10, z: 10 }
+  };
+
+  fs.writeFileSync(
+    path.join(fullAppPath, 'applaa.preview.json'),
+    JSON.stringify(previewContract, null, 2)
+  );
+
+  // 4. Create README
   const readmeContent = `# ${params.displayName || params.name}
 
-A Minecraft mod created with Applaa using visual blocks!
+A Minecraft Bedrock Behavior Pack created with Applaa.
 
 ## How to Use
 
-1. **Drag blocks** from the Minecraft category on the left
-2. **Connect blocks** to build your mod logic
-3. **Click Play** to preview what your mod does
-4. **Click Build .mcaddon** to create an installable add-on
+1. **Chat with AI**: Ask it to "Build a house" or "Create a zombie arena".
+2. **Preview**: See 3D previews of structures instantly.
+3. **Export**: Download the .mcaddon to install in Minecraft.
 
-## Available Block Categories
-
-- 🐾 **Creatures**: Spawn zombies, creepers, pigs, etc.
-- ✨ **Effects**: Give speed, invisibility, strength, etc.
-- 🧱 **Building**: Place blocks, build structures
-- 🎮 **Player**: Teleport, give items, send messages
-- 🌍 **World**: Set time of day, weather
-
-## Installing Your Mod
-
-After clicking "Build .mcaddon":
-1. Download the .mcaddon file
-2. Double-click it to import into Minecraft
-3. Enable the add-on in your world settings
-4. Have fun!
+## Structure
+- \`behavior_pack/\`: Contains the actual add-on files.
+- \`applaa.preview.json\`: Configures the 3D previewer.
 `;
 
   fs.writeFileSync(path.join(fullAppPath, 'README.md'), readmeContent);
 
-  logger.info(`✅ Minecraft Blockly template created at ${fullAppPath}`);
+  logger.info(`✅ Minecraft Bedrock template created at ${fullAppPath}`);
 }
 
 /**

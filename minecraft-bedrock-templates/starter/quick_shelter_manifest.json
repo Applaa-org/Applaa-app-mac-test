@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "quick_shelter",
+    "description": "starter - quick_shelter",
+    "uuid": "5a402c1e-32e5-47db-9538-46d598a8a3e8",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "876e85da-2b44-4bb9-aafd-69222e0ab96c",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

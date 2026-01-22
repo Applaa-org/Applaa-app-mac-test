@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "268_statue_268",
+    "description": "more templates - 268_statue_268",
+    "uuid": "8e203ea8-b6e1-4c2f-85e3-3349428fd1ab",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "1360ab17-ba4e-4948-82d1-bfb2aa3b045a",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -1095,6 +1095,12 @@ renderer/rendering_method="forward_plus"
         }
       }
 
+      // 🔥 EXTRA FIX: Add explicit delay to ensure DB commit is visible to ALL subsequent queries
+      // Even after raw SQL verification, there may be WAL (Write-Ahead Logging) delays
+      logger.info(`⏰ Waiting 500ms for chat ${chat.id} to be fully committed...`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      logger.info(`✅ Chat ${chat.id} should now be visible to all queries`);
+
       return { app, chatId: chat.id };
     },
   );

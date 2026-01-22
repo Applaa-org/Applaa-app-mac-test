@@ -11,11 +11,13 @@ import { hubRoute } from "./routes/hub";
 import { promptToProjectRoute } from "./routes/create-with-prompt";
 import { blocklyRoute } from "./routes/blockly";
 import { browserAgentRoute } from "./routes/browser-agent";
+import { minecraftHubRoute } from "./routes/minecraft-hub";
 
 
 const routeTree = rootRoute.addChildren([
   homeRoute,
   hubRoute,
+  minecraftHubRoute,
   chatRoute,
   blocklyRoute,
   promptToProjectRoute,
@@ -25,6 +27,7 @@ const routeTree = rootRoute.addChildren([
   settingsRoute.addChildren([providerSettingsRoute]),
   docsRoute,
 ]);
+
 
 // src/components/NotFoundRedirect.tsx
 import * as React from "react";
