@@ -64,6 +64,36 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/electron-updater")) {
     return false; // CRITICAL: Include electron-updater in packaged app
   }
+  if (file.startsWith("/node_modules/builder-util-runtime")) {
+    return false; // CRITICAL: Include builder-util-runtime (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/lazy-val")) {
+    return false; // CRITICAL: Include lazy-val (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/lodash.escaperegexp")) {
+    return false; // CRITICAL: Include lodash.escaperegexp (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/lodash.isequal")) {
+    return false; // CRITICAL: Include lodash.isequal (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/semver")) {
+    return false; // CRITICAL: Include semver (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/tiny-typed-emitter")) {
+    return false; // CRITICAL: Include tiny-typed-emitter (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/js-yaml")) {
+    return false; // CRITICAL: Include js-yaml (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/argparse")) {
+    return false; // CRITICAL: Include argparse (dependency of js-yaml) in packaged app
+  }
+  if (file.startsWith("/node_modules/debug")) {
+    return false; // CRITICAL: Include debug (dependency of builder-util-runtime) in packaged app
+  }
+  if (file.startsWith("/node_modules/sax")) {
+    return false; // CRITICAL: Include sax (dependency of builder-util-runtime) in packaged app
+  }
   if (file.startsWith("/node_modules/fs-extra")) {
     return false; // CRITICAL: Include fs-extra in packaged app
   }
@@ -128,6 +158,16 @@ const config: ForgeConfig = {
       "node_modules/bindings/**",
       "node_modules/file-uri-to-path/**",
       "node_modules/electron-updater/**", // CRITICAL: Must be unpacked for OTA updates to work
+      "node_modules/builder-util-runtime/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/lazy-val/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/lodash.escaperegexp/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/lodash.isequal/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/semver/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/tiny-typed-emitter/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/js-yaml/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/argparse/**", // CRITICAL: Dependency of js-yaml, must be unpacked
+      "node_modules/debug/**", // CRITICAL: Dependency of builder-util-runtime, must be unpacked
+      "node_modules/sax/**", // CRITICAL: Dependency of builder-util-runtime, must be unpacked
       "node_modules/fs-extra/**", // CRITICAL: Must be unpacked for file operations
       "node_modules/universalify/**", // CRITICAL: Dependency of fs-extra, must be unpacked
       "node_modules/jsonfile/**", // CRITICAL: Dependency of fs-extra, must be unpacked
