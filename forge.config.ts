@@ -91,6 +91,9 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/debug")) {
     return false; // CRITICAL: Include debug (dependency of builder-util-runtime) in packaged app
   }
+  if (file.startsWith("/node_modules/ms")) {
+    return false; // CRITICAL: Include ms (dependency of debug) in packaged app
+  }
   if (file.startsWith("/node_modules/sax")) {
     return false; // CRITICAL: Include sax (dependency of builder-util-runtime) in packaged app
   }
@@ -167,6 +170,7 @@ const config: ForgeConfig = {
       "node_modules/js-yaml/**", // CRITICAL: Dependency of electron-updater, must be unpacked
       "node_modules/argparse/**", // CRITICAL: Dependency of js-yaml, must be unpacked
       "node_modules/debug/**", // CRITICAL: Dependency of builder-util-runtime, must be unpacked
+      "node_modules/ms/**", // CRITICAL: Dependency of debug, must be unpacked
       "node_modules/sax/**", // CRITICAL: Dependency of builder-util-runtime, must be unpacked
       "node_modules/fs-extra/**", // CRITICAL: Must be unpacked for file operations
       "node_modules/universalify/**", // CRITICAL: Dependency of fs-extra, must be unpacked
