@@ -67,6 +67,9 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/fs-extra")) {
     return false; // CRITICAL: Include fs-extra in packaged app
   }
+  if (file.startsWith("/node_modules/universalify")) {
+    return false; // CRITICAL: Include universalify (dependency of fs-extra) in packaged app
+  }
   if (file.startsWith("/.vite")) {
     return false;
   }
@@ -85,7 +88,7 @@ const config: ForgeConfig = {
         schemes: ["applaa"],
       },
     ],
-    icon: "./assets/icon/logo.ico",
+    icon: path.resolve(__dirname, "assets/icon/logo.ico"),
     asar: true,
     // Code signing
     osxSign: {
@@ -116,6 +119,7 @@ const config: ForgeConfig = {
       "node_modules/file-uri-to-path/**",
       "node_modules/electron-updater/**", // CRITICAL: Must be unpacked for OTA updates to work
       "node_modules/fs-extra/**", // CRITICAL: Must be unpacked for file operations
+      "node_modules/universalify/**", // CRITICAL: Dependency of fs-extra, must be unpacked
       "node_modules/expo/**",
       "node_modules/@expo/**",
       "node_modules/.bin/**",
@@ -152,7 +156,7 @@ const config: ForgeConfig = {
           name: "Applaa",
           authors: "Applaa Team",
           description: "Your local AI app builder with beautiful orange and green design",
-          setupIcon: "./assets/icon/logo.ico",
+          setupIcon: path.resolve(__dirname, "assets/icon/logo.ico"),
           noMsi: false,
           // publisherName is required for Windows OTA updates to work
           // This must match the certificate used for code signing (if any)
