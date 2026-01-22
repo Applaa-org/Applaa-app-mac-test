@@ -121,9 +121,8 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
           [provider]: providerSettings,
         },
       };
-      if (isApplaa) {
-        settingsUpdate.enableApplaaPro = true;
-      }
+      // ✅ REMOVED: Don't auto-enable Applaa Pro when saving API keys
+      // Pro tier is now controlled separately via subscription, not by API key presence
       await updateSettings(settingsUpdate);
       setApiKeyInput(""); // Clear input on success
       setApiBaseUrlInput(""); // Clear API Base URL input on success

@@ -30,10 +30,13 @@ import { ChevronDown, Brain } from "lucide-react";
 export function ModelPicker() {
   const { settings, updateSettings } = useSettings();
 
+  // 🔍 DEBUG: Log when component renders and what model is selected
+  console.log('🔄 ModelPicker render - selectedModel:', settings?.selectedModel);
+
   const onModelSelect = (model: LargeLanguageModel) => {
     console.log('ModelPicker: Selecting model:', model);
-    updateSettings({ selectedModel: model }).then(() => {
-      console.log('ModelPicker: Settings updated successfully');
+    updateSettings({ selectedModel: model }).then((updatedSettings) => {
+      console.log('ModelPicker: Settings updated successfully, new model:', updatedSettings.selectedModel);
     }).catch((error) => {
       console.error('ModelPicker: Failed to update settings:', error);
     });
@@ -72,6 +75,12 @@ export function ModelPicker() {
       loadLMStudioModels();
     }
   }, [open, loadOllamaModels, loadLMStudioModels]);
+
+  // ✅ FIX: Define selectedModel BEFORE using it in functions
+  if (!settings) {
+    return null;
+  }
+  const selectedModel = settings.selectedModel;
 
   // Get display name for the selected model
   const getModelDisplayName = () => {
@@ -123,10 +132,7 @@ export function ModelPicker() {
   const hasLMStudioModels =
     !lmStudioLoading && !lmStudioError && lmStudioModels.length > 0;
 
-  if (!settings) {
-    return null;
-  }
-  const selectedModel = settings?.selectedModel;
+  // ✅ selectedModel now defined earlier (see above)
   const isSmartAutoEnabled =
     settings.enableProSmartFilesContextMode && isApplaaProEnabled(settings);
   const modelDisplayName = getModelDisplayName();

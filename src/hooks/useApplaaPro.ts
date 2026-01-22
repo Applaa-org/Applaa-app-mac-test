@@ -15,14 +15,9 @@ export function useApplaaPro() {
   const userTier = (profile?.subscription_tier || settings?.userTier || "free") as 'free' | 'pro' | 'ultra' | 'business';
   const isPro = userTier === "pro" || userTier === "ultra" || userTier === "business";
   
-  // Legacy support: only use if tier is not explicitly set
-  // But tier should always take precedence
-  const hasProKey = !!settings?.providerSettings?.auto?.apiKey?.value;
-  const isProEnabled = settings?.enableApplaaPro === true;
-  const isLegacyPro = isProEnabled && hasProKey;
-  
-  // ✅ FIX: Use isPro which includes all paid tiers (pro, ultra, business), fallback to legacy only if tier is undefined
-  const isProUser = isPro || (userTier === undefined && isLegacyPro);
+  // ✅ SIMPLIFIED: Pro tier is now ONLY subscription-based
+  // Removed legacy gateway API key checks (hasProKey, isProEnabled)
+  const isProUser = isPro;
   
   // App limits - Free tier: max 3 apps, Pro: unlimited
   const FREE_APP_LIMIT = 3;
@@ -58,8 +53,8 @@ export function useApplaaPro() {
   return {
     isPro: isProUser,
     userTier,
-    hasProKey,
-    isProEnabled,
+    hasProKey: isPro, // ✅ DEPRECATED: Kept for backwards compatibility, but now just mirrors isPro
+    isProEnabled: isPro, // ✅ DEPRECATED: Kept for backwards compatibility, but now just mirrors isPro
     canCreateMoreApps,
     currentAppCount,
     remainingFreeApps,

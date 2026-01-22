@@ -262,7 +262,24 @@ export const UserSettingsSchema = z.object({
       display_name: z.string(),
       roles: z.array(z.string()),
       avatar_url: z.string().optional(),
-      capabilities: z.array(z.string()),
+      // ✅ FIX: WordPress sends capabilities as an object with string values (e.g. {"read": "1"})
+      // Accept both array and object formats for compatibility
+      capabilities: z.union([
+        z.array(z.string()),
+        z.record(z.union([z.boolean(), z.string(), z.number()]))
+      ]).transform((val) => {
+        // If it's already an array, keep it
+        if (Array.isArray(val)) return val;
+        // If it's an object, convert to array of keys where value is truthy
+        return Object.keys(val).filter(key => {
+          const value = val[key];
+          // Handle various truthy formats: true, "1", 1, non-empty strings
+          if (typeof value === 'boolean') return value;
+          if (typeof value === 'number') return value !== 0;
+          if (typeof value === 'string') return value !== '' && value !== '0' && value !== 'false';
+          return false;
+        });
+      }),
     }).optional(),
     token: z.string().optional(),
     lastLogin: z.string().optional(),
