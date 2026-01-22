@@ -28,45 +28,6 @@ function getSupabaseAdminClient() {
 
 const logger = log.scope('profile');
 
-// Helper function to safely select profile columns, handling missing columns gracefully
-// Uses select('*') which automatically returns only columns that exist
-async function getProfileWithFallback(
-  adminClient: any,
-  userId: string
-): Promise<any> {
-  try {
-    const { data, error } = await adminClient
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-    
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-    
-    // Add default values for any missing columns to ensure consistent response
-    if (data) {
-      return {
-        ...data,
-        first_name: data.first_name ?? null,
-        last_name: data.last_name ?? null,
-        monthly_credits: data.monthly_credits ?? 50,
-        remaining_credits: data.remaining_credits ?? 50,
-        credits_last_reset: data.credits_last_reset ?? null,
-        total_credits_used: data.total_credits_used ?? 0,
-        total_tokens_used: data.total_tokens_used ?? 0,
-        username: data.username ?? null,
-      };
-    }
-    
-    return null;
-  } catch (error: any) {
-    logger.error('Error getting profile:', error);
-    throw error;
-  }
-}
-
 export function registerProfileHandlers() {
   // Get current user profile
   ipcMain.handle('profile:get-current', async () => {
@@ -85,8 +46,17 @@ export function registerProfileHandlers() {
         // User is authenticated via Supabase
         const adminClient = getSupabaseAdminClient();
         
-        // Try to get profile by Supabase user ID first (with fallback for missing columns)
-        let profile = await getProfileWithFallback(adminClient, supabaseUser.id);
+        // Try to get profile by Supabase user ID first
+        let { data: profile, error: profileError } = await adminClient
+          .from('profiles')
+          .select('id, email, full_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, total_tokens_used, created_at, updated_at')
+          .eq('id', supabaseUser.id)
+          .maybeSingle();
+
+        if (profileError && profileError.code !== 'PGRST116') {
+          logger.error('Failed to get profile from Supabase:', profileError);
+          throw new Error(`Failed to get user profile: ${profileError.message}`);
+        }
 
         // If not found by ID, try by email or username
         if (!profile) {
@@ -97,92 +67,56 @@ export function registerProfileHandlers() {
           }
         }
 
-        // ✅ FIX: Auto-create profile if it doesn't exist
+        // ✅ AUTO-CREATE: If old Supabase user doesn't have a profile, create one
         if (!profile) {
-          logger.warn('Profile not found, creating new profile for user:', {
+          logger.warn('Old Supabase user without profile detected, creating profile:', {
             userId: supabaseUser.id,
             email: supabaseUser.email,
           });
           
           try {
-            // Try to insert with all columns, but handle missing columns gracefully
-            const insertData: any = {
-              id: supabaseUser.id,
-              email: supabaseUser.email || 'unknown@example.com',
-              full_name: supabaseUser.user_metadata?.full_name || 
-                        supabaseUser.user_metadata?.name ||
-                        null,
-              subscription_tier: 'free',
-            };
+            const fullName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || null;
             
-            // Only include optional columns if they might exist
-            // We'll try with them first, and fall back if needed
-            try {
-              insertData.first_name = supabaseUser.user_metadata?.first_name || null;
-              insertData.last_name = supabaseUser.user_metadata?.last_name || null;
-              insertData.monthly_credits = 50;
-              insertData.remaining_credits = 50;
-              insertData.total_credits_used = 0;
-              insertData.total_tokens_used = 0;
-            } catch (e) {
-              // Ignore - these columns might not exist
-            }
-            
-            const { data: newProfile, error: createError } = await adminClient
+            const { error: createError } = await adminClient
               .from('profiles')
-              .insert(insertData)
-              .select('*')
-              .single();
+              .insert({
+                id: supabaseUser.id,
+                email: supabaseUser.email || 'unknown@example.com',
+                full_name: fullName,
+                subscription_tier: 'free',
+                monthly_credits: 100,
+                remaining_credits: 100,
+                total_credits_used: 0,
+                total_tokens_used: 0,
+                credits_last_reset: new Date().toISOString(),
+              });
             
             if (createError) {
-              // If error is about missing columns, try without them
-              if (createError.message?.includes('does not exist') || createError.code === '42703') {
-                logger.warn('Some columns missing during insert, retrying with base columns only');
-                const baseInsertData = {
-                  id: supabaseUser.id,
-                  email: supabaseUser.email || 'unknown@example.com',
-                  full_name: supabaseUser.user_metadata?.full_name || 
-                            supabaseUser.user_metadata?.name ||
-                            null,
-                  subscription_tier: 'free',
-                };
-                
-                const { data: fallbackProfile, error: fallbackError } = await adminClient
-                  .from('profiles')
-                  .insert(baseInsertData)
-                  .select('*')
-                  .single();
-                
-                if (fallbackError) {
-                  logger.error('Failed to create profile with fallback:', fallbackError);
-                  throw new Error(`Failed to create user profile: ${fallbackError.message}`);
-                }
-                
-                profile = {
-                  ...fallbackProfile,
-                  first_name: null,
-                  last_name: null,
-                  monthly_credits: 50,
-                  remaining_credits: 50,
-                  credits_last_reset: null,
-                  total_credits_used: 0,
-                  total_tokens_used: 0,
-                };
-              } else {
-                logger.error('Failed to create profile:', createError);
-                throw new Error(`Failed to create user profile: ${createError.message}`);
-              }
-            } else {
-              profile = newProfile;
+              logger.error('Failed to auto-create profile for Supabase user:', createError);
+              throw new Error(`Failed to create user profile: ${createError.message}`);
             }
-            logger.info('✅ Successfully created missing profile for user:', {
+            
+            // Fetch the newly created profile
+            const { data: newProfile } = await adminClient
+              .from('profiles')
+              .select('id, email, full_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, total_tokens_used, created_at, updated_at')
+              .eq('id', supabaseUser.id)
+              .single();
+            
+            logger.info('✅ Profile auto-created for old Supabase user:', {
               userId: supabaseUser.id,
-              email: profile.email,
+              email: newProfile?.email,
             });
-          } catch (createError: any) {
-            logger.error('Error creating profile:', createError);
-            throw new Error(`Failed to create user profile: ${createError.message}`);
+            
+            profile = newProfile;
+          } catch (createError) {
+            logger.error('Failed to auto-create profile for old Supabase user:', createError);
+            throw new Error('User profile not found in database and failed to create. Please contact support.');
           }
+        }
+
+        if (!profile) {
+          throw new Error('User profile not found in database.');
         }
 
         // Ensure email is set - use auth user email if profile email is missing or invalid
@@ -305,132 +239,102 @@ export function registerProfileHandlers() {
         if (!profile && wordpressAuth.user.id) {
           console.log('🔍 [Profile Handler] Strategy 4: Looking up profile by wordpress_user_id:', wordpressAuth.user.id);
           const adminClient = getSupabaseAdminClient();
-          try {
-            const { data: profileById, error: idError } = await adminClient
-              .from('profiles')
-              .select('*')
-              .eq('wordpress_user_id', wordpressAuth.user.id)
-              .maybeSingle();
-            
-            if (profileById && !idError) {
-              console.log('✅ [Profile Handler] Found profile by wordpress_user_id:', {
-                profileId: profileById.id,
-                profileEmail: profileById.email,
-                wordpressUserId: profileById.wordpress_user_id,
-              });
-              profile = profileById;
-            }
-          } catch (error: any) {
-            // If error is about missing columns, try with base columns
-            if (error.message?.includes('does not exist') || error.code === '42703') {
-              logger.warn('Column error, trying base columns');
-                const { data: profileById, error: idError } = await adminClient
-                .from('profiles')
-                .select('*')
-                .eq('wordpress_user_id', wordpressAuth.user.id)
-                .maybeSingle();
-              
-              if (profileById && !idError) {
-                profile = {
-                  ...profileById,
-                  first_name: null,
-                  last_name: null,
-                  monthly_credits: 50,
-                  remaining_credits: 50,
-                  credits_last_reset: null,
-                  total_credits_used: 0,
-                  total_tokens_used: 0,
-                };
-              }
-            }
+          const { data: profileById, error: idError } = await adminClient
+            .from('profiles')
+            .select('*')
+            .eq('wordpress_user_id', wordpressAuth.user.id)
+            .maybeSingle();
+          
+          if (profileById && !idError) {
+            console.log('✅ [Profile Handler] Found profile by wordpress_user_id:', {
+              profileId: profileById.id,
+              profileEmail: profileById.email,
+              wordpressUserId: profileById.wordpress_user_id,
+            });
+            profile = profileById;
           }
         }
         
-        // ✅ FIX: Auto-create profile if it doesn't exist for WordPress users
+        // ✅ AUTO-CREATE: If profile still not found, create a new one for this WordPress user
         if (!profile) {
-          logger.warn('WordPress user profile not found in Supabase, creating new profile:', {
+          logger.info('WordPress user profile not found in Supabase, creating new profile:', {
             email: userEmail,
-            username: wordpressAuth.user.username,
+            username: wordpressUsername,
+            displayName: wordpressDisplayName,
+            wordpressUserId: wordpressAuth.user.id,
+          });
+          console.log('🔧 [Profile Handler] Auto-creating profile for WordPress user:', {
+            email: userEmail,
+            username: wordpressUsername,
+            displayName: wordpressDisplayName,
             wordpressUserId: wordpressAuth.user.id,
           });
           
           try {
             const adminClient = getSupabaseAdminClient();
-            // Try to insert with all columns, but handle missing columns gracefully
-            const insertData: any = {
-              email: userEmail || 'unknown@example.com',
-              full_name: wordpressDisplayName || null,
-              wordpress_user_id: wordpressAuth.user.id || null,
-              wordpress_username: wordpressUsername || null,
-              wordpress_display_name: wordpressDisplayName || null,
-              subscription_tier: 'free',
-            };
             
-            // Only include optional columns if they might exist
-            try {
-              insertData.monthly_credits = 50;
-              insertData.remaining_credits = 50;
-              insertData.total_credits_used = 0;
-              insertData.total_tokens_used = 0;
-            } catch (e) {
-              // Ignore - these columns might not exist
+            // Generate a unique UUID for the new profile
+            const { randomUUID } = await import('crypto');
+            const newProfileId = randomUUID();
+            
+            // Parse capabilities to get WordPress roles
+            const capabilities = wordpressAuth.user.capabilities;
+            let roles: string[] = [];
+            
+            if (Array.isArray(capabilities)) {
+              roles = capabilities;
+            } else if (typeof capabilities === 'object' && capabilities !== null) {
+              // Extract role names from capabilities object (keys with truthy values)
+              roles = Object.keys(capabilities).filter(key => {
+                const value = capabilities[key];
+                if (typeof value === 'boolean') return value;
+                if (typeof value === 'number') return value !== 0;
+                if (typeof value === 'string') return value !== '' && value !== '0' && value !== 'false';
+                return false;
+              });
             }
             
+            // Create new profile
             const { data: newProfile, error: createError } = await adminClient
               .from('profiles')
-              .insert(insertData)
-              .select('*')
+              .insert({
+                id: newProfileId,
+                email: userEmail || 'unknown@example.com',
+                full_name: wordpressDisplayName || wordpressUsername || null,
+                wordpress_user_id: wordpressAuth.user.id,
+                wordpress_username: wordpressUsername || null,
+                wordpress_display_name: wordpressDisplayName || null,
+                wordpress_roles: roles,
+                subscription_tier: 'free',
+                monthly_credits: 100,
+                remaining_credits: 100,
+                total_credits_used: 0,
+                total_tokens_used: 0,
+                credits_last_reset: new Date().toISOString(),
+              })
+              .select()
               .single();
             
             if (createError) {
-              // If error is about missing columns, try without them
-              if (createError.message?.includes('does not exist') || createError.code === '42703') {
-                logger.warn('Some columns missing during WordPress profile insert, retrying with base columns only');
-                const baseInsertData = {
-                  email: userEmail || 'unknown@example.com',
-                  full_name: wordpressDisplayName || null,
-                  wordpress_user_id: wordpressAuth.user.id || null,
-                  wordpress_username: wordpressUsername || null,
-                  wordpress_display_name: wordpressDisplayName || null,
-                  subscription_tier: 'free',
-                };
-                
-                const { data: fallbackProfile, error: fallbackError } = await adminClient
-                  .from('profiles')
-                  .insert(baseInsertData)
-                  .select('*')
-                  .single();
-                
-                if (fallbackError) {
-                  logger.error('Failed to create WordPress profile with fallback:', fallbackError);
-                  throw new Error(`Failed to create user profile: ${fallbackError.message}`);
-                }
-                
-                profile = {
-                  ...fallbackProfile,
-                  first_name: null,
-                  last_name: null,
-                  monthly_credits: 50,
-                  remaining_credits: 50,
-                  credits_last_reset: null,
-                  total_credits_used: 0,
-                  total_tokens_used: 0,
-                };
-              } else {
-                logger.error('Failed to create profile for WordPress user:', createError);
-                throw new Error(`Failed to create user profile: ${createError.message}`);
-              }
-            } else {
-              profile = newProfile;
+              logger.error('Failed to auto-create profile:', createError);
+              throw new Error(`Failed to create user profile: ${createError.message}`);
             }
-            logger.info('✅ Successfully created missing profile for WordPress user:', {
-              profileId: profile.id,
-              email: profile.email,
-              wordpressUserId: wordpressAuth.user.id,
+            
+            logger.info('✅ Profile auto-created successfully:', {
+              profileId: newProfile.id,
+              email: newProfile.email,
+              wordpressUserId: newProfile.wordpress_user_id,
             });
-          } catch (createError: any) {
-            logger.error('Error creating profile for WordPress user:', createError);
-            throw new Error(`Failed to create user profile: ${createError.message}`);
+            console.log('✅ [Profile Handler] Profile auto-created successfully:', {
+              profileId: newProfile.id,
+              email: newProfile.email,
+              wordpressUserId: newProfile.wordpress_user_id,
+            });
+            
+            profile = newProfile;
+          } catch (createError) {
+            logger.error('Failed to auto-create profile for WordPress user:', createError);
+            throw new Error('Failed to create user profile. Please contact support.');
           }
         }
 
@@ -527,8 +431,6 @@ export function registerProfileHandlers() {
   ipcMain.handle('profile:update', async (_, updates: {
     username?: string;
     full_name?: string;
-    first_name?: string;
-    last_name?: string;
     avatar_url?: string;
   }) => {
     try {
@@ -568,29 +470,10 @@ export function registerProfileHandlers() {
         }
 
         // Update profile
-        // If first_name or last_name are provided, also update full_name as concatenation
         const updateData: any = {
           ...updates,
           updated_at: new Date().toISOString(),
         };
-        
-        // If first_name or last_name are being updated, update full_name too
-        if (updates.first_name !== undefined || updates.last_name !== undefined) {
-          // We need to get current values first to build full_name
-          const { data: currentProfile } = await adminClient
-            .from('profiles')
-            .select('*')
-            .eq('id', profile.id)
-            .single();
-          
-          const firstName = updates.first_name !== undefined ? updates.first_name : (currentProfile?.first_name || '');
-          const lastName = updates.last_name !== undefined ? updates.last_name : (currentProfile?.last_name || '');
-          
-          // Build full_name from first_name and last_name
-          if (firstName || lastName) {
-            updateData.full_name = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-          }
-        }
         
         const { data: updatedProfile, error: updateError } = await adminClient
           .from('profiles')
@@ -637,29 +520,10 @@ export function registerProfileHandlers() {
         // Update profile
         const adminClient = getSupabaseAdminClient();
         
-        // If first_name or last_name are provided, also update full_name as concatenation
         const updateData: any = {
           ...updates,
           updated_at: new Date().toISOString(),
         };
-        
-        // If first_name or last_name are being updated, update full_name too
-        if (updates.first_name !== undefined || updates.last_name !== undefined) {
-          // We need to get current values first to build full_name
-          const { data: currentProfile } = await adminClient
-            .from('profiles')
-            .select('*')
-            .eq('id', profile.id)
-            .single();
-          
-          const firstName = updates.first_name !== undefined ? updates.first_name : (currentProfile?.first_name || '');
-          const lastName = updates.last_name !== undefined ? updates.last_name : (currentProfile?.last_name || '');
-          
-          // Build full_name from first_name and last_name
-          if (firstName || lastName) {
-            updateData.full_name = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-          }
-        }
         
         const { data: updatedProfile, error: updateError } = await adminClient
           .from('profiles')

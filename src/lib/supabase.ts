@@ -12,8 +12,6 @@ export interface Database {
           email: string;
           username: string | null;
           full_name: string | null;
-          first_name: string | null;
-          last_name: string | null;
           avatar_url: string | null;
           subscription_tier: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id: string | null;
@@ -36,8 +34,6 @@ export interface Database {
           email: string;
           username?: string | null;
           full_name?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
           avatar_url?: string | null;
           subscription_tier?: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id?: string | null;
@@ -60,8 +56,6 @@ export interface Database {
           email?: string;
           username?: string | null;
           full_name?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
           avatar_url?: string | null;
           subscription_tier?: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id?: string | null;
@@ -503,7 +497,7 @@ export class SupabaseAuth {
   }
 
   // Sign up with email and password
-  async signUp(email: string, password: string, fullName?: string, firstName?: string, lastName?: string) {
+  async signUp(email: string, password: string, fullName?: string) {
     try {
       const { data, error } = await this.client.auth.signUp({
         email,
@@ -511,8 +505,6 @@ export class SupabaseAuth {
         options: {
           data: {
             full_name: fullName,
-            first_name: firstName,
-            last_name: lastName,
           },
         },
       });
@@ -521,7 +513,7 @@ export class SupabaseAuth {
 
       // Create profile if user was created
       if (data.user && !error) {
-        await this.createProfile(data.user, fullName, firstName, lastName);
+        await this.createProfile(data.user, fullName);
       }
 
       return { user: data.user, session: data.session };
@@ -540,12 +532,6 @@ export class SupabaseAuth {
       });
 
       if (error) throw error;
-      
-      // ✅ Ensure profile exists after sign in
-      if (data.user) {
-        await this.ensureProfileExists(data.user);
-      }
-      
       return { user: data.user, session: data.session };
     } catch (error) {
       log.error('Sign in error:', error);
@@ -575,14 +561,7 @@ export class SupabaseAuth {
         email: profile.email,
       });
 
-      const result = await this.signIn(profile.email, password);
-      
-      // ✅ Ensure profile exists (signIn already does this, but double-check)
-      if (result.user) {
-        await this.ensureProfileExists(result.user);
-      }
-      
-      return result;
+      return await this.signIn(profile.email, password);
     } catch (error) {
       log.error('Sign in with username/email error:', error);
       throw error;
@@ -653,91 +632,23 @@ export class SupabaseAuth {
     }
   }
 
-  // Create user profile (handles missing columns gracefully)
-  private async createProfile(user: User, fullName?: string, firstName?: string, lastName?: string) {
+  // Create user profile
+  private async createProfile(user: User, fullName?: string) {
     try {
-      // Build full_name from first_name and last_name if not provided
-      const finalFullName = fullName || (firstName || lastName ? [firstName, lastName].filter(Boolean).join(' ').trim() : null);
-      
-      // Try to insert with all columns, but handle missing columns gracefully
-      const insertData: any = {
-        id: user.id,
-        email: user.email!,
-        full_name: finalFullName || null,
-        subscription_tier: 'free',
-      };
-      
-      // Only include optional columns if they might exist
-      try {
-        insertData.first_name = firstName || null;
-        insertData.last_name = lastName || null;
-        insertData.monthly_credits = 50;
-        insertData.remaining_credits = 50;
-        insertData.total_credits_used = 0;
-        insertData.total_tokens_used = 0;
-      } catch (e) {
-        // Ignore - these columns might not exist
-      }
-      
       const { error } = await this.client
         .from('profiles')
-        .insert(insertData);
+        .insert({
+          id: user.id,
+          email: user.email!,
+          full_name: fullName || null,
+          subscription_tier: 'free',
+        });
 
-      if (error) {
-        // If error is about missing columns, try without them
-        if (error.message?.includes('does not exist') || error.code === '42703') {
-          log.warn('Some columns missing during profile creation, retrying with base columns only');
-          const baseInsertData = {
-            id: user.id,
-            email: user.email!,
-            full_name: finalFullName || null,
-            subscription_tier: 'free',
-          };
-          
-          const { error: baseError } = await this.client
-            .from('profiles')
-            .insert(baseInsertData);
-          
-          if (baseError) throw baseError;
-          log.info('User profile created successfully (base columns only)');
-        } else {
-          throw error;
-        }
-      } else {
-        log.info('User profile created successfully');
-      }
+      if (error) throw error;
+      log.info('User profile created successfully');
     } catch (error) {
       log.error('Create profile error:', error);
       // Don't throw here as the user was created successfully
-    }
-  }
-
-  // Ensure profile exists - check and create if missing
-  async ensureProfileExists(user: User): Promise<void> {
-    try {
-      // Check if profile exists
-      const existingProfile = await this.getProfile(user.id);
-      
-      if (existingProfile) {
-        log.info('Profile already exists for user:', user.id);
-        return;
-      }
-      
-      // Profile doesn't exist, create it
-      log.warn('Profile not found for user, creating new profile:', {
-        userId: user.id,
-        email: user.email,
-      });
-      
-      const fullName = user.user_metadata?.full_name || user.user_metadata?.name || null;
-      const firstName = user.user_metadata?.first_name || null;
-      const lastName = user.user_metadata?.last_name || null;
-      
-      await this.createProfile(user, fullName, firstName, lastName);
-      log.info('✅ Profile created successfully for existing user');
-    } catch (error) {
-      log.error('Error ensuring profile exists:', error);
-      // Don't throw - allow sign in to continue even if profile creation fails
     }
   }
 
@@ -748,13 +659,10 @@ export class SupabaseAuth {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      
-      return data || null;
+      if (error) throw error;
+      return data;
     } catch (error) {
       log.error('Get profile error:', error);
       throw error;
@@ -806,12 +714,6 @@ export class SupabaseAuth {
     try {
       const { data, error } = await this.client.auth.exchangeCodeForSession(code);
       if (error) throw error;
-      
-      // ✅ Ensure profile exists after OAuth sign in
-      if (data.user) {
-        await this.ensureProfileExists(data.user);
-      }
-      
       log.info('OAuth code exchanged successfully');
       return data;
     } catch (error) {
@@ -829,12 +731,6 @@ export class SupabaseAuth {
       });
 
       if (error) throw error;
-      
-      // ✅ Ensure profile exists after OAuth sign in
-      if (data.user) {
-        await this.ensureProfileExists(data.user);
-      }
-      
       return data;
     } catch (error) {
       log.error('Set session error:', error);

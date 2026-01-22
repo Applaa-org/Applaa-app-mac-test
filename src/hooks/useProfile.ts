@@ -7,10 +7,8 @@ export interface Profile {
   email: string;
   username: string | null;
   full_name: string | null;
-  first_name: string | null;
-  last_name: string | null;
   avatar_url: string | null;
-  subscription_tier: 'free' | 'pro' | null;
+  subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
   wordpress_user_id: number | null;
   wordpress_username: string | null;
   wordpress_display_name: string | null;
@@ -20,7 +18,6 @@ export interface Profile {
   credits_last_reset: string | null;
   total_credits_used: number | null;
   total_tokens_used: number | null;
-  subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,8 +51,6 @@ export function useProfile() {
     mutationFn: async (updates: { 
       username?: string;
       full_name?: string; 
-      first_name?: string;
-      last_name?: string;
       avatar_url?: string;
     }) => {
       const result = await IpcClient.getInstance().updateProfile(updates);

@@ -60,8 +60,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   // Game Window defaults (enabled by default to match current behavior)
   enableGameWindowDuringStream: true,
   
-  // User tier - defaults to "free"
-  userTier: "free" as const,
+  // User tier removed - now fetched directly from Supabase, not stored in local settings
+  
   // UI State defaults (expanded by default)
   deployedAppsSectionExpanded: true,
 };
@@ -82,8 +82,7 @@ export function readSettings(): UserSettings {
   // CRITICAL: Prevent recursive calls that cause infinite loops
   if (_isReadingSettings) {
     console.warn('[readSettings] Recursive call detected, returning cached or default settings');
-    // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
-    return _settingsCache ? { ..._settingsCache } : { ...DEFAULT_SETTINGS };
+    return _settingsCache || DEFAULT_SETTINGS;
   }
   
   // PERFORMANCE: Use cache if it's still valid (within 5 seconds)
@@ -93,10 +92,14 @@ export function readSettings(): UserSettings {
     if (_readCount % 50 === 0) { // Log every 50th call to avoid spam
       console.log(`[PERF] Settings cache hit ${_cacheHits}/${_readCount} (${Math.round(_cacheHits/_readCount*100)}% hit rate)`);
     }
-    // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
-    // Shallow clone ensures state management libraries detect changes
-    return { ..._settingsCache };
+    console.log('🔧 [readSettings] Cache hit, model:', {
+      provider: _settingsCache.selectedModel?.provider,
+      name: _settingsCache.selectedModel?.name
+    });
+    return _settingsCache;
   }
+  
+  console.log('🔧 [readSettings] Cache miss, reading from file...');
   
   try {
     _isReadingSettings = true;
@@ -106,8 +109,7 @@ export function readSettings(): UserSettings {
     if (!fs.existsSync(filePath)) {
       console.log(`[readSettings] Settings file doesn't exist, creating default settings`);
       fs.writeFileSync(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
-      // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
-      return { ...DEFAULT_SETTINGS };
+      return DEFAULT_SETTINGS;
     }
     const rawSettings = JSON.parse(fs.readFileSync(filePath, "utf-8"));
     const combinedSettings: UserSettings = {
@@ -209,18 +211,21 @@ export function readSettings(): UserSettings {
     // Validate and merge with defaults
     const validatedSettings = UserSettingsSchema.parse(combinedSettings);
     
+    console.log('🔧 [readSettings] Settings read from file, model:', {
+      provider: validatedSettings.selectedModel?.provider,
+      name: validatedSettings.selectedModel?.name
+    });
+    
     // Cache the settings to prevent recursive calls AND improve performance
     _settingsCache = validatedSettings;
     _cacheTimestamp = Date.now(); // Update cache timestamp
     
     console.log(`[PERF] Settings loaded from disk (read #${_readCount})`);
 
-    // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
-    return { ...validatedSettings };
+    return validatedSettings;
   } catch (error) {
     logger.error("Error reading settings:", error);
-    // ✅ FIX: Return a new object reference to trigger React/Jotai re-renders
-    return { ...DEFAULT_SETTINGS };
+    return DEFAULT_SETTINGS;
   } finally {
     // CRITICAL: Always reset the flag to prevent permanent lock
     _isReadingSettings = false;
@@ -255,13 +260,30 @@ export function writeSettings(settings: Partial<UserSettings>): void {
     return;
   }
   
+  console.log('🔧 [writeSettings] START - Incoming settings:', {
+    hasSelectedModel: !!settings.selectedModel,
+    modelProvider: settings.selectedModel?.provider,
+    modelName: settings.selectedModel?.name
+  });
+  
   try {
     _isWritingSettings = true;
     const filePath = getSettingsFilePath();
     
     // Use cache if available to prevent recursive readSettings calls
     const currentSettings = _settingsCache || readSettings();
+    console.log('🔧 [writeSettings] Current settings model:', {
+      hasSelectedModel: !!currentSettings.selectedModel,
+      modelProvider: currentSettings.selectedModel?.provider,
+      modelName: currentSettings.selectedModel?.name
+    });
+    
     const newSettings = { ...currentSettings, ...settings };
+    console.log('🔧 [writeSettings] Merged settings model:', {
+      hasSelectedModel: !!newSettings.selectedModel,
+      modelProvider: newSettings.selectedModel?.provider,
+      modelName: newSettings.selectedModel?.name
+    });
     if (newSettings.githubAccessToken) {
       newSettings.githubAccessToken = encrypt(
         newSettings.githubAccessToken.value,
@@ -320,15 +342,25 @@ export function writeSettings(settings: Partial<UserSettings>): void {
       }
     }
     const validatedSettings = UserSettingsSchema.parse(newSettings);
+    console.log('🔧 [writeSettings] Validated settings model:', {
+      hasSelectedModel: !!validatedSettings.selectedModel,
+      modelProvider: validatedSettings.selectedModel?.provider,
+      modelName: validatedSettings.selectedModel?.name
+    });
+    
     fs.writeFileSync(filePath, JSON.stringify(validatedSettings, null, 2));
+    console.log('🔧 [writeSettings] File written successfully');
     
     // 🚀 SMART CACHE: Invalidate cache after writing to ensure fresh reads
     invalidateSettingsCache();
+    console.log('🔧 [writeSettings] Cache invalidated');
   } catch (error) {
-    logger.error("Error writing settings:", error);
+    logger.error("🔧 [writeSettings] ERROR:", error);
+    console.error("🔧 [writeSettings] ERROR:", error);
   } finally {
     // CRITICAL: Always reset the flag to prevent permanent lock
     _isWritingSettings = false;
+    console.log('🔧 [writeSettings] END');
   }
 }
 

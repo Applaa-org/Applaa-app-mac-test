@@ -46,16 +46,29 @@ interface ParallelAppCreationResult {
 const taskManager = getBackgroundTaskManager();
 
 async function ensureAuthLimitForAppCreation(): Promise<void> {
+  console.log('🔍 [ensureAuthLimitForAppCreation] Starting app creation permission check...');
+  
   // Check tier-based app limits first (use async version to get latest tier)
   const { canCreateAppAsync } = await import("../utils/feature_checks");
   const appLimitCheck = await canCreateAppAsync();
+  
+  console.log('🔍 [ensureAuthLimitForAppCreation] App limit check result:', appLimitCheck);
+  
   if (!appLimitCheck.allowed) {
+    console.log('❌ [ensureAuthLimitForAppCreation] App creation blocked:', appLimitCheck.reason);
     throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
   }
+  
+  console.log('✅ [ensureAuthLimitForAppCreation] Tier-based check passed');
   
   // Legacy auth check (keep for backwards compatibility)
   const FREE_UNAUTH_LIMIT = 3;
   const { count } = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
+
+  console.log('🔍 [ensureAuthLimitForAppCreation] Legacy auth check:', { 
+    existingApps: count, 
+    unauthLimit: FREE_UNAUTH_LIMIT 
+  });
 
   // Check both Supabase and WordPress authentication
   let isAuthenticated = false;
@@ -65,8 +78,10 @@ async function ensureAuthLimitForAppCreation(): Promise<void> {
     const auth = getSupabaseAuth();
     const session = await auth.getCurrentSession();
     isAuthenticated = !!session;
+    console.log('🔍 [ensureAuthLimitForAppCreation] Supabase auth check:', { isAuthenticated, hasSession: !!session });
   } catch (error) {
     // Supabase auth not available, continue to check WordPress
+    console.log('⚠️ [ensureAuthLimitForAppCreation] Supabase auth check failed:', error);
     logger.debug("Supabase auth check failed, checking WordPress auth...");
   }
 
@@ -76,18 +91,26 @@ async function ensureAuthLimitForAppCreation(): Promise<void> {
       const settings = readSettings();
       const wordpressAuth = settings.wordpressAuth;
       isAuthenticated = !!(wordpressAuth?.isAuthenticated && wordpressAuth?.user?.username);
+      console.log('🔍 [ensureAuthLimitForAppCreation] WordPress auth check:', { 
+        isAuthenticated,
+        hasWordPressAuth: !!wordpressAuth?.isAuthenticated 
+      });
       if (isAuthenticated) {
         logger.debug("WordPress authentication found for app creation");
     }
   } catch (error) {
+      console.log('⚠️ [ensureAuthLimitForAppCreation] WordPress auth check failed:', error);
       logger.debug("WordPress auth check failed:", error);
     }
   }
 
   // If still not authenticated and at limit, throw error
   if (!isAuthenticated && count >= FREE_UNAUTH_LIMIT) {
+      console.log('❌ [ensureAuthLimitForAppCreation] Unauthenticated user at limit');
       throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
   }
+  
+  console.log('✅ [ensureAuthLimitForAppCreation] All checks passed, app creation allowed');
 }
 
 /**

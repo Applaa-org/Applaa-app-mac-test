@@ -854,9 +854,9 @@ export function registerAppHandlers() {
       _,
       params: CreateAppParams,
     ): Promise<{ app: any; chatId: number }> => {
-      // Check tier-based app limits
-      const { canCreateApp } = await import("../utils/feature_checks");
-      const appLimitCheck = canCreateApp();
+      // Check tier-based app limits (use async to get latest tier from database)
+      const { canCreateAppAsync } = await import("../utils/feature_checks");
+      const appLimitCheck = await canCreateAppAsync();
       if (!appLimitCheck.allowed) {
         throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
       }

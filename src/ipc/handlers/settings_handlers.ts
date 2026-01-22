@@ -14,8 +14,19 @@ export function registerSettingsHandlers() {
   ipcMain.handle(
     "set-user-settings",
     async (_, settings: Partial<UserSettings>) => {
+      console.log('🔧 [IPC] set-user-settings called with:', { 
+        hasSelectedModel: !!settings.selectedModel,
+        modelProvider: settings.selectedModel?.provider,
+        modelName: settings.selectedModel?.name  
+      });
       writeSettings(settings);
-      return readSettings();
+      const updatedSettings = readSettings();
+      console.log('🔧 [IPC] Returning updated settings:', { 
+        hasSelectedModel: !!updatedSettings.selectedModel,
+        modelProvider: updatedSettings.selectedModel?.provider,
+        modelName: updatedSettings.selectedModel?.name
+      });
+      return updatedSettings;
     },
   );
 

@@ -600,11 +600,11 @@ export function registerSubscriptionHandlers() {
         throw new Error('User profile not found and could not be created');
       }
 
-      // Update local settings based on database subscription_tier
+      // Get subscription tier from database (no longer stored in local settings)
       // Support all tiers: free, pro, ultra, business
       const subscriptionTier = profile.subscription_tier as 'free' | 'pro' | 'ultra' | 'business' | null;
       const tier = subscriptionTier || 'free';
-      writeSettings({ userTier: tier });
+      // Tier is now always fetched from Supabase database, not stored locally
 
       logger.info(`Subscription synced from Supabase. Tier: ${tier}`);
 

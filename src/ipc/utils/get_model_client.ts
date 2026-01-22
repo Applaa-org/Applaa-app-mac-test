@@ -61,12 +61,8 @@ export async function getModelClient(
 
   const allProviders = await getLanguageModelProviders();
 
-  const dyadApiKey = settings.providerSettings?.auto?.apiKey?.value;
-
   // 🔧 DEBUG: Log API key availability for debugging
   logger.info(`🔍 API Key Debug - Provider: ${model.provider}`);
-  logger.info(`🔍 Applaa Pro enabled: ${settings.enableApplaaPro}`);
-  logger.info(`🔍 Auto API key present: ${!!dyadApiKey}`);
   if (settings.providerSettings?.[model.provider]?.apiKey?.value) {
     logger.info(`🔍 Direct provider API key present: YES`);
   } else {
@@ -80,91 +76,9 @@ export async function getModelClient(
     throw new Error(`Configuration not found for provider: ${model.provider}`);
   }
 
-  // 🔧 APPLAA PRO GATEWAY: DISABLED FOR ALL USERS
-  // All users (free/pro/ultra/business) use direct provider keys (OpenAI, Anthropic, etc.)
-  // The subscription tier only affects credits and feature limits, NOT the routing
-  const GATEWAY_DISABLED = true; // Set to false to re-enable gateway for advanced users
-  
-  if (!GATEWAY_DISABLED && settings.enableApplaaPro && dyadApiKey) {
-    logger.info(`🔍 Applaa Pro gateway is enabled and API key is configured`);
-    if (providerConfig.gatewayPrefix != null || dyadEngineUrl) {
-      // Check if the selected provider supports Applaa Pro (has a gateway prefix) OR
-      // we're using local engine.
-      // IMPORTANT: some providers like OpenAI have an empty string gateway prefix,
-      // so we do a nullish and not a truthy check here.
-      // Spark features require Applaa Pro to be enabled
-      const hasApplaaPro = settings.enableApplaaPro === true;
-      const isEngineEnabled = hasApplaaPro && (
-        settings.enableProSmartFilesContextMode ||
-        settings.enableProLazyEditsMode
-      );
-      const provider = isEngineEnabled
-        ? createDyadEngine({
-          apiKey: dyadApiKey,
-          baseURL: dyadEngineUrl ?? "https://engine.applaa.dev/v1",
-          originalProviderId: model.provider,
-          dyadOptions: {
-            enableLazyEdits:
-              settings.selectedChatMode === "ask"
-                ? false
-                : (hasApplaaPro && settings.enableProLazyEditsMode),
-            enableSmartFilesContext: hasApplaaPro && settings.enableProSmartFilesContextMode,
-          },
-          settings,
-        })
-        : createOpenAICompatible({
-          name: "dyad-gateway",
-          apiKey: dyadApiKey,
-          baseURL: dyadGatewayUrl ?? "https://llm-gateway.applaa.dev/v1",
-        });
-
-      logger.info(
-        `\x1b[1;97;44m Using Applaa Pro API key for model: ${model.name}. engine_enabled=${isEngineEnabled} \x1b[0m`,
-      );
-      if (isEngineEnabled) {
-        logger.info(
-          `\x1b[1;30;42m Using Applaa Pro engine: ${dyadEngineUrl ?? "<prod>"} \x1b[0m`,
-        );
-      } else {
-        logger.info(
-          `\x1b[1;30;43m Using Applaa Pro gateway: ${dyadGatewayUrl ?? "<prod>"} \x1b[0m`,
-        );
-      }
-      // Do not use free variant (for openrouter).
-      const modelName = model.name.split(":free")[0];
-      const autoModelClient = {
-        model: provider(
-          `${providerConfig.gatewayPrefix || ""}${modelName}`,
-          isEngineEnabled
-            ? {
-              files,
-            }
-            : undefined,
-        ),
-        builtinProviderId: model.provider,
-      };
-
-      return {
-        modelClient: autoModelClient,
-        isEngineEnabled,
-      };
-    } else {
-      logger.info(
-        `Applaa Pro gateway enabled, but provider ${model.provider} does not have a gateway prefix defined. Using direct provider connection.`,
-      );
-      // Fall through to regular provider logic if gateway prefix is missing
-    }
-  } else if (settings.enableApplaaPro && !dyadApiKey) {
-    logger.info(
-      `🔧 Gateway routing disabled. All users use direct provider keys (OpenAI, Anthropic, etc.).`
-    );
-    // Fall through to regular provider logic - all users (free/pro/ultra/business) use direct keys
-  } else if (GATEWAY_DISABLED) {
-    logger.info(
-      `🔧 Gateway routing is disabled globally. Using direct provider keys for all users.`
-    );
-    // Fall through to regular provider logic
-  }
+  // ✅ SIMPLIFIED: Pro users now work the same as Free users
+  // Pro tier only controls feature access (unlimited apps, deployment, etc.)
+  // NOT how API keys and providers work
   // Handle 'auto' provider by trying each model in AUTO_MODELS until one works
   if (model.provider === "auto") {
     for (const autoModel of AUTO_MODELS) {
