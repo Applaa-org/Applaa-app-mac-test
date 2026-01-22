@@ -178,8 +178,12 @@ export type ContextPathResults = {
 export const ReleaseChannelSchema = z.enum(["stable", "beta"]);
 export type ReleaseChannel = z.infer<typeof ReleaseChannelSchema>;
 
-export const UserTierSchema = z.enum(["free", "pro"]);
-export type UserTier = z.infer<typeof UserTierSchema>;
+/**
+ * User subscription tiers - sourced from Supabase database
+ * This is a standalone type (not Zod schema) since tiers are managed in the database,
+ * not in local settings
+ */
+export type UserTier = "free" | "pro" | "ultra" | "business";
 
 /**
  * Zod schema for user settings
@@ -198,7 +202,7 @@ export const UserSettingsSchema = z.object({
   telemetryUserId: z.string().optional(),
   hasRunBefore: z.boolean().optional(),
   enableApplaaPro: z.boolean().optional(),
-  userTier: UserTierSchema.optional(), // "free" or "pro" - defaults to "free"
+  // userTier removed - now fetched directly from Supabase database, not stored in local settings
   experiments: ExperimentsSchema.optional(),
   lastShownReleaseNotesVersion: z.string().optional(),
   maxChatTurnsInContext: z.number().optional(),

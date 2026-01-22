@@ -60,8 +60,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   // Game Window defaults (enabled by default to match current behavior)
   enableGameWindowDuringStream: true,
   
-  // User tier - defaults to "free"
-  userTier: "free" as const,
+  // User tier removed - now fetched directly from Supabase, not stored in local settings
+  
   // UI State defaults (expanded by default)
   deployedAppsSectionExpanded: true,
 };

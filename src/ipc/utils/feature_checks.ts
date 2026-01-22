@@ -16,56 +16,100 @@ const logger = log.scope("feature-checks");
  * Falls back to settings if profile is not available
  */
 export async function getUserTier(): Promise<UserTier> {
+  console.log('🔍 [getUserTier] Starting tier lookup...');
+  
   try {
     const auth = getSupabaseAuth();
     const supabaseUser = await auth.getCurrentUser();
     
+    console.log('🔍 [getUserTier] Supabase user:', { 
+      exists: !!supabaseUser, 
+      id: supabaseUser?.id,
+      email: supabaseUser?.email 
+    });
+    
     if (supabaseUser) {
-      // Try to get profile by user ID
-      const profile = await auth.getProfile(supabaseUser.id);
+      // Use admin client (service role) to bypass RLS and get profile by email
+      // This is more reliable than getProfile(userId) which is blocked by RLS policies
+      console.log('🔍 [getUserTier] Looking up profile using admin client for:', supabaseUser.email);
+      const profile = await auth.getProfileByEmailOrUsername(supabaseUser.email);
+      
+      console.log('🔍 [getUserTier] Profile lookup result:', { 
+        found: !!profile,
+        profileId: profile?.id,
+        email: profile?.email,
+        tier: profile?.subscription_tier 
+      });
+      
       if (profile?.subscription_tier) {
+        console.log('✅ [getUserTier] Returning tier from Supabase profile:', profile.subscription_tier);
         return profile.subscription_tier as UserTier;
       }
+      
+      console.log('⚠️ [getUserTier] Profile found but no subscription_tier, trying WordPress fallback...');
     }
     
     // Fallback: Try WordPress auth
     const settings = readSettings();
     const wordpressAuth = settings.wordpressAuth;
     
+    console.log('🔍 [getUserTier] WordPress auth status:', {
+      isAuthenticated: wordpressAuth?.isAuthenticated,
+      hasUser: !!wordpressAuth?.user,
+      username: wordpressAuth?.user?.username
+    });
+    
     if (wordpressAuth?.isAuthenticated && wordpressAuth?.user) {
       const userEmail = wordpressAuth.user.email;
       const wordpressUsername = wordpressAuth.user.username;
       const wordpressDisplayName = wordpressAuth.user.display_name;
 
+      console.log('🔍 [getUserTier] Trying WordPress lookup strategies:', {
+        email: userEmail,
+        username: wordpressUsername,
+        displayName: wordpressDisplayName
+      });
+
       // Try multiple lookup strategies
       if (userEmail && userEmail !== 'unknown@example.com') {
+        console.log('🔍 [getUserTier] Strategy 1: Looking up by email:', userEmail);
         const profile = await auth.getProfileByEmailOrUsername(userEmail);
         if (profile?.subscription_tier) {
+          console.log('✅ [getUserTier] Found profile by email, tier:', profile.subscription_tier);
           return profile.subscription_tier as UserTier;
         }
+        console.log('❌ [getUserTier] Email lookup failed or no tier');
       }
 
       if (wordpressDisplayName) {
+        console.log('🔍 [getUserTier] Strategy 2: Looking up by display name:', wordpressDisplayName);
         const profile = await auth.getProfileByEmailOrUsername(wordpressDisplayName);
         if (profile?.subscription_tier) {
+          console.log('✅ [getUserTier] Found profile by display name, tier:', profile.subscription_tier);
           return profile.subscription_tier as UserTier;
         }
+        console.log('❌ [getUserTier] Display name lookup failed or no tier');
       }
 
       if (wordpressUsername) {
+        console.log('🔍 [getUserTier] Strategy 3: Looking up by username:', wordpressUsername);
         const profile = await auth.getProfileByEmailOrUsername(wordpressUsername);
         if (profile?.subscription_tier) {
+          console.log('✅ [getUserTier] Found profile by username, tier:', profile.subscription_tier);
           return profile.subscription_tier as UserTier;
         }
+        console.log('❌ [getUserTier] Username lookup failed or no tier');
       }
     }
   } catch (error) {
-    logger.warn('Failed to get tier from Supabase, falling back to settings:', error);
+    console.error('❌ [getUserTier] Exception during tier lookup:', error);
+    logger.warn('Failed to get tier from Supabase, falling back to free:', error);
   }
   
-  // Final fallback: use settings (for backwards compatibility)
-  const settings = readSettings();
-  return (settings.userTier || "free") as UserTier;
+  // Final fallback: default to free tier if database is unreachable
+  // No longer using local settings - tier is always fetched from Supabase
+  console.log('⚠️ [getUserTier] Database lookup failed, defaulting to free tier');
+  return "free";
 }
 
 /**
@@ -84,16 +128,16 @@ export function getUserTierSync(): UserTier {
     return cachedTier;
   }
   
-  // Fallback to settings immediately, then update cache asynchronously
-  const settings = readSettings();
-  const fallbackTier = (settings.userTier || "free") as UserTier;
+  // Default to free immediately, then update cache asynchronously
+  // No longer using local settings - tier is always fetched from Supabase
+  const fallbackTier: UserTier = "free";
   
-  // Update cache asynchronously
+  // Update cache asynchronously from database
   getUserTier().then(tier => {
     cachedTier = tier;
     tierCacheTime = Date.now();
   }).catch(() => {
-    // If async fetch fails, keep using fallback
+    // If async fetch fails, cache free tier
     cachedTier = fallbackTier;
     tierCacheTime = Date.now();
   });
@@ -105,8 +149,11 @@ export function getUserTierSync(): UserTier {
  * Check if user is on Pro tier (async)
  */
 export async function isProUserAsync(): Promise<boolean> {
+  console.log('🔍 [isProUserAsync] Fetching user tier...');
   const tier = await getUserTier();
-  return tier === "pro" || tier === "ultra" || tier === "business";
+  const isPro = tier === "pro" || tier === "ultra" || tier === "business";
+  console.log('🔍 [isProUserAsync] Result:', { tier, isPro });
+  return isPro;
 }
 
 /**
@@ -148,22 +195,35 @@ export function canCreateApp(): { allowed: boolean; reason?: string } {
  * Pro tier: unlimited
  */
 export async function canCreateAppAsync(): Promise<{ allowed: boolean; reason?: string }> {
+  console.log('🔍 [canCreateAppAsync] Checking if user can create app...');
+  
   // Use async version to get latest tier (bypasses cache)
   const isPro = await isProUserAsync();
+  console.log('🔍 [canCreateAppAsync] isProUserAsync() result:', isPro);
+  
   if (isPro) {
+    console.log('✅ [canCreateAppAsync] User is Pro, unlimited apps allowed');
     return { allowed: true };
   }
 
   const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
   const FREE_APP_LIMIT = 3;
   
+  console.log('🔍 [canCreateAppAsync] Free tier check:', {
+    existingApps: existingApps.count,
+    limit: FREE_APP_LIMIT,
+    allowed: existingApps.count < FREE_APP_LIMIT
+  });
+  
   if (existingApps.count >= FREE_APP_LIMIT) {
+    console.log('❌ [canCreateAppAsync] App limit reached for free tier');
     return {
       allowed: false,
       reason: `FREE_TIER_APP_LIMIT:${FREE_APP_LIMIT}`,
     };
   }
 
+  console.log('✅ [canCreateAppAsync] App creation allowed');
   return { allowed: true };
 }
 
