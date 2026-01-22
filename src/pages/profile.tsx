@@ -130,6 +130,38 @@ export default function ProfilePage() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Home
             </Button>
+            {/* Subscription Management */}
+            <Button 
+              onClick={async () => {
+                setIsRedirecting(true);
+                try {
+                  await IpcClient.getInstance().redirectToSubscribe();
+                  showSuccess("Opening subscription page in your browser...");
+                } catch (error) {
+                  showError(error instanceof Error ? error.message : "Failed to open subscription page");
+                } finally {
+                  setIsRedirecting(false);
+                }
+              }}
+              disabled={isRedirecting}
+              className="w-full"
+              variant="default"
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              {isRedirecting ? "Opening..." : "Upgrade Subscription"}
+            </Button>
+            {/* Logout Button */}
+            {isAuthenticated && (
+              <Button 
+                variant="destructive" 
+                onClick={handleSignOut}
+                disabled={isLoggingOut}
+                className="w-full"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {isLoggingOut ? "Signing out..." : "Sign Out"}
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -155,6 +187,38 @@ export default function ProfilePage() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Home
             </Button>
+            {/* Subscription Management */}
+            <Button 
+              onClick={async () => {
+                setIsRedirecting(true);
+                try {
+                  await IpcClient.getInstance().redirectToSubscribe();
+                  showSuccess("Opening subscription page in your browser...");
+                } catch (error) {
+                  showError(error instanceof Error ? error.message : "Failed to open subscription page");
+                } finally {
+                  setIsRedirecting(false);
+                }
+              }}
+              disabled={isRedirecting}
+              className="w-full"
+              variant="default"
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              {isRedirecting ? "Opening..." : "Upgrade Subscription"}
+            </Button>
+            {/* Logout Button */}
+            {isAuthenticated && (
+              <Button 
+                variant="destructive" 
+                onClick={handleSignOut}
+                disabled={isLoggingOut}
+                className="w-full"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {isLoggingOut ? "Signing out..." : "Sign Out"}
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
