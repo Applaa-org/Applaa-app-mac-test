@@ -70,6 +70,12 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/universalify")) {
     return false; // CRITICAL: Include universalify (dependency of fs-extra) in packaged app
   }
+  if (file.startsWith("/node_modules/jsonfile")) {
+    return false; // CRITICAL: Include jsonfile (dependency of fs-extra) in packaged app
+  }
+  if (file.startsWith("/node_modules/graceful-fs")) {
+    return false; // CRITICAL: Include graceful-fs (dependency of fs-extra) in packaged app
+  }
   if (file.startsWith("/.vite")) {
     return false;
   }
@@ -81,6 +87,10 @@ const isEndToEndTestBuild = process.env.E2E_TEST_BUILD === "true";
 
 const config: ForgeConfig = {
   packagerConfig: {
+    // Disable prune so our custom ignore filter controls node_modules. Otherwise Galactus
+    // prunes direct deps (e.g. fs-extra) and we get "Cannot find module 'universalify'" in
+    // the packaged app (v1.0.24 EXE from GitHub workflow).
+    prune: false,
     appBundleId: "com.applaa.app",
     protocols: [
       {
@@ -120,6 +130,8 @@ const config: ForgeConfig = {
       "node_modules/electron-updater/**", // CRITICAL: Must be unpacked for OTA updates to work
       "node_modules/fs-extra/**", // CRITICAL: Must be unpacked for file operations
       "node_modules/universalify/**", // CRITICAL: Dependency of fs-extra, must be unpacked
+      "node_modules/jsonfile/**", // CRITICAL: Dependency of fs-extra, must be unpacked
+      "node_modules/graceful-fs/**", // CRITICAL: Dependency of fs-extra, must be unpacked
       "node_modules/expo/**",
       "node_modules/@expo/**",
       "node_modules/.bin/**",
