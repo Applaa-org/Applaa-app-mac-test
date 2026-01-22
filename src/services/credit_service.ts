@@ -44,7 +44,7 @@ export async function getCreditBalance(userId: string): Promise<{
       .from('profiles')
       .select('remaining_credits, monthly_credits, total_credits_used, credits_last_reset, subscription_tier')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       logger.error('Failed to get credit balance:', error);

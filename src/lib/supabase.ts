@@ -12,8 +12,6 @@ export interface Database {
           email: string;
           username: string | null;
           full_name: string | null;
-          first_name: string | null;
-          last_name: string | null;
           avatar_url: string | null;
           subscription_tier: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id: string | null;
@@ -36,8 +34,6 @@ export interface Database {
           email: string;
           username?: string | null;
           full_name?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
           avatar_url?: string | null;
           subscription_tier?: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id?: string | null;
@@ -60,8 +56,6 @@ export interface Database {
           email?: string;
           username?: string | null;
           full_name?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
           avatar_url?: string | null;
           subscription_tier?: 'free' | 'pro' | 'ultra' | 'business';
           stripe_customer_id?: string | null;
@@ -503,7 +497,7 @@ export class SupabaseAuth {
   }
 
   // Sign up with email and password
-  async signUp(email: string, password: string, fullName?: string, firstName?: string, lastName?: string) {
+  async signUp(email: string, password: string, fullName?: string) {
     try {
       const { data, error } = await this.client.auth.signUp({
         email,
@@ -511,8 +505,6 @@ export class SupabaseAuth {
         options: {
           data: {
             full_name: fullName,
-            first_name: firstName,
-            last_name: lastName,
           },
         },
       });
@@ -521,7 +513,7 @@ export class SupabaseAuth {
 
       // Create profile if user was created
       if (data.user && !error) {
-        await this.createProfile(data.user, fullName, firstName, lastName);
+        await this.createProfile(data.user, fullName);
       }
 
       return { user: data.user, session: data.session };
@@ -641,19 +633,14 @@ export class SupabaseAuth {
   }
 
   // Create user profile
-  private async createProfile(user: User, fullName?: string, firstName?: string, lastName?: string) {
+  private async createProfile(user: User, fullName?: string) {
     try {
-      // Build full_name from first_name and last_name if not provided
-      const finalFullName = fullName || (firstName || lastName ? [firstName, lastName].filter(Boolean).join(' ').trim() : null);
-      
       const { error } = await this.client
         .from('profiles')
         .insert({
           id: user.id,
           email: user.email!,
-          full_name: finalFullName || null,
-          first_name: firstName || null,
-          last_name: lastName || null,
+          full_name: fullName || null,
           subscription_tier: 'free',
         });
 

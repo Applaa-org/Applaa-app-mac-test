@@ -2226,8 +2226,6 @@ export class IpcClient {
       email: string;
       username: string | null;
       full_name: string | null;
-      first_name: string | null;
-      last_name: string | null;
       avatar_url: string | null;
       subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
       wordpress_user_id: number | null;
@@ -2244,8 +2242,6 @@ export class IpcClient {
   public async updateProfile(updates: {
     username?: string;
     full_name?: string;
-    first_name?: string;
-    last_name?: string;
     avatar_url?: string;
   }): Promise<{
     success: boolean;
@@ -2254,8 +2250,6 @@ export class IpcClient {
       email: string;
       username: string | null;
       full_name: string | null;
-      first_name: string | null;
-      last_name: string | null;
       avatar_url: string | null;
       subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
       wordpress_user_id: number | null;

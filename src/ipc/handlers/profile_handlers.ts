@@ -49,7 +49,7 @@ export function registerProfileHandlers() {
         // Try to get profile by Supabase user ID first
         let { data: profile, error: profileError } = await adminClient
           .from('profiles')
-          .select('id, email, username, full_name, first_name, last_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, total_tokens_used, created_at, updated_at')
+          .select('id, email, full_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, total_tokens_used, created_at, updated_at')
           .eq('id', supabaseUser.id)
           .maybeSingle();
 
@@ -64,6 +64,54 @@ export function registerProfileHandlers() {
           
           if (identifier) {
             profile = await auth.getProfileByEmailOrUsername(identifier);
+          }
+        }
+
+        // ✅ AUTO-CREATE: If old Supabase user doesn't have a profile, create one
+        if (!profile) {
+          logger.warn('Old Supabase user without profile detected, creating profile:', {
+            userId: supabaseUser.id,
+            email: supabaseUser.email,
+          });
+          
+          try {
+            const fullName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || null;
+            
+            const { error: createError } = await adminClient
+              .from('profiles')
+              .insert({
+                id: supabaseUser.id,
+                email: supabaseUser.email || 'unknown@example.com',
+                full_name: fullName,
+                subscription_tier: 'free',
+                monthly_credits: 100,
+                remaining_credits: 100,
+                total_credits_used: 0,
+                total_tokens_used: 0,
+                credits_last_reset: new Date().toISOString(),
+              });
+            
+            if (createError) {
+              logger.error('Failed to auto-create profile for Supabase user:', createError);
+              throw new Error(`Failed to create user profile: ${createError.message}`);
+            }
+            
+            // Fetch the newly created profile
+            const { data: newProfile } = await adminClient
+              .from('profiles')
+              .select('id, email, full_name, avatar_url, subscription_tier, wordpress_user_id, wordpress_username, wordpress_display_name, wordpress_roles, monthly_credits, remaining_credits, credits_last_reset, total_credits_used, total_tokens_used, created_at, updated_at')
+              .eq('id', supabaseUser.id)
+              .single();
+            
+            logger.info('✅ Profile auto-created for old Supabase user:', {
+              userId: supabaseUser.id,
+              email: newProfile?.email,
+            });
+            
+            profile = newProfile;
+          } catch (createError) {
+            logger.error('Failed to auto-create profile for old Supabase user:', createError);
+            throw new Error('User profile not found in database and failed to create. Please contact support.');
           }
         }
 
@@ -207,12 +255,87 @@ export function registerProfileHandlers() {
           }
         }
         
+        // ✅ AUTO-CREATE: If profile still not found, create a new one for this WordPress user
         if (!profile) {
-          logger.error('WordPress user profile not found in Supabase:', {
+          logger.info('WordPress user profile not found in Supabase, creating new profile:', {
             email: userEmail,
-            username: wordpressAuth.user.username,
+            username: wordpressUsername,
+            displayName: wordpressDisplayName,
+            wordpressUserId: wordpressAuth.user.id,
           });
-          throw new Error('User profile not found in database. Please contact support.');
+          console.log('🔧 [Profile Handler] Auto-creating profile for WordPress user:', {
+            email: userEmail,
+            username: wordpressUsername,
+            displayName: wordpressDisplayName,
+            wordpressUserId: wordpressAuth.user.id,
+          });
+          
+          try {
+            const adminClient = getSupabaseAdminClient();
+            
+            // Generate a unique UUID for the new profile
+            const { randomUUID } = await import('crypto');
+            const newProfileId = randomUUID();
+            
+            // Parse capabilities to get WordPress roles
+            const capabilities = wordpressAuth.user.capabilities;
+            let roles: string[] = [];
+            
+            if (Array.isArray(capabilities)) {
+              roles = capabilities;
+            } else if (typeof capabilities === 'object' && capabilities !== null) {
+              // Extract role names from capabilities object (keys with truthy values)
+              roles = Object.keys(capabilities).filter(key => {
+                const value = capabilities[key];
+                if (typeof value === 'boolean') return value;
+                if (typeof value === 'number') return value !== 0;
+                if (typeof value === 'string') return value !== '' && value !== '0' && value !== 'false';
+                return false;
+              });
+            }
+            
+            // Create new profile
+            const { data: newProfile, error: createError } = await adminClient
+              .from('profiles')
+              .insert({
+                id: newProfileId,
+                email: userEmail || 'unknown@example.com',
+                full_name: wordpressDisplayName || wordpressUsername || null,
+                wordpress_user_id: wordpressAuth.user.id,
+                wordpress_username: wordpressUsername || null,
+                wordpress_display_name: wordpressDisplayName || null,
+                wordpress_roles: roles,
+                subscription_tier: 'free',
+                monthly_credits: 100,
+                remaining_credits: 100,
+                total_credits_used: 0,
+                total_tokens_used: 0,
+                credits_last_reset: new Date().toISOString(),
+              })
+              .select()
+              .single();
+            
+            if (createError) {
+              logger.error('Failed to auto-create profile:', createError);
+              throw new Error(`Failed to create user profile: ${createError.message}`);
+            }
+            
+            logger.info('✅ Profile auto-created successfully:', {
+              profileId: newProfile.id,
+              email: newProfile.email,
+              wordpressUserId: newProfile.wordpress_user_id,
+            });
+            console.log('✅ [Profile Handler] Profile auto-created successfully:', {
+              profileId: newProfile.id,
+              email: newProfile.email,
+              wordpressUserId: newProfile.wordpress_user_id,
+            });
+            
+            profile = newProfile;
+          } catch (createError) {
+            logger.error('Failed to auto-create profile for WordPress user:', createError);
+            throw new Error('Failed to create user profile. Please contact support.');
+          }
         }
 
         // Log what we found
@@ -308,8 +431,6 @@ export function registerProfileHandlers() {
   ipcMain.handle('profile:update', async (_, updates: {
     username?: string;
     full_name?: string;
-    first_name?: string;
-    last_name?: string;
     avatar_url?: string;
   }) => {
     try {
@@ -349,29 +470,10 @@ export function registerProfileHandlers() {
         }
 
         // Update profile
-        // If first_name or last_name are provided, also update full_name as concatenation
         const updateData: any = {
           ...updates,
           updated_at: new Date().toISOString(),
         };
-        
-        // If first_name or last_name are being updated, update full_name too
-        if (updates.first_name !== undefined || updates.last_name !== undefined) {
-          // We need to get current values first to build full_name
-          const { data: currentProfile } = await adminClient
-            .from('profiles')
-            .select('first_name, last_name')
-            .eq('id', profile.id)
-            .single();
-          
-          const firstName = updates.first_name !== undefined ? updates.first_name : (currentProfile?.first_name || '');
-          const lastName = updates.last_name !== undefined ? updates.last_name : (currentProfile?.last_name || '');
-          
-          // Build full_name from first_name and last_name
-          if (firstName || lastName) {
-            updateData.full_name = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-          }
-        }
         
         const { data: updatedProfile, error: updateError } = await adminClient
           .from('profiles')
@@ -418,29 +520,10 @@ export function registerProfileHandlers() {
         // Update profile
         const adminClient = getSupabaseAdminClient();
         
-        // If first_name or last_name are provided, also update full_name as concatenation
         const updateData: any = {
           ...updates,
           updated_at: new Date().toISOString(),
         };
-        
-        // If first_name or last_name are being updated, update full_name too
-        if (updates.first_name !== undefined || updates.last_name !== undefined) {
-          // We need to get current values first to build full_name
-          const { data: currentProfile } = await adminClient
-            .from('profiles')
-            .select('first_name, last_name')
-            .eq('id', profile.id)
-            .single();
-          
-          const firstName = updates.first_name !== undefined ? updates.first_name : (currentProfile?.first_name || '');
-          const lastName = updates.last_name !== undefined ? updates.last_name : (currentProfile?.last_name || '');
-          
-          // Build full_name from first_name and last_name
-          if (firstName || lastName) {
-            updateData.full_name = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-          }
-        }
         
         const { data: updatedProfile, error: updateError } = await adminClient
           .from('profiles')
