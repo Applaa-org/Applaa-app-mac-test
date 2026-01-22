@@ -775,26 +775,63 @@ async function createMinecraftModTemplate(
     JSON.stringify(manifest, null, 2)
   );
 
-  // 2. Generate Initial Function
-  const initialMcFunction = `# ${params.displayName || params.name}
-# Welcome to your Bedrock Behavior Pack!
-# The AI will add your commands here.
+  // 2. Check if we should use a pre-built template
+  let mcFunctionCode: string;
+  let previewBounds = { width: 40, height: 40, depth: 40 };
+  let cameraPosition = { x: 25, y: 20, z: 25 };
 
-say Hello from Applaa!
-`;
+  // Check if templateId is provided (for pre-built templates)
+  const templateId = (params as any).templateId;
 
+  if (templateId) {
+    logger.info(`📋 Using pre-built template: ${templateId}`);
+
+    try {
+      // Import template loader (dynamic to avoid circular dependencies)
+      const templateLoaderPath = path.join(__dirname, '../../services/minecraft/template-loader');
+      const { loadTemplate } = require(templateLoaderPath);
+
+      const template = loadTemplate(templateId);
+
+      if (template) {
+        mcFunctionCode = template.mcfunctionCode;
+
+        // Use template-specific preview bounds and camera
+        if (template.metadata.previewBounds) {
+          previewBounds = template.metadata.previewBounds;
+        }
+        if (template.metadata.camera) {
+          cameraPosition = template.metadata.camera;
+        }
+
+        logger.info(`✅ Loaded template "${template.metadata.name}"`);
+      } else {
+        logger.warn(`⚠️ Template "${templateId}" not found, using default`);
+        mcFunctionCode = getDefaultMcFunction(params);
+      }
+    } catch (error) {
+      logger.error(`❌ Error loading template "${templateId}":`, error);
+      mcFunctionCode = getDefaultMcFunction(params);
+    }
+  } else {
+    // No template - use default empty function for LLM generation
+    logger.info(`🤖 No template specified, creating empty template for LLM generation`);
+    mcFunctionCode = getDefaultMcFunction(params);
+  }
+
+  // Write the mcfunction file
   fs.writeFileSync(
     path.join(functionsPath, 'main.mcfunction'),
-    initialMcFunction
+    mcFunctionCode
   );
 
   // 3. Generate Preview Contract
   const previewContract = {
     type: "structure",
     entry: "main",
-    bounds: { width: 16, height: 16, depth: 16 },
+    bounds: previewBounds,
     anchor: { x: 0, y: 0, z: 0 },
-    camera: { x: 10, y: 10, z: 10 }
+    camera: cameraPosition
   };
 
   fs.writeFileSync(
@@ -821,6 +858,16 @@ A Minecraft Bedrock Behavior Pack created with Applaa.
   fs.writeFileSync(path.join(fullAppPath, 'README.md'), readmeContent);
 
   logger.info(`✅ Minecraft Bedrock template created at ${fullAppPath}`);
+}
+
+// Helper function to get default mcfunction content
+function getDefaultMcFunction(params: ParallelAppCreationParams): string {
+  return `# ${params.displayName || params.name}
+# Welcome to your Bedrock Behavior Pack!
+# The AI will add your commands here.
+
+say Hello from Applaa!
+`;
 }
 
 /**

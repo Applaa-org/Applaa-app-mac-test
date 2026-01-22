@@ -73,9 +73,11 @@ function parseSetblockCommand(args: string[]): MinecraftBlock | null {
 
 /**
  * Parse mcfunction code and extract block placements
+ * Uses a Map to handle block replacement (later commands override earlier ones)
  */
 export function parseMcfunction(code: string): ParseResult {
-    const blocks: MinecraftBlock[] = [];
+    // Use a Map to track blocks by coordinate, allowing replacement
+    const blockMap = new Map<string, MinecraftBlock>();
     const messages: string[] = [];
     const errors: string[] = [];
 
@@ -94,12 +96,29 @@ export function parseMcfunction(code: string): ParseResult {
         switch (command) {
             case 'fill':
                 const fillBlocks = parseFillCommand(args);
-                blocks.push(...fillBlocks);
+                // Add or replace blocks in the map
+                fillBlocks.forEach(block => {
+                    const key = `${block.x},${block.y},${block.z}`;
+                    if (block.type === 'air') {
+                        // Air removes blocks
+                        blockMap.delete(key);
+                    } else {
+                        blockMap.set(key, block);
+                    }
+                });
                 break;
 
             case 'setblock':
                 const block = parseSetblockCommand(args);
-                if (block) blocks.push(block);
+                if (block) {
+                    const key = `${block.x},${block.y},${block.z}`;
+                    if (block.type === 'air') {
+                        // Air removes blocks
+                        blockMap.delete(key);
+                    } else {
+                        blockMap.set(key, block);
+                    }
+                }
                 break;
 
             case 'say':
@@ -123,6 +142,9 @@ export function parseMcfunction(code: string): ParseResult {
                 console.log(`[MinecraftAdapter] Skipping command: ${command}`);
         }
     }
+
+    // Convert map to array, filtering out air blocks
+    const blocks = Array.from(blockMap.values()).filter(block => block.type !== 'air');
 
     return { blocks, messages, errors };
 }
@@ -184,7 +206,7 @@ export function generatePreviewData(
     const parseResult = parseMcfunction(mcfunctionContent);
 
     // Default camera if not in contract
-    const defaultCam: [number, number, number] = [10, 10, 10];
+    const defaultCam: [number, number, number] = [20, 20, 20]; // Increased for better zoom out
     const defaultTarget: [number, number, number] = [0, 0, 0];
 
     let cameraPosition = defaultCam;

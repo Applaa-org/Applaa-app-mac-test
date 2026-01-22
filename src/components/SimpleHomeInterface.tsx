@@ -45,6 +45,7 @@ type ExampleIdea = {
   emoji: string;
   prompt: string; // full prompt to inject
   previewUrl?: string; // Optional preview URL
+  templateId?: string; // Optional template ID for pre-built templates
 };
 
 // Stable empty array reference to prevent infinite loops
@@ -943,39 +944,66 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 
     return [
       {
         title: "Cozy Cottage",
-        description: "A charming small house with a flower garden.",
+        description: "A charming 9×7 cottage with chimney and flower garden.",
         emoji: "🏡",
-        prompt: "Build a cozy rustic cottage made of oak planks and cobblestone. Include a slanted roof with a chimney, a welcoming front porch with lanterns, and a small flower garden surrounding the house with roses and tulips. Add windows with glass panes and a wooden door."
+        prompt: "Build a cozy rustic cottage made of oak planks with a slanted roof, chimney, windows, and a flower garden.",
+        templateId: "cozy-cottage"  // Use pre-built template
       },
       {
-        title: "Castle Watchtower",
-        description: "A tall defensive tower with battlements.",
-        emoji: "🏰",
-        prompt: "Create a tall medieval stone watchtower. The base should be wide and sturdy, tapering slightly as it goes up. Include a spiral staircase inside, arrow slit windows, and a battlements platform at the top with a flag flying. Use stone bricks and mossy stone for texture."
+        title: "Mini Park",
+        description: "Relaxing park with benches, trees, and flower beds.",
+        emoji: "🌳",
+        prompt: "Create a peaceful mini park with benches, lamp posts, trees, and colorful flower beds.",
+        templateId: "mini-park"
       },
       {
-        title: "Zombie Arena",
-        description: "A combat zone with spawners and loot.",
-        emoji: "🧟",
-        prompt: "Design a gladiatorial combat arena for fighting zombies. Create a circular stone wall enclosure with an iron gate. Inside, place obstacle pillars, a few zombie spawners in the corners, and hidden chests containing iron swords and healing potions. Add lighting with torches for a dramatic effect."
+        title: "Market Stalls",
+        description: "Three colorful market stalls with barrels and awnings.",
+        emoji: "🛒",
+        prompt: "Build a row of three market stalls with colorful awnings and storage barrels.",
+        templateId: "market-stalls"
       },
       {
-        title: "Parkour Challenge",
-        description: "Floating platforms and jumps to test your skills.",
-        emoji: "🏃",
-        prompt: "Build a thrilling parkour course in the sky. Start with easy jumps on grass blocks, then progress to harder jumps involving ice blocks (slippery) and slime blocks (bouncy). Create 5 distinct floating platforms that ascend in height, ending with a gold block pedestal as the finish line."
+        title: "Fountain Plaza",
+        description: "Elegant quartz plaza with illuminated fountain.",
+        emoji: "⛲",
+        prompt: "Construct an elegant fountain plaza with quartz flooring, water fountain, and sea lanterns.",
+        templateId: "fountain-plaza"
       },
       {
-        title: "Ocean Base",
-        description: "A glass dome base on the ocean floor.",
-        emoji: "🌊",
-        prompt: "Construct a futuristic underwater base. Create a large glass dome structure on the sea floor so players can look out at the water. Inside, add a conduit for water breathing, sea lanterns for lighting, and a central command are with blue concrete accents. Connect it to a surface entrance via a glass tube."
+        title: "Torii Gate",
+        description: "Traditional Japanese gate with red pillars.",
+        emoji: "⛩️",
+        prompt: "Create a traditional Japanese torii gate with red concrete pillars and black beams.",
+        templateId: "torii-gate"
       },
       {
-        title: "Pixel Art Heart",
-        description: "A giant red heart made of wool.",
+        title: "3D Pixel Heart",
+        description: "Massive floating heart sculpture (15+ blocks).",
         emoji: "❤️",
-        prompt: "Build a massive 3D pixel art heart structure. Use red wool and red concrete for the main body, with white wool highlights to give it a shiny, glossy look. The heart should be at least 15 blocks tall and wide, hovering slightly off the ground."
+        prompt: "Build a massive 3D pixel art heart structure with red wool/concrete and white highlights.",
+        templateId: "pixel-heart"
+      },
+      {
+        title: "Medieval Castle",
+        description: "Fortified tower with battlements and flags.",
+        emoji: "🏰",
+        prompt: "Create a medieval castle tower with stone bricks, battlements, windows, and colorful flags.",
+        templateId: "medieval-castle"
+      },
+      {
+        title: "Modern House",
+        description: "Contemporary house with pool and glass walls.",
+        emoji: "🏠",
+        prompt: "Build a modern house with white concrete, large glass windows, a pool, and roof garden.",
+        templateId: "modern-house"
+      },
+      {
+        title: "Forest Treehouse",
+        description: "Multi-level treehouse with rope bridge.",
+        emoji: "🌲",
+        prompt: "Construct a forest treehouse with multiple platforms, rope bridge, and lanterns.",
+        templateId: "forest-treehouse"
       }
     ];
   } else if (type === 'blockly') {

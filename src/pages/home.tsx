@@ -48,6 +48,7 @@ export interface HomeSubmitOptions {
   databaseNotes?: string;
   saveGameData?: boolean;
   appType?: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft';
+  templateId?: string;
 }
 
 export default function HomePage() {
@@ -64,6 +65,7 @@ export default function HomePage() {
   const [showNamingDialog, setShowNamingDialog] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState('');
   const [pendingAppType, setPendingAppType] = useState<HomeSubmitOptions['appType']>(undefined);
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | undefined>(undefined);
   const [pendingAttachments, setPendingAttachments] = useState<FileAttachment[]>([]);
   const [pendingDbOptions, setPendingDbOptions] = useState<{
     createDatabase?: boolean;
@@ -179,9 +181,10 @@ export default function HomePage() {
     setForceAuthDialog(false);
     setShowAuthDialog(false);
 
-    // Show naming dialog first, capture DB options, attachments, and game data option
+    // Show naming dialog first, capture DB options, attachments, templateId, and game data option
     setPendingPrompt(inputValue);
     setPendingAppType(options?.appType);
+    setPendingTemplateId(options?.templateId);
     setPendingAttachments(attachments);
     setPendingDbOptions({
       createDatabase: options?.createDatabase,
@@ -276,9 +279,10 @@ ${extraDbText}`;
         // Use appType from options (SimpleHomeInterface) instead of settings
         appType: appType as 'web' | 'mobile' | 'godot',
         framework: framework,
-        // Store the prompt and attachments for processing after app creation
+        // Store the prompt and attachments for processing after app creation  
         prompt: finalPrompt,
-        attachments: pendingAttachments
+        attachments: pendingAttachments,
+        templateId: pendingTemplateId // Pass templateId for pre-built templates
       });
 
       // Start monitoring background task
@@ -336,6 +340,7 @@ ${extraDbText}`;
       // Clear pending state after using them
       setPendingPrompt('');
       setPendingAppType(undefined);
+      setPendingTemplateId(undefined);
       setPendingAttachments([]);
 
       // 🚀 FIX: Navigate to chat with initialPrompt param (Dyad-style)

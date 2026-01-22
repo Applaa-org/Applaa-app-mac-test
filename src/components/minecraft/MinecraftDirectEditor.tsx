@@ -52,6 +52,32 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
         }
     }, [appId]);
 
+    // Reset preview config to larger bounds
+    const resetPreviewConfig = useCallback(async () => {
+        try {
+            const ipcClient = IpcClient.getInstance();
+            const newConfig = {
+                type: "structure",
+                entry: "main",
+                bounds: { width: 40, height: 40, depth: 40 },
+                anchor: { x: 0, y: 0, z: 0 },
+                camera: { x: 25, y: 20, z: 25 }
+            };
+
+            await ipcClient.editAppFile(
+                parseInt(appId),
+                'applaa.preview.json',
+                JSON.stringify(newConfig, null, 2)
+            );
+
+            showSuccess('Preview config updated! Refresh to see full structure.');
+            updatePreview(); // Trigger re-render
+        } catch (error) {
+            console.error('[MinecraftDirectEditor] Failed to update preview config:', error);
+            showError('Failed to update preview configuration');
+        }
+    }, [appId]);
+
     // Parse code and update 3D preview
     const updatePreview = useCallback(() => {
         try {
@@ -81,14 +107,18 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
                 console.log('[MinecraftDirectEditor] ✅ Successfully loaded file, length:', content.length);
                 setCode(content);
                 setLastSavedCode(content);
-                // Don't show success toast on auto-load to avoid spam
+                // Auto-refresh preview after loading file
+                setTimeout(() => {
+                    console.log('[MinecraftDirectEditor] Auto-refreshing preview after file load');
+                    updatePreview();
+                }, 100);
             } else {
                 console.log('[MinecraftDirectEditor] ⚠️ File returned empty content');
             }
         } catch (error) {
             console.log('[MinecraftDirectEditor] ℹ️ No existing file found or failed to load, using default.', error);
         }
-    }, [appId]);
+    }, [appId, updatePreview]);
 
     // Check localStorage for template on mount AND save it
     useEffect(() => {
@@ -102,6 +132,12 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
             // Save immediately to disk so it persists
             saveCode(templateCode);
 
+            // Auto-refresh preview after loading template
+            setTimeout(() => {
+                console.log('[MinecraftDirectEditor] Auto-refreshing preview after template load');
+                updatePreview();
+            }, 100); // Small delay to ensure state is updated
+
             // Clear localStorage after loading
             localStorage.removeItem('minecraft-template-code');
             localStorage.removeItem('minecraft-template-name');
@@ -110,7 +146,7 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
             // If no template path and no initial code, try to load from disk
             loadFile();
         }
-    }, [saveCode, loadFile, initialCode, lastSavedCode]);
+    }, [saveCode, loadFile, initialCode, lastSavedCode, updatePreview]);
 
     // 🚀 AUTO-RELOAD: When appId or appPath changes, reload the file and preview
     useEffect(() => {
@@ -119,6 +155,31 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
             loadFile();
         }
     }, [appId, appPath, loadFile]);
+
+    // 🔄 AUTO-REFRESH: Poll for file changes (for when AI updates the file)
+    useEffect(() => {
+        if (!appId) return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                const ipcClient = IpcClient.getInstance();
+                const filePath = 'behavior_pack/functions/main.mcfunction';
+                const content = await ipcClient.readAppFile(parseInt(appId), filePath);
+
+                // Only update if content is different and not empty
+                if (content && content !== code && content !== lastSavedCode) {
+                    console.log('[MinecraftDirectEditor] 🔄 File changed externally, reloading...');
+                    setCode(content);
+                    setLastSavedCode(content);
+                    showSuccess('Preview updated with AI changes!');
+                }
+            } catch (error) {
+                // Silently fail - file might not exist yet
+            }
+        }, 2000); // Check every 2 seconds
+
+        return () => clearInterval(intervalId);
+    }, [appId, code, lastSavedCode]);
 
     // Update preview when code changes
     useEffect(() => {
@@ -146,31 +207,37 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
 
     return (
         <div className="h-full flex flex-col bg-gray-900">
-            {/* Toolbar */}
             <div className="flex items-center justify-between p-2 bg-gray-800 border-b border-gray-700">
                 <div className="flex items-center gap-2">
-                    <Button
-                        size="sm"
-                        variant={viewMode === 'split' ? 'default' : 'ghost'}
-                        onClick={() => setViewMode('split')}
-                    >
-                        Split
-                    </Button>
+                    <span className="text-xs text-gray-400 mr-2">View:</span>
                     <Button
                         size="sm"
                         variant={viewMode === 'preview' ? 'default' : 'ghost'}
                         onClick={() => setViewMode('preview')}
+                        title="Full screen preview (hide code)"
+                        className={viewMode !== 'preview' ? 'text-gray-300 border border-gray-600 hover:bg-gray-700' : ''}
                     >
                         <Eye className="w-4 h-4 mr-1" />
-                        Preview
+                        Preview Only
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant={viewMode === 'split' ? 'default' : 'ghost'}
+                        onClick={() => setViewMode('split')}
+                        title="Show code and preview side-by-side"
+                        className={viewMode !== 'split' ? 'text-gray-300 border border-gray-600 hover:bg-gray-700' : ''}
+                    >
+                        Split View
                     </Button>
                     <Button
                         size="sm"
                         variant={viewMode === 'code' ? 'default' : 'ghost'}
                         onClick={() => setViewMode('code')}
+                        title="Show code only"
+                        className={viewMode !== 'code' ? 'text-gray-300 border border-gray-600 hover:bg-gray-700' : ''}
                     >
                         <Code className="w-4 h-4 mr-1" />
-                        Code
+                        Code Only
                     </Button>
                 </div>
 
@@ -178,18 +245,20 @@ export const MinecraftDirectEditor: React.FC<MinecraftDirectEditorProps> = ({
                     <Button
                         size="sm"
                         variant="outline"
-                        onClick={loadSample}
+                        onClick={resetPreviewConfig}
+                        title="Fix preview bounds for large structures"
                     >
                         <RefreshCw className="w-4 h-4 mr-1" />
-                        Sample House
+                        Fix Preview Zoom
                     </Button>
                     <Button
                         size="sm"
                         variant="outline"
                         onClick={updatePreview}
+                        title="Refresh the 3D preview"
                     >
-                        <Play className="w-4 h-4 mr-1" />
-                        Preview
+                        <RefreshCw className="w-4 h-4 mr-1" />
+                        Refresh Preview
                     </Button>
                     <Button
                         size="sm"

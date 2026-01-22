@@ -1,0 +1,155 @@
+{
+    "cozy-cottage": {
+        "id": "cozy-cottage",
+        "name": "Cozy Cottage",
+        "description": "A charming 9×7 cottage with chimney, windows, and flower garden",
+        "icon": "🏡",
+        "gradient": "from-amber-500 to-orange-500",
+        "previewBounds": {
+            "width": 16,
+            "height": 16,
+            "depth": 16
+        },
+        "camera": {
+            "x": 15,
+            "y": 15,
+            "z": 15
+        }
+    },
+    "mini-park": {
+        "id": "mini-park",
+        "name": "Mini Park",
+        "description": "Relaxing park with benches, trees, flower beds, and lamp posts",
+        "icon": "🌳",
+        "gradient": "from-green-500 to-emerald-600",
+        "previewBounds": {
+            "width": 30,
+            "height": 20,
+            "depth": 30
+        },
+        "camera": {
+            "x": 20,
+            "y": 20,
+            "z": 20
+        }
+    },
+    "market-stalls": {
+        "id": "market-stalls",
+        "name": "Market Stalls",
+        "description": "Three colorful market stalls with barrels and awnings",
+        "icon": "🛒",
+        "gradient": "from-blue-500 to-purple-500",
+        "previewBounds": {
+            "width": 30,
+            "height": 12,
+            "depth": 20
+        },
+        "camera": {
+            "x": 18,
+            "y": 12,
+            "z": 18
+        }
+    },
+    "fountain-plaza": {
+        "id": "fountain-plaza",
+        "name": "Fountain Plaza",
+        "description": "Elegant quartz plaza with illuminated fountain centerpiece",
+        "icon": "⛲",
+        "gradient": "from-cyan-400 to-blue-500",
+        "previewBounds": {
+            "width": 24,
+            "height": 12,
+            "depth": 24
+        },
+        "camera": {
+            "x": 16,
+            "y": 14,
+            "z": 16
+        }
+    },
+    "torii-gate": {
+        "id": "torii-gate",
+        "name": "Torii Gate",
+        "description": "Traditional Japanese gate with red pillars and black beams",
+        "icon": "⛩️",
+        "gradient": "from-red-500 to-gray-800",
+        "previewBounds": {
+            "width": 20,
+            "height": 14,
+            "depth": 20
+        },
+        "camera": {
+            "x": 14,
+            "y": 10,
+            "z": 14
+        }
+    },
+    "pixel-heart": {
+        "id": "pixel-heart",
+        "name": "3D Pixel Heart",
+        "description": "Massive floating heart sculpture with glossy highlights (15+ blocks)",
+        "icon": "❤️",
+        "gradient": "from-pink-500 to-red-600",
+        "previewBounds": {
+            "width": 40,
+            "height": 40,
+            "depth": 40
+        },
+        "camera": {
+            "x": 25,
+            "y": 15,
+            "z": 25
+        }
+    },
+    "medieval-castle": {
+        "id": "medieval-castle",
+        "name": "Medieval Castle",
+        "description": "Fortified tower with battlements, flags, and stone path",
+        "icon": "🏰",
+        "gradient": "from-gray-600 to-gray-800",
+        "previewBounds": {
+            "width": 24,
+            "height": 24,
+            "depth": 24
+        },
+        "camera": {
+            "x": 18,
+            "y": 18,
+            "z": 18
+        }
+    },
+    "modern-house": {
+        "id": "modern-house",
+        "name": "Modern House",
+        "description": "Contemporary house with pool, glass walls, and roof garden",
+        "icon": "🏠",
+        "gradient": "from-gray-400 to-blue-400",
+        "previewBounds": {
+            "width": 30,
+            "height": 14,
+            "depth": 26
+        },
+        "camera": {
+            "x": 20,
+            "y": 12,
+            "z": 20
+        }
+    },
+    "forest-treehouse": {
+        "id": "forest-treehouse",
+        "name": "Forest Treehouse",
+        "description": "Multi-level treehouse with rope bridge and lanterns",
+        "icon": "🌲",
+        "gradient": "from-green-600 to-brown-600",
+        "previewBounds": {
+            "width": 26,
+            "height": 20,
+            "depth": 26
+        },
+        "camera": {
+            "x": 18,
+            "y": 14,
+            "z": 18
+        }
+    }
+}
