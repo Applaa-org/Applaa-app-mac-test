@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - feature-ota-mukesh
       - autoreleasebranch
       - release/ota-update-auto-trigger
       - release/**
@@ -104,10 +105,11 @@ jobs:
           # Note: Don't override GITHUB_TOKEN - publisher needs the automatic one
           # APPLAA_GITHUB_TOKEN will be used by embed script for embedding
           APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
-          # Add other secrets here if needed for embedded config
-          # SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          # SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          # SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AUTH_SUPABASE_URL: ${{ secrets.AUTH_SUPABASE_URL }}
+          AUTH_SUPABASE_ANON_KEY: ${{ secrets.AUTH_SUPABASE_ANON_KEY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
