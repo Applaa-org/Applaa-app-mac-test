@@ -4,11 +4,12 @@ import { getSupabaseAuth } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../lib/supabase';
 import { readSettings } from '../../main/settings';
+import { getEnv } from '../../config/embedded-env';
 
 // Helper function to get Supabase admin client (bypasses RLS)
 function getSupabaseAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseUrl = getEnv('SUPABASE_URL');
 
   if (!serviceRoleKey || !supabaseUrl) {
     throw new Error('Supabase service role key or URL not configured');

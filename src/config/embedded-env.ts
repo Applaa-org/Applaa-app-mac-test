@@ -15,6 +15,14 @@ export function getEmbeddedEnv(varName: string): string | undefined {
   return embeddedEnv[varName];
 }
 
+/**
+ * Get environment variable from embedded config or process.env
+ * Prioritizes embedded config (for packaged apps), falls back to process.env (for development)
+ */
+export function getEnv(varName: string): string | undefined {
+  return embeddedEnv[varName] || process.env[varName];
+}
+
 export function getGitHubToken(): string | undefined {
   return embeddedEnv.GITHUB_TOKEN || embeddedEnv.GH_TOKEN || embeddedEnv.VITE_GITHUB_TOKEN;
 }

@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import log from 'electron-log';
+import { getEnv } from '../config/embedded-env';
 
 const logger = log.scope('vault');
 
@@ -19,8 +20,8 @@ interface VaultSecret {
  * Get a Supabase client using service role key for Vault access
  */
 function getVaultClient(): SupabaseClient | null {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = getEnv('SUPABASE_URL');
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !serviceRoleKey) {
     logger.warn('Supabase credentials not found. Cannot access Vault.');
@@ -302,7 +303,7 @@ export async function listVaultSecrets(): Promise<string[]> {
  */
 export async function loadVaultSecretsIntoEnv(): Promise<void> {
   // Only load if we have the bootstrap credentials
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!getEnv('SUPABASE_URL') || !getEnv('SUPABASE_SERVICE_ROLE_KEY')) {
     logger.debug('Skipping Vault load: bootstrap credentials not available');
     return;
   }

@@ -24,7 +24,7 @@ import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
 import { initializeSupabase, getSupabaseAuth, type SupabaseConfig } from "./lib/supabase";
-import { getGitHubToken } from "./config/embedded-env";
+import { getGitHubToken, getEnv } from "./config/embedded-env";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -183,9 +183,9 @@ export async function onReady() {
   // ✅ FIX: Initialize Supabase early from environment variables
   // This ensures profile and credit handlers can work immediately
   try {
-    const envUrl = process.env.AUTH_SUPABASE_URL || process.env.SUPABASE_URL;
-    const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-    const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const envUrl = getEnv('AUTH_SUPABASE_URL') || getEnv('SUPABASE_URL');
+    const envAnonKey = getEnv('AUTH_SUPABASE_ANON_KEY') || getEnv('SUPABASE_ANON_KEY');
+    const envServiceRoleKey = getEnv('AUTH_SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_SERVICE_ROLE_KEY');
     
     if (envUrl && envAnonKey) {
       const config: SupabaseConfig = {
