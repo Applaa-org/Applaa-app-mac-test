@@ -74,7 +74,14 @@ export const embeddedEnv: Record<string, string | undefined> = {
 // Add each environment variable
 let embeddedCount = 0;
 envVarsToEmbed.forEach((varName) => {
-  const value = process.env[varName];
+  let value = process.env[varName];
+  
+  // Special handling for GITHUB_TOKEN: prefer APPLAA_GITHUB_TOKEN for embedding
+  // (don't use the automatic GITHUB_TOKEN from GitHub Actions - that's for publishing)
+  if (varName === 'GITHUB_TOKEN') {
+    value = process.env.APPLAA_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.VITE_GITHUB_TOKEN;
+  }
+  
   if (value !== undefined && value !== '') {
     // Escape backslashes, quotes, and newlines for TypeScript string
     const escapedValue = value
@@ -114,7 +121,7 @@ console.log('✅ Embedded environment variables file generated:');
 console.log(`   ${path.relative(process.cwd(), configFile)}`);
 console.log(`   Variables embedded: ${embeddedCount}/${envVarsToEmbed.length}`);
 if (embeddedCount > 0) {
-  const hasToken = !!(process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.VITE_GITHUB_TOKEN);
+  const hasToken = !!(process.env.APPLAA_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.VITE_GITHUB_TOKEN);
   console.log(`   ✓ GitHub token: ${hasToken ? 'Found' : 'Not found'}`);
 } else {
   console.log(`   ⚠️  No environment variables embedded - check your .env file or CI secrets`);

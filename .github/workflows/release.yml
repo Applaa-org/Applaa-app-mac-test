@@ -94,15 +94,16 @@ jobs:
         # Publish (Windows only)
         # 🚀 Environment variables set here will be embedded into the packaged .exe
         # via scripts/embed-env-vars.js (runs as part of "npm run publish")
-        # Note: Using APPLAA_GITHUB_TOKEN because GITHUB_TOKEN is reserved by GitHub Actions
+        # Note: GITHUB_TOKEN is automatically provided by GitHub Actions for publishing
+        # APPLAA_GITHUB_TOKEN is used for embedding into the app for OTA updates
       - name: Publish app
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
           # GitHub token for OTA updates (embedded into .exe)
-          # Note: We use APPLAA_GITHUB_TOKEN secret name because GITHUB_TOKEN is reserved
-          # The env var is still named GITHUB_TOKEN so embed script can find it
-          GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
+          # Note: Don't override GITHUB_TOKEN - publisher needs the automatic one
+          # APPLAA_GITHUB_TOKEN will be used by embed script for embedding
+          APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
           # Add other secrets here if needed for embedded config
           # SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           # SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
