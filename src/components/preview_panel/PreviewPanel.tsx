@@ -35,6 +35,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BlocklyEditor } from "../blockly/BlocklyEditor";
 import { MinecraftModPreview } from "../minecraft/MinecraftModPreview.simplified";
 import { MinecraftDirectEditor } from "../minecraft/MinecraftDirectEditor";
+import { RobloxEditor } from "../roblox/RobloxEditor";
 
 interface ConsoleHeaderProps {
   isOpen: boolean;
@@ -164,6 +165,12 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     return app.appType === 'blockly';
   }, [app?.appType]);
 
+  // Detect if this is a Roblox app
+  const isRobloxApp = useMemo(() => {
+    if (!app) return false;
+    return app.appType === 'roblox';
+  }, [app?.appType]);
+
   const runningAppIdRef = useRef<number | null>(null);
   const key = useAtomValue(previewPanelKeyAtom);
   const appOutput = useAtomValue(appOutputAtom);
@@ -202,7 +209,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
         // Skip running for MakeCode apps - they use the official embedded editor
         // Skip running for Blockly apps - they use the Blockly editor
         // Skip running for Minecraft Mods - they are just files
-        if (!isExpoApp && !isGodotApp && !isMakeCodeApp && !isBlocklyApp && !isMinecraftJavaMod) {
+        if (!isExpoApp && !isGodotApp && !isMakeCodeApp && !isBlocklyApp && !isMinecraftJavaMod && !isRobloxApp) {
           // Clear Expo status when switching to non-Expo app to prevent showing old mobile preview
           const ipcClient = IpcClient.getInstance();
           // Use simpleExpoStop to clear the correct status that useExpoUrl checks
@@ -454,7 +461,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                       // Project exists AND export is ready - show preview
                       <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
                     )
-                  ) : (loading || !app || (app && !isExpoApp && !isMakeCodeApp && !isBlocklyApp && !isMinecraftJavaMod && !appUrl?.originalUrl)) ? (
+                  ) : (loading || !app || (app && !isExpoApp && !isMakeCodeApp && !isBlocklyApp && !isMinecraftJavaMod && !isRobloxApp && !appUrl?.originalUrl)) ? (
                     <div className="godot-preview-container h-full">
                       <div className="godot-loading">
                         <div className="godot-spinner"></div>
@@ -478,6 +485,11 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                     />
                   ) : isMinecraftJavaMod ? (
                     <MinecraftDirectEditor
+                      appId={String(selectedAppId)}
+                      appPath={app?.path || ''}
+                    />
+                  ) : isRobloxApp ? (
+                    <RobloxEditor
                       appId={String(selectedAppId)}
                       appPath={app?.path || ''}
                     />

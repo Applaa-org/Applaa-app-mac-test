@@ -26,12 +26,13 @@ interface ParallelAppCreationParams {
   displayName?: string;
   packageId?: string;
   slug?: string;
-  appType: 'web' | 'mobile' | 'godot' | 'minecraft' | 'blockly' | 'arcade' | 'microbit';
-  framework: 'web' | 'expo' | 'flutter' | 'minecraft-makecode' | 'blockly' | 'makecode-arcade' | 'microbit';
+  appType: 'web' | 'mobile' | 'godot' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'roblox';
+  framework: 'web' | 'expo' | 'flutter' | 'minecraft-makecode' | 'blockly' | 'makecode-arcade' | 'microbit' | 'roblox-lua';
   prompt?: string;
   attachments?: any[];
   template?: string;
   features?: string[];
+  templateId?: string;
 }
 
 interface ParallelAppCreationResult {
@@ -372,6 +373,9 @@ async function createAppBackgroundTasks(
       } else if (params.appType === 'minecraft' || params.framework === 'minecraft-makecode') {
         // For Minecraft mods, copy the starter template
         await createMinecraftModTemplate(fullAppPath, params);
+      } else if (params.appType === 'roblox' || params.framework === 'roblox-lua') {
+        // For Roblox games, create Lua project structure
+        await createRobloxProjectTemplate(fullAppPath, params);
       } else {
         await createTemplateFiles(fullAppPath, params.framework, params);
         // ✅ Template files copied without modification - no healing needed
@@ -858,6 +862,100 @@ A Minecraft Bedrock Behavior Pack created with Applaa.
   fs.writeFileSync(path.join(fullAppPath, 'README.md'), readmeContent);
 
   logger.info(`✅ Minecraft Bedrock template created at ${fullAppPath}`);
+}
+
+/**
+ * Create a Roblox project template with Lua scripts
+ */
+async function createRobloxProjectTemplate(fullAppPath: string, params: ParallelAppCreationParams) {
+  logger.info(`🏗️ Creating Roblox project template at ${fullAppPath}`);
+
+  // Create the app directory
+  fs.mkdirSync(fullAppPath, { recursive: true });
+
+  // Create standard Roblox folder structure
+  const serverPath = path.join(fullAppPath, 'src', 'ServerScriptService');
+  const clientPath = path.join(fullAppPath, 'src', 'StarterPlayer', 'StarterPlayerScripts');
+  const sharedPath = path.join(fullAppPath, 'src', 'ReplicatedStorage');
+
+  fs.mkdirSync(serverPath, { recursive: true });
+  fs.mkdirSync(clientPath, { recursive: true });
+  fs.mkdirSync(sharedPath, { recursive: true });
+
+  // 1. Generate Project Config (simple structure for now)
+
+  // 2. Create Default Scripts
+  let serverScriptCode = `print("Hello from Applaa Server!")
+
+-- This script runs on the server
+-- Use it for game logic, data saving, and secure operations
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local config = require(ReplicatedStorage:WaitForChild("config"))
+
+print("Loaded config for: " .. config.APP_NAME)
+`;
+
+  let clientScriptCode = `print("Hello from Applaa Client!")
+
+-- This script runs on the client (player's device)
+-- Use it for UI, input handling, and visual effects
+
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+print("Welcome, " .. localPlayer.Name)
+`;
+
+  // Check if templateId is provided
+  const templateId = (params as any).templateId;
+  if (templateId) {
+    // TODO: Implement Roblox template loader logic here in Phase 2
+    logger.info(`📋 Using pre-built Roblox template: ${templateId}`);
+  }
+
+  // Write the scripts
+  fs.writeFileSync(path.join(serverPath, 'main.server.lua'), serverScriptCode);
+  fs.writeFileSync(path.join(clientPath, 'main.client.lua'), clientScriptCode);
+  fs.writeFileSync(path.join(sharedPath, 'config.lua'), 'return {\n  APP_NAME = "' + (params.displayName || params.name) + '"\n}');
+
+  // 3. Generate Preview Contract
+  const previewContract = {
+    type: "roblox",
+    entry: "src/ServerScriptService/main.server.lua",
+    // Default camera for preview (if we add 3D preview later)
+    camera: { x: 20, y: 20, z: 20 }
+  };
+
+  fs.writeFileSync(
+    path.join(fullAppPath, 'applaa.preview.json'),
+    JSON.stringify(previewContract, null, 2)
+  );
+
+  // 4. Create README
+  const readmeContent = `# ${params.displayName || params.name}
+
+A Roblox project created with Applaa.
+
+## Structure
+- \`src/ServerScriptService/\`: Server-side logic (main.server.lua)
+- \`src/StarterPlayer/StarterPlayerScripts/\`: Client-side logic (main.client.lua)
+- \`src/ReplicatedStorage/\`: Shared modules and data (config.lua)
+
+## How to use
+1. Open **Roblox Studio**
+2. Copy the code from the generated files into corresponding script objects in Studio
+3. Or wait for our upcoming **.rbxmx export** feature to drag-and-drop directly!
+
+## AI Assets (Coming Soon)
+- 3D Models via Meshy.ai
+- Textures via DALL-E
+- Sounds via ElevenLabs
+`;
+
+  fs.writeFileSync(path.join(fullAppPath, 'README.md'), readmeContent);
+
+  logger.info(`✅ Roblox project template created at ${fullAppPath}`);
 }
 
 // Helper function to get default mcfunction content

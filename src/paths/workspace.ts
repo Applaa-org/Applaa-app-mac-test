@@ -6,7 +6,7 @@ import { readSettings } from "../main/settings";
 
 const logger = log.scope("workspace");
 
-export type AppKind = "web" | "mobile" | "godot" | "blockly" | "minecraft";
+export type AppKind = "web" | "mobile" | "godot" | "blockly" | "minecraft" | "arcade" | "microbit" | "roblox";
 
 /**
  * Returns the workspace root directory where all apps/packages live.

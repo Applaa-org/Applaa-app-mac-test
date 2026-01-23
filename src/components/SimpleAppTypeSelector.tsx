@@ -6,10 +6,10 @@
  */
 
 import React, { useCallback } from 'react';
-import { Globe, Smartphone, Gamepad2, Code, Box } from 'lucide-react';
+import { Globe, Smartphone, Gamepad2, Code, Box, Blocks } from 'lucide-react';
 
 interface SimpleAppTypeSelectorProps {
-  onSelection: (type: 'web' | 'expo' | 'flutter' | 'godot' | 'minecraft' | 'blockly') => void;
+  onSelection: (type: 'web' | 'expo' | 'flutter' | 'godot' | 'minecraft' | 'blockly' | 'roblox') => void;
   className?: string;
 }
 
@@ -33,6 +33,10 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
 
   const handleBlocklySelect = useCallback(() => {
     onSelection('blockly');
+  }, [onSelection]);
+
+  const handleRobloxSelect = useCallback(() => {
+    onSelection('roblox');
   }, [onSelection]);
 
   return (
@@ -125,6 +129,29 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
           </div>
         </div>
 
+        {/* Roblox Tile */}
+        <div
+          onClick={handleRobloxSelect}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-gray-200/50 dark:border-red-800/30 p-6 shadow-lg hover:shadow-xl dark:hover:shadow-red-900/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-orange-500 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity duration-300" />
+          <div className="relative z-10">
+            <div className="mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/80 dark:bg-gray-800/90 flex items-center justify-center shadow-sm dark:shadow-red-900/20">
+                <Blocks className="h-8 w-8 text-red-600 dark:text-red-400" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-gray-700 dark:group-hover:text-red-300 transition-colors">
+                Roblox
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                Build Roblox games with Lua scripts, 3D models, and assets.
+              </p>
+            </div>
+            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-br from-red-500 to-orange-500 opacity-10 dark:opacity-20 rounded-full transform translate-x-8 translate-y-8 group-hover:scale-110 transition-transform duration-300" />
+          </div>
+        </div>
 
         {/* Minecraft Tile */}
         <div
@@ -178,4 +205,3 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
     </div>
   );
 }
-

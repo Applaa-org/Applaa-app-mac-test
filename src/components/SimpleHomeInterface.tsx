@@ -72,7 +72,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   const [pendingMinecraftTemplate, setPendingMinecraftTemplate] = useState<ExampleIdea | null>(null);
 
   // Handle app type selection
-  const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly') => {
+  const handleAppTypeSelection = useCallback(async (type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox') => {
     console.log('[SimpleHomeInterface] App type selected:', type);
 
     setSelectedAppType(type);
@@ -1025,6 +1025,33 @@ function getStaticIdeas(type: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 
         description: "A fun text program that makes silly stories.",
         emoji: "📖",
         prompt: "Create a program that joins different text blocks together to make a funny story about a space hamster."
+      }
+    ];
+  } else if (type === 'roblox') {
+    return [
+      {
+        title: "Obby Course",
+        description: "Classic obstacle course with checkpoints.",
+        emoji: "🏃",
+        prompt: "Create a challenging obstacle course (Obby) with floating platforms, kill bricks, and checkpoints. Add a leaderboard for completion time."
+      },
+      {
+        title: "Tycoon Base",
+        description: "Money-making tycoon with upgradable droppers.",
+        emoji: "🏭",
+        prompt: "Build a classic Tycoon game where players claim a plot, build droppers to generate cash, and upgrade their base with walls and lights."
+      },
+      {
+        title: "Simulator",
+        description: "Collection simulator with pets and backpacks.",
+        emoji: "🎒",
+        prompt: "Create a simulator game where players click to gain strength, sell it for coins, and buy new backpacks and DNA upgrades."
+      },
+      {
+        title: "Team Arena",
+        description: "Red vs Blue capture the flag arena.",
+        emoji: "⚔️",
+        prompt: "Build a team-based arena shooter with Red and Blue teams, spawn points, and a capture-the-flag mechanic."
       }
     ];
   } else { // godot

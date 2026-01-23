@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Monitor, Smartphone, Gamepad2, GraduationCap, Box, ChevronDown } from "lucide-react";
+import { Monitor, Smartphone, Gamepad2, GraduationCap, Box, ChevronDown, Blocks } from "lucide-react";
 import { useSetAtom } from "jotai";
 import { dropdownOpenAtom } from "@/atoms/uiAtoms";
 import {
@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export type AppFilterType = "web" | "mobile" | "game" | "minecraft" | "learn";
+export type AppFilterType = "web" | "mobile" | "game" | "minecraft" | "roblox" | "learn";
 
 interface AppTypeFilterProps {
   onChange: (filterType: AppFilterType) => void;
@@ -22,6 +22,7 @@ const filterOptions = [
   { value: "web", label: "Web Apps", icon: Monitor, color: "text-blue-600" },
   { value: "mobile", label: "Mobile Apps", icon: Smartphone, color: "text-green-600" },
   { value: "minecraft", label: "Minecraft Mods", icon: Box, color: "text-lime-600" },
+  { value: "roblox", label: "Roblox Apps", icon: Blocks, color: "text-red-500" },
   { value: "learn", label: "Learning Apps", icon: GraduationCap, color: "text-indigo-600" },
 ] as const;
 
@@ -32,7 +33,7 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
   // Load from localStorage on initial mount
   useEffect(() => {
     const savedFilter = localStorage.getItem("applaa-app-filter") as AppFilterType | null;
-    if (savedFilter && ["web", "mobile", "game", "minecraft", "learn"].includes(savedFilter)) {
+    if (savedFilter && ["web", "mobile", "game", "minecraft", "roblox", "learn"].includes(savedFilter)) {
       setSelectedFilter(savedFilter);
       onChange(savedFilter);
     }

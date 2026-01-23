@@ -52,8 +52,8 @@ export interface CreateAppParams {
   packageId?: string;
   slug?: string;
   // Platform hints so main process can persist correct app_type
-  framework?: 'web' | 'expo' | 'flutter' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
-  appType?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
+  framework?: 'web' | 'expo' | 'flutter' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox-lua';
+  appType?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox';
   // Optional extras passed by some creators
   template?: string;
   platforms?: string[];
@@ -101,7 +101,7 @@ export interface App {
   files: string[];
   createdAt: Date;
   updatedAt: Date;
-  appType?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'python';
+  appType?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   githubOrg: string | null;
   githubRepo: string | null;
   githubBranch: string | null;

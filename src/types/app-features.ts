@@ -360,7 +360,8 @@ export type AppType =
     | 'arcade'
     | 'microbit'
     | 'minecraft'
-    | 'blockly';
+    | 'blockly'
+    | 'roblox';
 
 export interface AppTypeCapabilities {
     appType: AppType;
@@ -823,6 +824,57 @@ export const APP_TYPE_CAPABILITIES: Record<AppType, AppTypeCapabilities> = {
         supportedDatabases: [],
         supportedCloudStorage: [],
         supportedAnalytics: [],
+        supportedErrorTracking: [],
+    },
+
+    roblox: {
+        appType: 'roblox',
+
+        // AI (Full asset generation)
+        supportsTextGeneration: true,  // Lua script generation
+        supportsImageGeneration: true, // Textures via DALL-E
+        supportsAudioGeneration: true, // Sounds via ElevenLabs
+        supportsVideoGeneration: false,
+
+        // Monetization (Roblox has own economy)
+        supportsPayments: false,
+        supportedPaymentProviders: [],
+        supportsAds: false,
+        supportedAdProviders: [],
+
+        // Platform
+        supportsHaptics: false,
+        supportsPushNotifications: false,
+        supportsLocalNotifications: false,
+        supportsCamera: false,
+        supportsLocation: false,
+        supportsSensors: false,
+        supportsBiometrics: false,
+        supportsFileSystem: true,
+        supportsSecureStorage: false,
+        supportsSharing: false,
+        supportsContacts: false,
+        supportsCalendar: false,
+
+        // Gamification (Roblox-native)
+        supportsGamification: true,
+        supportsAchievements: true,
+        supportsLeaderboards: true,
+        supportsMultiplayer: true,
+        supportsCloudSave: true,
+
+        // Integrations
+        supportsMaps: false,
+        supportsCharts: false,
+        supportsCMS: false,
+        supportsEcommerce: false,
+        supportsSocialMedia: false,
+        supportsSearch: false,
+
+        // Database & Storage
+        supportedDatabases: [],
+        supportedCloudStorage: [],
+        supportedAnalytics: ['gameanalytics'],
         supportedErrorTracking: [],
     },
 };

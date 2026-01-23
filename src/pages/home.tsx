@@ -238,7 +238,7 @@ ${extraDbText}`;
       const isMinecraftPrompt = ['minecraft', 'mod', 'creeper', 'zombie', 'spawn', 'blocks', 'craft', 'mine', 'agent'].some(keyword => promptLower.includes(keyword));
 
       // Determine appType from explicit selection, settings, OR auto-detect
-      type AppType = 'web' | 'mobile' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'godot';
+      type AppType = 'web' | 'mobile' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'godot' | 'roblox';
       let appType: AppType;
 
       if (pendingAppType) {
@@ -256,7 +256,8 @@ ${extraDbText}`;
               settings?.selectedPlatform === 'arcade' ? 'arcade' :
                 settings?.selectedPlatform === 'microbit' ? 'microbit' :
                   settings?.selectedPlatform === 'godot' ? 'godot' :
-                    'web';
+                    settings?.selectedPlatform === 'roblox' ? 'roblox' :
+                      'web';
       }
 
       const framework = settings?.selectedPlatform === 'expo' ? 'expo' :
@@ -266,7 +267,8 @@ ${extraDbText}`;
               appType === 'arcade' ? 'makecode-arcade' :
                 appType === 'microbit' ? 'microbit' :
                   appType === 'godot' ? 'godot' :
-                    'web';
+                    appType === 'roblox' ? 'roblox-lua' :
+                      'web';
 
       const result = await IpcClient.getInstance().createAppInstant({
         name: finalName,
@@ -277,7 +279,7 @@ ${extraDbText}`;
         packageId: packageId || `com.applaa.${finalName.replace(/-/g, "")}`,
         slug: slug || finalName,
         // Use appType from options (SimpleHomeInterface) instead of settings
-        appType: appType as 'web' | 'mobile' | 'godot',
+        appType: appType as 'web' | 'mobile' | 'godot' | 'roblox',
         framework: framework,
         // Store the prompt and attachments for processing after app creation  
         prompt: finalPrompt,

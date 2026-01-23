@@ -45,7 +45,7 @@ export const apps = sqliteTable("apps", {
   deploymentNotes: text("deployment_notes"),
   showInHub: integer("show_in_hub", { mode: "boolean" }).default(false),
   chatContext: text("chat_context", { mode: "json" }),
-  appType: text("app_type", { enum: ["web", "mobile", "godot", "arcade", "microbit", "minecraft", "blockly"] }).default("web"),
+  appType: text("app_type", { enum: ["web", "mobile", "godot", "arcade", "microbit", "minecraft", "blockly", "roblox"] }).default("web"),
   promptHistory: text("prompt_history", { mode: "json" }), // Array of {role, text, ts}
   engineMetadata: text("engine_metadata", { mode: "json" }), // MakeCode/Blockly specific data
   status: text("status").default("ready"),

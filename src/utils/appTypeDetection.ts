@@ -1,6 +1,6 @@
 import type { App } from "@/ipc/ipc_types";
 
-export type AppCategory = 'web' | 'mobile' | 'flutter' | 'capacitor' | 'game' | 'blockly' | 'minecraft';
+export type AppCategory = 'web' | 'mobile' | 'flutter' | 'capacitor' | 'game' | 'blockly' | 'minecraft' | 'roblox';
 
 // Store for external app type data (will be populated by the AppList component)
 const appTypeCache = new Map<number, AppCategory>();
@@ -29,6 +29,8 @@ export function detectAppCategory(app: App): AppCategory {
       return 'blockly';
     } else if (app.appType === 'minecraft') {
       return 'minecraft';
+    } else if (app.appType === 'roblox') {
+      return 'roblox';
     }
   }
 
@@ -120,6 +122,8 @@ export function getCategoryLabel(category: AppCategory): string {
       return 'Blocklaa Apps';
     case 'minecraft':
       return 'Minecraft Mods';
+    case 'roblox':
+      return 'Roblox Apps';
     default:
       return 'Apps';
   }
@@ -144,6 +148,8 @@ export function getCategoryIcon(category: AppCategory): string {
       return '🧩';
     case 'minecraft':
       return '🧊';
+    case 'roblox':
+      return '🎮';
     default:
       return '📁';
   }
