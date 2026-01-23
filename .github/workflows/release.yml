@@ -100,9 +100,9 @@ jobs:
       - name: Publish app
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
           # GitHub token for OTA updates (embedded into .exe)
-          # Note: Don't override GITHUB_TOKEN - publisher needs the automatic one
           # APPLAA_GITHUB_TOKEN will be used by embed script for embedding
           APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
