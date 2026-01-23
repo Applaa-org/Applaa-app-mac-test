@@ -24,6 +24,7 @@ import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
 import { initializeSupabase, getSupabaseAuth, type SupabaseConfig } from "./lib/supabase";
+import { getGitHubToken } from "./config/embedded-env";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -280,7 +281,12 @@ export async function onReady() {
     // Configure electron-updater for GitHub Releases
     // Support for private repositories with GitHub token
     // Note: VITE_GITHUB_TOKEN is for renderer process, we need GITHUB_TOKEN for main process
-    const githubToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.VITE_GITHUB_TOKEN;
+    // 🚀 Try embedded config first (from build time), then fall back to process.env
+    const githubToken = 
+      getGitHubToken() || // Try embedded config (from build time)
+      process.env.GITHUB_TOKEN || 
+      process.env.GH_TOKEN || 
+      process.env.VITE_GITHUB_TOKEN;
     const feedURLConfig: any = {
       provider: "github",
       owner: "Applaa-Builder",

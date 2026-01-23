@@ -92,11 +92,21 @@ jobs:
         shell: bash
         continue-on-error: true
         # Publish (Windows only)
+        # 🚀 Environment variables set here will be embedded into the packaged .exe
+        # via scripts/embed-env-vars.js (runs as part of "npm run publish")
+        # Note: Using APPLAA_GITHUB_TOKEN because GITHUB_TOKEN is reserved by GitHub Actions
       - name: Publish app
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GitHub token for OTA updates (embedded into .exe)
+          # Note: We use APPLAA_GITHUB_TOKEN secret name because GITHUB_TOKEN is reserved
+          # The env var is still named GITHUB_TOKEN so embed script can find it
+          GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
+          # Add other secrets here if needed for embedded config
+          # SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          # SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
