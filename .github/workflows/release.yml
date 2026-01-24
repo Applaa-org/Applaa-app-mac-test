@@ -103,13 +103,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
           # GitHub token for OTA updates (embedded into .exe)
-          # APPLAA_GITHUB_TOKEN will be used by embed script for embedding
           APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          AUTH_SUPABASE_URL: ${{ secrets.AUTH_SUPABASE_URL }}
-          AUTH_SUPABASE_ANON_KEY: ${{ secrets.AUTH_SUPABASE_ANON_KEY }}
+          # Supabase config is hardcoded in src/config/supabase.config.ts
+          # No secrets needed - app uses fallback values
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
