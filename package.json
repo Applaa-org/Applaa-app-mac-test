@@ -256,7 +256,6 @@
     "snack-sdk": "^6.5.1",
     "sonner": "^2.0.3",
     "sqlite-vec": "^0.1.7-alpha.2",
-    "sqlite-vec-windows-x64": "^0.1.7-alpha.2",
     "sqlite-vss": "^0.1.2",
     "stacktrace-js": "^2.0.2",
     "stripe": "^17.7.0",
@@ -271,6 +270,11 @@
     "xlsx": "^0.18.5",
     "xstate": "^5.22.1",
     "zod": "^3.25.76"
+  },
+  "optionalDependencies": {
+    "sqlite-vec-windows-x64": "^0.1.7-alpha.2",
+    "sqlite-vec-darwin-x64": "^0.1.7-alpha.2",
+    "sqlite-vec-darwin-arm64": "^0.1.7-alpha.2"
   },
   "lint-staged": {
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "oxlint",
