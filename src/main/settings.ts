@@ -15,8 +15,12 @@ const logger = log.scope("settings");
 // Need to maintain backwards compatibility!
 const DEFAULT_SETTINGS: UserSettings = {
   selectedModel: {
-    name: "auto",
-    provider: "auto",
+    name: "gemini-3-flash",
+    provider: "google",
+  },
+  planningModel: {
+    name: "gemini-3-flash",
+    provider: "google",
   },
   providerSettings: {},
   telemetryConsent: "unset",
@@ -41,11 +45,11 @@ const DEFAULT_SETTINGS: UserSettings = {
   releaseChannel: "stable",
   selectedTemplateId: DEFAULT_TEMPLATE_ID,
   selectedPlatform: "web", // Default to web platform
-  
+
   // Semantic Context defaults
   semanticCrossAppEnabled: false,
   semanticAutoIndexEnabled: true,
-  
+
   // AI Features Onboarding defaults
   hasShownAIFeaturesDialog: false,
   aiTransformersInstalled: false,
@@ -56,12 +60,15 @@ const DEFAULT_SETTINGS: UserSettings = {
 
   // Chat Stream Performance defaults (disabled for Dyad-like performance)
   enableStreamAutosave: false,
-  
+
+  // Web Search Feature (enabled by default for Applaa)
+  enableWebSearch: true,
+
   // Game Window defaults (enabled by default to match current behavior)
   enableGameWindowDuringStream: true,
-  
+
   // User tier removed - now fetched directly from Supabase, not stored in local settings
-  
+
   // UI State defaults (expanded by default)
   deployedAppsSectionExpanded: true,
 };
@@ -78,19 +85,19 @@ export function getSettingsFilePath(): string {
 
 export function readSettings(): UserSettings {
   _readCount++;
-  
+
   // CRITICAL: Prevent recursive calls that cause infinite loops
   if (_isReadingSettings) {
     console.warn('[readSettings] Recursive call detected, returning cached or default settings');
     return _settingsCache || DEFAULT_SETTINGS;
   }
-  
+
   // PERFORMANCE: Use cache if it's still valid (within 5 seconds)
   const now = Date.now();
   if (_settingsCache && (now - _cacheTimestamp) < CACHE_DURATION_MS) {
     _cacheHits++;
     if (_readCount % 50 === 0) { // Log every 50th call to avoid spam
-      console.log(`[PERF] Settings cache hit ${_cacheHits}/${_readCount} (${Math.round(_cacheHits/_readCount*100)}% hit rate)`);
+      console.log(`[PERF] Settings cache hit ${_cacheHits}/${_readCount} (${Math.round(_cacheHits / _readCount * 100)}% hit rate)`);
     }
     console.log('🔧 [readSettings] Cache hit, model:', {
       provider: _settingsCache.selectedModel?.provider,
@@ -98,9 +105,9 @@ export function readSettings(): UserSettings {
     });
     return _settingsCache;
   }
-  
+
   console.log('🔧 [readSettings] Cache miss, reading from file...');
-  
+
   try {
     _isReadingSettings = true;
     const filePath = getSettingsFilePath();
@@ -210,16 +217,16 @@ export function readSettings(): UserSettings {
 
     // Validate and merge with defaults
     const validatedSettings = UserSettingsSchema.parse(combinedSettings);
-    
+
     console.log('🔧 [readSettings] Settings read from file, model:', {
       provider: validatedSettings.selectedModel?.provider,
       name: validatedSettings.selectedModel?.name
     });
-    
+
     // Cache the settings to prevent recursive calls AND improve performance
     _settingsCache = validatedSettings;
     _cacheTimestamp = Date.now(); // Update cache timestamp
-    
+
     console.log(`[PERF] Settings loaded from disk (read #${_readCount})`);
 
     return validatedSettings;
@@ -259,17 +266,17 @@ export function writeSettings(settings: Partial<UserSettings>): void {
     console.warn('[writeSettings] Recursive call detected, using cached settings');
     return;
   }
-  
+
   console.log('🔧 [writeSettings] START - Incoming settings:', {
     hasSelectedModel: !!settings.selectedModel,
     modelProvider: settings.selectedModel?.provider,
     modelName: settings.selectedModel?.name
   });
-  
+
   try {
     _isWritingSettings = true;
     const filePath = getSettingsFilePath();
-    
+
     // Use cache if available to prevent recursive readSettings calls
     const currentSettings = _settingsCache || readSettings();
     console.log('🔧 [writeSettings] Current settings model:', {
@@ -277,7 +284,7 @@ export function writeSettings(settings: Partial<UserSettings>): void {
       modelProvider: currentSettings.selectedModel?.provider,
       modelName: currentSettings.selectedModel?.name
     });
-    
+
     const newSettings = { ...currentSettings, ...settings };
     console.log('🔧 [writeSettings] Merged settings model:', {
       hasSelectedModel: !!newSettings.selectedModel,
@@ -347,10 +354,11 @@ export function writeSettings(settings: Partial<UserSettings>): void {
       modelProvider: validatedSettings.selectedModel?.provider,
       modelName: validatedSettings.selectedModel?.name
     });
-    
+
     fs.writeFileSync(filePath, JSON.stringify(validatedSettings, null, 2));
+
     console.log('🔧 [writeSettings] File written successfully');
-    
+
     // 🚀 SMART CACHE: Invalidate cache after writing to ensure fresh reads
     invalidateSettingsCache();
     console.log('🔧 [writeSettings] Cache invalidated');
@@ -375,7 +383,7 @@ export function writeSettings(settings: Partial<UserSettings>): void {
 // Generate a stable encryption key based on machine characteristics
 function getStableEncryptionKey(): Buffer {
   const keyPath = path.join(getUserDataPath(), '.applaa-key');
-  
+
   // Try to read existing key
   if (fs.existsSync(keyPath)) {
     try {
@@ -384,16 +392,16 @@ function getStableEncryptionKey(): Buffer {
       logger.warn('Failed to read existing encryption key, generating new one');
     }
   }
-  
+
   // Generate new stable key based on machine characteristics
   const machineId = [
     os.hostname(),
     os.userInfo().username,
     'applaa-stable-key-v1' // Version identifier
   ].join('-');
-  
+
   const key = crypto.scryptSync(machineId, 'applaa-salt-2025', 32);
-  
+
   // Save key for future use
   try {
     fs.writeFileSync(keyPath, key);
@@ -401,7 +409,7 @@ function getStableEncryptionKey(): Buffer {
   } catch (error) {
     logger.warn('Failed to save encryption key, using in-memory only');
   }
-  
+
   return key;
 }
 
@@ -411,10 +419,10 @@ function stableEncrypt(data: string): string {
     const key = getStableEncryptionKey();
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-    
+
     let encrypted = cipher.update(data, 'utf8', 'base64');
     encrypted += cipher.final('base64');
-    
+
     // Combine IV and encrypted data
     return Buffer.concat([iv, Buffer.from(encrypted, 'base64')]).toString('base64');
   } catch (error) {
@@ -429,11 +437,11 @@ function stableDecrypt(encryptedData: string): string {
     const combined = Buffer.from(encryptedData, 'base64');
     const iv = combined.slice(0, 16);
     const encrypted = combined.slice(16).toString('base64');
-    
+
     const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
     let decrypted = decipher.update(encrypted, 'base64', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   } catch (error) {
     logger.error('Stable decryption failed:', error);
@@ -451,7 +459,7 @@ export function encrypt(data: string): Secret {
   } catch (error) {
     logger.warn('Stable encryption failed, falling back to safeStorage');
   }
-  
+
   // Fallback to Electron's safeStorage
   if (safeStorage.isEncryptionAvailable()) {
     return {
@@ -459,7 +467,7 @@ export function encrypt(data: string): Secret {
       encryptionType: "electron-safe-storage",
     };
   }
-  
+
   // Final fallback to plaintext
   return {
     value: data,
@@ -472,7 +480,7 @@ export function decrypt(data: Secret): string {
   if (data.encryptionType === "applaa-stable-v1") {
     return stableDecrypt(data.value);
   }
-  
+
   // Handle legacy Electron safeStorage
   if (data.encryptionType === "electron-safe-storage") {
     try {
@@ -483,7 +491,7 @@ export function decrypt(data: Secret): string {
       return data.value; // Return encrypted value as fallback
     }
   }
-  
+
   // Handle plaintext
   return data.value;
 }
@@ -493,7 +501,7 @@ export function getSettingsPerformanceStats() {
   return {
     totalReads: _readCount,
     cacheHits: _cacheHits,
-    hitRate: _readCount > 0 ? Math.round(_cacheHits/_readCount*100) : 0,
+    hitRate: _readCount > 0 ? Math.round(_cacheHits / _readCount * 100) : 0,
     cacheAge: _cacheTimestamp > 0 ? Date.now() - _cacheTimestamp : 0,
     isCacheValid: _settingsCache && (Date.now() - _cacheTimestamp) < CACHE_DURATION_MS
   };

@@ -1,4 +1,4 @@
-import { Database, SendIcon, StopCircleIcon, Gamepad2 } from "lucide-react";
+import { SendIcon, StopCircleIcon, Mic, MicOff, Loader2, Database } from "lucide-react";
 import { useCallback, useState, useEffect } from "react";
 
 import { useSettings } from "@/hooks/useSettings";
@@ -13,7 +13,8 @@ import { usePostHog } from "posthog-js/react";
 import { HomeSubmitOptions } from "@/pages/home";
 import { ChatInputControls } from "../ChatInputControls";
 import { LexicalChatInput } from "./LexicalChatInput";
-// Voice input removed for MVP performance optimization
+import { useGeminiSpeech } from "@/hooks/useGeminiSpeech";
+
 // Prompt optimization removed for MVP simplicity
 import {
   Tooltip,
@@ -21,9 +22,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-import { Checkbox } from "../ui/checkbox";
-import { Label } from "../ui/label";
-import { Input } from "../ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+
 export function HomeChatInput({
   onSubmit,
   placeholder,
@@ -35,19 +37,24 @@ export function HomeChatInput({
   placeholder?: string;
   showPlatformSelector?: boolean;
   showSparkSelector?: boolean;
-  appType?: 'web' | 'expo' | 'flutter' | 'mobile' | 'godot';
+  appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
 }) {
   const posthog = usePostHog();
   const [inputValue, setInputValue] = useAtom(homeChatInputValueAtom);
   const { settings } = useSettings();
   const { isStreaming } = useStreamChat({
     hasChatId: false,
-  }); // eslint-disable-line @typescript-eslint/no-unused-vars
+  });
 
-  // Use the prompt optimization hook
-  // Prompt optimization removed for MVP simplicity
-
-  // Voice input disabled for MVP
+  const {
+    isListening,
+    isProcessing,
+    toggleListening
+  } = useGeminiSpeech({
+    onTranscript: (text) => {
+      setInputValue(inputValue + (inputValue && !inputValue.endsWith(" ") ? " " : "") + text);
+    }
+  });
 
   // Use the attachments hook
   const {
@@ -62,16 +69,17 @@ export function HomeChatInput({
     handlePaste,
   } = useAttachments();
 
+
   // Database options for this prompt
   const [createDatabase, setCreateDatabase] = useState(false);
   const [databaseNotes, setDatabaseNotes] = useState("");
-  
+
   // Game data storage option (only for Applaa Game) - checked by default
   const [saveGameData, setSaveGameData] = useState(appType === 'godot');
-  
+
   // Clone website mode state
   const [isCloneModeActive, setIsCloneModeActive] = useState(false);
-  
+
   // Update saveGameData when appType changes
   useEffect(() => {
     console.log('[HomeChatInput] appType:', appType, 'isGodot:', appType === 'godot');
@@ -83,7 +91,7 @@ export function HomeChatInput({
     // Reset clone mode when appType changes
     setIsCloneModeActive(false);
   }, [appType]);
-  
+
   // Toggle clone mode
   const handleCloneModeToggle = useCallback(() => {
     setIsCloneModeActive((prev) => !prev);
@@ -94,11 +102,13 @@ export function HomeChatInput({
 
   // Voice input disabled for MVP
 
+
   // Custom submit function that wraps the provided onSubmit
   const handleCustomSubmit = () => {
     if ((!inputValue.trim() && attachments.length === 0) || isStreaming) {
       return;
     }
+
 
     // If clone mode is active, prepend the clone prompt
     let finalInputValue = inputValue.trim();
@@ -112,6 +122,7 @@ export function HomeChatInput({
     // Call the parent's onSubmit handler with attachments, DB options, and game data option
     // The parent will read from homeChatInputValueAtom, which we've just updated if in clone mode
     onSubmit({ attachments, createDatabase, databaseNotes, saveGameData });
+
 
     // Clear attachments as part of submission process
     clearAttachments();
@@ -129,9 +140,8 @@ export function HomeChatInput({
     <>
       <div className="p-4" data-testid="home-chat-input-container">
         <div
-          className={`relative flex flex-col space-y-2 border border-border rounded-lg bg-(--background-lighter) shadow-sm ${
-            isDraggingOver ? "ring-2 ring-blue-500 border-blue-500" : ""
-          }`}
+          className={`relative flex flex-col space-y-2 border border-border rounded-lg bg-(--background-lighter) shadow-sm ${isDraggingOver ? "ring-2 ring-blue-500 border-blue-500" : ""
+            }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -161,16 +171,28 @@ export function HomeChatInput({
             />
 
             {/* File attachment dropdown */}
-            {/* <FileAttachmentDropdown
+            <FileAttachmentDropdown
               className="mt-1 mr-1"
               onFileSelect={handleFileSelect}
               disabled={isStreaming}
-            /> */}
+            />
 
             <div className="flex items-center gap-1">
-              {/* 🎤 Voice Input - REMOVED for MVP performance optimization */}
-
-              {/* Boost feature removed - reverted to simple Keep Going functionality */}
+              <button
+                onClick={toggleListening}
+                disabled={isStreaming || isProcessing}
+                className={`px-2 py-2 mt-1 mr-1 rounded-lg transition-colors ${isListening ? "text-red-500 bg-red-50" : "text-(--sidebar-accent-fg) hover:bg-(--background-darkest)"
+                  }`}
+                title={isListening ? "Stop listening" : "Start voice input"}
+              >
+                {isProcessing ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : isListening ? (
+                  <MicOff size={20} />
+                ) : (
+                  <Mic size={20} />
+                )}
+              </button>
 
               {/* Send/Cancel button */}
               {isStreaming ? (
@@ -194,8 +216,8 @@ export function HomeChatInput({
           </div>
           <div className="pt-2 pb-2 border-t border-border">
             <div className="px-2">
-              <ChatInputControls 
-                showImportButton={true} 
+              <ChatInputControls
+                showImportButton={true}
                 showPlatformSelector={showPlatformSelector}
                 inputValue={inputValue}
                 onInputChange={setInputValue}
@@ -206,67 +228,40 @@ export function HomeChatInput({
               />
             </div>
           </div>
-
-          {/* Database options for app creation */}
+          
+          {/* Database options */}
           <div className="px-3 pb-3">
-            <div className="mt-1 space-y-1 rounded-md border border-dashed border-gray-300 bg-muted/40 p-2">
+            <div className="mt-1 space-y-1 rounded-md border border-dashed border-gray-300 bg-gray-50/40 p-2">
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="home-create-db"
+                  id="create-db"
                   checked={createDatabase}
                   onCheckedChange={(val) => setCreateDatabase(Boolean(val))}
                   disabled={isStreaming}
                 />
-                <Label
-                  htmlFor="home-create-db"
-                  className="flex items-center gap-1 text-xs text-muted-foreground"
-                >
-                  <Database className="h-3 w-3 text-blue-600" />
+                <Label htmlFor="create-db" className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
+                  <Database className="h-4 w-4 text-blue-600" />
                   <span>Create database for this app</span>
                 </Label>
               </div>
               {createDatabase && (
-                <Input
-                  id="home-db-notes"
-                  placeholder="Optional: describe tables/relations (e.g. Users, Projects, Tasks...)"
-                  className="h-7 text-xs"
-                  value={databaseNotes}
-                  onChange={(e) => setDatabaseNotes(e.target.value)}
-                  disabled={isStreaming}
-                />
+                <div className="space-y-1 pl-6">
+                  <Label htmlFor="db-notes" className="text-xs text-gray-600">
+                    Optional: describe your tables/relations (otherwise a reasonable Postgres schema will be created)
+                  </Label>
+                  <Input
+                    id="db-notes"
+                    placeholder="e.g., Users, Projects, Tasks with relations; use Postgres"
+                    value={databaseNotes}
+                    onChange={(e) => setDatabaseNotes(e.target.value)}
+                    className="text-sm"
+                    disabled={isStreaming}
+                  />
+                </div>
               )}
             </div>
-            
-            {/* Game data storage option (only show for Applaa Game, checked by default) */}
-            {(() => {
-              if (appType === 'godot') {
-                console.log('[HomeChatInput] Rendering localStorage checkbox for godot game');
-                return (
-                  <div className="mt-2 space-y-1 rounded-md border border-dashed border-purple-300 bg-purple-50/40 p-2">
-                <div className="flex items-center space-x-2">
-                  {/* <Checkbox
-                    id="home-save-game-data"
-                    checked={saveGameData}
-                    onCheckedChange={(val) => setSaveGameData(Boolean(val))}
-                    disabled={isStreaming}
-                  /> */}
-                  <Label
-                    htmlFor="home-save-game-data"
-                    className="flex items-center gap-1 text-xs text-muted-foreground"
-                  >
-                    <Gamepad2 className="h-3 w-3 text-purple-600" />
-                    <span>Save game data in localStorage</span>
-                  </Label>
-                </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
           </div>
         </div>
-
-        {/* Voice input now enabled with browser-based Web Speech API */}
       </div>
     </>
   );

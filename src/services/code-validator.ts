@@ -6,7 +6,7 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { glob } from 'glob';
-import { detectAppCategory } from '../utils/appTypeDetection';
+import { detectAppCategory, AppCategory } from '../utils/appTypeDetection';
 import { webSafePreviewValidator } from './web-safe-preview';
 
 export interface Problem {
@@ -33,11 +33,11 @@ export interface ValidationResult {
 
 export class CodeValidator {
   private appPath: string;
-  private appType: 'mobile' | 'web' | 'flutter' | 'capacitor';
+  private appType: AppCategory;
 
   constructor(appPath: string, appInfo?: { appType?: string; files?: string[] }) {
     this.appPath = appPath;
-    
+
     // Detect app type for conditional validation
     if (appInfo) {
       this.appType = this.detectAppType(appInfo);
@@ -50,27 +50,27 @@ export class CodeValidator {
   /**
    * Detect app type from app info
    */
-  private detectAppType(appInfo: { appType?: string; files?: string[] }): 'mobile' | 'web' | 'flutter' | 'capacitor' {
+  private detectAppType(appInfo: { appType?: string; files?: string[] }): AppCategory {
     // Use appType from database if available
     if (appInfo.appType === 'mobile') {
       return 'mobile';
     } else if (appInfo.appType === 'web') {
       return 'web';
     }
-    
+
     // Fallback to file-based detection
     if (appInfo.files) {
       const mockApp = { id: 0, files: appInfo.files } as any;
       return detectAppCategory(mockApp);
     }
-    
+
     return 'web'; // Default fallback
   }
 
   /**
    * Detect app type from filesystem (fallback method)
    */
-  private detectAppTypeFromFilesystem(): 'mobile' | 'web' | 'flutter' | 'capacitor' {
+  private detectAppTypeFromFilesystem(): AppCategory {
     try {
       const files = fs.readdirSync(this.appPath, { recursive: true }) as string[];
       const mockApp = { id: 0, files } as any;
@@ -131,7 +131,7 @@ export class CodeValidator {
       try {
         const content = await fs.readFile(file, 'utf-8');
         const relativePath = path.relative(this.appPath, file);
-        
+
         // Skip if file should be excluded from web preview
         if (webSafePreviewValidator.shouldExcludeFromWebPreview(relativePath)) {
           continue;
@@ -139,11 +139,26 @@ export class CodeValidator {
 
         // Check for web compatibility issues
         const webIssues = webSafePreviewValidator.checkWebCompatibility(relativePath, content);
-        
+
         if (webIssues.length > 0) {
           // Convert to Problem format
-          const webProblems = webSafePreviewValidator.convertToProblems(relativePath, webIssues);
-          problems.push(...webProblems);
+          // Cast to any[] because WebSafePreviewValidator returns a structure that doesn't strictly match shared/tsc_types.Problem
+          const webProblems = webSafePreviewValidator.convertToProblems(relativePath, webIssues) as any[];
+
+          // Map to CodeValidator Problem type
+          const mappedProblems: Problem[] = webProblems.map(p => ({
+            type: p.severity === 'error' ? 'error' : 'warning',
+            category: 'runtime', // Best fit categorization
+            file: relativePath,
+            line: p.line,
+            column: p.column,
+            message: p.message,
+            fix: undefined, // webSafePreviewValidator doesn't provide fixes in this format
+            autoFixable: !!p.autoFixable,
+            code: String(p.code)
+          }));
+
+          problems.push(...mappedProblems);
         }
       } catch (error) {
         console.warn(`Failed to check web compatibility for ${file}:`, error);
@@ -170,7 +185,7 @@ export class CodeValidator {
         if ((content.includes('Haptics.') || content.includes('Haptic.')) && content.includes('expo-haptics')) {
           const hasImport = /import.*Platform.*from ['"]react-native['"]/.test(content);
           const hasPlatformCheck = /Platform\.OS\s*[!=]=\s*['"]web['"]/.test(content) ||
-                                   /Platform\.select/.test(content);
+            /Platform\.select/.test(content);
 
           if (!hasPlatformCheck) {
             const hapticLines = lines
@@ -290,7 +305,7 @@ export class CodeValidator {
    */
   private async checkStaticDependencies(): Promise<Problem[]> {
     const problems: Problem[] = [];
-    
+
     try {
       const packageJsonPath = path.join(this.appPath, 'package.json');
       if (!await fs.pathExists(packageJsonPath)) {
@@ -299,8 +314,8 @@ export class CodeValidator {
 
       const packageJson = await fs.readJSON(packageJsonPath);
       const installedDeps = {
-        ...packageJson.dependencies || {},
-        ...packageJson.devDependencies || {}
+        ...packageJson.dependencies,
+        ...packageJson.devDependencies
       };
 
       const files = await this.getAllSourceFiles();
@@ -312,7 +327,7 @@ export class CodeValidator {
 
         while ((match = importRegex.exec(content)) !== null) {
           const importPath = match[1];
-          
+
           // Skip relative imports
           if (importPath.startsWith('.') || importPath.startsWith('/')) {
             continue;
@@ -360,10 +375,10 @@ export class CodeValidator {
 
     try {
       console.log('[CodeValidator] Running expo start to check for dependency issues...');
-      
+
       // Import spawn dynamically to avoid issues
       const { spawn } = await import('child_process');
-      
+
       return new Promise((resolve) => {
         const expoProcess = spawn('npx', ['expo', 'start', '--web'], {
           cwd: this.appPath,
@@ -395,10 +410,10 @@ export class CodeValidator {
 
         expoProcess.stderr?.on('data', (data) => {
           stderr += data.toString();
-          
+
           // Check for specific dependency errors
           const errorOutput = data.toString();
-          
+
           // Check for undici corruption
           if (errorOutput.includes("Cannot find module") && errorOutput.includes("undici")) {
             problems.push({
@@ -412,7 +427,7 @@ export class CodeValidator {
             });
             hasError = true;
           }
-          
+
           // Check for other module not found errors
           const moduleNotFoundMatch = errorOutput.match(/Cannot find module ['"]([^'"]+)['"]/);
           if (moduleNotFoundMatch) {
@@ -428,7 +443,7 @@ export class CodeValidator {
             });
             hasError = true;
           }
-          
+
           // Check for package.json main entry issues
           if (errorOutput.includes('Please verify that the package.json has a valid "main" entry')) {
             problems.push({
@@ -447,30 +462,30 @@ export class CodeValidator {
         expoProcess.stdout?.on('data', (data) => {
           stdout += data.toString();
           const output = data.toString();
-          
+
           // Look for successful startup indicators
-          if (output.includes('Metro waiting on') || 
-              output.includes('Ready!') ||
-              output.includes('Starting Metro Bundler')) {
+          if (output.includes('Metro waiting on') ||
+            output.includes('Ready!') ||
+            output.includes('Starting Metro Bundler')) {
             clearTimeout(timeout);
             expoProcess.kill('SIGTERM');
             console.log('[CodeValidator] ✅ Expo start successful - no dependency issues detected');
             resolve(problems);
           }
-          
+
           // 🚀 NEW: Check for Metro bundling errors in stdout
           if (output.includes('error') || output.includes('Error') || output.includes('ERROR')) {
             console.log('[CodeValidator] Metro bundling error detected in stdout:', output);
-            
+
             // Check for specific asset errors
             if (output.includes('unsupported file type') || output.includes('asset')) {
               const assetErrorMatch = output.match(/assets[^:]+:\s*unsupported file type:\s*(\w+)/);
               const assetPathMatch = output.match(/file:\s*([^)]+)/);
-              
+
               if (assetErrorMatch || assetPathMatch) {
                 const assetPath = assetPathMatch ? assetPathMatch[1] : 'Unknown asset';
                 const fileType = assetErrorMatch ? assetErrorMatch[1] : 'undefined';
-                
+
                 problems.push({
                   type: 'error',
                   category: 'runtime',

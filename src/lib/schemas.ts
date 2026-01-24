@@ -200,6 +200,8 @@ export const UserSettingsSchema = z.object({
   autoApproveChanges: z.boolean().optional(),
   telemetryConsent: z.enum(["opted_in", "opted_out", "unset"]).optional(),
   telemetryUserId: z.string().optional(),
+  userId: z.string().optional(), // For analytics/Sentry user identification
+  analyticsConsent: z.enum(["granted", "denied", "unset"]).optional(), // For analytics consent
   hasRunBefore: z.boolean().optional(),
   enableApplaaPro: z.boolean().optional(),
   // userTier removed - now fetched directly from Supabase database, not stored in local settings
@@ -213,7 +215,7 @@ export const UserSettingsSchema = z.object({
   enableSparkEditsMode: z.boolean().optional(),
   enableSparkContextMode: z.boolean().optional(),
   selectedTemplateId: z.string(),
-  selectedPlatform: z.enum(["web", "expo", "flutter"]).optional(),
+  selectedPlatform: z.enum(["web", "expo", "flutter", "godot", "arcade", "microbit", "minecraft", "blockly", "roblox", "python"]).optional(),
   customAppsDirectory: z.string().optional(),
   enableSupabaseWriteSqlMigration: z.boolean().optional(),
   selectedChatMode: ChatModeSchema.optional(),
@@ -229,7 +231,7 @@ export const UserSettingsSchema = z.object({
   semanticContextEnabled: z.boolean().optional(),
   semanticCrossAppEnabled: z.boolean().optional(),
   semanticAutoIndexEnabled: z.boolean().optional(),
-  
+
   // AI Features Onboarding
   hasShownAIFeaturesDialog: z.boolean().optional(),
   aiTransformersInstalled: z.boolean().optional(),
@@ -289,6 +291,30 @@ export const UserSettingsSchema = z.object({
     lastLogin: z.string().optional(),
   }).optional(),
 
+  // Web Search Feature
+  enableWebSearch: z.boolean().optional(),
+
+  // Asset Generation Providers (for Minecraft mods, etc.)
+  assetProviders: z.object({
+    textures: z.object({
+      provider: z.enum(['dall-e-3', 'stable-diffusion', 'none']).optional(),
+      apiKey: SecretSchema.optional(), // For Stability AI
+      // Note: DALL-E uses the existing OpenAI API key from providerSettings
+    }).optional(),
+    models: z.object({
+      provider: z.enum(['meshy', 'tripo', 'none']).optional(),
+      apiKey: SecretSchema.optional(),
+    }).optional(),
+    sounds: z.object({
+      provider: z.enum(['elevenlabs', 'audiocraft', 'none']).optional(),
+      apiKey: SecretSchema.optional(),
+    }).optional(),
+  }).optional(),
+
+  // Simplified Asset Provider API Keys (for easier access)
+  meshyApiKey: SecretSchema.optional(),
+  elevenLabsApiKey: SecretSchema.optional(),
+
   ////////////////////////////////
   // E2E TESTING ONLY.
   ////////////////////////////////
@@ -296,10 +322,9 @@ export const UserSettingsSchema = z.object({
 
   ////////////////////////////////
   // DEPRECATED.
-  ////////////////////////////////
-  enableProSaverMode: z.boolean().optional(),
   dyadProBudget: DyadProBudgetSchema.optional(),
   runtimeMode: RuntimeModeSchema.optional(),
+  planningModel: LargeLanguageModelSchema.optional(),
 });
 
 /**
@@ -347,10 +372,15 @@ export type SuggestedAction =
   | RebuildAction
   | RestartAction
   | RefreshAction
-  | BoostMyAppAction;
+  | BoostMyAppAction
+  | RetryAction;
 
 export interface RestartAppAction {
   id: "restart-app";
+}
+
+export interface RetryAction {
+  id: "retry";
 }
 
 export interface SummarizeInNewChatAction {

@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "180_shrine_180",
+    "description": "more templates - 180_shrine_180",
+    "uuid": "d687ef60-2a8a-4de6-bf46-ce350cae6a5f",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "ed91a47e-bcbc-4525-b942-9869ade908c3",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

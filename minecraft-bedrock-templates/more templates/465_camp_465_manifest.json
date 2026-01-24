@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "465_camp_465",
+    "description": "more templates - 465_camp_465",
+    "uuid": "d0fefbd9-2248-41c0-a129-be4783a3b2b4",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "0ab309c5-d7db-4081-9504-d68e5a95a8bd",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -1,22 +1,39 @@
 import React, { useEffect, useState } from "react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Monitor, Smartphone, Gamepad2 } from "lucide-react";
+import { Monitor, Smartphone, Gamepad2, GraduationCap, Box, ChevronDown, Blocks } from "lucide-react";
+import { useSetAtom } from "jotai";
+import { dropdownOpenAtom } from "@/atoms/uiAtoms";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-export type AppFilterType = "web" | "mobile" | "game";
+export type AppFilterType = "web" | "mobile" | "game" | "minecraft" | "roblox" | "learn";
 
 interface AppTypeFilterProps {
   onChange: (filterType: AppFilterType) => void;
   defaultValue?: AppFilterType;
 }
 
+const filterOptions = [
+  { value: "game", label: "Game Apps", icon: Gamepad2, color: "text-purple-600" },
+  { value: "web", label: "Web Apps", icon: Monitor, color: "text-blue-600" },
+  { value: "mobile", label: "Mobile Apps", icon: Smartphone, color: "text-green-600" },
+  { value: "minecraft", label: "Minecraft Mods", icon: Box, color: "text-lime-600" },
+  { value: "roblox", label: "Roblox Apps", icon: Blocks, color: "text-red-500" },
+  { value: "learn", label: "Learning Apps", icon: GraduationCap, color: "text-indigo-600" },
+] as const;
+
 export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterProps) {
   const [selectedFilter, setSelectedFilter] = useState<AppFilterType>(defaultValue);
+  const setDropdownOpen = useSetAtom(dropdownOpenAtom);
 
   // Load from localStorage on initial mount
   useEffect(() => {
     const savedFilter = localStorage.getItem("applaa-app-filter") as AppFilterType | null;
-    if (savedFilter && (savedFilter === "web" || savedFilter === "mobile" || savedFilter === "game")) {
+    if (savedFilter && ["web", "mobile", "game", "minecraft", "roblox", "learn"].includes(savedFilter)) {
       setSelectedFilter(savedFilter);
       onChange(savedFilter);
     }
@@ -26,60 +43,47 @@ export function AppTypeFilter({ onChange, defaultValue = "web" }: AppTypeFilterP
     const filterType = value as AppFilterType;
     setSelectedFilter(filterType);
     onChange(filterType);
-    
+
     // Save to localStorage
     localStorage.setItem("applaa-app-filter", filterType);
   };
 
+  const selectedOption = filterOptions.find(opt => opt.value === selectedFilter);
+  const SelectedIcon = selectedOption?.icon || Monitor;
+
   return (
     <div className="px-2 py-2">
-      <RadioGroup 
-        value={selectedFilter} 
+      <Select
+        value={selectedFilter}
         onValueChange={handleFilterChange}
-        className="flex gap-0.5"
+        onOpenChange={(open) => setDropdownOpen(open)}
       >
-        <div className="flex items-center flex-1 min-w-0">
-          <RadioGroupItem value="game" id="filter-game" className="sr-only peer" />
-          <Label 
-            htmlFor="filter-game"
-            className={`flex items-center gap-1 px-1.5 py-1 text-xs rounded-md cursor-pointer transition-colors flex-1 justify-center
-              ${selectedFilter === "game" 
-                ? "bg-purple-600 text-white" 
-                : "text-muted-foreground hover:bg-muted"}`}
-          >
-            <Gamepad2 className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">Game</span>
-          </Label>
-        </div>
-
-        <div className="flex items-center flex-1 min-w-0">
-          <RadioGroupItem value="web" id="filter-web" className="sr-only peer" />
-          <Label 
-            htmlFor="filter-web"
-            className={`flex items-center gap-1 px-1.5 py-1 text-xs rounded-md cursor-pointer transition-colors flex-1 justify-center
-              ${selectedFilter === "web" 
-                ? "bg-blue-600 text-white" 
-                : "text-muted-foreground hover:bg-muted"}`}
-          >
-            <Monitor className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">Web</span>
-          </Label>
-        </div>
-
-        <div className="flex items-center flex-1 min-w-0">
-          <RadioGroupItem value="mobile" id="filter-mobile" className="sr-only peer" />
-          <Label 
-            htmlFor="filter-mobile"
-            className={`flex items-center gap-1 px-1.5 py-1 text-xs rounded-md cursor-pointer transition-colors flex-1 justify-center
-              ${selectedFilter === "mobile" 
-                ? "bg-green-600 text-white" 
-                : "text-muted-foreground hover:bg-muted"}`}
-          >
-            <Smartphone className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">Mobile</span>
-          </Label>
-        </div>
-      </RadioGroup>
+        <SelectTrigger
+          className="w-full h-10 bg-background border-input hover:bg-accent hover:text-accent-foreground transition-all duration-200 shadow-sm"
+        >
+          <div className="flex items-center gap-2 w-full">
+            <SelectedIcon className={`h-4 w-4 ${selectedOption?.color || 'text-foreground'}`} />
+            <SelectValue placeholder="Filter apps..." />
+          </div>
+        </SelectTrigger>
+        <SelectContent className="z-50 max-h-[300px]">
+          {filterOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                className="cursor-pointer py-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className={`h-4 w-4 ${option.color}`} />
+                  <span className="font-medium">{option.label}</span>
+                </div>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

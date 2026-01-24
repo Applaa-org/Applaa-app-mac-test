@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ProblemReport, Problem } from "../../shared/tsc_types";
+import type { AppFeaturesConfig } from "../types/app-features";
 export type { ProblemReport, Problem };
 
 export interface AppOutput {
@@ -51,13 +52,15 @@ export interface CreateAppParams {
   packageId?: string;
   slug?: string;
   // Platform hints so main process can persist correct app_type
-  framework?: 'web' | 'expo' | 'flutter';
-  appType?: 'web' | 'mobile' | 'godot';
+  framework?: 'web' | 'expo' | 'flutter' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox-lua' | 'python';
+  appType?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   // Optional extras passed by some creators
   template?: string;
   platforms?: string[];
   path?: string;
   initialPrompt?: string;
+  // App Features Configuration
+  features?: AppFeaturesConfig;
 }
 
 export interface CreateAppResult {
@@ -94,10 +97,12 @@ export interface Message {
   approvalState?: "approved" | "rejected" | null;
   commitHash?: string | null;
   dbTimestamp?: string | null;
+  steps?: { title: string; status: 'completed' | 'pending' | 'running' }[];
 }
 
 export interface Chat {
   id: number;
+  appId: number;
   title: string;
   messages: Message[];
   initialCommitHash?: string | null;
@@ -112,7 +117,7 @@ export interface App {
   files: string[];
   createdAt: Date;
   updatedAt: Date;
-  appType?: 'web' | 'mobile' | 'godot';
+  appType?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   githubOrg: string | null;
   githubRepo: string | null;
   githubBranch: string | null;
@@ -134,6 +139,27 @@ export interface App {
   deploymentStatus: string | null;
   lastDeploymentAt: Date | null;
   deploymentNotes: string | null;
+  // App Features Configuration
+  features?: AppFeaturesConfig;
+}
+
+export interface ReadFileParams {
+  appId: number;
+  filePath: string;
+}
+
+export interface ReadFileResult {
+  content: string;
+}
+
+export interface WriteFileParams {
+  appId: number;
+  filePath: string;
+  content: string;
+}
+
+export interface WriteFileResult {
+  success: boolean;
 }
 
 export interface Version {
@@ -215,26 +241,26 @@ export interface LanguageModelProvider {
 
 export type LanguageModel =
   | {
-      id: number;
-      apiName: string;
-      displayName: string;
-      description: string;
-      tag?: string;
-      maxOutputTokens?: number;
-      contextWindow?: number;
-      temperature?: number;
-      type: "custom";
-    }
+    id: number;
+    apiName: string;
+    displayName: string;
+    description: string;
+    tag?: string;
+    maxOutputTokens?: number;
+    contextWindow?: number;
+    temperature?: number;
+    type: "custom";
+  }
   | {
-      apiName: string;
-      displayName: string;
-      description: string;
-      tag?: string;
-      maxOutputTokens?: number;
-      contextWindow?: number;
-      temperature?: number;
-      type: "local" | "cloud";
-    };
+    apiName: string;
+    displayName: string;
+    description: string;
+    tag?: string;
+    maxOutputTokens?: number;
+    contextWindow?: number;
+    temperature?: number;
+    type: "local" | "cloud";
+  };
 
 export interface CreateCustomLanguageModelProviderParams {
   id: string;
@@ -525,3 +551,19 @@ export interface LocalBuildStatus {
   isBuilding: boolean;
   processId: number | null;
 }
+
+export interface ListFilesParams {
+  appId: number;
+  path?: string;
+}
+
+export interface ListFilesResult {
+  success: boolean;
+  files: Array<{
+    name: string;
+    path: string;
+    isDirectory: boolean;
+  }>;
+  error?: string;
+}
+

@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "hello_world",
+    "description": "starter - hello_world",
+    "uuid": "44ef8c73-ff77-4e34-9f86-72b874573ca3",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "105e1e46-b5ff-4430-9cc0-ee0608092f3f",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

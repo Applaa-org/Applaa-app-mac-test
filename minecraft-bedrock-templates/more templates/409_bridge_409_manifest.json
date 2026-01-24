@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "409_bridge_409",
+    "description": "more templates - 409_bridge_409",
+    "uuid": "97ce6d90-fdaa-44aa-9a7a-642f6c9f0e07",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "5e6c9523-31de-4c81-ba70-aa4761517169",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

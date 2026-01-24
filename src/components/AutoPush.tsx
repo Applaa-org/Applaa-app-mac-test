@@ -10,10 +10,22 @@ import { AUTOPUSH_CONFIG } from "@/config/autopush.config";
 import { toast } from "sonner";
 import { useAtom } from "jotai";
 import { globalPublishStateAtom } from "@/atoms/appAtoms";
+
 import { useApplaaPro } from "@/hooks/useApplaaPro";
 import log from "electron-log";
 
-const logger = log.scope("AutoPush");
+
+// Use console.log in renderer process instead of electron-log
+const logger = {
+  info: (...args: any[]) => console.log('[AutoPush]', ...args),
+  error: (...args: any[]) => console.error('[AutoPush]', ...args),
+  warn: (...args: any[]) => console.warn('[AutoPush]', ...args),
+  scope: (name: string) => ({
+    info: (...args: any[]) => console.log(`[${name}]`, ...args),
+    error: (...args: any[]) => console.error(`[${name}]`, ...args),
+    warn: (...args: any[]) => console.warn(`[${name}]`, ...args),
+  })
+};
 
 // Function to generate a valid Vercel project name from repository name
 function generateVercelProjectName(repoName: string): string {
@@ -23,24 +35,24 @@ function generateVercelProjectName(repoName: string): string {
     .replace(/[^a-z0-9-]/g, '-') // Replace invalid characters with hyphens
     .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
-  
+
   // Ensure it doesn't start with a number (Vercel requirement)
   if (/^[0-9]/.test(projectName)) {
     projectName = 'app-' + projectName;
   }
-  
+
   // Limit to 30 characters maximum (after all transformations)
   if (projectName.length > 30) {
     projectName = projectName.substring(0, 30);
     // Remove trailing hyphen if truncation created one
     projectName = projectName.replace(/-$/, '');
   }
-  
+
   // Ensure it's not empty
   if (!projectName) {
     projectName = 'app-project';
   }
-  
+
   return projectName;
 }
 
@@ -58,11 +70,11 @@ async function validateVercelProjectName(name: string, token: string): Promise<{
 
   // 2. Check availability via API
   const url = `https://api.vercel.com/v9/projects/${encodeURIComponent(name)}`;
-  
+
   // Create AbortController for timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-  
+
   try {
     const res = await fetch(url, {
       method: 'GET',
@@ -71,9 +83,9 @@ async function validateVercelProjectName(name: string, token: string): Promise<{
       },
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (res.status === 404) {
       return { valid: true, available: true }; // ✅ Valid and available
     } else if (res.ok) {
@@ -111,9 +123,9 @@ interface AutoPushProps {
 }
 
 // Function to read app files without using IPC
-async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array<{path: string, content: string}>> {
-  const filesToUpload: Array<{path: string, content: string}> = [];
-  
+async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array<{ path: string, content: string }>> {
+  const filesToUpload: Array<{ path: string, content: string }> = [];
+
   // Try to read .gitignore file first using IPC
   let gitignorePatterns: string[] = [];
   try {
@@ -128,12 +140,12 @@ async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array
   } catch (error) {
     logger.info(`📁 No .gitignore file found or could not read it`);
   }
-  
+
   // Try to read files using fetch (if they're served by a local server)
   console.log(`📁 Processing ${app.files.length} files from app`);
   console.log(`📁 App path: ${app.path}`);
   console.log(`📁 App files array:`, app.files);
-  
+
   // If app.files is empty, try to get files using IPC
   let filesToProcess = app.files;
   if (filesToProcess.length === 0) {
@@ -146,7 +158,7 @@ async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array
       console.log(`📁 Failed to get files via IPC:`, error);
     }
   }
-  
+
   for (const filePath of filesToProcess) {
     console.log(`🔍 Checking file: ${filePath}`);
     if (shouldIncludeFile(filePath, gitignorePatterns)) {
@@ -154,10 +166,10 @@ async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array
       try {
         // Try to read the actual file from the file system
         console.log(`📁 Attempting to read actual file: ${filePath}`);
-        
+
         // Try different approaches to read the file
         let fileContent = null;
-        
+
         // Try to read from the app path using IPC (bypasses CSP restrictions)
         try {
           console.log(`📁 Trying to read file via IPC: ${filePath}`);
@@ -169,7 +181,7 @@ async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array
         } catch (error: any) {
           console.log(`⚠️ Could not read ${filePath} via IPC:`, error.message);
         }
-        
+
         // If we got actual content, use it
         if (fileContent) {
           filesToUpload.push({
@@ -187,7 +199,7 @@ async function readAppFilesWithoutIPC(app: App, repoName: string): Promise<Array
       console.log(`❌ Excluding file: ${filePath}`);
     }
   }
-  
+
   // Only use fallback files if we couldn't read any actual files
   if (filesToUpload.length === 0) {
     console.log("📁 No actual files could be read, using fallback files with proper folder structure");
@@ -398,7 +410,7 @@ export default defineConfig({
       }
     ];
   }
-  
+
   // Always add index.html to root (required for Vite)
   filesToUpload.push({
     path: 'index.html',
@@ -433,15 +445,15 @@ function shouldIncludeFile(filename: string, gitignorePatterns: string[] = []): 
     '.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf',
     '.eot', '.scss', '.sass', '.less', '.styl', '.vue', '.svelte'
   ];
-  
+
   // Always exclude these directories and files
   const excludePatterns = [
-    'node_modules/', '.git/', 'dist/', 'build/', '.next/', 
+    'node_modules/', '.git/', 'dist/', 'build/', '.next/',
     '.vscode/', '.idea/', '.DS_Store', '*.log', '*.local',
     'dist-ssr/', '*.suo', '*.ntvs*', '*.njsproj', '*.sln', '*.sw?',
     'coverage/', '.nyc_output/', '.cache/', 'temp/', 'tmp/'
   ];
-  
+
   // Check if file should be excluded based on patterns
   const allExcludePatterns = [...excludePatterns, ...gitignorePatterns];
   for (const pattern of allExcludePatterns) {
@@ -453,13 +465,13 @@ function shouldIncludeFile(filename: string, gitignorePatterns: string[] = []): 
     } else {
       matches = filename.includes(pattern);
     }
-    
+
     if (matches) {
       console.log(`❌ Excluding file: ${filename} (matched exclude pattern: ${pattern})`);
       return false;
     }
   }
-  
+
   // Check if file has an included extension
   const hasIncludedExtension = includeExtensions.some(ext => filename.endsWith(ext));
   if (!hasIncludedExtension) {
@@ -474,62 +486,64 @@ function shouldIncludeFile(filename: string, gitignorePatterns: string[] = []): 
 export function AutoPush({ appId, projectName, app, onSuccess, publishState, setPublishState }: AutoPushProps) {
   // Use global state by default, or external state if provided
   const [globalPublishState, setGlobalPublishState] = useAtom(globalPublishStateAtom);
+
   
   // Check user tier for deployment restrictions
   const { canDeploy } = useApplaaPro();
   
+
   // Use external state if provided, otherwise use global state
   const currentPublishState = publishState || globalPublishState;
   const currentSetPublishState = setPublishState || setGlobalPublishState;
-  
+
   const isPushing = currentPublishState.isPushing;
   const progressMessage = currentPublishState.progressMessage;
   const uploadProgress = currentPublishState.uploadProgress;
   const isUploading = currentPublishState.isUploading;
-  
+
   // Debug: Log current state values
-  
-  const setIsPushing = (value: boolean) => currentSetPublishState({ 
-    isPushing: value, 
-    progressMessage: currentPublishState.progressMessage, 
-    uploadProgress: currentPublishState.uploadProgress, 
-    isUploading: currentPublishState.isUploading 
+
+  const setIsPushing = (value: boolean) => currentSetPublishState({
+    isPushing: value,
+    progressMessage: currentPublishState.progressMessage,
+    uploadProgress: currentPublishState.uploadProgress,
+    isUploading: currentPublishState.isUploading
   });
-  
+
   const setProgressMessage = (value: string) => {
     console.log("🔍 setProgressMessage called with:", value);
-    const newState = { 
-      isPushing: currentPublishState.isPushing, 
-      progressMessage: value, 
-      uploadProgress: currentPublishState.uploadProgress, 
-      isUploading: currentPublishState.isUploading 
+    const newState = {
+      isPushing: currentPublishState.isPushing,
+      progressMessage: value,
+      uploadProgress: currentPublishState.uploadProgress,
+      isUploading: currentPublishState.isUploading
     };
     console.log("🔍 setProgressMessage newState:", newState);
     currentSetPublishState(newState);
   };
-  
+
   const setUploadProgress = (value: { current: number; total: number }) => {
     console.log("🔍 setUploadProgress called with:", value);
-    const newState = { 
-      isPushing: currentPublishState.isPushing, 
-      progressMessage: currentPublishState.progressMessage, 
-      uploadProgress: value, 
-      isUploading: currentPublishState.isUploading 
+    const newState = {
+      isPushing: currentPublishState.isPushing,
+      progressMessage: currentPublishState.progressMessage,
+      uploadProgress: value,
+      isUploading: currentPublishState.isUploading
     };
     console.log("🔍 setUploadProgress newState:", newState);
     currentSetPublishState(newState);
   };
-  
-  const setIsUploading = (value: boolean) => currentSetPublishState({ 
-    isPushing: currentPublishState.isPushing, 
-    progressMessage: currentPublishState.progressMessage, 
-    uploadProgress: currentPublishState.uploadProgress, 
-    isUploading: value 
+
+  const setIsUploading = (value: boolean) => currentSetPublishState({
+    isPushing: currentPublishState.isPushing,
+    progressMessage: currentPublishState.progressMessage,
+    uploadProgress: currentPublishState.uploadProgress,
+    isUploading: value
   });
-  
+
   // If app is null, we need to fetch it
   const [appData, setAppData] = useState<App | null>(app);
-  
+
   // Load app data if not provided
   useEffect(() => {
     if (!app && appId) {
@@ -544,12 +558,12 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       loadApp();
     }
   }, [app, appId]);
-  
+
   const currentApp = appData || app;
   const [pushStatus, setPushStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
-  
+
   // Hardcoded values as requested
   const [githubToken] = useState(AUTOPUSH_CONFIG.GITHUB_TOKEN);
   const [githubUsername] = useState(AUTOPUSH_CONFIG.GITHUB_USERNAME);
@@ -582,7 +596,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
     url: null,
     polling: false,
   });
-  
+
   // Use ref to always access latest state in polling function
   const vercelDeploymentStatusRef = useRef(vercelDeploymentStatus);
   useEffect(() => {
@@ -598,14 +612,14 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         githubRepo: currentApp.githubRepo,
         vercelDeploymentUrl: currentApp.vercelDeploymentUrl
       });
-      
-      const githubRepoUrl = currentApp.githubOrg && currentApp.githubRepo 
+
+      const githubRepoUrl = currentApp.githubOrg && currentApp.githubRepo
         ? `https://github.com/${currentApp.githubOrg}/${currentApp.githubRepo}`
         : undefined;
       const vercelDeploymentUrl = currentApp.vercelDeploymentUrl || undefined;
-      
+
       console.log("🔍 Constructed URLs:", { githubRepoUrl, vercelDeploymentUrl });
-      
+
       setSavedUrls({
         githubRepoUrl,
         vercelDeploymentUrl
@@ -622,7 +636,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
   useEffect(() => {
     if (deployToVercel && vercelProjectName && vercelToken) {
       setVercelProjectValidation(prev => ({ ...prev, checking: true }));
-      
+
       validateVercelProjectName(vercelProjectName, vercelToken)
         .then(result => {
           setVercelProjectValidation({
@@ -655,7 +669,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
     const pollDeploymentStatus = async () => {
       // Use ref to get latest state
       const current = vercelDeploymentStatusRef.current;
-      
+
       if (!current.deploymentId || !vercelToken) {
         console.log("⏸️ Skipping poll - missing deploymentId or token", {
           hasDeploymentId: !!current.deploymentId,
@@ -670,7 +684,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           deploymentId: current.deploymentId,
           vercelToken: vercelToken,
         });
-        
+
         console.log("📊  Deployment status received:", {
           state: status.state,
           readyState: status.readyState,
@@ -689,14 +703,14 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         // Check if deployment is ready or failed (handle case variations)
         const readyStateUpper = status.readyState?.toUpperCase();
         const stateUpper = status.state?.toUpperCase();
-        
+
         if (readyStateUpper === "READY" || readyStateUpper === "COMPLETE") {
           console.log("✅  deployment ready:", status.url);
           setVercelDeploymentStatus(prev => ({ ...prev, polling: false }));
-          
+
           // Use status.url directly (backend returns production URL)
           const finalUrl = status.url;
-          
+
           // Update success message with production URL
           if (finalUrl) {
             setSuccessMessage(prev => {
@@ -706,7 +720,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               );
               return newMessage.includes(finalUrl) ? prev : newMessage + `\n🚀 Deployment ready: ${finalUrl}`;
             });
-            
+
             // Save the production URL
             if (appId) {
               IpcClient.getInstance().updateAppDeploymentUrls({
@@ -715,7 +729,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               }).catch(console.error);
             }
           }
-          
+
           setVercelDeploying(false);
           if (pollInterval) {
             clearInterval(pollInterval);
@@ -766,7 +780,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       // Start polling immediately, then every POLL_INTERVAL
       pollDeploymentStatus();
       pollInterval = setInterval(pollDeploymentStatus, POLL_INTERVAL);
-      
+
       // Set max timeout
       pollTimeout = setTimeout(() => {
         console.warn("⏱️ Polling timeout reached");
@@ -783,7 +797,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
         hasDeploymentId: !!vercelDeploymentStatus.deploymentId
       });
     }
-    
+
     return () => {
       console.log("🧹 Cleaning up polling intervals");
       if (pollInterval) {
@@ -822,11 +836,11 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       // 1. Create GitHub repository via API
       console.log("📝 Setting progress message: Creating GitHub repository...");
       setProgressMessage("Creating GitHub repository...");
-      
+
       // Create AbortController for timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
+
       try {
         const createRepoResponse = await fetch("https://api.github.com/user/repos", {
           method: "POST",
@@ -868,7 +882,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       // 2. Get app files and upload them
       console.log("📝 Setting progress message: Reading app files...");
       setProgressMessage("Reading app files...");
-      
+
       // Use current app data
       if (!currentApp) {
         throw new Error("App not found");
@@ -898,17 +912,17 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       // 3. Deploy to Vercel if requested
       let vercelUrl = "";
       let vercelError = "";
-      
+
       if (deployToVercel) {
         if (!vercelToken.trim()) {
           vercelError = "Vercel token is required for deployment";
         } else {
           console.log("📝 Setting progress message: Setting up  deployment...");
           setProgressMessage("Setting up  deployment...");
-          
+
           try {
             console.log("🚀 Starting Vercel setup...");
-            
+
             // Save Vercel token
             await IpcClient.getInstance().saveVercelAccessToken({
               token: vercelToken,
@@ -917,11 +931,11 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
 
             // Deploy directly to Vercel using the deployment API
             console.log("🚀 Deploying to Vercel...");
-            
+
             try {
               // Try IPC method first, fallback to direct fetch if channel not available
               console.log("🚀 Deploying to Vercel...");
-              
+
               try {
                 const deploymentResult = await IpcClient.getInstance().deployToVercel({
                   vercelToken,
@@ -958,7 +972,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                         console.log("🔄 Attempting to get deployment ID from project...");
                         // Extract project name from URL or use repoName
                         const projectName = repoName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-                        
+
                         // Query Vercel API for latest deployment
                         const deploymentsResponse = await fetch(`https://api.vercel.com/v6/deployments?projectId=${projectName}&limit=1`, {
                           headers: {
@@ -966,13 +980,13 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                             "Accept": "application/json",
                           },
                         });
-                        
+
                         if (deploymentsResponse.ok) {
                           const deploymentsData = await deploymentsResponse.json();
                           if (deploymentsData.deployments && deploymentsData.deployments.length > 0) {
                             const latestDeployment = deploymentsData.deployments[0];
                             const foundDeploymentId = latestDeployment.uid || latestDeployment.id;
-                            
+
                             if (foundDeploymentId) {
                               console.log("✅ Found deployment ID from project query:", foundDeploymentId);
                               const newStatus = {
@@ -994,7 +1008,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                         console.warn("⚠️ Failed to get deployment ID from project query:", error);
                       }
                     }
-                    
+
                     // Final fallback to old behavior if no deployment ID
                     if (deploymentResult.url) {
                       const projectName = repoName;
@@ -1010,7 +1024,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               } catch (ipcError: any) {
                 if (ipcError.message.includes("Invalid channel")) {
                   console.log("🔄 IPC channel not available, using direct fetch...");
-                  
+
                   // Fallback to direct fetch approach
                   const repoResponse = await fetch(`https://api.github.com/repos/${githubUsername}/${repoName}`, {
                     headers: {
@@ -1027,9 +1041,9 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   const repoId = repoData.id;
 
                   // Detect if this is a Godot app
-                  const isGodotApp = currentApp?.appType === 'godot' || 
-                    (currentApp?.files && currentApp.files.some(file => 
-                      file.includes('godot-project') || 
+                  const isGodotApp = currentApp?.appType === 'godot' ||
+                    (currentApp?.files && currentApp.files.some(file =>
+                      file.includes('godot-project') ||
                       file.includes('project.godot') ||
                       file.includes('game_spec.json')
                     ));
@@ -1072,7 +1086,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                     },
                     projectSettings
                   };
-                  
+
                   const deploymentResponse = await fetch("https://api.vercel.com/v13/deployments", {
                     method: "POST",
                     headers: {
@@ -1088,7 +1102,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   }
 
                   const deploymentData = await deploymentResponse.json();
-                  
+
                   // Start polling for deployment status if we have a deployment ID
                   if (deploymentData.uid) {
                     setVercelDeploymentStatus({
@@ -1104,23 +1118,23 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                     console.log("✅  deployment initiated via direct fetch, polling for status:", deploymentData.uid);
                   } else {
                     // Fallback if no deployment ID
-                  if (deploymentData.url) {
-                    vercelUrl = `https://${vercelProjectName}.vercel.app`;
-                  } else {
-                    vercelUrl = "Deployment in progress...";
-                  }
+                    if (deploymentData.url) {
+                      vercelUrl = `https://${vercelProjectName}.vercel.app`;
+                    } else {
+                      vercelUrl = "Deployment in progress...";
+                    }
                     console.log("✅ Deployed to Vercel via direct fetch (no deployment ID):", vercelUrl);
                   }
                 } else {
                   throw ipcError;
                 }
               }
-              
+
             } catch (error: any) {
               console.error("❌  deployment failed:", error);
               throw new Error(` deployment failed: ${error.message}`);
             }
-            
+
           } catch (error: any) {
             console.error("❌  setup failed:", error);
             vercelError = error.message || "Vercel setup failed";
@@ -1128,14 +1142,14 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
           }
         }
       }
-      
+
       // Save deployment URLs to app data
       const githubRepoUrl = `https://github.com/${githubUsername}/${repoName}`;
       // Only save Vercel URL if it's a real URL (not "Deployment in progress...")
-      const finalVercelUrl = vercelUrl && !vercelUrl.includes("Deployment in progress") 
+      const finalVercelUrl = vercelUrl && !vercelUrl.includes("Deployment in progress")
         ? (vercelUrl?.startsWith("https://") ? vercelUrl : `https://${vercelUrl}`)
         : null;
-      
+
       try {
         await IpcClient.getInstance().updateAppDeploymentUrls({
           appId: currentApp.id,
@@ -1153,7 +1167,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       if (vercelUrl) {
         if (vercelUrl.includes("Deployment in progress")) {
           successMsg += ``;
-         
+
         } else if (vercelUrl.startsWith("https://")) {
           // Don't show the URL here - it will be shown after the timer completes
           successMsg += `\n🚀  deployment in progress...`;
@@ -1171,13 +1185,13 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       if (!deployToVercel || !vercelDeploying) {
         setProgressMessage("");
       }
-      
+
       // Show success toast
       toast.success("Deployment Completed!", {
         description: `Successfully deployed ${projectName} to GitHub${deployToVercel ? ' and Vercel' : ''}`,
         duration: 5000,
       });
-      
+
       // Call onSuccess callback if provided
       if (onSuccess) {
         onSuccess();
@@ -1188,7 +1202,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
       setErrorMessage(error.message || "An unexpected error occurred");
       setPushStatus("error");
       setProgressMessage("");
-      
+
       // Show error toast
       toast.error("Deployment Failed", {
         description: error.message || "An unexpected error occurred during deployment",
@@ -1247,15 +1261,14 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                   onChange={(e) => setVercelProjectName(e.target.value)}
                   placeholder="Enter Vercel project name"
                   disabled={isPushing}
-                  className={`pr-8 ${
-                    vercelProjectValidation.checking 
-                      ? 'border-yellow-300' 
-                      : !vercelProjectValidation.valid 
-                        ? 'border-red-300' 
-                        : !vercelProjectValidation.available 
-                          ? 'border-orange-300' 
+                  className={`pr-8 ${vercelProjectValidation.checking
+                      ? 'border-yellow-300'
+                      : !vercelProjectValidation.valid
+                        ? 'border-red-300'
+                        : !vercelProjectValidation.available
+                          ? 'border-orange-300'
                           : 'border-green-300'
-                  }`}
+                    }`}
                 />
                 {vercelProjectValidation.checking && (
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
@@ -1303,7 +1316,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               </p>
             </div>
           )} */}
-          
+
           {/* <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-800 dark:text-blue-200">
               <strong>Note:</strong> This will create a new public repository on GitHub and push your current code.
@@ -1322,17 +1335,18 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               onChange={(e) => setShowInHub(e.target.checked)}
               className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
             />
-            <label 
-              htmlFor="show-in-hub-consent" 
+            <label
+              htmlFor="show-in-hub-consent"
               className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex-1"
             >
               <span className="font-medium">Show this app in Hub</span>
               <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
-              By checking this, you consent to make this app visible in the Hub for others to discover and use.
-              Your game will also be ranked, with options to monetise based on ratings.              </span>
+                By checking this, you consent to make this app visible in the Hub for others to discover and use.
+                Your game will also be ranked, with options to monetise based on ratings.              </span>
             </label>
           </div>
         </div>
+
 
         {!canDeploy && (
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
@@ -1364,6 +1378,7 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
             !canDeploy ||
             isPushing || 
             !repoName.trim() || 
+
             (deployToVercel && !vercelToken.trim()) ||
             (deployToVercel && (!vercelProjectValidation.valid || !vercelProjectValidation.available || vercelProjectValidation.checking))
           }
@@ -1444,81 +1459,81 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               {/* Show loader for BUILDING, QUEUED, or any non-final state */}
               {(vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING" ||
                 vercelDeploymentStatus.readyState?.toUpperCase() === "QUEUED" ||
-                (vercelDeploymentStatus.readyState?.toUpperCase() !== "READY" && 
-                 vercelDeploymentStatus.readyState?.toUpperCase() !== "COMPLETE" &&
-                 vercelDeploymentStatus.readyState?.toUpperCase() !== "ERROR" && 
-                 vercelDeploymentStatus.readyState?.toUpperCase() !== "FAILED")) && (
-                <svg
-                  className="animate-spin h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              )}
-              {(vercelDeploymentStatus.readyState?.toUpperCase() === "READY" || 
+                (vercelDeploymentStatus.readyState?.toUpperCase() !== "READY" &&
+                  vercelDeploymentStatus.readyState?.toUpperCase() !== "COMPLETE" &&
+                  vercelDeploymentStatus.readyState?.toUpperCase() !== "ERROR" &&
+                  vercelDeploymentStatus.readyState?.toUpperCase() !== "FAILED")) && (
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                )}
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "READY" ||
                 vercelDeploymentStatus.readyState?.toUpperCase() === "COMPLETE") && (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              )}
-              {(vercelDeploymentStatus.readyState?.toUpperCase() === "ERROR" || 
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                )}
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "ERROR" ||
                 vercelDeploymentStatus.readyState?.toUpperCase() === "FAILED") && (
-                <AlertCircle className="h-4 w-4 text-red-500" />
-              )}
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                )}
               <span className="text-sm font-medium">
-                {vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING" 
-                  ? "Building deployment..." 
+                {vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING"
+                  ? "Building deployment..."
                   : vercelDeploymentStatus.readyState?.toUpperCase() === "QUEUED"
-                  ? "Queued for deployment..."
-                  : `Deploying ... (${vercelDeploymentStatus.readyState || "unknown"})`}
+                    ? "Queued for deployment..."
+                    : `Deploying ... (${vercelDeploymentStatus.readyState || "unknown"})`}
               </span>
             </div>
             <div className="text-sm text-orange-700 dark:text-orange-300">
               <p>Status: {vercelDeploymentStatus.readyState || "unknown"} / State: {vercelDeploymentStatus.state || "unknown"}</p>
-              
+
               {/* Show building progress message */}
               {(vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING" ||
                 vercelDeploymentStatus.readyState?.toUpperCase() === "QUEUED") && (
-                <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
-                  ⏳ {vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING" 
-                    ? "Your app is being built and deployed..." 
-                    : "Waiting in queue..."}
-                </p>
-              )}
-              
-              {(vercelDeploymentStatus.readyState?.toUpperCase() === "READY" || 
-                vercelDeploymentStatus.readyState?.toUpperCase() === "COMPLETE") && 
+                  <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
+                    ⏳ {vercelDeploymentStatus.readyState?.toUpperCase() === "BUILDING"
+                      ? "Your app is being built and deployed..."
+                      : "Waiting in queue..."}
+                  </p>
+                )}
+
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "READY" ||
+                vercelDeploymentStatus.readyState?.toUpperCase() === "COMPLETE") &&
                 vercelDeploymentStatus.url && (
-                <p className="mt-1">
-                  ✅ Deployment ready:{" "}
-                  <a
-                    href={vercelDeploymentStatus.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    {vercelDeploymentStatus.url}
-                  </a>
-                </p>
-              )}
-              {(vercelDeploymentStatus.readyState?.toUpperCase() === "ERROR" || 
+                  <p className="mt-1">
+                    ✅ Deployment ready:{" "}
+                    <a
+                      href={vercelDeploymentStatus.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {vercelDeploymentStatus.url}
+                    </a>
+                  </p>
+                )}
+              {(vercelDeploymentStatus.readyState?.toUpperCase() === "ERROR" ||
                 vercelDeploymentStatus.readyState?.toUpperCase() === "FAILED") && (
-                <p className="mt-1 text-red-600 dark:text-red-400">
-                  ❌ Deployment failed. Please check the Vercel dashboard for details.
-                </p>
-              )}
+                  <p className="mt-1 text-red-600 dark:text-red-400">
+                    ❌ Deployment failed. Please check the Vercel dashboard for details.
+                  </p>
+                )}
             </div>
           </div>
         )}
@@ -1534,9 +1549,9 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               {savedUrls.githubRepoUrl && (
                 <div>
                   <span className="text-gray-600 dark:text-gray-400">GitHub: </span>
-                  <a 
-                    href={savedUrls.githubRepoUrl} 
-                    target="_blank" 
+                  <a
+                    href={savedUrls.githubRepoUrl}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 underline"
                   >
@@ -1547,9 +1562,9 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
               {savedUrls.vercelDeploymentUrl && (
                 <div>
                   <span className="text-gray-600 dark:text-gray-400">Deployment URL: </span>
-                  <a 
-                    href={savedUrls.vercelDeploymentUrl} 
-                    target="_blank" 
+                  <a
+                    href={savedUrls.vercelDeploymentUrl}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 underline"
                   >
@@ -1576,9 +1591,9 @@ export function AutoPush({ appId, projectName, app, onSuccess, publishState, set
                     return (
                       <div key={index}>
                         {beforeUrl}
-                        <a 
-                          href={url} 
-                          target="_blank" 
+                        <a
+                          href={url}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 underline"
                         >

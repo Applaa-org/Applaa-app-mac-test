@@ -1,0 +1,425 @@
+{
+    "id": "science-topic-research",
+    "version": "1.0.0",
+    "createdBy": "claude-opus-4.5",
+    "createdAt": "2026-01-09",
+    "metadata": {
+        "title": "Research Science Topics",
+        "category": "research",
+        "subcategory": "science",
+        "icon": "🔬",
+        "difficulty": "beginner",
+        "ageRange": "8-16",
+        "estimatedDuration": "60-90 seconds",
+        "tags": [
+            "science",
+            "research",
+            "learning",
+            "experiments",
+            "discovery"
+        ],
+        "description": "Explore any science topic with articles, videos, experiments, and fun facts from NASA, National Geographic Kids, and more!",
+        "learningOutcomes": [
+            "Learn about science topics in depth",
+            "Find kid-friendly experiments",
+            "Discover latest scientific discoveries",
+            "Build research skills"
+        ]
+    },
+    "objective": "Research any science topic by browsing NASA Kids Club, National Geographic Kids, Science News for Students, and YouTube. Extract articles, videos, experiments, and create an organized research report with sources.",
+    "prerequisites": {
+        "browserState": "ready",
+        "internetConnection": true,
+        "permissions": [
+            "tabs",
+            "storage",
+            "downloads"
+        ],
+        "userInput": {
+            "topic": {
+                "type": "text",
+                "prompt": "What science topic do you want to learn about?",
+                "examples": [
+                    "space",
+                    "dinosaurs",
+                    "ocean",
+                    "weather",
+                    "robots",
+                    "human body"
+                ]
+            }
+        }
+    },
+    "workflow": {
+        "steps": [
+            {
+                "id": "step-1",
+                "name": "Get Science Topic",
+                "action": "user-input",
+                "params": {
+                    "questions": [
+                        {
+                            "id": "topic",
+                            "text": "What science topic interests you?",
+                            "type": "text",
+                            "placeholder": "e.g., space, dinosaurs, ocean, weather",
+                            "suggestions": [
+                                "space",
+                                "dinosaurs",
+                                "ocean",
+                                "weather",
+                                "robots",
+                                "human body",
+                                "plants",
+                                "animals",
+                                "chemistry",
+                                "physics"
+                            ]
+                        },
+                        {
+                            "id": "researchType",
+                            "text": "What do you want to find?",
+                            "type": "checkboxes",
+                            "options": [
+                                {
+                                    "label": "📰 Articles",
+                                    "value": "articles"
+                                },
+                                {
+                                    "label": "📹 Videos",
+                                    "value": "videos"
+                                },
+                                {
+                                    "label": "🧪 Experiments",
+                                    "value": "experiments"
+                                },
+                                {
+                                    "label": "📊 Fun Facts",
+                                    "value": "facts"
+                                }
+                            ],
+                            "defaultSelected": [
+                                "articles",
+                                "videos"
+                            ]
+                        }
+                    ]
+                },
+                "reasoning": "Understanding what type of content kids want helps prioritize results.",
+                "kidFriendlyExplanation": "Tell me what you want to learn about!"
+            },
+            {
+                "id": "step-2",
+                "name": "Navigate to NASA Kids Club",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.nasa.gov/kidsclub/",
+                    "waitFor": "networkidle"
+                },
+                "successCriteria": {
+                    "urlContains": "nasa.gov"
+                },
+                "reasoning": "NASA provides authoritative, exciting science content perfect for kids.",
+                "kidFriendlyExplanation": "Visiting NASA Kids Club - real space science!"
+            },
+            {
+                "id": "step-3",
+                "name": "Search NASA for Topic",
+                "action": "interact",
+                "params": {
+                    "sequence": [
+                        {
+                            "action": "click",
+                            "selector": "input[type='search'], .search-input"
+                        },
+                        {
+                            "action": "type",
+                            "text": "{topic}"
+                        },
+                        {
+                            "action": "press",
+                            "key": "Enter"
+                        },
+                        {
+                            "action": "wait",
+                            "condition": "networkidle"
+                        }
+                    ]
+                },
+                "reasoning": "NASA search yields high-quality, verified scientific content.",
+                "kidFriendlyExplanation": "Searching NASA's database for {topic}!"
+            },
+            {
+                "id": "step-4",
+                "name": "Extract NASA Content",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".article, .content-item, .search-result",
+                        "title": "h2, h3",
+                        "description": "p, .description",
+                        "image": "img",
+                        "url": "a",
+                        "date": ".date, time",
+                        "category": ".category, .tag"
+                    },
+                    "limit": 15
+                },
+                "reasoning": "NASA content is educational, accurate, and inspiring.",
+                "kidFriendlyExplanation": "Collecting NASA articles and images!"
+            },
+            {
+                "id": "step-5",
+                "name": "Navigate to National Geographic Kids",
+                "action": "navigate",
+                "params": {
+                    "url": "https://kids.nationalgeographic.com/search?q={topic}",
+                    "waitFor": "networkidle"
+                },
+                "successCriteria": {
+                    "urlContains": "nationalgeographic.com"
+                },
+                "reasoning": "Nat Geo Kids excels at making science fun and accessible.",
+                "kidFriendlyExplanation": "Checking National Geographic Kids!"
+            },
+            {
+                "id": "step-6",
+                "name": "Extract Nat Geo Content",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".article-card, .content-card",
+                        "title": "h3, .title",
+                        "description": ".description",
+                        "image": "img",
+                        "url": "a",
+                        "type": ".content-type"
+                    },
+                    "limit": 15,
+                    "filters": {
+                        "types": [
+                            "article",
+                            "video",
+                            "quiz",
+                            "game"
+                        ]
+                    }
+                },
+                "reasoning": "Nat Geo provides engaging, visual science content.",
+                "kidFriendlyExplanation": "Getting articles and videos from National Geographic!"
+            },
+            {
+                "id": "step-7",
+                "name": "Find Science Experiments",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.sciencekids.co.nz/experiments.html",
+                    "waitFor": "networkidle",
+                    "condition": "{researchType} includes 'experiments'"
+                },
+                "reasoning": "Hands-on experiments make science memorable and fun.",
+                "kidFriendlyExplanation": "Looking for experiments you can try at home!"
+            },
+            {
+                "id": "step-8",
+                "name": "Extract Experiments",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".experiment, .activity",
+                        "title": "h3",
+                        "description": "p",
+                        "materials": ".materials, ul",
+                        "steps": ".steps, ol",
+                        "url": "a"
+                    },
+                    "limit": 10,
+                    "filters": {
+                        "safetyLevel": "kid-safe",
+                        "difficulty": "easy-to-medium"
+                    }
+                },
+                "reasoning": "Safe, simple experiments kids can do with household items.",
+                "kidFriendlyExplanation": "Finding fun experiments about {topic}!"
+            },
+            {
+                "id": "step-9",
+                "name": "Search YouTube for Science Videos",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.youtube.com/results?search_query={topic}+science+for+kids+explained",
+                    "waitFor": "networkidle"
+                },
+                "reasoning": "Video explanations make complex concepts easier to understand.",
+                "kidFriendlyExplanation": "Finding the best science videos!"
+            },
+            {
+                "id": "step-10",
+                "name": "Extract YouTube Videos",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": "ytd-video-renderer",
+                        "title": "#video-title",
+                        "channel": "#channel-name",
+                        "thumbnail": "img#img",
+                        "duration": "span.ytd-thumbnail-overlay-time-status-renderer",
+                        "views": "#metadata-line span:first-child",
+                        "url": "a#thumbnail"
+                    },
+                    "limit": 15,
+                    "filters": {
+                        "minDuration": "3:00",
+                        "maxDuration": "15:00",
+                        "trustedChannels": [
+                            "SciShow Kids",
+                            "Crash Course Kids",
+                            "National Geographic",
+                            "NASA"
+                        ],
+                        "excludeKeywords": [
+                            "scary",
+                            "dangerous",
+                            "adult"
+                        ]
+                    }
+                },
+                "reasoning": "Educational channels provide accurate, engaging content.",
+                "kidFriendlyExplanation": "Collecting videos from trusted science educators!"
+            },
+            {
+                "id": "step-11",
+                "name": "Generate Fun Facts",
+                "action": "ai-enhance",
+                "params": {
+                    "model": "gemini-flash-2.0",
+                    "promptTemplate": "Based on the topic '{topic}', generate 10 fascinating, kid-friendly fun facts. Each fact should be: 1) True and scientifically accurate, 2) Surprising or interesting, 3) Easy to understand for ages 8-16, 4) One sentence long. Make them exciting!",
+                    "temperature": 0.8,
+                    "condition": "{researchType} includes 'facts'"
+                },
+                "reasoning": "Fun facts spark curiosity and make learning memorable.",
+                "kidFriendlyExplanation": "Creating amazing fun facts about {topic}!"
+            },
+            {
+                "id": "step-12",
+                "name": "Create Research Report",
+                "action": "compile",
+                "params": {
+                    "format": "interactive-html",
+                    "template": "science-research-report",
+                    "sections": [
+                        {
+                            "name": "🎯 Quick Overview",
+                            "content": "ai-generated-summary",
+                            "prompt": "Write a 3-paragraph overview of {topic} for kids aged 8-16. Include: what it is, why it's important, and what scientists are discovering."
+                        },
+                        {
+                            "name": "🚀 Fun Facts",
+                            "content": "ai-generated-facts",
+                            "layout": "numbered-list",
+                            "styling": "colorful-cards"
+                        },
+                        {
+                            "name": "📰 Articles to Read",
+                            "source": "nasa + natgeo",
+                            "limit": 10,
+                            "layout": "article-cards",
+                            "includeImages": true
+                        },
+                        {
+                            "name": "📹 Videos to Watch",
+                            "source": "youtube",
+                            "limit": 10,
+                            "layout": "video-grid",
+                            "embedPreviews": true
+                        },
+                        {
+                            "name": "🧪 Try These Experiments",
+                            "source": "experiments",
+                            "layout": "experiment-cards",
+                            "includeSteps": true
+                        },
+                        {
+                            "name": "📚 Learn More",
+                            "content": "additional-resources",
+                            "includeBookmarks": true
+                        }
+                    ],
+                    "features": {
+                        "tableOfContents": true,
+                        "printButton": true,
+                        "shareButton": true,
+                        "saveFavorites": true
+                    }
+                },
+                "reasoning": "Organized report makes research easy to navigate and reference.",
+                "kidFriendlyExplanation": "Creating your science research report!"
+            },
+            {
+                "id": "step-13",
+                "name": "Save and Present",
+                "action": "output",
+                "params": {
+                    "displayInSidebar": true,
+                    "saveToFile": {
+                        "filename": "science_research_{topic}_{date}.html",
+                        "location": "downloads"
+                    },
+                    "notification": {
+                        "title": "🔬 Research Complete!",
+                        "message": "Found {count} resources about {topic}!",
+                        "actions": [
+                            {
+                                "label": "View Report",
+                                "action": "open-sidebar"
+                            },
+                            {
+                                "label": "Watch Videos",
+                                "action": "open-videos"
+                            },
+                            {
+                                "label": "Try Experiments",
+                                "action": "open-experiments"
+                            }
+                        ]
+                    }
+                },
+                "kidFriendlyExplanation": "Your science report is ready!"
+            }
+        ]
+    },
+    "reactLoop": {
+        "enabled": true,
+        "maxIterations": 12,
+        "adaptationRules": [
+            {
+                "condition": "topic-too-broad",
+                "reasoning": "Topic like 'science' is too general",
+                "action": "suggest-subtopics",
+                "params": {
+                    "showExamples": true
+                }
+            },
+            {
+                "condition": "no-kid-safe-content",
+                "reasoning": "Topic might be too advanced or inappropriate",
+                "action": "filter-and-simplify",
+                "params": {
+                    "notifyUser": true
+                }
+            }
+        ]
+    },
+    "safety": {
+        "contentFiltering": {
+            "kidSafeOnly": true,
+            "scientificallyAccurate": true,
+            "ageAppropriate": true
+        },
+        "experimentSafety": {
+            "requireSupervision": "note-in-report",
+            "excludeDangerous": true,
+            "highlightSafetyTips": true
+        }
+    }
+}

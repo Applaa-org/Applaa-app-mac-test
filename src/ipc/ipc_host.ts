@@ -1,3 +1,6 @@
+import { ipcMain, BrowserWindow } from "electron";
+import { registerBrowserAgentHandlers } from "./handlers/browser_agent_handlers";
+import { registerTabHandlers } from "./handlers/tab_handlers";
 import { registerAppHandlers } from "./handlers/app_handlers";
 import { registerChatHandlers } from "./handlers/chat_handlers";
 import { registerChatStreamHandlers } from "./handlers/chat_stream_handlers";
@@ -76,6 +79,17 @@ import { registerPrerequisiteInstallerHandlers } from "./handlers/prerequisite_i
 import { registerGodotHandlers } from "./handlers/godot_handlers";
 import { registerGamesHandlers } from "./handlers/games_handlers";
 import { registerGameTemplatesHandlers } from "./handlers/game_templates_handlers";
+import { registerMinecraftHandlers } from "./handlers/minecraft_handlers";
+import { registerMinecraftSandboxHandlers } from "./handlers/minecraft_sandbox_handlers";
+import { registerAssetGenerationHandlers } from "./handlers/asset_generation_handlers";
+import { registerCreatorHandlers } from "./handlers/creator_handlers";
+import { registerChromiumHandlers } from "./handlers/chromium_handlers";
+import { registerAutomationHandlers } from "./handlers/automation_handlers";
+import "./handlers/blockly_handlers"; // Register Blockly workspace handlers
+import { registerBuddyHandlers } from "./handlers/buddy_handlers";
+import { registerLocalBrainHandlers } from "./handlers/local_brain_handlers";
+import { registerSkillHandlers } from "./handlers/skill_handlers";
+import { registerBrowserAutomationHandlers } from "./handlers/browser_automation_handlers";
 import { registerWebAppsHandlers } from "./handlers/web_apps_handlers";
 import { registerBackendDeployHandlers } from "./handlers/backend_deploy_handlers";
 import { registerDatabaseHandlers } from "./handlers/database_handlers";
@@ -169,74 +183,122 @@ export function registerIpcHandlers() {
   registerParallelAppCreationHandlers();
   // Design generation handlers removed for MVP
   registerAssetStorageHandlers();
-  
+
   // 🚀 EAS Integration for Mobile App Deployment
   registerEASHandlers();
   registerURLHandlers();
-  
+
   // 🔨 Local Build System for APK/IPA generation
   registerLocalBuildHandlers();
-  
+
   // 🔍 Android Dependency Checker
   console.log('🔍 Registering Android dependency handlers...');
   registerAndroidDependencyHandlers();
-  
+
   // 🔧 Auto-Installer
   console.log('🔧 Registering auto-installer handlers...');
   registerAutoInstallerHandlers();
-  
+
   // 🚀 Prerequisite Installer
   console.log('🚀 Registering prerequisite installer handlers...');
   registerPrerequisiteInstallerHandlers();
-  
+
   // 🎮 Godot Engine Integration
   console.log('🎮 Registering Godot handlers...');
   registerGodotHandlers();
-  
+
   // 🎮 Custom Games Management
   console.log('🎮 Registering games handlers...');
   registerGamesHandlers();
-  
+
   // 🎮 Game Templates Management
   console.log('🎮 Registering game templates handlers...');
   registerGameTemplatesHandlers();
-  
+
+  // ⛏️ Minecraft Mod Builder
+  console.log('⛏️ Registering Minecraft handlers...');
+  registerMinecraftHandlers();
+
+  // ⛏️ Minecraft Sandbox (PrismarineJS)
+  console.log('⛏️ Registering Minecraft sandbox handlers...');
+  registerMinecraftSandboxHandlers();
+
+  // 🎨 AI Asset Generation (Textures, Models, Sounds)
+  console.log('🎨 Registering asset generation handlers...');
+  registerAssetGenerationHandlers();
+
+  // 🤖 AI Creator Handlers
+  console.log('🤖 Registering creator handlers...');
+  registerCreatorHandlers();
+
+  // 🌐 Professional Chromium Browser
+  console.log('🌐 Registering Chromium browser handlers...');
+  registerChromiumHandlers();
+
+  // 🌐 Browser Agent (OLD - Disabled in favor of Chromium handlers)
+  // console.log('🌐 Registering browser agent handlers...');
+  // registerBrowserAgentHandlers();
+
+  // 📑 Browser Tabs
+  console.log('📑 Registering tab handlers...');
+  registerTabHandlers();
+
+  // 🤖 Gemini AI Browser Automation
+  console.log('🤖 Registering Gemini Automation handlers...');
+  registerAutomationHandlers();
+
+  // 🤖 Applaa Buddy - AI Assistant Browser
+  console.log('🤖 Registering Applaa Buddy handlers...');
+  registerBuddyHandlers();
+
+  // 🧠 Applaa Local Brain - Transformers.js + Vector Search
+  console.log('🧠 Registering Local Brain handlers...');
+  registerLocalBrainHandlers();
+
+  // 🧠 Skill Executor
+  console.log('🧠 Registering Skill Executor handlers...');
+  registerSkillHandlers();
+
+  // 🌐 Browser Automation (Planning + Execution)
+  console.log('🌐 Registering Browser Automation handlers...');
+  registerBrowserAutomationHandlers();
+
   // 🌐 Web Apps Templates Management
   console.log('🌐 Registering web apps handlers...');
   registerWebAppsHandlers();
-  
+
   // 🚀 Backend Auto-Deployment
   console.log('🚀 Registering backend deployment handlers...');
   registerBackendDeployHandlers();
-  
+
   // 🗄️ Database Operations (Export, Credentials)
   console.log('🗄️ Registering database handlers...');
   registerDatabaseHandlers();
-  
+
   // 🔐 Supabase Vault for Environment Variables
   console.log('🔐 Registering Vault handlers...');
   registerVaultHandlers();
-  
+
   // 🤖 Applaa Automation handlers
   console.log('🤖 Registering Applaa automation handlers...');
   registerApplaaAutomationHandlers();
-  
+
   // 🔒 Security Review handlers
   console.log('🔒 Registering Security review handlers...');
   registerSecurityHandlers();
-  
+
   // 🎨 Visual Editing handlers
   console.log('🎨 Registering Visual Editing handlers...');
   registerVisualEditingHandlers();
-  
+
   // 📸 Preview Image handlers
   console.log('📸 Registering Preview Image handlers...');
   registerPreviewImageHandlers();
-  
+
   // 🌐 Website Cloning handlers
   console.log('🌐 Registering Website Cloning handlers...');
   registerWebCloneHandlers();
-  
+
   // 💳 Subscription handlers (Stripe integration - optional)
   try {
     registerSubscriptionHandlers();
@@ -244,15 +306,15 @@ export function registerIpcHandlers() {
   } catch (error: any) {
     console.warn('⚠️ Subscription handlers not available (Stripe may not be installed):', error.message);
   }
-  
+
   // 👤 Profile handlers
   registerProfileHandlers();
   console.log('👤 Profile handlers registered');
-  
+
   // 💎 Credit handlers
   registerCreditHandlers();
   console.log('💎 Credit handlers registered');
-  
+
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP
 }

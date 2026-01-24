@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "042_camp_42",
+    "description": "more templates - 042_camp_42",
+    "uuid": "72c9e90c-b363-4e8f-b277-bf9b2b565bca",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "89d62d44-3cce-4da1-bd67-abb6c8090f3e",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

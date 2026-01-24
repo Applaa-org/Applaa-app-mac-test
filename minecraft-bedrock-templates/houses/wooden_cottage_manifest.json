@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "wooden_cottage",
+    "description": "houses - wooden_cottage",
+    "uuid": "1a490efd-277f-4070-9d4e-936d24c29c56",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "eab4df9d-3e33-4dea-ada9-823b01b15418",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

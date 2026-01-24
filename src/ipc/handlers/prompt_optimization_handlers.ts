@@ -13,7 +13,7 @@ const logger = log.scope("prompt_optimization_handlers");
 export interface OptimizePromptParams {
   originalPrompt: string;
   selectedModel: LargeLanguageModel;
-  appType?: "web" | "mobile" | "expo"; // Add app type parameter
+  appType?: "web" | "expo" | "flutter" | "godot" | "arcade" | "microbit" | "minecraft" | "blockly" | "mobile";
 }
 
 export interface OptimizePromptResponse {
@@ -125,7 +125,7 @@ export function registerPromptOptimizationHandlers() {
         logger.log("🚀 [PromptOptimization] Starting optimization for:", params.originalPrompt);
         logger.log("🚀 [PromptOptimization] Selected model:", params.selectedModel.provider, params.selectedModel.name);
         logger.log("🚀 [PromptOptimization] App type:", params.appType);
-        
+
         const settings = readSettings();
         logger.log("🚀 [PromptOptimization] Getting model client...");
         const { modelClient } = await getModelClient(params.selectedModel, settings);
@@ -134,7 +134,7 @@ export function registerPromptOptimizationHandlers() {
         // Select enhancement template based on app type
         let enhancementTemplate: string;
         let systemPrompt: string;
-        
+
         if (params.appType === "mobile" || params.appType === "expo") {
           enhancementTemplate = MOBILE_ENHANCEMENT_TEMPLATE;
           systemPrompt = `You are a technical specification writer. Write a clear, functional description of what a mobile application should do.
@@ -238,11 +238,11 @@ Expanded prompt:`,
         });
 
         let optimizedPrompt = result.text.trim();
-        
+
         logger.log("✅ [PromptOptimization] AI response received");
         logger.log("✅ [PromptOptimization] Enhanced prompt length:", optimizedPrompt.length);
         logger.log("✅ [PromptOptimization] Enhanced prompt preview:", optimizedPrompt.substring(0, 200) + "...");
-        
+
         // Validate that we got a real AI-generated response, not a template copy
         const templateIndicators = [
           'DYNAMIC COLOR SCHEMES BY CONCEPT',
@@ -257,18 +257,18 @@ Expanded prompt:`,
           'Pixabay.*photo',
           'Pexels.*photos'
         ];
-        
+
         const isTemplateCopy = templateIndicators.some(indicator => {
           const regex = new RegExp(indicator, 'i');
           return regex.test(optimizedPrompt);
         });
-        
+
         if (isTemplateCopy) {
           logger.warn("⚠️ [PromptOptimization] Detected template-like response, regenerating with stricter instructions");
-          
+
           // Retry with even more explicit instructions
           const retryResult = await generateText({
-            model: modelClient,
+            model: modelClient.model,
             system: `You are a technical writer. Write a clear, functional specification for an application. Do NOT include any design, styling, or visual guidelines. Only describe features and functionality.`,
             prompt: `Write a detailed functional specification for: "${params.originalPrompt}"
 
@@ -285,7 +285,7 @@ Specification:`,
             maxTokens: 1500,
             temperature: 1.0, // Maximum creativity
           });
-          
+
           const retryOptimized = retryResult.text.trim();
           if (retryOptimized && !templateIndicators.some(ind => new RegExp(ind, 'i').test(retryOptimized))) {
             logger.log("✅ [PromptOptimization] Retry successful - got unique prompt");
@@ -294,12 +294,12 @@ Specification:`,
             logger.warn("⚠️ [PromptOptimization] Retry also returned template-like content");
           }
         }
-        
+
         // Final validation
         if (optimizedPrompt.includes('[USER_CONCEPT]')) {
           logger.warn("⚠️ [PromptOptimization] AI response contains placeholder [USER_CONCEPT]");
         }
-        
+
         if (!optimizedPrompt || optimizedPrompt.length < 50) {
           logger.warn("⚠️ [PromptOptimization] Enhanced prompt seems too short");
         }
@@ -311,17 +311,17 @@ Specification:`,
 
       } catch (error: any) {
         logger.error("Error optimizing prompt with LLM:", error);
-        
+
         // Provide better error handling for different scenarios
-        if (error.message?.includes("Unsupported model version") || 
-            error.message?.includes("AI SDK 4 only supports")) {
+        if (error.message?.includes("Unsupported model version") ||
+          error.message?.includes("AI SDK 4 only supports")) {
           logger.log("Model incompatible, falling back to simple enhancement");
         } else if (error.message?.includes("API key") || error.message?.includes("authentication")) {
           logger.log("API authentication issue, falling back to simple enhancement");
         } else {
           logger.log("General error, falling back to simple enhancement");
         }
-        
+
         // Fallback to the appropriate enhancement template
         let fallbackEnhanced: string;
         if (params.appType === "mobile" || params.appType === "expo") {

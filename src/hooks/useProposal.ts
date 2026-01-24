@@ -9,9 +9,9 @@ export function useProposal(chatId?: number | undefined) {
   const [error, setError] = useState<string | null>(null);
   const fetchProposal = useCallback(
     async (overrideChatId?: number) => {
-      chatId = overrideChatId ?? chatId;
-      if (chatId === undefined) {
-        setProposalResult(null);
+      const targetChatId = overrideChatId ?? chatId;
+      if (targetChatId === undefined) {
+        (setProposalResult as (val: ProposalResult | null) => void)(null);
         setIsLoading(false);
         setError(null);
         return;
@@ -19,20 +19,19 @@ export function useProposal(chatId?: number | undefined) {
       setIsLoading(true);
       setError(null);
       try {
-        // Type assertion might be needed depending on how IpcClient is typed
         const result = (await IpcClient.getInstance().getProposal(
-          chatId,
+          targetChatId,
         )) as ProposalResult | null;
 
         if (result) {
-          setProposalResult(result);
+          (setProposalResult as (val: ProposalResult | null) => void)(result as ProposalResult | null);
         } else {
-          setProposalResult(null); // Explicitly set to null if IPC returns null
+          (setProposalResult as (val: ProposalResult | null) => void)(null); // Explicitly set to null if IPC returns null
         }
       } catch (err: any) {
         console.error("Error fetching proposal:", err);
         setError(err.message || "Failed to fetch proposal");
-        setProposalResult(null); // Clear proposal data on error
+        (setProposalResult as (val: ProposalResult | null) => void)(null); // Clear proposal data on error
       } finally {
         setIsLoading(false);
       }

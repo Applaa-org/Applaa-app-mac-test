@@ -98,41 +98,29 @@ export function useSupabaseAuth() {
 
   // Listen for OAuth callback from main process
   useEffect(() => {
-    const handleOAuthCallback = (data: { 
-      accessToken?: string; 
-      refreshToken?: string; 
-      expiresIn?: number;
-      code?: string;
-    }) => {
+    const handleOAuthCallback = (data: { accessToken: string; refreshToken: string; expiresIn: number }) => {
       console.log('OAuth callback received:', data);
-      
-      // Complete the OAuth flow
-      const completeOAuth = async () => {
+
+      // Set the session in Supabase client
+      const setSession = async () => {
         try {
-          // Prefer code exchange (standard Supabase flow)
-          if (data.code) {
-            await IpcClient.getInstance().supabaseExchangeCodeForSession({ code: data.code });
-          } else if (data.accessToken && data.refreshToken) {
-            // Fallback to direct token setting (legacy flow)
-            await IpcClient.getInstance().supabaseSetSession({
-              accessToken: data.accessToken,
-              refreshToken: data.refreshToken,
-              expiresIn: data.expiresIn ?? 3600,
-            });
-          } else {
-            throw new Error('Invalid OAuth callback data: missing code or tokens');
-          }
-          
+          // We need to call the main process to set the session
+          await IpcClient.getInstance().supabaseSetSession({
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            expiresIn: data.expiresIn,
+          });
+
           toast.success('Successfully signed in with Google!');
           queryClient.invalidateQueries({ queryKey: ['auth'] });
           refetchAuth();
         } catch (error) {
-          console.error('Failed to complete OAuth flow:', error);
+          console.error('Failed to set OAuth session:', error);
           toast.error('Failed to complete Google sign in');
         }
       };
-      
-      completeOAuth();
+
+      setSession();
     };
 
     // Listen for OAuth callback events using the preload API
@@ -146,7 +134,7 @@ export function useSupabaseAuth() {
         electronAPI.ipcRenderer.removeListener('oauth-callback', handleOAuthCallback);
       }
     };
-  }, [queryClient, refetchAuth]);
+  }, []); // Empty dependency array - only set up listener once
 
   // Sign up mutation
   const signUpMutation = useMutation({
@@ -318,9 +306,11 @@ export function useSupabaseAuth() {
 // Hook for checking if user has specific subscription tier
 export function useSubscriptionTier() {
   const { user } = useSupabaseAuth();
+
   
   const tier = (user?.subscriptionTier || 'free') as 'free' | 'pro' | 'ultra' | 'business';
   const isPaidTier = tier === 'pro' || tier === 'ultra' || tier === 'business';
+
 
   return {
     tier,
@@ -332,7 +322,7 @@ export function useSubscriptionTier() {
 // Hook for protected routes/features
 export function useAuthGuard() {
   const { isAuthenticated, isLoading } = useSupabaseAuth();
-  
+
   return {
     isAuthenticated,
     isLoading,

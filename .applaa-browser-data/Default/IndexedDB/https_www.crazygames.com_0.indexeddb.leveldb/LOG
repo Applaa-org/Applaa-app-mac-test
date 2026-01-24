@@ -1,0 +1,7 @@
+2026/01/09-22:16:49.327 b364 Reusing MANIFEST C:\Users\rahul\Documents\Applaa_Project\Applaa-Builder-v1\.applaa-browser-data\Default\IndexedDB\https_www.crazygames.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/01/09-22:16:49.327 b364 Recovering log #4
+2026/01/09-22:16:49.328 b364 Reusing old log C:\Users\rahul\Documents\Applaa_Project\Applaa-Builder-v1\.applaa-browser-data\Default\IndexedDB\https_www.crazygames.com_0.indexeddb.leveldb/000004.log 
+2026/01/09-22:16:49.448 3638 Level-0 table #8: started
+2026/01/09-22:16:49.449 3638 Level-0 table #8: 1645 bytes OK
+2026/01/09-22:16:49.449 3638 Delete type=0 #4
+2026/01/09-22:16:49.450 b364 Manual compaction at level-0 from '\x00\x03\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x04\x00\x00\x00' @ 0 : 0; will stop at (end)

@@ -4,7 +4,7 @@ import { useAtomValue } from "jotai";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipTrigger,
@@ -18,12 +18,17 @@ import {
   X,
   HelpCircle,
   ArrowRight,
+  Settings,
+  Sparkles,
 } from "lucide-react";
 import { showError, showSuccess } from "@/lib/toast";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useNavigate } from "@tanstack/react-router";
 import { NeonConfigure } from "./NeonConfigure";
+import { FeatureConfigDialog } from "../creator/FeatureConfigDialog";
+import type { AppFeaturesConfig, AppType } from "@/types/app-features";
+import { useLoadApp } from "@/hooks/useLoadApp";
 
 const EnvironmentVariablesTitle = () => (
   <div className="flex items-center gap-2">
@@ -54,7 +59,12 @@ export const ConfigurePanel = () => {
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [showFeatureConfig, setShowFeatureConfig] = useState(false);
   const navigate = useNavigate();
+
+  // Use the working useLoadApp hook instead of broken query
+  const { app: appDetails } = useLoadApp(selectedAppId);
+
 
   // Query to get environment variables
   const {
@@ -236,6 +246,55 @@ export const ConfigurePanel = () => {
 
   return (
     <div className="p-4 space-y-4">
+      {/* App Features Configuration */}
+      <Card className="border-purple-200 dark:border-purple-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5 text-purple-600" />
+            App Features
+          </CardTitle>
+          <CardDescription>
+            Configure AI capabilities, monetization, platform features, and integrations
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 rounded-lg border border-purple-100 dark:border-purple-800">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              <div>
+                <div className="font-medium text-sm">Enable Advanced Features</div>
+                <div className="text-xs text-muted-foreground">
+                  Add AdMob, Haptics, AI, Gamification & more
+                </div>
+              </div>
+            </div>
+            <Button
+              onClick={(e) => {
+                console.log('[ConfigurePanel] Button clicked!', e);
+                console.log('[ConfigurePanel] Current state:', { showFeatureConfig, selectedAppId, appDetails });
+                e.preventDefault();
+                e.stopPropagation();
+                setShowFeatureConfig(true);
+                console.log('[ConfigurePanel] State updated to true');
+              }}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Configure Features
+            </Button>
+          </div>
+
+          {/* Show enabled features count if any */}
+          {appDetails?.features && (
+            <div className="text-xs text-muted-foreground">
+              {Object.values(appDetails.features).filter((f: any) => f?.enabled).length} feature(s) enabled
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Environment Variables Card */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -403,6 +462,58 @@ export const ConfigurePanel = () => {
       <div className="grid grid-cols-1 gap-6">
         <NeonConfigure />
       </div>
+
+      {/* Feature Configuration Dialog */}
+      {(() => {
+        console.log('[ConfigurePanel] Rendering dialog section:', {
+          hasAppDetails: !!appDetails,
+          appType: appDetails?.appType,
+          showFeatureConfig,
+          selectedAppId,
+        });
+
+        if (!appDetails) {
+          console.log('[ConfigurePanel] No appDetails, dialog not rendered');
+          return null;
+        }
+
+        console.log('[ConfigurePanel] Rendering FeatureConfigDialog');
+        return (
+          <FeatureConfigDialog
+            open={showFeatureConfig}
+            onOpenChange={(open) => {
+              console.log('[ConfigurePanel] Dialog onOpenChange called:', open);
+              setShowFeatureConfig(open);
+            }}
+            appType={(appDetails.appType || 'web') as AppType}
+            initialFeatures={appDetails.features}
+            onFeaturesSelected={async (features) => {
+              try {
+                console.log('[ConfigurePanel] Saving features:', features);
+
+                // Save features to app's features.json file
+                const ipcClient = IpcClient.getInstance();
+                await ipcClient.writeFile({
+                  appId: selectedAppId!,
+                  filePath: '.applaa/features.json',
+                  content: JSON.stringify(features, null, 2),
+                });
+
+                // Invalidate query to refresh app details
+                queryClient.invalidateQueries({
+                  queryKey: ["app-details", selectedAppId],
+                });
+
+                showSuccess("Features configured successfully!");
+                setShowFeatureConfig(false);
+              } catch (error) {
+                console.error('[ConfigurePanel] Failed to save features:', error);
+                showError(`Failed to save features: ${error}`);
+              }
+            }}
+          />
+        );
+      })()}
     </div>
   );
 };

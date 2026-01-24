@@ -10,7 +10,6 @@ function isGamePrompt(prompt: string): boolean {
     'game',
     'snake',
     'puzzle',
-    'arcade',
     'platformer',
     'rpg',
     'adventure game',
@@ -38,7 +37,7 @@ function isGamePrompt(prompt: string): boolean {
     'power-up',
     'collectible',
   ];
-  
+
   const lowerPrompt = prompt.toLowerCase();
   return gameKeywords.some(keyword => lowerPrompt.includes(keyword));
 }
@@ -70,7 +69,7 @@ export function enhancePromptForGameStorage(prompt: string): string {
   if (!prompt.trim()) {
     return prompt;
   }
-  
+
   // Check if this is a game-related prompt
   if (isGamePrompt(prompt)) {
     // Check if localStorage instruction is already present
@@ -78,11 +77,11 @@ export function enhancePromptForGameStorage(prompt: string): string {
       // Already has localStorage instruction, don't duplicate
       return prompt;
     }
-    
+
     // Append the localStorage instruction
     return prompt + LOCAL_STORAGE_INSTRUCTION;
   }
-  
+
   return prompt;
 }
 

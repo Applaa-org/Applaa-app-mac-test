@@ -16,6 +16,7 @@ import { useRouter, Outlet, useLocation } from "@tanstack/react-router";
 import { GitHubIntegration } from "@/components/GitHubIntegration";
 import { VercelIntegration } from "@/components/VercelIntegration";
 import { SupabaseIntegration } from "@/components/SupabaseIntegration";
+import { MinecraftSettings } from "@/components/settings/MinecraftSettings";
 // Semantic context settings removed for MVP
 
 import { Switch } from "@/components/ui/switch";
@@ -27,6 +28,37 @@ import { CustomAppsDirectorySelector } from "@/components/CustomAppsDirectorySel
 import { NeonIntegration } from "@/components/NeonIntegration";
 import { CloudServicesSettings } from "@/components/settings/CloudServicesSettings";
 import { CacheDebugPanel } from "@/components/settings/CacheDebugPanel";
+import { PlanningModelSelector } from "@/components/PlanningModelSelector";
+
+
+// Temporary Pro Toggle for Development
+function DevProToggle() {
+  const { settings, updateSettings } = useSettings();
+
+  const togglePro = () => {
+    updateSettings({
+      enableApplaaPro: !settings?.enableApplaaPro,
+    });
+  };
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+      <div className="space-y-1">
+        <Label htmlFor="dev-pro-toggle" className="text-sm font-medium text-amber-800 dark:text-amber-200">
+          🚧 Development Pro Mode
+        </Label>
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          Temporary toggle for development and testing (will be removed later)
+        </p>
+      </div>
+      <Switch
+        id="dev-pro-toggle"
+        checked={settings?.enableApplaaPro || false}
+        onCheckedChange={togglePro}
+      />
+    </div>
+  );
+}
 
 
 export default function SettingsPage() {
@@ -36,7 +68,7 @@ export default function SettingsPage() {
   const { settings, updateSettings } = useSettings();
   const router = useRouter();
   const location = useLocation();
-  
+
   // Check if we're on a provider settings route
   const isProviderRoute = location.pathname.includes('/providers/');
 
@@ -84,7 +116,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <GeneralSettings appVersion={appVersion} />
           {/* AI Settings removed for MVP */}
-          
+
           <div
             id="provider-settings"
             className="bg-white dark:bg-gray-800 rounded-xl shadow-sm"
@@ -92,8 +124,11 @@ export default function SettingsPage() {
             <ProviderSettingsGrid />
           </div>
 
+          {/* Minecraft Settings */}
+          <MinecraftSettings />
+
           <WorkflowSettings />
-          
+
           {/* Smart Suggestions removed for MVP */}
 
           {/* Usage Analytics removed for MVP */}
@@ -299,11 +334,10 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
                 className={`
                 px-4 py-1.5 text-sm font-medium rounded-md
                 transition-all duration-200
-                ${
-                  theme === option
+                ${theme === option
                     ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                }
+                  }
               `}
               >
                 {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -313,6 +347,8 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
         </div>
 
         <CustomAppsDirectorySelector />
+{/* Temporary Pro Toggle for Development */}
+        <DevProToggle />
       </div>
 
       <div className="space-y-1 mt-4">
@@ -339,7 +375,7 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
 
 export function WorkflowSettings() {
   const { settings, updateSettings } = useSettings();
-  
+
   return (
     <div
       id="workflow-settings"
@@ -374,7 +410,7 @@ export function WorkflowSettings() {
               });
             }}
           />
-          <Label 
+          <Label
             htmlFor="enable-game-window-during-stream"
             className="text-gray-900 dark:text-gray-100 cursor-pointer"
           >
@@ -400,6 +436,10 @@ export function AISettings() {
 
       <div className="mt-4">
         <ThinkingBudgetSelector />
+      </div>
+
+      <div className="mt-4">
+        <PlanningModelSelector />
       </div>
 
       <div className="mt-4">

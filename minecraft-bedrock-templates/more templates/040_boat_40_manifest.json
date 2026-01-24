@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "040_boat_40",
+    "description": "more templates - 040_boat_40",
+    "uuid": "00c22ef2-3f57-4bc8-90f6-4c02adc5c7bc",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "9378a9ae-63ee-43dd-a2b7-d73980950b02",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -33,7 +33,7 @@ class BackendAPI {
     const url = `${this.config.baseUrl}${endpoint}`;
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      ...(options.headers || {}),
+      ...options.headers,
     };
 
     if (this.config.authToken) {

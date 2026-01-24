@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "137_cottage_137",
+    "description": "more templates - 137_cottage_137",
+    "uuid": "b19f67fb-9eb2-48e8-bfa8-126aed647098",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "40467e0c-225c-4992-a90b-9b1aeab7fb6b",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

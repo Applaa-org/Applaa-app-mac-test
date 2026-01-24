@@ -22,8 +22,8 @@ const webUrlPatterns = [
 ];
 
 const lanUrlPatterns = [
-  /(?:LAN|Network):\s+(https?:\/\/[\d\.]+:\d+)/i,
-  /(?:LAN|Network):\s+(exp:\/\/[\d\.]+:\d+)/i
+  /(?:LAN|Network):\s+(https?:\/\/[\d.]+:\d+)/i,
+  /(?:LAN|Network):\s+(exp:\/\/[\d.]+:\d+)/i
 ];
 
 const tunnelUrlPatterns = [
@@ -633,7 +633,7 @@ module.exports = config;
           }
           
           // Fallback: Look for LAN URLs if no exp:// found
-          const lanMatch = output.match(/(?:LAN|Network):\s+(https?:\/\/[\d\.]+:\d+)/i);
+          const lanMatch = output.match(/(?:LAN|Network):\s+(https?:\/\/[\d.]+:\d+)/i);
           if (lanMatch && !expoStatus.qrUrl) {
             expoStatus.qrUrl = lanMatch[1];
             expoStatus.lanUrl = lanMatch[1];

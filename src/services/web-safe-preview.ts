@@ -11,7 +11,7 @@ export interface WebCompatibilityIssue {
 
 export class WebSafePreviewValidator {
   private static instance: WebSafePreviewValidator;
-  
+
   public static getInstance(): WebSafePreviewValidator {
     if (!WebSafePreviewValidator.instance) {
       WebSafePreviewValidator.instance = new WebSafePreviewValidator();
@@ -34,7 +34,7 @@ export class WebSafePreviewValidator {
       description: 'Reanimated not available in web preview',
       autoFixable: true
     },
-    
+
     // Device APIs
     'expo-haptics': {
       replacement: 'Visual feedback (vibration API if available)',
@@ -66,7 +66,7 @@ export class WebSafePreviewValidator {
       description: 'Barcode scanner not available in web preview',
       autoFixable: true
     },
-    
+
     // Platform-specific
     'react-native-device-info': {
       replacement: 'Web device detection',
@@ -153,7 +153,7 @@ export class WebSafePreviewValidator {
   /**
    * Convert web compatibility issues to Problems for Problems Tab
    */
-  convertToProblems(filePath: string, issues: WebCompatibilityIssue[]): Problem[] {
+  convertToProblems(filePath: string, issues: WebCompatibilityIssue[]): any[] {
     return issues.map((issue, index) => ({
       file: filePath,
       line: 1, // We'll need to find actual line numbers
@@ -193,7 +193,7 @@ export class WebSafePreviewValidator {
 
   private replaceNativeModuleImport(code: string, issue: WebCompatibilityIssue): string {
     const moduleName = issue.module;
-    
+
     // Replace import statements
     code = code.replace(
       new RegExp(`import.*from\\s*['"]${moduleName}['"]`, 'g'),
@@ -274,7 +274,7 @@ const WebSafeGestureHandler = ({ children, onSwipe, ...props }) => {
     const platformAPIs = issues.filter(i => i.type === 'platform-api');
 
     let warning = '🌐 **Web Preview Notice:**\n\n';
-    
+
     if (nativeModules.length > 0) {
       warning += `**Native Modules Detected (${nativeModules.length}):**\n`;
       nativeModules.forEach(issue => {
@@ -292,7 +292,7 @@ const WebSafeGestureHandler = ({ children, onSwipe, ...props }) => {
     }
 
     warning += `**Note:** These features work perfectly on real devices but are replaced with web-safe alternatives in this preview. The actual app will have full native functionality!\n\n`;
-    
+
     if (issues.some(i => i.autoFixable)) {
       warning += '🔧 **Auto-fix available:** Click "Fix for Web Preview" to apply web-safe replacements.';
     }

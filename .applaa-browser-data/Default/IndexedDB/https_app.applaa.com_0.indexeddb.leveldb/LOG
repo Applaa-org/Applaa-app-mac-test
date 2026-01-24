@@ -1,0 +1,21 @@
+2026/01/10-18:31:51.806 b2b8 Reusing MANIFEST C:\Users\rahul\Documents\Applaa_Project\Applaa-Builder-v1\.applaa-browser-data\Default\IndexedDB\https_app.applaa.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/01/10-18:31:51.807 b2b8 Recovering log #4
+2026/01/10-18:31:51.816 b2b8 Reusing old log C:\Users\rahul\Documents\Applaa_Project\Applaa-Builder-v1\.applaa-browser-data\Default\IndexedDB\https_app.applaa.com_0.indexeddb.leveldb/000004.log 
+2026/01/10-20:43:55.460 b2b8 Level-0 table #8: started
+2026/01/10-20:43:55.471 b2b8 Level-0 table #8: 1083647 bytes OK
+2026/01/10-20:43:55.472 b2b8 Delete type=0 #4
+2026/01/10-20:59:55.584 1329c Compacting 1@1 + 1@2 files
+2026/01/10-20:59:55.592 1329c Generated table #9@1: 85 keys, 23569 bytes
+2026/01/10-20:59:55.592 1329c Compacted 1@1 + 1@2 files => 23569 bytes
+2026/01/10-20:59:55.592 1329c compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/01/10-20:59:55.593 1329c Delete type=2 #5
+2026/01/10-20:59:55.593 1329c Delete type=2 #8
+2026/01/10-23:35:55.898 b4f8 Level-0 table #11: started
+2026/01/10-23:35:55.911 b4f8 Level-0 table #11: 1078409 bytes OK
+2026/01/10-23:35:55.912 b4f8 Delete type=0 #7
+2026/01/11-06:39:19.262 b2b8 Compacting 1@1 + 1@2 files
+2026/01/11-06:39:19.266 b2b8 Generated table #12@1: 89 keys, 19318 bytes
+2026/01/11-06:39:19.266 b2b8 Compacted 1@1 + 1@2 files => 19318 bytes
+2026/01/11-06:39:19.266 b2b8 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/01/11-06:39:19.267 b2b8 Delete type=2 #9
+2026/01/11-06:39:19.267 b2b8 Delete type=2 #11

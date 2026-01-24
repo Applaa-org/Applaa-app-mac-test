@@ -239,8 +239,8 @@ export class ExpoAppRepairer {
       // Read current package.json
       const packageJson = JSON.parse(fs.readFileSync(this.packageJsonPath, 'utf8'));
       const allDeps = {
-        ...packageJson.dependencies || {},
-        ...packageJson.devDependencies || {}
+        ...packageJson.dependencies,
+        ...packageJson.devDependencies
       };
 
       // Check for missing critical dependencies
@@ -546,8 +546,8 @@ export class ExpoAppRepairer {
       
       // Check if all critical dependencies are present
       const allDeps = {
-        ...packageJson.dependencies || {},
-        ...packageJson.devDependencies || {}
+        ...packageJson.dependencies,
+        ...packageJson.devDependencies
       };
 
       for (const dep of CRITICAL_DEPENDENCIES) {

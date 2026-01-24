@@ -57,10 +57,10 @@ interface PreviewHeaderProps {
 }
 
 // Preview Header component with preview mode toggle
-export const PreviewHeader = ({ 
-  isExpoApp = false, 
-  isLeftPanelOpen = true, 
-  onToggleLeftPanel = () => {} 
+export const PreviewHeader = ({
+  isExpoApp = false,
+  isLeftPanelOpen = true,
+  onToggleLeftPanel = () => { }
 }: PreviewHeaderProps) => {
   const [previewMode, setPreviewMode] = useAtom(previewModeAtom);
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
@@ -79,7 +79,7 @@ export const PreviewHeader = ({
 
   const { restartApp, refreshAppIframe } = useRunApp();
   const { expoUrl } = useExpoUrl();
-  
+
   // Expo QR Code state
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [showQRModal, setShowQRModal] = useState(false);
@@ -92,7 +92,7 @@ export const PreviewHeader = ({
   const lastQrUrlRef = useRef<string>('');
 
   const isCompact = windowWidth < 860;
-  
+
   // Get Expo status and generate QR code for Expo apps
   useEffect(() => {
     if (!isExpoApp || !selectedAppId) {
@@ -106,7 +106,7 @@ export const PreviewHeader = ({
         const ipcClient = IpcClient.getInstance();
         const status = await ipcClient.getExpoStatus({ appId: selectedAppId });
         setExpoStatus(status);
-        
+
         // Generate QR code if we have a tunnel or LAN URL
         const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
         if (qrUrl && qrUrl !== lastQrUrlRef.current) {
@@ -132,7 +132,7 @@ export const PreviewHeader = ({
 
     // Check immediately
     checkExpoStatus();
-    
+
     // Poll every 2 seconds
     const interval = setInterval(checkExpoStatus, 2000);
     return () => clearInterval(interval);
@@ -293,13 +293,13 @@ export const PreviewHeader = ({
             "Preview",
             "preview-mode-button",
           )}
-          {/* {renderButton(
+          {renderButton(
             "code",
             codeRef,
             <Code size={14} />,
             "Code",
             "code-mode-button",
-          )} */}
+          )}
 
           {renderButton(
             "publish",
@@ -329,7 +329,7 @@ export const PreviewHeader = ({
               <span>QR Code</span>
             </button>
           )}
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -363,14 +363,14 @@ export const PreviewHeader = ({
           </DropdownMenu>
         </div>
       </div>
-      
+
       {/* QR Code Modal */}
       {showQRModal && qrCodeDataUrl && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
           onClick={() => setShowQRModal(false)}
         >
-          <div 
+          <div
             className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl max-w-md"
             onClick={(e) => e.stopPropagation()}
           >

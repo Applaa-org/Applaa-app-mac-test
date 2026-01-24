@@ -19,7 +19,12 @@ export const DyadAddIntegration: React.FC<DyadAddIntegrationProps> = ({
   node,
   children,
 }) => {
-  const navigate = useNavigate();
+  let navigate: ReturnType<typeof useNavigate> | null = null;
+  try {
+    navigate = useNavigate();
+  } catch (e) {
+    // ignore
+  }
 
   const { provider } = node.properties;
   const appId = useAtomValue(selectedAppIdAtom);
@@ -30,7 +35,11 @@ export const DyadAddIntegration: React.FC<DyadAddIntegrationProps> = ({
       showError("No app ID found");
       return;
     }
-    navigate({ to: "/app-details", search: { appId } });
+    if (navigate) {
+      navigate({ to: "/app-details", search: { appId } });
+    } else {
+      console.warn("Navigation not available");
+    }
   };
 
   if (app?.supabaseProjectName) {

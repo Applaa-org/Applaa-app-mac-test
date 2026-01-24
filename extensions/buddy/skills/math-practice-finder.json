@@ -1,0 +1,405 @@
+{
+    "id": "math-practice-finder",
+    "version": "1.0.0",
+    "createdBy": "claude-opus-4.5",
+    "createdAt": "2026-01-09",
+    "metadata": {
+        "title": "Find Math Practice & Help",
+        "category": "learning",
+        "subcategory": "mathematics",
+        "icon": "🧮",
+        "difficulty": "beginner",
+        "ageRange": "6-16",
+        "estimatedDuration": "40-60 seconds",
+        "tags": [
+            "math",
+            "practice",
+            "homework",
+            "khan-academy",
+            "learning"
+        ],
+        "description": "Get personalized math practice problems, video explanations, and step-by-step solutions for any math topic!",
+        "learningOutcomes": [
+            "Practice math at your level",
+            "Understand difficult concepts",
+            "Get instant help with homework",
+            "Track your progress"
+        ]
+    },
+    "objective": "Based on user's grade level and topic, find practice problems from Khan Academy, IXL, and Math Playground. Extract video explanations, generate practice worksheets, and create a personalized study plan.",
+    "prerequisites": {
+        "browserState": "ready",
+        "internetConnection": true,
+        "permissions": [
+            "tabs",
+            "storage",
+            "downloads"
+        ],
+        "userInput": {
+            "gradeLevel": {
+                "type": "select",
+                "options": [
+                    "1-2",
+                    "3-5",
+                    "6-8",
+                    "9-12"
+                ],
+                "prompt": "What grade are you in?"
+            },
+            "topic": {
+                "type": "text",
+                "prompt": "What math topic do you need help with? (e.g., fractions, algebra, geometry)"
+            }
+        }
+    },
+    "workflow": {
+        "steps": [
+            {
+                "id": "step-1",
+                "name": "Get Math Topic and Level",
+                "action": "user-input",
+                "params": {
+                    "questions": [
+                        {
+                            "id": "gradeLevel",
+                            "text": "What grade are you in?",
+                            "type": "buttons",
+                            "options": [
+                                {
+                                    "label": "1st-2nd Grade",
+                                    "value": "1-2"
+                                },
+                                {
+                                    "label": "3rd-5th Grade",
+                                    "value": "3-5"
+                                },
+                                {
+                                    "label": "6th-8th Grade",
+                                    "value": "6-8"
+                                },
+                                {
+                                    "label": "High School",
+                                    "value": "9-12"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "topic",
+                            "text": "What math topic do you need help with?",
+                            "type": "text",
+                            "placeholder": "e.g., fractions, multiplication, algebra, geometry",
+                            "suggestions": [
+                                "fractions",
+                                "multiplication",
+                                "division",
+                                "algebra",
+                                "geometry",
+                                "decimals",
+                                "percentages"
+                            ]
+                        },
+                        {
+                            "id": "helpType",
+                            "text": "What do you need?",
+                            "type": "checkboxes",
+                            "options": [
+                                {
+                                    "label": "📹 Video Lessons",
+                                    "value": "videos"
+                                },
+                                {
+                                    "label": "📝 Practice Problems",
+                                    "value": "practice"
+                                },
+                                {
+                                    "label": "📊 Step-by-Step Solutions",
+                                    "value": "solutions"
+                                },
+                                {
+                                    "label": "📄 Printable Worksheets",
+                                    "value": "worksheets"
+                                }
+                            ],
+                            "defaultSelected": [
+                                "videos",
+                                "practice"
+                            ]
+                        }
+                    ]
+                },
+                "reasoning": "Understanding exact needs prevents information overload and provides targeted help.",
+                "kidFriendlyExplanation": "Tell me what math you're working on so I can find the best help for you!"
+            },
+            {
+                "id": "step-2",
+                "name": "Navigate to Khan Academy",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.khanacademy.org/search?search_again=1&page_search_query={topic}",
+                    "waitFor": "networkidle"
+                },
+                "successCriteria": {
+                    "urlContains": "khanacademy.org"
+                },
+                "reasoning": "Khan Academy offers comprehensive, free math resources with mastery-based learning.",
+                "kidFriendlyExplanation": "Searching Khan Academy - they have amazing math videos and practice!"
+            },
+            {
+                "id": "step-3",
+                "name": "Extract Khan Academy Resources",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".search-result, .content-item",
+                        "title": "h3, .title",
+                        "type": ".content-type",
+                        "description": ".description",
+                        "url": "a",
+                        "thumbnail": "img",
+                        "gradeLevel": ".grade-level",
+                        "duration": ".duration"
+                    },
+                    "limit": 15,
+                    "filters": {
+                        "types": [
+                            "video",
+                            "exercise",
+                            "article"
+                        ],
+                        "gradeMatch": "{gradeLevel}"
+                    }
+                },
+                "reasoning": "Khan Academy's structured content is perfect for self-paced learning.",
+                "kidFriendlyExplanation": "Finding videos and practice problems that match your grade!"
+            },
+            {
+                "id": "step-4",
+                "name": "Navigate to IXL Math",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.ixl.com/math/",
+                    "waitFor": "networkidle"
+                },
+                "successCriteria": {
+                    "urlContains": "ixl.com"
+                },
+                "reasoning": "IXL provides adaptive practice with immediate feedback.",
+                "kidFriendlyExplanation": "Checking IXL for practice problems!"
+            },
+            {
+                "id": "step-5",
+                "name": "Find IXL Skills",
+                "action": "interact",
+                "params": {
+                    "sequence": [
+                        {
+                            "action": "click",
+                            "selector": ".grade-{gradeLevel}, [data-grade='{gradeLevel}']"
+                        },
+                        {
+                            "action": "wait",
+                            "duration": 1000
+                        },
+                        {
+                            "action": "search-page",
+                            "text": "{topic}",
+                            "highlightMatches": true
+                        }
+                    ]
+                },
+                "reasoning": "IXL organizes by grade and topic, making it easy to find relevant skills.",
+                "kidFriendlyExplanation": "Looking for practice problems about {topic}!"
+            },
+            {
+                "id": "step-6",
+                "name": "Extract IXL Skills",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".skill-card, .skill-item",
+                        "title": ".skill-name",
+                        "description": ".skill-description",
+                        "url": "a",
+                        "difficulty": ".difficulty"
+                    },
+                    "limit": 10
+                },
+                "reasoning": "IXL skills are bite-sized and perfect for focused practice.",
+                "kidFriendlyExplanation": "Collecting practice exercises for you!"
+            },
+            {
+                "id": "step-7",
+                "name": "Search YouTube for Math Tutorials",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.youtube.com/results?search_query={topic}+math+explained+for+kids",
+                    "waitFor": "networkidle"
+                },
+                "reasoning": "YouTube has visual explanations that make abstract concepts concrete.",
+                "kidFriendlyExplanation": "Finding video tutorials that explain {topic} clearly!"
+            },
+            {
+                "id": "step-8",
+                "name": "Extract YouTube Math Videos",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": "ytd-video-renderer",
+                        "title": "#video-title",
+                        "channel": "#channel-name",
+                        "thumbnail": "img#img",
+                        "duration": "span.ytd-thumbnail-overlay-time-status-renderer",
+                        "views": "#metadata-line span:first-child",
+                        "url": "a#thumbnail"
+                    },
+                    "limit": 10,
+                    "filters": {
+                        "minDuration": "3:00",
+                        "maxDuration": "20:00",
+                        "trustedChannels": [
+                            "Khan Academy",
+                            "Math Antics",
+                            "Numberphile",
+                            "3Blue1Brown"
+                        ],
+                        "excludeKeywords": [
+                            "college",
+                            "university",
+                            "advanced"
+                        ]
+                    }
+                },
+                "reasoning": "Filter for appropriate length and trusted educational channels.",
+                "kidFriendlyExplanation": "Finding the best math videos from trusted teachers!"
+            },
+            {
+                "id": "step-9",
+                "name": "Generate Practice Worksheet",
+                "action": "ai-enhance",
+                "params": {
+                    "model": "gemini-flash-2.0",
+                    "promptTemplate": "Create a practice worksheet for {topic} appropriate for grade {gradeLevel}. Include: 1) 10 practice problems ranging from easy to medium difficulty, 2) Clear instructions, 3) Space for showing work, 4) Answer key at the end. Format as printable HTML with proper spacing.",
+                    "temperature": 0.7,
+                    "condition": "{helpType} includes 'worksheets'"
+                },
+                "reasoning": "AI-generated worksheets provide immediate, customized practice.",
+                "kidFriendlyExplanation": "Creating a custom practice worksheet just for you!"
+            },
+            {
+                "id": "step-10",
+                "name": "Create Study Plan",
+                "action": "ai-enhance",
+                "params": {
+                    "model": "gemini-flash-2.0",
+                    "promptTemplate": "Create a 1-week study plan for mastering {topic} at grade {gradeLevel}. For each day: 1) Recommend 1-2 specific resources from the collected materials, 2) Suggest practice time (10-20 min), 3) Include a small achievable goal. Make it encouraging and realistic for kids!",
+                    "context": "all-resources"
+                },
+                "reasoning": "Structured plan prevents overwhelm and ensures consistent progress.",
+                "kidFriendlyExplanation": "Making a study plan to help you master {topic}!"
+            },
+            {
+                "id": "step-11",
+                "name": "Compile Math Help Dashboard",
+                "action": "compile",
+                "params": {
+                    "format": "interactive-html",
+                    "template": "math-help-dashboard",
+                    "sections": [
+                        {
+                            "name": "🎯 Your Study Plan",
+                            "content": "ai-study-plan",
+                            "features": [
+                                "daily-checklist",
+                                "progress-bar"
+                            ]
+                        },
+                        {
+                            "name": "📹 Video Lessons",
+                            "source": "youtube + khan-academy",
+                            "limit": 10,
+                            "layout": "video-grid"
+                        },
+                        {
+                            "name": "📝 Practice Problems",
+                            "source": "ixl + khan-academy",
+                            "layout": "skill-cards",
+                            "features": [
+                                "difficulty-filter",
+                                "track-completion"
+                            ]
+                        },
+                        {
+                            "name": "📄 Worksheets",
+                            "content": "ai-generated-worksheet",
+                            "features": [
+                                "print-button",
+                                "answer-key-toggle"
+                            ]
+                        }
+                    ]
+                },
+                "reasoning": "Dashboard organizes all resources in one place with clear next steps.",
+                "kidFriendlyExplanation": "Putting everything together in your personal math helper!"
+            },
+            {
+                "id": "step-12",
+                "name": "Present Results",
+                "action": "output",
+                "params": {
+                    "displayInSidebar": true,
+                    "saveToFile": {
+                        "filename": "math_help_{topic}_{date}.html",
+                        "location": "downloads"
+                    },
+                    "notification": {
+                        "title": "🧮 Math Help Ready!",
+                        "message": "Found {count} resources to help you with {topic}!",
+                        "actions": [
+                            {
+                                "label": "Start Learning",
+                                "action": "open-first-video"
+                            },
+                            {
+                                "label": "Practice Now",
+                                "action": "open-practice"
+                            },
+                            {
+                                "label": "Print Worksheet",
+                                "action": "print-worksheet"
+                            }
+                        ]
+                    }
+                },
+                "kidFriendlyExplanation": "All set! Let's start learning {topic}!"
+            }
+        ]
+    },
+    "reactLoop": {
+        "enabled": true,
+        "maxIterations": 10,
+        "adaptationRules": [
+            {
+                "condition": "topic-too-vague",
+                "reasoning": "User input like 'math' is too broad",
+                "action": "ask-clarification",
+                "params": {
+                    "suggestTopics": true
+                }
+            },
+            {
+                "condition": "no-grade-appropriate-content",
+                "reasoning": "Topic too advanced or too basic for grade",
+                "action": "adjust-difficulty",
+                "params": {
+                    "notifyUser": true
+                }
+            }
+        ]
+    },
+    "safety": {
+        "contentFiltering": {
+            "educationalOnly": true,
+            "verifiedSources": true
+        }
+    }
+}

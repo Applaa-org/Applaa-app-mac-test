@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "256_bridge_256",
+    "description": "more templates - 256_bridge_256",
+    "uuid": "6efd9933-6e61-46cd-936a-64455cc942df",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "bd05dbf6-fb7c-4ab5-a3ae-b6dc8d848d4e",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

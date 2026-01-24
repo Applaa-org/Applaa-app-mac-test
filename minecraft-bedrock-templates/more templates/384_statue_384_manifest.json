@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "384_statue_384",
+    "description": "more templates - 384_statue_384",
+    "uuid": "cf98e90b-3560-4fd4-a5db-81fd5e5c16e4",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "b03b565a-fd84-4c6a-b814-2d857df150f9",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

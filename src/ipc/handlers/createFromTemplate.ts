@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs-extra";
+import crypto from "crypto";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 import { app } from "electron";
@@ -20,7 +21,7 @@ const logger = log.scope("createFromTemplate");
 async function ensureTypeScriptConfig(appPath: string, appType: 'web' | 'expo'): Promise<void> {
   try {
     logger.info(`Adding TypeScript configuration for ${appType} app at ${appPath}`);
-    
+
     if (appType === 'expo') {
       // Create tsconfig.json for Expo apps
       const tsconfigPath = path.join(appPath, "tsconfig.json");
@@ -54,11 +55,11 @@ async function ensureTypeScriptConfig(appPath: string, appType: 'web' | 'expo'):
             "node_modules"
           ]
         };
-        
+
         await fs.writeJson(tsconfigPath, expoTsConfig, { spaces: 2 });
         logger.info("✅ Created tsconfig.json for Expo app");
       }
-      
+
       // Create expo-env.d.ts for Expo type definitions
       const expoEnvPath = path.join(appPath, "expo-env.d.ts");
       if (!fs.existsSync(expoEnvPath)) {
@@ -70,7 +71,7 @@ async function ensureTypeScriptConfig(appPath: string, appType: 'web' | 'expo'):
         await fs.writeFile(expoEnvPath, expoEnvContent);
         logger.info("✅ Created expo-env.d.ts");
       }
-      
+
     } else {
       // Create tsconfig.json for web apps (Vite/React)
       const tsconfigPath = path.join(appPath, "tsconfig.json");
@@ -96,11 +97,11 @@ async function ensureTypeScriptConfig(appPath: string, appType: 'web' | 'expo'):
           "include": ["src/**/*"],
           "references": [{ "path": "./tsconfig.node.json" }]
         };
-        
+
         await fs.writeJson(tsconfigPath, webTsConfig, { spaces: 2 });
         logger.info("✅ Created tsconfig.json for web app");
       }
-      
+
       // Create tsconfig.node.json for Vite
       const tsconfigNodePath = path.join(appPath, "tsconfig.node.json");
       if (!fs.existsSync(tsconfigNodePath)) {
@@ -114,12 +115,12 @@ async function ensureTypeScriptConfig(appPath: string, appType: 'web' | 'expo'):
           },
           "include": ["vite.config.ts"]
         };
-        
+
         await fs.writeJson(tsconfigNodePath, nodeTsConfig, { spaces: 2 });
         logger.info("✅ Created tsconfig.node.json");
       }
     }
-    
+
   } catch (error) {
     logger.error("Failed to create TypeScript config:", error);
     // Don't throw - this is not critical enough to fail app creation
@@ -133,7 +134,7 @@ async function ensureSitePolicyFile(appPath: string, appType: 'web' | 'expo'): P
   if (appType !== 'web') {
     return; // Site policy only applies to web apps
   }
-  
+
   try {
     logger.info(`Creating site policy file for professional web app at ${appPath}`);
     await createSitePolicyFile(appPath);
@@ -152,15 +153,15 @@ async function installApplaaApprovedDependencies(appPath: string, framework: 'we
     logger.info(`Installing Applaa-approved ${framework} dependencies to prevent 'Unable to resolve' errors...`);
     const { getSafePackages } = await import("../../config/applaa-dependencies");
     const commonPackages = getSafePackages(framework);
-    
+
     if (commonPackages.length === 0) {
       logger.info(`No additional dependencies needed for ${framework} apps`);
       return;
     }
-    
+
     const { getBestPackageManager } = await import("../../lib/hermetic-runtime");
     const packageManager = await getBestPackageManager(appPath);
-    
+
     const runAddPackages = async (tool: "pnpm" | "npm") => new Promise<void>((resolve, reject) => {
       const args = tool === "pnpm" ? ["add", ...commonPackages] : ["install", ...commonPackages];
       const child = spawn(tool, args, {
@@ -210,7 +211,7 @@ async function initializeGitRepository(appPath: string): Promise<void> {
     }
 
     logger.info(`Initializing Git repository at ${appPath}`);
-    
+
     // Initialize Git repository
     await git.init({
       fs,
@@ -230,7 +231,7 @@ async function initializeGitRepository(appPath: string): Promise<void> {
       path: appPath,
       message: "Initial commit - Applaa app created",
     });
-    
+
     logger.info(`Successfully initialized Git repository at ${appPath}`);
   } catch (error) {
     logger.error(`Failed to initialize Git repository at ${appPath}:`, error);
@@ -258,7 +259,7 @@ export async function createFromTemplate({
       path.join(appPath, "scaffold"),                            // Legacy fallback: scaffold
       path.join(process.cwd(), "scaffold")                       // Legacy fallback: scaffold from cwd
     ];
-    
+
     for (const templatePath of possiblePaths) {
       if (fs.existsSync(templatePath)) {
         logger.info(`Using React template from: ${templatePath}`);
@@ -269,7 +270,7 @@ export async function createFromTemplate({
         return;
       }
     }
-    
+
     throw new Error(`Local React template not found. Tried paths: ${possiblePaths.join(', ')}`);
   }
 
@@ -280,7 +281,7 @@ export async function createFromTemplate({
       path.join(appPath, "webapp-templates", "nextjs"),
       path.join(process.cwd(), "webapp-templates", "nextjs")
     ];
-    
+
     for (const templatePath of possiblePaths) {
       if (fs.existsSync(templatePath)) {
         logger.info(`Using Next.js template from: ${templatePath}`);
@@ -291,7 +292,7 @@ export async function createFromTemplate({
         return;
       }
     }
-    
+
     // Fallback to GitHub template for now
     const template = await getTemplateOrThrow("next");
     if (template.githubUrl) {
@@ -311,7 +312,7 @@ export async function createFromTemplate({
       path.join(appPath, "webapp-templates", "portal-mini-store"),
       path.join(process.cwd(), "webapp-templates", "portal-mini-store")
     ];
-    
+
     for (const templatePath of possiblePaths) {
       if (fs.existsSync(templatePath)) {
         logger.info(`Using Portal Mini Store template from: ${templatePath}`);
@@ -321,7 +322,7 @@ export async function createFromTemplate({
         return;
       }
     }
-    
+
     // Fallback to GitHub template for now
     const template = await getTemplateOrThrow("portal-mini-store");
     if (template.githubUrl) {
@@ -334,87 +335,158 @@ export async function createFromTemplate({
     throw new Error(`Neither local nor GitHub Portal Mini Store template available. Tried paths: ${possiblePaths.join(', ')}`);
   }
 
-        if (templateId === "expo-base-master") {
-        // Use the working Expo Router example from the old codebase
-        logger.info(`Creating Expo app with router example at: ${fullAppPath}`);
-        await scaffoldExpoApp({ fullAppPath, example: "with-router" }); // Use working example from old code
-        
-        // 🚨 CRITICAL: Add TypeScript configuration to prevent TSC errors
-        await ensureTypeScriptConfig(fullAppPath, 'expo');
-        
-        // Update app.json with proper app configuration
-        const appJsonPath = path.join(fullAppPath, "app.json");
-        if (fs.existsSync(appJsonPath)) {
-          const appJson = await fs.readJson(appJsonPath);
-          const appName = path.basename(fullAppPath);
-          
-          // Update basic app info
-          appJson.expo.name = appName;
-          appJson.expo.slug = appName;
-          
-          // Add bundle identifiers for app stores
-          if (!appJson.expo.ios) appJson.expo.ios = {};
-          if (!appJson.expo.android) appJson.expo.android = {};
-          
-          appJson.expo.ios.bundleIdentifier = `com.applaa.${appName.replace(/[^a-zA-Z0-9]/g, '')}`;
-          appJson.expo.android.package = `com.applaa.${appName.replace(/[^a-zA-Z0-9]/g, '')}`;
-          
-          await fs.writeJson(appJsonPath, appJson, { spaces: 2 });
-        }
-        
-        // 🚀 CRITICAL FIX: Auto-add @expo/ngrok to prevent interactive prompts
-        const packageJsonPath = path.join(fullAppPath, "package.json");
-        if (fs.existsSync(packageJsonPath)) {
-          logger.info("Adding @expo/ngrok dependency to prevent tunnel prompts...");
-          const packageJson = await fs.readJson(packageJsonPath);
-          
-          // Ensure dependencies object exists
-          if (!packageJson.dependencies) {
-            packageJson.dependencies = {};
-          }
-          
-          // Add @expo/ngrok if not already present
-          if (!packageJson.dependencies["@expo/ngrok"] && !packageJson.devDependencies?.["@expo/ngrok"]) {
-            packageJson.dependencies["@expo/ngrok"] = "^4.1.3"; // Latest stable version
-            await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
-            logger.info("✅ Added @expo/ngrok dependency to package.json");
-            
-            // Install the dependency non-interactively using hermetic package manager
-            try {
-              const { runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
-              
-              await new Promise<void>(async (resolve, reject) => {
-                const child = await runPackageManagerCommand("add", ["@expo/ngrok"], fullAppPath, {
-                  stdio: ["ignore", "pipe", "pipe"],
-                  env: {
-                    ...process.env,
-                    CI: "1", // Prevent interactive prompts
-                    EXPO_NO_DOCTOR: "1",
-                    EXPO_NO_UPDATE_CHECK: "1",
-                  },
-                });
-                
-                child.stdout?.on("data", (data: Buffer) => {
-                  logger.debug(`[install @expo/ngrok] ${data.toString()}`);
-                });
-                child.stderr?.on("data", (data: Buffer) => {
-                  logger.warn(`[install @expo/ngrok:err] ${data.toString()}`);
-                });
-                child.on("error", reject);
-                child.on("close", (code: number) => (code === 0 ? resolve() : reject(new Error(`install @expo/ngrok exited ${code}`))));
-              });
-              logger.info("✅ Successfully installed @expo/ngrok dependency");
-            } catch (err) {
-              logger.warn("⚠️ Failed to install @expo/ngrok, but added to package.json:", err);
-            }
-          } else {
-            logger.info("✅ @expo/ngrok already present in dependencies");
-          }
-        }
-        
-        await initializeGitRepository(fullAppPath);
-        return;
+  if (templateId === "minecraft-basic") {
+    // For Minecraft Bedrock, we ALWAYS create a formatted structure
+    // We do NOT copy from a template folder anymore to prevent copying the entire library
+    // The specific template code will be injected by the frontend via Ipc/File writes
+    const templateFound = false; // Force creation of new structure
+
+    // If no template folder found, create a minimal Bedrock addon structure
+    if (!templateFound) {
+      logger.info(`Creating minimal Minecraft Bedrock structure at: ${fullAppPath}`);
+
+      // Create behavior pack structure
+      const bpPath = path.join(fullAppPath, 'behavior_pack');
+      await fs.ensureDir(path.join(bpPath, 'functions'));
+
+      // Create manifest.json
+      const manifest = {
+        format_version: 2,
+        header: {
+          name: path.basename(fullAppPath),
+          description: "Created with Applaa",
+          uuid: crypto.randomUUID(),
+          version: [1, 0, 0],
+          min_engine_version: [1, 20, 0]
+        },
+        modules: [{
+          type: "data",
+          uuid: crypto.randomUUID(),
+          version: [1, 0, 0]
+        }]
+      };
+      await fs.writeJson(path.join(bpPath, 'manifest.json'), manifest, { spaces: 2 });
+
+      // Create default mcfunction file
+      const defaultMcfunction = `# My Minecraft Mod - Created with Applaa
+# Run this function with: /function main
+
+# Welcome message
+say 🎮 Hello from Applaa!
+
+# Give starter items
+give @p diamond_sword 1
+give @p golden_apple 3
+
+# Build a small platform
+fill ~0 ~-1 ~0 ~5 ~-1 ~5 stone
+say ✨ Your platform is ready!`;
+
+      await fs.writeFile(path.join(bpPath, 'functions', 'main.mcfunction'), defaultMcfunction);
+
+      // Create README
+      const readme = `# Minecraft Bedrock Addon
+
+Created with Applaa!
+
+## How to Use
+1. Edit the mcfunction files in \`behavior_pack/functions/\`
+2. Export as .mcaddon
+3. Import into Minecraft Bedrock Edition
+
+## Commands
+\`\`\`
+/function main
+\`\`\`
+`;
+      await fs.writeFile(path.join(fullAppPath, 'README.md'), readme);
+    }
+
+    await initializeGitRepository(fullAppPath);
+    return;
+  }
+
+  if (templateId === "expo-base-master") {
+    // Use the working Expo Router example from the old codebase
+    logger.info(`Creating Expo app with router example at: ${fullAppPath}`);
+    await scaffoldExpoApp({ fullAppPath, example: "with-router" }); // Use working example from old code
+
+    // 🚨 CRITICAL: Add TypeScript configuration to prevent TSC errors
+    await ensureTypeScriptConfig(fullAppPath, 'expo');
+
+    // Update app.json with proper app configuration
+    const appJsonPath = path.join(fullAppPath, "app.json");
+    if (fs.existsSync(appJsonPath)) {
+      const appJson = await fs.readJson(appJsonPath);
+      const appName = path.basename(fullAppPath);
+
+      // Update basic app info
+      appJson.expo.name = appName;
+      appJson.expo.slug = appName;
+
+      // Add bundle identifiers for app stores
+      if (!appJson.expo.ios) appJson.expo.ios = {};
+      if (!appJson.expo.android) appJson.expo.android = {};
+
+      appJson.expo.ios.bundleIdentifier = `com.applaa.${appName.replace(/[^a-zA-Z0-9]/g, '')}`;
+      appJson.expo.android.package = `com.applaa.${appName.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+      await fs.writeJson(appJsonPath, appJson, { spaces: 2 });
+    }
+
+    // 🚀 CRITICAL FIX: Auto-add @expo/ngrok to prevent interactive prompts
+    const packageJsonPath = path.join(fullAppPath, "package.json");
+    if (fs.existsSync(packageJsonPath)) {
+      logger.info("Adding @expo/ngrok dependency to prevent tunnel prompts...");
+      const packageJson = await fs.readJson(packageJsonPath);
+
+      // Ensure dependencies object exists
+      if (!packageJson.dependencies) {
+        packageJson.dependencies = {};
       }
+
+      // Add @expo/ngrok if not already present
+      if (!packageJson.dependencies["@expo/ngrok"] && !packageJson.devDependencies?.["@expo/ngrok"]) {
+        packageJson.dependencies["@expo/ngrok"] = "^4.1.3"; // Latest stable version
+        await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
+        logger.info("✅ Added @expo/ngrok dependency to package.json");
+
+        // Install the dependency non-interactively using hermetic package manager
+        try {
+          const { runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
+
+          await new Promise<void>(async (resolve, reject) => {
+            const child = await runPackageManagerCommand("add", ["@expo/ngrok"], fullAppPath, {
+              stdio: ["ignore", "pipe", "pipe"],
+              env: {
+                ...process.env,
+                CI: "1", // Prevent interactive prompts
+                EXPO_NO_DOCTOR: "1",
+                EXPO_NO_UPDATE_CHECK: "1",
+              },
+            });
+
+            child.stdout?.on("data", (data: Buffer) => {
+              logger.debug(`[install @expo/ngrok] ${data.toString()}`);
+            });
+            child.stderr?.on("data", (data: Buffer) => {
+              logger.warn(`[install @expo/ngrok:err] ${data.toString()}`);
+            });
+            child.on("error", reject);
+            child.on("close", (code: number) => (code === 0 ? resolve() : reject(new Error(`install @expo/ngrok exited ${code}`))));
+          });
+          logger.info("✅ Successfully installed @expo/ngrok dependency");
+        } catch (err) {
+          logger.warn("⚠️ Failed to install @expo/ngrok, but added to package.json:", err);
+        }
+      } else {
+        logger.info("✅ @expo/ngrok already present in dependencies");
+      }
+    }
+
+    await initializeGitRepository(fullAppPath);
+    return;
+  }
 
   const template = await getTemplateOrThrow(templateId);
   if (!template.githubUrl) {
@@ -452,12 +524,12 @@ async function scaffoldExpoApp({
   // 🚀 PERFORMANCE: Use hermetic package manager strategy for consistent dependency management
   const { getBestPackageManager, ensurePnpmAvailable } = await import("../../lib/hermetic-runtime");
   const packageManager = await getBestPackageManager();
-  
+
   // Ensure pnpm is available if it's the preferred manager
   if (packageManager === "pnpm") {
     await ensurePnpmAvailable();
   }
-  
+
   // Run: pnpm dlx create-expo-app@latest <appFolderName> --yes --no-install
   // Fallback to npx if pnpm is not available. We set cwd to the parent so
   // the folder is created with the desired name.
@@ -573,8 +645,8 @@ async function scaffoldExpoApp({
         const args = manager === "npm"
           ? ["install", "-D", "typescript"]
           : manager === "pnpm"
-          ? ["add", "-D", "typescript"]
-          : ["add", "-D", "typescript"]; // yarn
+            ? ["add", "-D", "typescript"]
+            : ["add", "-D", "typescript"]; // yarn
 
         const child = spawn(manager, args, {
           cwd: fullAppPath,
@@ -619,8 +691,8 @@ async function scaffoldExpoApp({
       const args = manager === "npm"
         ? ["install", "-D", "@types/react@~19.0.10"]
         : manager === "pnpm"
-        ? ["add", "-D", "@types/react@~19.0.10"]
-        : ["add", "-D", "@types/react@~19.0.10"]; // yarn
+          ? ["add", "-D", "@types/react@~19.0.10"]
+          : ["add", "-D", "@types/react@~19.0.10"]; // yarn
 
       await new Promise<void>((resolve, reject) => {
         const child = spawn(manager, args, {
@@ -648,7 +720,7 @@ async function scaffoldExpoApp({
             EXPO_NO_UPDATE_CHECK: "1",
           },
         });
-        
+
         child.stdout?.on("data", (data) => {
           logger.debug(`[expo install web deps] ${data.toString()}`);
         });
@@ -658,7 +730,7 @@ async function scaffoldExpoApp({
         child.on("error", reject);
         child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`expo install web deps exited ${code}`))));
       });
-      
+
       logger.info("Web dependencies installed successfully");
     } catch (err) {
       logger.warn("Failed to install web dependencies:", err);
@@ -680,7 +752,7 @@ async function scaffoldExpoApp({
             EXPO_NO_UPDATE_CHECK: "1",
           },
         });
-        
+
         child.stdout?.on("data", (data) => {
           logger.debug(`[expo install mobile deps] ${data.toString()}`);
         });
@@ -690,7 +762,7 @@ async function scaffoldExpoApp({
         child.on("error", reject);
         child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`expo install mobile deps exited ${code}`))));
       });
-      
+
       logger.info("Essential mobile dependencies installed successfully");
     } catch (err) {
       logger.warn("Failed to install mobile dependencies:", err);

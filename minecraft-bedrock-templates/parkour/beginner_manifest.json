@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "beginner",
+    "description": "parkour - beginner",
+    "uuid": "47944c3e-651e-4983-9810-8168de62f099",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "fbcf7c6c-3e89-4bde-acfa-d1314f5f355d",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

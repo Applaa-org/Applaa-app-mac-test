@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Appy Test</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial;
+        }
+
+        model-viewer {
+            width: 600px;
+            height: 600px;
+            background-color: transparent;
+        }
+
+        h1 {
+            position: absolute;
+            top: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🤖 Meet Appy!</h1>
+    <model-viewer src="/appy/appy.glb" alt="Appy Robot" auto-rotate camera-controls shadow-intensity="1"
+        environment-image="neutral"></model-viewer>
+</body>
+
+</html>

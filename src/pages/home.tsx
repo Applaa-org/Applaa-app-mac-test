@@ -47,6 +47,8 @@ export interface HomeSubmitOptions {
   createDatabase?: boolean;
   databaseNotes?: string;
   saveGameData?: boolean;
+  appType?: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft';
+  templateId?: string;
 }
 
 export default function HomePage() {
@@ -62,6 +64,8 @@ export default function HomePage() {
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [showNamingDialog, setShowNamingDialog] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState('');
+  const [pendingAppType, setPendingAppType] = useState<HomeSubmitOptions['appType']>(undefined);
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | undefined>(undefined);
   const [pendingAttachments, setPendingAttachments] = useState<FileAttachment[]>([]);
   const [pendingDbOptions, setPendingDbOptions] = useState<{
     createDatabase?: boolean;
@@ -177,8 +181,10 @@ export default function HomePage() {
     setForceAuthDialog(false);
     setShowAuthDialog(false);
 
-    // Show naming dialog first, capture DB options, attachments, and game data option
+    // Show naming dialog first, capture DB options, attachments, templateId, and game data option
     setPendingPrompt(inputValue);
+    setPendingAppType(options?.appType);
+    setPendingTemplateId(options?.templateId);
     setPendingAttachments(attachments);
     setPendingDbOptions({
       createDatabase: options?.createDatabase,
@@ -194,7 +200,7 @@ export default function HomePage() {
     try {
       setIsLoading(true);
       const startTime = performance.now();
-      
+
       // Use the selected name from the dialog
       const finalName = selectedName.toLowerCase().replace(/\s+/g, '-');
       const displayName = selectedName;
@@ -203,7 +209,7 @@ export default function HomePage() {
 
       // Base prompt from user input
       let finalPrompt = pendingPrompt;
-      
+
       // Append localStorage instructions if user checked the game data storage option
       if (pendingDbOptions?.saveGameData) {
         finalPrompt = `${finalPrompt}
@@ -226,6 +232,44 @@ ${extraDbText}`;
 
       // 🚀 PARALLEL CREATION: Use instant app creation for immediate chat access
       // Template creation and git operations run in background while user chats
+
+      // Auto-detect Minecraft prompts to set correct appType
+      const promptLower = finalPrompt.toLowerCase();
+      const isMinecraftPrompt = ['minecraft', 'mod', 'creeper', 'zombie', 'spawn', 'blocks', 'craft', 'mine', 'agent'].some(keyword => promptLower.includes(keyword));
+
+      type AppType = 'web' | 'mobile' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'godot' | 'roblox' | 'python';
+      let appType: AppType;
+
+      if (pendingAppType) {
+        // Explicit type passed from UI (e.g. Minecraft Sample Prompt)
+        appType = pendingAppType;
+        console.log(`[Home] Using explicit appType: ${appType}`);
+      } else if (isMinecraftPrompt && settings?.selectedPlatform !== 'minecraft') {
+        // Auto-detect Minecraft from prompt keywords
+        appType = 'minecraft';
+        console.log('[Home] Auto-detected Minecraft prompt, setting appType to minecraft');
+      } else {
+        appType = settings?.selectedPlatform === 'expo' || settings?.selectedPlatform === 'flutter' ? 'mobile' :
+          settings?.selectedPlatform === 'minecraft' ? 'minecraft' :
+            settings?.selectedPlatform === 'blockly' ? 'blockly' :
+              settings?.selectedPlatform === 'arcade' ? 'arcade' :
+                settings?.selectedPlatform === 'microbit' ? 'microbit' :
+                  settings?.selectedPlatform === 'godot' ? 'godot' :
+                    settings?.selectedPlatform === 'roblox' ? 'roblox' :
+                      settings?.selectedPlatform === 'python' ? 'python' :
+                        'web';
+      }
+
+      const framework = settings?.selectedPlatform === 'expo' ? 'expo' :
+        settings?.selectedPlatform === 'flutter' ? 'flutter' :
+          appType === 'minecraft' ? 'minecraft-makecode' :
+            appType === 'blockly' ? 'blockly' :
+              appType === 'arcade' ? 'makecode-arcade' :
+                appType === 'microbit' ? 'microbit' :
+                  appType === 'godot' ? 'godot' :
+                    appType === 'roblox' ? 'roblox-lua' :
+                      'web';
+
       const result = await IpcClient.getInstance().createAppInstant({
         name: finalName,
         displayName: displayName || finalName
@@ -234,14 +278,15 @@ ${extraDbText}`;
           .join(" "),
         packageId: packageId || `com.applaa.${finalName.replace(/-/g, "")}`,
         slug: slug || finalName,
-        // Persist selected platform into DB app_type at creation time
-        appType: settings?.selectedPlatform === 'expo' || settings?.selectedPlatform === 'flutter' ? 'mobile' : 'web',
-        framework: settings?.selectedPlatform === 'expo' ? 'expo' : settings?.selectedPlatform === 'flutter' ? 'flutter' : 'web',
-        // Store the prompt and attachments for processing after app creation
+        // Use appType from options (SimpleHomeInterface) instead of settings
+        appType: appType as 'web' | 'mobile' | 'godot' | 'roblox',
+        framework: framework,
+        // Store the prompt and attachments for processing after app creation  
         prompt: finalPrompt,
-        attachments: pendingAttachments
+        attachments: pendingAttachments,
+        templateId: pendingTemplateId // Pass templateId for pre-built templates
       });
-      
+
       // Start monitoring background task
       setCurrentTaskId(result.taskId);
       if (
@@ -258,9 +303,9 @@ ${extraDbText}`;
       // Chat is ready instantly while template creation runs in background
       const instantCreationTime = performance.now() - startTime;
       console.log(`[Home] App and chat created instantly in ${instantCreationTime.toFixed(2)}ms! App ID: ${result.app.id}, Chat ID: ${result.chatId}, Task ID: ${result.taskId}`);
-      
+
       // Track performance metrics
-      posthog.capture("home:instant-app-creation", { 
+      posthog.capture("home:instant-app-creation", {
         promptLength: finalPrompt.length,
         appId: result.app.id,
         chatId: result.chatId,
@@ -269,50 +314,52 @@ ${extraDbText}`;
         framework: settings?.selectedPlatform || 'web',
         readyForChat: result.readyForChat
       });
-      
+
       // 🚨 CRITICAL FIX: Set app ID BEFORE navigation
       setSelectedAppId(result.app.id);
-      
+
       // Clear input and pending state
       setInputValue("");
       setSelectedIdea(null); // Clear selected idea after submission
-      
+
       // 🚀 AUTO-OPEN PREVIEW: Show preview immediately for fast user experience
       setPreviewMode("preview");
       setIsPreviewOpen(true);
-      
+
       // Refresh apps list and invalidate cache
       await refreshApps();
       await invalidateAppQuery(queryClient, { appId: result.app.id });
-      
-      posthog.capture("home:chat-submit", { 
+
+      posthog.capture("home:chat-submit", {
         promptLength: finalPrompt.length,
         appId: result.app.id,
         chatId: result.chatId
       });
-      
+
       // Reset loading state BEFORE navigation for instant UI response
       setIsLoading(false);
-      
+
       // Clear pending state after using them
       setPendingPrompt('');
+      setPendingAppType(undefined);
+      setPendingTemplateId(undefined);
       setPendingAttachments([]);
-      
+
       // 🚀 FIX: Navigate to chat with initialPrompt param (Dyad-style)
       // This ensures ChatPanel is mounted and callbacks are registered BEFORE streaming starts
       // The chat page will auto-submit the prompt after a 100ms delay
       console.log(`[Home] 🚀 Navigating to chat with initialPrompt for chatId: ${result.chatId}`);
-      navigate({ 
-        to: "/chat", 
-        search: { 
+      navigate({
+        to: "/chat",
+        search: {
           id: result.chatId,
           initialPrompt: finalPrompt,
           initialAttachments: pendingAttachments.length > 0 ? JSON.stringify(pendingAttachments) : undefined
-        } 
+        }
       });
     } catch (error) {
       console.error("Failed to create chat:", error);
-      
+
       // Extract error message from various possible formats
       let errorMessage = '';
       if (error instanceof Error) {
@@ -322,10 +369,10 @@ ${extraDbText}`;
       } else if (error && typeof error === 'object') {
         errorMessage = (error as any).message || (error as any).toString() || '';
       }
-      
+
       const errorString = String(errorMessage);
       console.log('[Home] Error string:', errorString);
-      
+
       // Check for auth limit error (may be nested in IPC error messages)
       if (errorString.includes("AUTH_REQUIRED_APP_LIMIT")) {
         console.log('[Home] Auth limit detected, showing sign-in dialog');
@@ -336,7 +383,7 @@ ${extraDbText}`;
         // Don't show error toast for auth limit
         return;
       }
-      
+
       if (errorString.startsWith('DUPLICATE_APP_NAME:')) {
         const [, originalName, suggestedName] = errorString.split(':');
         showError(
@@ -358,7 +405,7 @@ ${extraDbText}`;
           showError("Failed to create app. " + errorString);
         }
       }
-      
+
       setIsLoading(false); // Ensure loading state is reset on error
     }
   };
@@ -372,13 +419,13 @@ ${extraDbText}`;
           onOpenChange={handleAuthDialogOpenChange}
           forceOpen={forceAuthDialog}
         />
-        
+
         {/* Top Right Building Status Message */}
         <div className="fixed top-4 right-4 z-50 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
           <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
           <span className="text-sm font-medium">App building in progress</span>
         </div>
-        
+
         <div className="w-full flex flex-col items-center">
           {/* Loading Spinner */}
           <div className="relative w-24 h-24 mb-8">
@@ -392,7 +439,7 @@ ${extraDbText}`;
             We're setting up your app with AI magic. <br />
             This might take a moment...
           </p>
-          
+
           {/* Background Task Status */}
           {creationStatus && isMonitoring && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 max-w-md">
@@ -405,7 +452,7 @@ ${extraDbText}`;
                 </span>
               </div>
               <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mb-2">
-                <div 
+                <div
                   className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${creationStatus.progress}%` }}
                 ></div>
@@ -433,7 +480,7 @@ ${extraDbText}`;
       <div className="w-full mb-8">
         <SimpleHomeInterface onChatSubmit={handleSubmit} />
       </div>
-      
+
       <PrivacyBanner />
 
       {/* Release Notes Dialog */}

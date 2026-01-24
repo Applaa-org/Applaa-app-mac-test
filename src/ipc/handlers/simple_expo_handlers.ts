@@ -203,7 +203,7 @@ export function registerSimpleExpoHandlers() {
   // Helper: turn http(s)://host:port into exp://host:port for Expo Go deep-link
   const toExpUrl = (url: string): string => {
     try {
-      const m = url.match(/^https?:\/\/([^\/:]+)(?::(\d+))?/i);
+      const m = url.match(/^https?:\/\/([^/:]+)(?::(\d+))?/i);
       if (m) {
         const host = m[1];
         const port = m[2] || '8081';
@@ -668,7 +668,7 @@ export function registerSimpleExpoHandlers() {
             expoStatus.terminalOutput += `🔍 Checking package.json for invalid versions...\n`;
             
             // Log all dependencies for debugging
-            const allDeps = { ...packageJson.dependencies || {}, ...packageJson.devDependencies || {} };
+            const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
             const reactNavPackages = Object.keys(allDeps).filter(k => k.includes('react-navigation'));
             if (reactNavPackages.length > 0) {
               expoStatus.terminalOutput += `Found React Navigation packages: ${reactNavPackages.join(', ')}\n`;
@@ -1149,9 +1149,9 @@ export function registerSimpleExpoHandlers() {
           
           // Try to find LAN URL in the output
           const lanPatterns = [
-            /(?:LAN|Network)[:\s]+(https?:\/\/[\d\.]+:\d+)/i,
-            /(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d\.]+:\d+)/i,
-            /(?:running|available)[^\n]*(https?:\/\/[\d\.]+:\d+)/i
+            /(?:LAN|Network)[:\s]+(https?:\/\/[\d.]+:\d+)/i,
+            /(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d.]+:\d+)/i,
+            /(?:running|available)[^\n]*(https?:\/\/[\d.]+:\d+)/i
           ];
           
           for (const pattern of lanPatterns) {
@@ -1196,17 +1196,17 @@ export function registerSimpleExpoHandlers() {
         // 🎯 STEP 1: Enhanced tunnel URL detection (both HTTP and exp:// formats)
         const tunnelMatches = [
           // HTTP/HTTPS tunnel URLs
-          output.match(/(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev[^\s\)]*)/i),
-          output.match(/(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct[^\s\)]*)/i),
-          output.match(/Tunnel:\s+(https?:\/\/[^\s\)]+)/i),
-          output.match(/tunnel.*?(https?:\/\/[^\s\)]+\.expo\.dev[^\s\)]*)/i),
+          output.match(/(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev[^\s)]*)/i),
+          output.match(/(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct[^\s)]*)/i),
+          output.match(/Tunnel:\s+(https?:\/\/[^\s)]+)/i),
+          output.match(/tunnel.*?(https?:\/\/[^\s)]+\.expo\.dev[^\s)]*)/i),
           // exp:// tunnel URLs (for Expo Go)
-          output.match(/(exp:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev[^\s\)]*)/i),
-          output.match(/(exp:\/\/[a-zA-Z0-9-]+\.exp\.direct[^\s\)]*)/i),
-          output.match(/Tunnel:\s+(exp:\/\/[^\s\)]+)/i),
+          output.match(/(exp:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev[^\s)]*)/i),
+          output.match(/(exp:\/\/[a-zA-Z0-9-]+\.exp\.direct[^\s)]*)/i),
+          output.match(/Tunnel:\s+(exp:\/\/[^\s)]+)/i),
           // Generic patterns that might catch tunnel URLs
-          output.match(/(https?:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9-]+\.exp\.direct[^\s\)]*)/i),
-          output.match(/(exp:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9-]+\.exp\.direct[^\s\)]*)/i)
+          output.match(/(https?:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9-]+\.exp\.direct[^\s)]*)/i),
+          output.match(/(exp:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9-]+\.exp\.direct[^\s)]*)/i)
         ].filter(Boolean);
         
         if (tunnelMatches.length > 0 && tunnelMatches[0]) {
@@ -1266,10 +1266,10 @@ export function registerSimpleExpoHandlers() {
 
         // 🎯 STEP 3: Enhanced LAN URL patterns (mobile device access)
         const lanMatches = [
-          output.match(/(?:LAN|Network)[:\s]+(https?:\/\/[\d\.]+:\d+)/i),
-          output.match(/(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d\.]+:\d+)/i),
-          output.match(/(?:running on|available at)[^\n]*(https?:\/\/[\d\.]+:\d+)/i),  // ✅ ADD THIS
-          output.match(/Metro[^\n]*(https?:\/\/[\d\.]+:\d+)/i)  // ✅ ADD THIS
+          output.match(/(?:LAN|Network)[:\s]+(https?:\/\/[\d.]+:\d+)/i),
+          output.match(/(https?:\/\/(?:192\.168|10\.0|172\.(?:1[6-9]|2[0-9]|3[01]))\.[\d.]+:\d+)/i),
+          output.match(/(?:running on|available at)[^\n]*(https?:\/\/[\d.]+:\d+)/i),  // ✅ ADD THIS
+          output.match(/Metro[^\n]*(https?:\/\/[\d.]+:\d+)/i)  // ✅ ADD THIS
         ].filter(Boolean);
         
         if (lanMatches.length > 0 && lanMatches[0]) {
@@ -1325,7 +1325,7 @@ export function registerSimpleExpoHandlers() {
         
         // If tunnel was ready but we didn't find URL, try harder to detect exp:// URLs
         if (tunnelReadyButNoUrl || output.includes('exp://')) {
-          const expMatch = output.match(/(exp:\/\/[^\s\n\r\)]+)/i);
+          const expMatch = output.match(/(exp:\/\/[^\s\n\r)]+)/i);
           if (expMatch) {
             const tunnelUrl = expMatch[1];
             expoStatus.qrUrl = tunnelUrl;

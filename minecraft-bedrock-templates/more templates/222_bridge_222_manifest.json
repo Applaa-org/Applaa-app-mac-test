@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "222_bridge_222",
+    "description": "more templates - 222_bridge_222",
+    "uuid": "85699d69-50b2-408c-b584-b7211fcd09e9",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "f9a21108-24c0-4048-b422-5b89933773c7",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

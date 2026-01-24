@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "336_camp_336",
+    "description": "more templates - 336_camp_336",
+    "uuid": "714188ed-e6dd-495d-8cfe-fce31a42d5bb",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "17aaae07-9ab1-4689-a61b-9c448d145faa",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}
