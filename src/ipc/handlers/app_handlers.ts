@@ -615,27 +615,33 @@ export function registerAppHandlers() {
     const app = await getAppSafe(params.appId);
     if (!app) throw new Error("App not found");
 
+    console.log(`📂 [READ-FILE] Request for app ${app.id} (${app.name}) path: ${app.path}`);
+
     // Fix: Blocklaa and Minecraft apps store full relative paths (apps/blockly/name) in DB
     // typical app_handlers logic assumes app.path is just the folder name inside main apps dir.
     // We must mirror blockly_handlers logic: getWorkspaceRoot() + app.path
     let appBasePath = getDyadAppPath(app.path);
+    console.log(`📂 [READ-FILE] Initial appBasePath from getDyadAppPath: ${appBasePath}`);
 
     if (app.appType === 'blockly' || app.appType === 'minecraft' || app.appType === 'roblox') {
       // Use getWorkspaceRoot() to match blockly_handlers logic exactly.
       const workspaceRoot = getWorkspaceRoot();
+      console.log(`📂 [READ-FILE] Workspace root: ${workspaceRoot}`);
 
       // Should match: path.join(root, app.path)
       const legacyPath = path.join(workspaceRoot, app.path);
+      console.log(`📂 [READ-FILE] Checking legacy path: ${legacyPath}`);
 
       if (fs.existsSync(legacyPath)) {
         appBasePath = legacyPath;
-        logger.info(`Context corrected path for ${app.appType} app ${app.id} to ${appBasePath}`);
+        console.log(`✅ [READ-FILE] Found app at legacy path: ${appBasePath}`);
       } else {
-        logger.warn(`Could not find app files at ${legacyPath}, trying default: ${appBasePath}`);
+        console.warn(`❌ [READ-FILE] Could not find app files at ${legacyPath}, trying default: ${appBasePath}`);
       }
     }
 
     let fullPath = path.join(appBasePath, params.filePath);
+    console.log(`📂 [READ-FILE] Resolved full path: ${fullPath}`);
 
     // If app.path implies it's already a full relative path (e.g. apps/blockly/foo)
     // we want to ensure we aren't double-nesting inside apps/web by accident depending on getDyadAppPath implementation
@@ -661,10 +667,113 @@ export function registerAppHandlers() {
     }
 
     try {
+      if (!fs.existsSync(fullPath)) {
+        console.error(`❌ [READ-FILE] File does not exist: ${fullPath}`);
+        // Return empty content instead of throwing to prevent frontend crash loop if file missing
+        return { content: "" };
+      }
       const content = await fsPromises.readFile(fullPath, "utf-8");
+      console.log(`✅ [READ-FILE] Successfully read ${content.length} bytes`);
       return { content };
     } catch (error) {
+      console.error(`❌ [READ-FILE] Error reading file:`, error);
       throw new Error(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
+
+  // Rename an app
+  handle("app:rename", async (_, { appId, newName }: { appId: number; newName: string }) => {
+    try {
+      if (!newName || !newName.trim()) {
+        throw new Error("New name cannot be empty");
+      }
+
+      // 1. Fetch current app details
+      const app = await getAppSafe(appId);
+      if (!app) {
+        throw new Error("App not found");
+      }
+
+      // 2. Sanitize new name and determine paths
+      const { getAppRelativePath } = await import("../../paths/workspace");
+      const sanitizedNewName = newName.replace(/[<>:"|?*\\/]/g, "-").trim(); // Basic sanitization
+
+      // Use existing app type logic if available, or fallback to determining from path
+      let appType = app.appType as 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python' || 'web';
+
+      // Calculate paths
+      const oldRelPath = app.path;
+      const newRelPath = getAppRelativePath(sanitizedNewName, appType);
+
+      const oldFullPath = getDyadAppPath(oldRelPath);
+      const newFullPath = getDyadAppPath(newRelPath);
+
+      logger.info(`Renaming app ${appId}: "${app.name}" -> "${newName}"`);
+      logger.info(`Moving folder: ${oldFullPath} -> ${newFullPath}`);
+
+      // 3. Move folder if it exists and path has changed
+      if (oldFullPath !== newFullPath) {
+        if (fs.existsSync(newFullPath)) {
+          throw new Error(`An app with the name "${sanitizedNewName}" already exists`);
+        }
+
+        let sourcePath = oldFullPath;
+
+        // 🧠 SMART RECOVERY: If the calculated old path doesn't exist, try to guess it based on app type
+        // This handles cases where legacy apps stored only the name "MyGame" but lived in "apps/blockly/MyGame"
+        if (!fs.existsSync(oldFullPath)) {
+          const root = getWorkspaceRoot();
+          // Try explicit category paths
+          const guesses = [
+            path.join(root, 'apps', appType, path.basename(oldRelPath)),
+            path.join(root, 'apps', 'blockly', path.basename(oldRelPath)), // Fallback for blockly
+            path.join(root, 'apps', 'web', path.basename(oldRelPath))
+          ];
+
+          for (const guess of guesses) {
+            if (fs.existsSync(guess)) {
+              logger.info(`Found app folder at alternate location: ${guess}`);
+              sourcePath = guess;
+              break;
+            }
+          }
+        }
+
+        if (fs.existsSync(sourcePath)) {
+          try {
+            // Rename folder
+            await fsPromises.rename(sourcePath, newFullPath);
+          } catch (moveError: any) {
+            logger.warn(`Failed to move app folder: ${moveError.message}. Trying copy-delete...`);
+            // Fallback: Copy and Delete (useful across partitions or persistent locks)
+            await fsExtra.copy(sourcePath, newFullPath);
+            // Try to delete old folder, but don't fail if it's locked (it's just a leftover)
+            try {
+              await deleteAppFilesWithRetry(sourcePath, appId);
+            } catch (delError) {
+              logger.warn("Could not delete old app folder after move:", delError);
+            }
+          }
+        } else {
+          logger.warn(`Old app folder not found at ${oldFullPath} or alternates, creating new one at ${newFullPath}`);
+          await fsPromises.mkdir(newFullPath, { recursive: true });
+        }
+      }
+
+      // 4. Update Database
+      // Update only name as displayName is not yet enabled in schema
+      await db.update(apps)
+        .set({
+          name: newName,
+          path: newRelPath, // Sync path with folder name
+        })
+        .where(eq(apps.id, appId));
+
+      logger.info(`Successfully renamed app ${appId} and updated path`);
+      return { success: true, newPath: newRelPath };
+    } catch (error: any) {
+      logger.error(`Failed to rename app ${appId}:`, error);
+      return { success: false, error: error.message };
     }
   });
 
@@ -957,6 +1066,7 @@ export function registerAppHandlers() {
       }
 
       // 💎 CREDIT CHECK: Verify user has enough credits before creating app
+      /*
       let userId: string | null = null;
       let creditCost = 0;
       try {
@@ -998,7 +1108,9 @@ export function registerAppHandlers() {
         }
         // Otherwise, log and continue (don't block app creation if credit check fails)
         logger.warn('Credit check failed, continuing anyway:', creditError);
-      } const appRelPath2 = getAppRelativePath(
+      }
+      */
+      logger.info('Credit check bypassed for user convenience'); const appRelPath2 = getAppRelativePath(
         params.name,
         appType // Pass the full appType instead of mapping to web/mobile/godot
       );

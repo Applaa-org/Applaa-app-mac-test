@@ -38,7 +38,7 @@ export function BlockChat({ appId, isOpen, onClose }: BlockChatProps) {
                     setActiveChatId(id);
                 } catch (e) {
                     console.error("Failed to create chat", e);
-                    toast.error("Failed to start Block Chat");
+                    toast.error(`Failed to start Block Chat: ${e instanceof Error ? e.message : String(e)}`);
                 } finally {
                     setIsCreatingChat(false);
                 }

@@ -24,6 +24,7 @@ import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
 import { startLocalServer } from "./server/api";
+import { initializeSupabase } from "./lib/supabase";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -86,6 +87,22 @@ console.log('SUPABASE_ANON_KEY loaded:', !!process.env.SUPABASE_ANON_KEY);
 console.log('SUPABASE_SERVICE_ROLE_KEY loaded:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 if (process.env.SUPABASE_URL) {
   console.log('SUPABASE_URL value:', process.env.SUPABASE_URL);
+
+  // Initialize Supabase Client
+  if (process.env.SUPABASE_ANON_KEY) {
+    try {
+      initializeSupabase({
+        url: process.env.SUPABASE_URL,
+        anonKey: process.env.SUPABASE_ANON_KEY,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY
+      });
+      console.log('✅ Supabase initialized in main process');
+    } catch (error) {
+      console.error('❌ Failed to initialize Supabase:', error);
+    }
+  } else {
+    console.warn('⚠️ SUPABASE_ANON_KEY missing, skipping Supabase initialization');
+  }
 }
 
 // Register IPC handlers before app is ready
@@ -131,7 +148,7 @@ export async function onReady() {
   } catch (e) {
     logger.error("Error initializing backup manager", e);
   }
-  
+
   try {
     initializeDatabase();
     logger.info("✅ Database initialized successfully");
@@ -195,7 +212,9 @@ export async function onReady() {
         sentryDsn: process.env.SENTRY_DSN,
         environment: (process.env.NODE_ENV as 'development' | 'production') || 'development',
         userId: settings.userId,
-        consent: settings.analyticsConsent || DEFAULT_CONSENT,
+        consent: (settings.analyticsConsent && typeof settings.analyticsConsent === 'object')
+          ? settings.analyticsConsent
+          : DEFAULT_CONSENT,
       });
       logger.info("✅ Sentry initialized in main process");
     } catch (error) {

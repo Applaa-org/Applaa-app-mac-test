@@ -119,13 +119,28 @@ export function registerIpcHandlers() {
   registerProposalHandlers();
   registerDebugHandlers();
   // Supabase integration for database and auth
-  registerSupabaseHandlers();
-  registerSupabaseAuthHandlers();
+  try {
+    registerSupabaseHandlers();
+    registerSupabaseAuthHandlers();
+  } catch (err) {
+    console.error('❌ Failed to register Supabase handlers:', err);
+  }
+
   // WordPress authentication - ENABLED
-  registerWordPressAuthHandlers();
-  console.log('✅ WordPress authentication handlers enabled');
+  try {
+    registerWordPressAuthHandlers();
+    console.log('✅ WordPress authentication handlers enabled');
+  } catch (err) {
+    console.error('❌ Failed to register WordPress handlers:', err);
+  }
+
   // registerR2StorageHandlers();
-  registerAnalyticsHandlers();
+
+  try {
+    registerAnalyticsHandlers();
+  } catch (err) {
+    console.error('❌ Failed to register Analytics handlers:', err);
+  }
 
   registerNeonHandlers();
   registerLocalModelHandlers();
