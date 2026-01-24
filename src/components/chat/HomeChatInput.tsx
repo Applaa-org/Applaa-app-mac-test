@@ -1,4 +1,4 @@
-import { SendIcon, StopCircleIcon, Mic, MicOff, Loader2 } from "lucide-react";
+import { SendIcon, StopCircleIcon, Mic, MicOff, Loader2, Database } from "lucide-react";
 import { useCallback, useState, useEffect } from "react";
 
 import { useSettings } from "@/hooks/useSettings";
@@ -22,6 +22,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 export function HomeChatInput({
   onSubmit,
@@ -223,6 +226,39 @@ export function HomeChatInput({
                 isCloneModeActive={isCloneModeActive}
                 onCloneModeToggle={handleCloneModeToggle}
               />
+            </div>
+          </div>
+          
+          {/* Database options */}
+          <div className="px-3 pb-3">
+            <div className="mt-1 space-y-1 rounded-md border border-dashed border-gray-300 bg-gray-50/40 p-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="create-db"
+                  checked={createDatabase}
+                  onCheckedChange={(val) => setCreateDatabase(Boolean(val))}
+                  disabled={isStreaming}
+                />
+                <Label htmlFor="create-db" className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
+                  <Database className="h-4 w-4 text-blue-600" />
+                  <span>Create database for this app</span>
+                </Label>
+              </div>
+              {createDatabase && (
+                <div className="space-y-1 pl-6">
+                  <Label htmlFor="db-notes" className="text-xs text-gray-600">
+                    Optional: describe your tables/relations (otherwise a reasonable Postgres schema will be created)
+                  </Label>
+                  <Input
+                    id="db-notes"
+                    placeholder="e.g., Users, Projects, Tasks with relations; use Postgres"
+                    value={databaseNotes}
+                    onChange={(e) => setDatabaseNotes(e.target.value)}
+                    className="text-sm"
+                    disabled={isStreaming}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

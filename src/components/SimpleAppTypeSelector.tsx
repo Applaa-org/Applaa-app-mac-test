@@ -129,32 +129,27 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
           </div>
         </div>
 
-        {/* Roblox Tile (Disabled / Coming Soon) */}
+        {/* Blocklaa Tile - moved to position 4 (was Roblox) */}
         <div
-          className="group relative overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-900/20 border border-gray-200/50 dark:border-gray-800/30 p-6 opacity-70 cursor-not-allowed"
+          onClick={handleBlocklySelect}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
         >
-          {/* Coming Soon Badge */}
-          <div className="absolute top-4 right-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200 dark:border-yellow-700/50 z-20 shadow-sm">
-            Coming Soon
-          </div>
-
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 opacity-50 dark:opacity-10 transition-opacity duration-300" />
-          <div className="relative z-10 grayscale filter">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-purple-500 opacity-5 group-hover:opacity-10 transition-opacity duration-300" />
+          <div className="relative z-10">
             <div className="mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-white/50 dark:bg-gray-800/50 flex items-center justify-center shadow-sm">
-                <Blocks className="h-8 w-8 text-gray-400" />
+              <div className="w-16 h-16 rounded-2xl bg-white/80 dark:bg-gray-800/80 flex items-center justify-center shadow-sm">
+                <Code className="h-8 w-8 text-indigo-600" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-500 dark:text-gray-500 mb-2">
-                Roblox
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+                Blocklaa
               </h3>
-              <p className="text-sm text-gray-400 dark:text-gray-500 leading-relaxed">
-                Build Roblox games with Lua scripts, 3D models, and assets.
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                Learn programming with drag-and-drop visual logic blocks.
               </p>
             </div>
-            {/* Decorative Element (Muted) */}
-            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gray-200 dark:bg-gray-800 opacity-10 rounded-full transform translate-x-8 translate-y-8" />
+            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 opacity-10 rounded-full transform translate-x-8 translate-y-8 group-hover:scale-110 transition-transform duration-300" />
           </div>
         </div>
 
@@ -182,27 +177,32 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
           </div>
         </div>
 
-        {/* Blockly Tile */}
+        {/* Roblox Tile (Disabled / Coming Soon) - moved to position 6 (was Blocklaa) */}
         <div
-          onClick={handleBlocklySelect}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+          className="group relative overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-900/20 border border-gray-200/50 dark:border-gray-800/30 p-6 opacity-70 cursor-not-allowed"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-purple-500 opacity-5 group-hover:opacity-10 transition-opacity duration-300" />
-          <div className="relative z-10">
+          {/* Coming Soon Badge */}
+          <div className="absolute top-4 right-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200 dark:border-yellow-700/50 z-20 shadow-sm">
+            Coming Soon
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 opacity-50 dark:opacity-10 transition-opacity duration-300" />
+          <div className="relative z-10 grayscale filter">
             <div className="mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-white/80 dark:bg-gray-800/80 flex items-center justify-center shadow-sm">
-                <Code className="h-8 w-8 text-indigo-600" />
+              <div className="w-16 h-16 rounded-2xl bg-white/50 dark:bg-gray-800/50 flex items-center justify-center shadow-sm">
+                <Blocks className="h-8 w-8 text-gray-400" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
-                Blocklaa
+              <h3 className="text-xl font-bold text-gray-500 dark:text-gray-500 mb-2">
+                Roblox
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                Learn programming with drag-and-drop visual logic blocks.
+              <p className="text-sm text-gray-400 dark:text-gray-500 leading-relaxed">
+                Build Roblox games with Lua scripts, 3D models, and assets.
               </p>
             </div>
-            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 opacity-10 rounded-full transform translate-x-8 translate-y-8 group-hover:scale-110 transition-transform duration-300" />
+            {/* Decorative Element (Muted) */}
+            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gray-200 dark:bg-gray-800 opacity-10 rounded-full transform translate-x-8 translate-y-8" />
           </div>
         </div>
       </div>

@@ -20,6 +20,7 @@ import { isGamePopupOpenAtom } from "@/atoms/gamePopupAtom";
 import { useRandomGame } from "@/hooks/useRandomGame";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
 import type { GameOption } from "@/hooks/useRandomGame";
+import { useSettings } from "@/hooks/useSettings";
 
 
 export default function RootLayout({
@@ -44,6 +45,7 @@ export default function RootLayout({
   // 🚀 OPTIMIZATION: Background dependency installation for opened apps
   useBackgroundDependencyInstaller();
   const previewMode = useAtomValue(previewModeAtom);
+  const { settings } = useSettings();
 
   // Game popup state - moved to main layout to be independent of preview refreshes
   const [isGamePopupOpen, setIsGamePopupOpen] = useAtom(isGamePopupOpenAtom);
@@ -65,17 +67,25 @@ export default function RootLayout({
   useEffect(() => {
     // Hide game popup for Minecraft apps as requested by user
     const isMinecraftApp = app?.appType === 'minecraft' || (app?.appType as string) === 'minecraft-mod';
+    
+    // Check if game window is enabled in settings (defaults to true if not set)
+    const isGameWindowEnabled = settings?.enableGameWindowDuringStream !== false;
 
-    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current && !isMinecraftApp) {
+    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current && !isMinecraftApp && isGameWindowEnabled) {
       setIsGamePopupOpen(true);
       popupOpenedForCurrentStream.current = true;
+    }
+
+    // Close game window if setting is disabled while streaming
+    if (isStreaming && isGamePopupOpen && !isGameWindowEnabled) {
+      setIsGamePopupOpen(false);
     }
 
     // Reset the flag when streaming stops
     if (!isStreaming) {
       popupOpenedForCurrentStream.current = false;
     }
-  }, [isStreaming, isGamePopupOpen, setIsGamePopupOpen]);
+  }, [isStreaming, isGamePopupOpen, setIsGamePopupOpen, settings?.enableGameWindowDuringStream, app?.appType]);
 
   // 🚀 PERFORMANCE: Delay non-essential features to improve startup time
   // Semantic context removed for MVP
