@@ -6,7 +6,10 @@ import {
   type ImperativePanelHandle,
 } from "react-resizable-panels";
 import { ChatPanel } from "../components/ChatPanel";
-import { PreviewPanel } from "../components/preview_panel/PreviewPanel";
+// 🚀 CRITICAL: Lazy load PreviewPanel to prevent blocking app startup
+// PreviewPanel imports BlocklyEditor which is huge (~500KB+)
+import { lazy, Suspense } from "react";
+const PreviewPanel = lazy(() => import("../components/preview_panel/PreviewPanel").then(m => ({ default: m.PreviewPanel })));
 import { CodeView } from "../components/preview_panel/CodeView";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -213,11 +216,13 @@ export default function ChatPage() {
   if (isBlocklaaApp) {
     return (
       <div className="h-full w-full bg-background">
-        <PreviewPanel
-          isLeftPanelOpen={false}
-          onToggleLeftPanel={() => { }} // No-op, no panel to toggle
-          isBlocklaaMode={true} // New prop to signal simplified UI
-        />
+        <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+          <PreviewPanel
+            isLeftPanelOpen={false}
+            onToggleLeftPanel={() => { }} // No-op, no panel to toggle
+            isBlocklaaMode={true} // New prop to signal simplified UI
+          />
+        </Suspense>
 
         {/* Preview Ready Popup - Keep for consistency if needed */}
         <PreviewReadyPopup
@@ -298,10 +303,12 @@ export default function ChatPage() {
             !isResizing && "transition-all duration-100 ease-in-out",
           )}
         >
-          <PreviewPanel
-            isLeftPanelOpen={isLeftPanelOpen}
-            onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
-          />
+          <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <PreviewPanel
+              isLeftPanelOpen={isLeftPanelOpen}
+              onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+            />
+          </Suspense>
         </Panel>
       </>
 

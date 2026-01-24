@@ -15,7 +15,7 @@ import { PreviewIframe } from "./PreviewIframe";
 import { Problems } from "./Problems";
 import { ConfigurePanel } from "./ConfigurePanel";
 import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench, AlertTriangle, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, Suspense } from "react";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Console } from "./Console";
 import { useRunApp } from "@/hooks/useRunApp";
@@ -32,7 +32,9 @@ import { useGodotExport } from "@/hooks/useGodotExport";
 import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
 import { useQuery } from "@tanstack/react-query";
 // DesignTab removed for MVP
-import { BlocklyEditor } from "../blockly/BlocklyEditor";
+// 🚀 CRITICAL: Lazy load BlocklyEditor to prevent blocking home page load
+// Blockly is ~500KB+ and loading it synchronously blocks the entire app
+const BlocklyEditor = React.lazy(() => import("../blockly/BlocklyEditor").then(m => ({ default: m.BlocklyEditor })));
 import { MinecraftModPreview } from "../minecraft/MinecraftModPreview.simplified";
 import { MinecraftDirectEditor } from "../minecraft/MinecraftDirectEditor";
 
@@ -469,13 +471,15 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                   ) : isExpoApp ? (
                     <SnackPoweredPreview />
                   ) : isBlocklyApp ? (
-                    <BlocklyEditor
-                      appId={selectedAppId!}
-                      onWorkspaceChange={(data) => {
-                        console.log("Blockly workspace updated:", data);
-                        // TODO: Save workspace to file system
-                      }}
-                    />
+                    <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+                      <BlocklyEditor
+                        appId={selectedAppId!}
+                        onWorkspaceChange={(data) => {
+                          console.log("Blockly workspace updated:", data);
+                          // TODO: Save workspace to file system
+                        }}
+                      />
+                    </Suspense>
                   ) : isMinecraftJavaMod ? (
                     <MinecraftDirectEditor
                       appId={String(selectedAppId)}
