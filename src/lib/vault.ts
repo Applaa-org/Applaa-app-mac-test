@@ -1,8 +1,19 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import log from 'electron-log';
-import { getEnv } from '../config/embedded-env';
+import { SUPABASE_CONFIG } from '../config/supabase.config';
 
 const logger = log.scope('vault');
+
+// Helper to get env var with fallback: SUPABASE_CONFIG (hardcoded) → process.env
+function getEnv(varName: string): string | undefined {
+  if (varName === 'SUPABASE_URL') {
+    return SUPABASE_CONFIG.URL || process.env.SUPABASE_URL;
+  }
+  if (varName === 'SUPABASE_SERVICE_ROLE_KEY') {
+    return SUPABASE_CONFIG.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+  return process.env[varName];
+}
 
 /**
  * Supabase Vault utility for managing environment variables

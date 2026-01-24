@@ -4,13 +4,13 @@ import { getSupabaseAuth } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../lib/supabase';
 import { readSettings } from '../../main/settings';
-import { getEnv } from '../../config/embedded-env';
 import { SUPABASE_CONFIG } from '../../config/supabase.config';
 
 // Helper function to get Supabase admin client (bypasses RLS)
+// Fallback order: SUPABASE_CONFIG (hardcoded) → process.env
 function getSupabaseAdminClient() {
-  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || SUPABASE_CONFIG.SERVICE_ROLE_KEY;
-  const supabaseUrl = getEnv('SUPABASE_URL') || SUPABASE_CONFIG.URL;
+  const serviceRoleKey = SUPABASE_CONFIG.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = SUPABASE_CONFIG.URL || process.env.SUPABASE_URL;
 
   return createClient<Database>(
     supabaseUrl,

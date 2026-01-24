@@ -24,7 +24,7 @@ import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
 import { initializeSupabase, getSupabaseAuth, type SupabaseConfig } from "./lib/supabase";
-import { getGitHubToken, getEnv } from "./config/embedded-env";
+import { SUPABASE_CONFIG } from "./config/supabase.config";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -216,39 +216,24 @@ export async function onReady() {
       const remoteConfig = getSupabaseConfig();
       
       // Use Remote Config if available
+      // Service role key: SUPABASE_CONFIG (hardcoded) → process.env
       config = {
         url: remoteConfig.url,
         anonKey: remoteConfig.anonKey,
-        serviceRoleKey: getEnv('SUPABASE_SERVICE_ROLE_KEY'), // Service role key stays in env (secure)
+        serviceRoleKey: SUPABASE_CONFIG.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
       };
       
       logger.info('✅ Using Supabase config from Firebase Remote Config');
       logger.info(`📍 Supabase URL: ${remoteConfig.url}`);
     } catch (error) {
-      // Fallback to environment variables if Remote Config fails
-      const envUrl = getEnv('AUTH_SUPABASE_URL') || getEnv('SUPABASE_URL');
-      const envAnonKey = getEnv('AUTH_SUPABASE_ANON_KEY') || getEnv('SUPABASE_ANON_KEY');
-      const envServiceRoleKey = getEnv('AUTH_SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_SERVICE_ROLE_KEY');
-      
-      // If env is also empty, use hardcoded SUPABASE_CONFIG as final fallback
-      if (!envUrl || !envAnonKey) {
-        const { SUPABASE_CONFIG } = await import('./config/supabase.config');
-        config = {
-          url: SUPABASE_CONFIG.URL,
-          anonKey: SUPABASE_CONFIG.ANON_KEY,
-          serviceRoleKey: SUPABASE_CONFIG.SERVICE_ROLE_KEY,
-        };
-        logger.warn('⚠️ Using hardcoded Supabase config (Remote Config and .env both unavailable)');
-        logger.warn(`📍 Hardcoded Supabase URL: ${SUPABASE_CONFIG.URL}`);
-      } else {
-        config = {
-          url: envUrl,
-          anonKey: envAnonKey,
-          serviceRoleKey: envServiceRoleKey,
-        };
-        logger.warn('⚠️ Using Supabase config from environment variables (Remote Config not available)');
-        logger.warn(`📍 Fallback Supabase URL: ${envUrl}`);
-      }
+      // Fallback order: SUPABASE_CONFIG (hardcoded) → process.env
+      config = {
+        url: SUPABASE_CONFIG.URL || process.env.SUPABASE_URL,
+        anonKey: SUPABASE_CONFIG.ANON_KEY || process.env.SUPABASE_ANON_KEY,
+        serviceRoleKey: SUPABASE_CONFIG.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+      };
+      logger.warn('⚠️ Using hardcoded Supabase config (Remote Config not available)');
+      logger.warn(`📍 Supabase URL: ${config.url}`);
     }
     
     if (config.url && config.anonKey) {
@@ -339,9 +324,9 @@ export async function onReady() {
     // Configure electron-updater for GitHub Releases
     // Support for private repositories with GitHub token
     // Note: VITE_GITHUB_TOKEN is for renderer process, we need GITHUB_TOKEN for main process
-    // 🚀 Try embedded config first (from build time), then fall back to process.env
+    // APPLAA_GITHUB_TOKEN is embedded via CI workflow for OTA updates
     const githubToken = 
-      getGitHubToken() || // Try embedded config (from build time)
+      process.env.APPLAA_GITHUB_TOKEN ||
       process.env.GITHUB_TOKEN || 
       process.env.GH_TOKEN || 
       process.env.VITE_GITHUB_TOKEN;
