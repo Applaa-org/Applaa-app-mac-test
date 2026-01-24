@@ -17,6 +17,7 @@ import { getSupabaseClient, getSupabaseAuth } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../lib/supabase';
 import { readSettings, writeSettings } from '../../main/settings';
+import { SUPABASE_CONFIG } from '../../config/supabase.config';
 
 const logger = log.scope('subscription');
 
@@ -355,12 +356,8 @@ export function registerSubscriptionHandlers() {
 
   // Helper function to get Supabase admin client (service role)
   function getSupabaseAdminClient() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-    }
+    const supabaseUrl = process.env.SUPABASE_URL || SUPABASE_CONFIG.URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_CONFIG.SERVICE_ROLE_KEY;
 
     return createClient<Database>(
       supabaseUrl,

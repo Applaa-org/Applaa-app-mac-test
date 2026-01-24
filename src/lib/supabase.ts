@@ -1,6 +1,14 @@
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import log from 'electron-log';
+import { SUPABASE_CONFIG } from '../config/supabase.config';
+
+// Helper to get Supabase config with fallback to hardcoded values
+function getSupabaseAdminConfig(): { url: string; serviceRoleKey: string } {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_CONFIG.SERVICE_ROLE_KEY;
+  const url = process.env.SUPABASE_URL || SUPABASE_CONFIG.URL;
+  return { url, serviceRoleKey };
+}
 
 // Database types for Supabase
 export interface Database {
@@ -753,16 +761,8 @@ export class SupabaseAuth {
     avatar_url?: string;
   }) {
     try {
-      // Use service role key for admin operations
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!serviceRoleKey) {
-        throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
-      }
-
-      const supabaseUrl = process.env.SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('SUPABASE_URL not configured');
-      }
+      // Get config with fallback to hardcoded values
+      const { url: supabaseUrl, serviceRoleKey } = getSupabaseAdminConfig();
 
       // Create admin client for service role operations
       const adminClient = createClient<Database>(
@@ -835,15 +835,8 @@ export class SupabaseAuth {
   // Get profile by email (for WordPress users, uses service role)
   async getProfileByEmail(email: string) {
     try {
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!serviceRoleKey) {
-        throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
-      }
-
-      const supabaseUrl = process.env.SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('SUPABASE_URL not configured');
-      }
+      // Get config with fallback to hardcoded values
+      const { url: supabaseUrl, serviceRoleKey } = getSupabaseAdminConfig();
 
       const adminClient = createClient<Database>(
         supabaseUrl,
@@ -873,15 +866,8 @@ export class SupabaseAuth {
   // Get user profile by email or username (WordPress username)
   async getProfileByEmailOrUsername(emailOrUsername: string) {
     try {
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!serviceRoleKey) {
-        throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
-      }
-
-      const supabaseUrl = process.env.SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('SUPABASE_URL not configured');
-      }
+      // Get config with fallback to hardcoded values
+      const { url: supabaseUrl, serviceRoleKey } = getSupabaseAdminConfig();
 
       const adminClient = createClient<Database>(
         supabaseUrl,
@@ -1037,14 +1023,8 @@ export async function syncAppToSupabase(
       throw error;
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const supabaseUrl = process.env.SUPABASE_URL;
-
-    if (!serviceRoleKey || !supabaseUrl) {
-      const error = new Error('Supabase not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required.');
-      log.error('❌ Cannot sync app to Supabase:', error.message);
-      throw error;
-    }
+    // Get config with fallback to hardcoded values
+    const { url: supabaseUrl, serviceRoleKey } = getSupabaseAdminConfig();
 
     // Create admin client for service role operations
     const adminClient = createClient<Database>(
@@ -1218,12 +1198,8 @@ export async function syncAppToSupabase(
 // Helper function to verify app data in Supabase (for debugging)
 export async function verifyAppInSupabase(appId: number, userDisplayName: string) {
   try {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const supabaseUrl = process.env.SUPABASE_URL;
-
-    if (!serviceRoleKey || !supabaseUrl) {
-      return { success: false, error: 'Supabase not configured' };
-    }
+    // Get config with fallback to hardcoded values
+    const { url: supabaseUrl, serviceRoleKey } = getSupabaseAdminConfig();
 
     const adminClient = createClient<Database>(
       supabaseUrl,
@@ -1267,13 +1243,8 @@ export async function syncWordPressUserToSupabase(wordpressUser: {
   avatar_url?: string;
 }) {
   try {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const supabaseUrl = process.env.SUPABASE_URL;
-
-    if (!serviceRoleKey || !supabaseUrl) {
-      log.warn('Supabase not configured for WordPress sync. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required.');
-      return null;
-    }
+    // Get config with fallback to hardcoded values
+    const { url: supabaseUrl, serviceRoleKey } = getSupabaseAdminConfig();
 
     // Create admin client for service role operations
     const adminClient = createClient<Database>(

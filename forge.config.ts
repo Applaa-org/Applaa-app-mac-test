@@ -64,6 +64,13 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/electron-updater")) {
     return false; // CRITICAL: Include electron-updater in packaged app
   }
+  // Firebase SDK packages (needed for Remote Config and Cloud Functions)
+  if (file.startsWith("/node_modules/firebase")) {
+    return false; // CRITICAL: Include firebase SDK in packaged app
+  }
+  if (file.startsWith("/node_modules/@firebase")) {
+    return false; // CRITICAL: Include @firebase packages in packaged app
+  }
   if (file.startsWith("/node_modules/builder-util-runtime")) {
     return false; // CRITICAL: Include builder-util-runtime (dependency of electron-updater) in packaged app
   }

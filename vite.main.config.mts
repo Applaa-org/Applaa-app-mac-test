@@ -27,6 +27,12 @@ export default defineConfig({
         "electron",
         "electron-updater",
         "fs-extra",
+        // Firebase SDK modules (must be external for Electron main process)
+        "firebase/app",
+        "firebase/auth",
+        "firebase/functions",
+        "firebase/remote-config",
+        /^firebase\//,  // Match all firebase/* imports
         "child_process",
         "fs",
         "path",

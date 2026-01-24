@@ -92,6 +92,24 @@ if (process.env.SUPABASE_URL) {
   console.log('SUPABASE_URL value:', process.env.SUPABASE_URL);
 }
 
+// Initialize Firebase Remote Config and store the promise
+// We'll await this before using Remote Config
+let firebaseInitPromise: Promise<void> | null = null;
+
+async function initializeFirebase() {
+  try {
+    const { firebaseService } = await import('./services/firebase_service');
+    await firebaseService.initialize();
+    console.log('✅ Firebase Remote Config initialized successfully');
+  } catch (error) {
+    console.log('⚠️ Failed to initialize Firebase Remote Config:', error);
+    // Don't block app startup if Firebase fails - will use fallback values
+  }
+}
+
+// Start Firebase initialization immediately (but don't block)
+firebaseInitPromise = initializeFirebase();
+
 // Load secrets from Supabase Vault (after .env is loaded)
 // This allows Vault to supplement .env variables, but .env takes precedence
 (async () => {
@@ -180,20 +198,60 @@ export async function onReady() {
     logger.warn("⚠️ Continuing app startup despite database initialization failure");
   }
 
-  // ✅ FIX: Initialize Supabase early from environment variables
+  // ✅ FIX: Initialize Supabase early from Remote Config or environment variables
   // This ensures profile and credit handlers can work immediately
   try {
-    const envUrl = getEnv('AUTH_SUPABASE_URL') || getEnv('SUPABASE_URL');
-    const envAnonKey = getEnv('AUTH_SUPABASE_ANON_KEY') || getEnv('SUPABASE_ANON_KEY');
-    const envServiceRoleKey = getEnv('AUTH_SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_SERVICE_ROLE_KEY');
+    // IMPORTANT: Wait for Firebase to finish initializing before trying to use Remote Config
+    if (firebaseInitPromise) {
+      logger.info('⏳ Waiting for Firebase Remote Config to initialize...');
+      await firebaseInitPromise;
+      logger.info('✅ Firebase initialization complete, proceeding with Supabase setup');
+    }
     
-    if (envUrl && envAnonKey) {
-      const config: SupabaseConfig = {
-        url: envUrl,
-        anonKey: envAnonKey,
-        serviceRoleKey: envServiceRoleKey,
+    // Try to get config from Firebase Remote Config first, then fall back to env
+    let config: SupabaseConfig;
+    
+    try {
+      const { getSupabaseConfig } = await import('./config/supabase_remote');
+      const remoteConfig = getSupabaseConfig();
+      
+      // Use Remote Config if available
+      config = {
+        url: remoteConfig.url,
+        anonKey: remoteConfig.anonKey,
+        serviceRoleKey: getEnv('SUPABASE_SERVICE_ROLE_KEY'), // Service role key stays in env (secure)
       };
       
+      logger.info('✅ Using Supabase config from Firebase Remote Config');
+      logger.info(`📍 Supabase URL: ${remoteConfig.url}`);
+    } catch (error) {
+      // Fallback to environment variables if Remote Config fails
+      const envUrl = getEnv('AUTH_SUPABASE_URL') || getEnv('SUPABASE_URL');
+      const envAnonKey = getEnv('AUTH_SUPABASE_ANON_KEY') || getEnv('SUPABASE_ANON_KEY');
+      const envServiceRoleKey = getEnv('AUTH_SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_SERVICE_ROLE_KEY');
+      
+      // If env is also empty, use hardcoded SUPABASE_CONFIG as final fallback
+      if (!envUrl || !envAnonKey) {
+        const { SUPABASE_CONFIG } = await import('./config/supabase.config');
+        config = {
+          url: SUPABASE_CONFIG.URL,
+          anonKey: SUPABASE_CONFIG.ANON_KEY,
+          serviceRoleKey: SUPABASE_CONFIG.SERVICE_ROLE_KEY,
+        };
+        logger.warn('⚠️ Using hardcoded Supabase config (Remote Config and .env both unavailable)');
+        logger.warn(`📍 Hardcoded Supabase URL: ${SUPABASE_CONFIG.URL}`);
+      } else {
+        config = {
+          url: envUrl,
+          anonKey: envAnonKey,
+          serviceRoleKey: envServiceRoleKey,
+        };
+        logger.warn('⚠️ Using Supabase config from environment variables (Remote Config not available)');
+        logger.warn(`📍 Fallback Supabase URL: ${envUrl}`);
+      }
+    }
+    
+    if (config.url && config.anonKey) {
       initializeSupabase(config);
       const auth = getSupabaseAuth();
       

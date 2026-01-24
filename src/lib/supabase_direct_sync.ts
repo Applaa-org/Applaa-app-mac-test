@@ -4,11 +4,12 @@
  */
 
 import log from 'electron-log';
+import { readSettings } from '../main/settings';
+import { SUPABASE_CONFIG } from '../config/supabase.config';
 
 // Helper to get WordPress display_name from settings
 function getWordPressUserDisplayName(): string | null {
   try {
-    const { readSettings } = require('../main/settings');
     const settings = readSettings();
     return settings.wordpressAuth?.user?.display_name || null;
   } catch (error) {
@@ -56,12 +57,8 @@ export async function syncAppToSupabaseDirect(
     throw new Error('No WordPress user display_name provided');
   }
 
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-
-  if (!serviceRoleKey || !supabaseUrl) {
-    throw new Error('Supabase not configured');
-  }
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_CONFIG.SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL || SUPABASE_CONFIG.URL;
 
   const appDataToSync = {
     user_display_name: userDisplayName,
