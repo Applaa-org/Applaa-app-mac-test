@@ -615,33 +615,24 @@ export function registerAppHandlers() {
     const app = await getAppSafe(params.appId);
     if (!app) throw new Error("App not found");
 
-    console.log(`📂 [READ-FILE] Request for app ${app.id} (${app.name}) path: ${app.path}`);
-
+    // 🚀 OPTIMIZATION: Reduced logging for performance
     // Fix: Blocklaa and Minecraft apps store full relative paths (apps/blockly/name) in DB
     // typical app_handlers logic assumes app.path is just the folder name inside main apps dir.
     // We must mirror blockly_handlers logic: getWorkspaceRoot() + app.path
     let appBasePath = getDyadAppPath(app.path);
-    console.log(`📂 [READ-FILE] Initial appBasePath from getDyadAppPath: ${appBasePath}`);
 
     if (app.appType === 'blockly' || app.appType === 'minecraft' || app.appType === 'roblox') {
       // Use getWorkspaceRoot() to match blockly_handlers logic exactly.
       const workspaceRoot = getWorkspaceRoot();
-      console.log(`📂 [READ-FILE] Workspace root: ${workspaceRoot}`);
-
       // Should match: path.join(root, app.path)
       const legacyPath = path.join(workspaceRoot, app.path);
-      console.log(`📂 [READ-FILE] Checking legacy path: ${legacyPath}`);
 
       if (fs.existsSync(legacyPath)) {
         appBasePath = legacyPath;
-        console.log(`✅ [READ-FILE] Found app at legacy path: ${appBasePath}`);
-      } else {
-        console.warn(`❌ [READ-FILE] Could not find app files at ${legacyPath}, trying default: ${appBasePath}`);
       }
     }
 
     let fullPath = path.join(appBasePath, params.filePath);
-    console.log(`📂 [READ-FILE] Resolved full path: ${fullPath}`);
 
     // If app.path implies it's already a full relative path (e.g. apps/blockly/foo)
     // we want to ensure we aren't double-nesting inside apps/web by accident depending on getDyadAppPath implementation
@@ -1300,6 +1291,8 @@ renderer/rendering_method="forward_plus"
       logger.info(`✅ Chat ${chat.id} should now be visible to all queries`);
 
       // 💎 CREDIT DEDUCTION: Deduct credits after successful app creation
+      // Commented out while credit check above is bypassed (userId/creditCost not set)
+      /*
       if (userId && creditCost > 0) {
         try {
           await deductCredits(userId, 'app_creation', creditCost, {
@@ -1312,6 +1305,7 @@ renderer/rendering_method="forward_plus"
           logger.error('Failed to deduct credits after app creation:', creditError);
         }
       }
+      */
 
       return { app, chatId: chat.id };
     },
