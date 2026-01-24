@@ -54,18 +54,63 @@ ipcMain.handle('blockly:save-workspace', async (event, params: {
         }
 
         const root = getWorkspaceRoot();
-        // Use app.path from DB if available, otherwise fallback (though app.path should always exist)
-        const relativeAppPath = app.path || `apps/blockly/${app.name}`;
-        const appPath = path.join(root, relativeAppPath);
+        // Use app.path from DB if available, otherwise fallback with explicit blockly prefix
+        // We sanitize the name to ensure no path traversal possibilities in fallback
+        const safeName = app.name.replace(/[<>:"|?*\\/]/g, "-").trim();
+        let relativeAppPath = app.path || `apps/blockly/${safeName}`;
+
+        // SAFETY: Prevent saving to workspace root
+        if (!relativeAppPath.startsWith('apps/') && !relativeAppPath.includes(path.sep + 'apps' + path.sep)) {
+            // If path looks unsafe (e.g. just "MyGame"), force it into apps/blockly
+            logger.warn(`Correcting unsafe path for app ${appId}: ${relativeAppPath}`);
+            // If we're correcting, we should ideally use the sanitized name
+            const correctedPath = `apps/blockly/${safeName}`;
+
+            // Check if we need to migrate data? 
+            // For now, just save to safe location to prevent root pollution
+            const appPath = path.join(root, correctedPath);
+            if (!fs.existsSync(appPath)) {
+                fs.mkdirSync(appPath, { recursive: true });
+            }
+
+            // PERSISTENCE FIX: Update the DB so future reads look in the correct place
+            try {
+                await db.update(apps)
+                    .set({ path: correctedPath })
+                    .where(eq(apps.id, appId));
+                logger.info(`Updated app ${appId} path in DB to: ${correctedPath}`);
+            } catch (dbError) {
+                logger.error(`Failed to update app path in DB for app ${appId}`, dbError);
+            }
+
+            // Update relativeAppPath for this execution
+            relativeAppPath = correctedPath;
+        }
+
+        let appPath = path.join(root, relativeAppPath);
+
+        // Final Safety Check: Ensure the resolved path is actually inside the workspace apps folder
+        // This handles cases where app.path might be "../../foo"
+        const resolvedPath = path.resolve(appPath);
+        const appsDir = path.resolve(root, 'apps');
+
+        if (!resolvedPath.startsWith(appsDir)) {
+            logger.warn(`Security Block: Path ${resolvedPath} is outside apps directory. Forcing safe path.`);
+            appPath = path.join(root, 'apps', 'blockly', safeName);
+        }
 
         if (!fs.existsSync(appPath)) {
             fs.mkdirSync(appPath, { recursive: true });
         }
 
-        logger.info(`Saving Blockly workspace for app ${appId} at ${appPath}`);
+        logger.info(`💾 [SAVE-WORKSPACE] Saving for app ${appId}`);
+        logger.info(`💾 [SAVE-WORKSPACE] Root: ${root}`);
+        logger.info(`💾 [SAVE-WORKSPACE] RelPath: ${relativeAppPath}`);
+        logger.info(`💾 [SAVE-WORKSPACE] Full Target Path: ${appPath}`);
 
         const workspacePath = path.join(appPath, 'workspace.json');
         fs.writeFileSync(workspacePath, JSON.stringify(workspaceJson, null, 2));
+        logger.info(`✅ [SAVE-WORKSPACE] Wrote workspace.json to: ${workspacePath}`);
 
         const codeDir = path.join(appPath, 'generated');
         if (!fs.existsSync(codeDir)) {

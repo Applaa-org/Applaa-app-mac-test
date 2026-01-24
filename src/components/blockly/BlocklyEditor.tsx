@@ -28,6 +28,7 @@ interface BlocklyEditorProps {
         generatedCodeMap?: Record<string, string>;
     }) => void;
     readOnly?: boolean;
+    isLoading?: boolean;
 }
 
 /**
@@ -38,11 +39,13 @@ export function BlocklyEditor({
     appId,
     initialWorkspace,
     onWorkspaceChange,
-    readOnly = false
+    readOnly = false,
+    isLoading = false
 }: BlocklyEditorProps) {
     const blocklyDivRef = useRef<HTMLDivElement>(null);
     const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
     const appyRef = useRef<any>(null); // Reference for Appy Animated
+    const isRestoring = useRef(false); // Guard to prevent saving during load
 
     // State for Multi-Language Support
     type Tab = 'blocks' | 'javascript' | 'python' | 'php' | 'lua' | 'dart' | 'xml' | 'json';
@@ -84,11 +87,19 @@ export function BlocklyEditor({
         if (!workspaceRef.current) return;
 
         try {
+            // Safety Guard: Don't generate/save if restoring or loading
+            if (isRestoring.current || isLoading) {
+                console.log('🚧 Skipping save during restoration/loading');
+                return;
+            }
+
             // Check if workspace is empty - don't save empty workspaces
+            // FIXED: We now allow empty saves as long as we are not restoring/loading
+            // This fixes "Clear All" not saving, while isRestoring prevents "Blocks Gone" bug
             const allBlocks = workspaceRef.current.getAllBlocks(false);
             if (allBlocks.length === 0) {
-                console.log('Workspace is empty, skipping save');
-                return;
+                // Optional: keep logging for debug
+                // console.log('Workspace is empty'); 
             }
 
             // Generate code for all languages
@@ -154,26 +165,15 @@ export function BlocklyEditor({
                 scaleSpeed: 1.2
             },
             trashcan: true,
-            sounds: false, // Disabled to avoid CSP violations (sounds less critical than UI)
+            sounds: false,
             readOnly: readOnly,
             theme: APPLAA_THEME
         });
 
-        // Load initial workspace if provided
-        if (initialWorkspace) {
-            try {
-                console.log('🔵 [INITIAL LOAD] Loading workspace:', initialWorkspace);
-                Blockly.serialization.workspaces.load(initialWorkspace, workspaceRef.current);
-                console.log('✅ [INITIAL LOAD] Workspace loaded successfully');
-            } catch (error) {
-                console.error('❌ [INITIAL LOAD] Failed to load workspace:', error);
-            }
-        } else {
-            console.log('⚪ [INITIAL LOAD] No initialWorkspace provided');
-        }
-
         // Listen for workspace changes
-        const changeListener = () => {
+        const changeListener = (e: any) => {
+            // Don't generate on UI events (clicks, drags that don't change logic)
+            if (e.type === Blockly.Events.UI) return;
             generateAllCode();
         };
 
@@ -188,33 +188,69 @@ export function BlocklyEditor({
         // Add change listener
         workspaceRef.current.addChangeListener(changeListener);
 
+        // Listen for manual "Force Save" events from the parent UI
+        const handleForceSave = () => {
+            console.log("⚡ [EDITOR] Force Save triggered manually");
+            generateAllCode();
+        };
+        window.addEventListener('force-save', handleForceSave);
+
         // Cleanup
         return () => {
+            // Safety Guard: Prevent any saves during cleanup/disposal
+            isRestoring.current = true;
+
+            window.removeEventListener('force-save', handleForceSave);
+
             resizeObserver.disconnect();
             if (workspaceRef.current) {
-                workspaceRef.current.dispose();
+                try {
+                    workspaceRef.current.removeChangeListener(changeListener);
+                    workspaceRef.current.dispose();
+                } catch (e) {
+                    console.error('Error disposing workspace:', e);
+                }
                 workspaceRef.current = null;
             }
         };
     }, [appId, readOnly]);
 
-    // Watch for initialWorkspace changes and reload (for AI-generated blocks)
+    // Unified Workspace Loader
+    // Handles both initial load and subsequent prop updates
     useEffect(() => {
-        if (!workspaceRef.current || !initialWorkspace) return;
+        if (!workspaceRef.current) return;
+
+        // If no initial workspace is provided (new app), just ensure we are ready
+        // But we must NOT clear if it's just undefined (which means "no data loaded yet" vs "empty")
+        // However, in blockly.tsx, we pass 'workspace' which is null or object.
 
         try {
-            // Clear existing workspace
-            workspaceRef.current.clear();
-            // Load new workspace
-            Blockly.serialization.workspaces.load(initialWorkspace, workspaceRef.current);
-            console.log('✅ Reloaded workspace from initialWorkspace prop change');
+            const hasData = initialWorkspace && Object.keys(initialWorkspace).length > 0;
 
-            // Regenerate code after load
+            if (hasData) {
+                isRestoring.current = true;
+                console.log('🔵 [LOADER] Loading workspace data...');
+
+                // Clear before load to ensure clean state
+                workspaceRef.current.clear();
+
+                Blockly.serialization.workspaces.load(initialWorkspace, workspaceRef.current);
+                console.log('✅ [LOADER] Workspace loaded successfully');
+            } else {
+                console.log('⚪ [LOADER] No initial workspace data (New App or Cleared)');
+            }
+
+            // Always force a generation pass after load/init to ensure state is synced
+            // Use a timeout to allow the blockly engine to settle
             setTimeout(() => {
+                isRestoring.current = false; // Disable guard
                 generateAllCode();
-            }, 100);
+                console.log('🟢 [LOADER] Ready for interaction');
+            }, 500);
+
         } catch (error) {
-            console.error('Failed to reload workspace:', error);
+            isRestoring.current = false;
+            console.error('❌ [LOADER] Failed to load workspace:', error);
         }
     }, [initialWorkspace]);
 
@@ -414,6 +450,28 @@ export function BlocklyEditor({
 
                 <div style={{ width: '1px', height: '20px', backgroundColor: '#ccc', margin: '0 8px' }}></div>
 
+
+
+                {/* Hub Button */}
+                <button
+                    onClick={() => setIsHubOpen(true)}
+                    style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#8e44ad',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        marginRight: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                >
+                    <span style={{ fontSize: '1.2em' }}>🚀</span> Hub
+                </button>
+
                 <button
                     onClick={handleRunCode}
                     disabled={isRunning || readOnly}
@@ -430,25 +488,7 @@ export function BlocklyEditor({
                     {isRunning ? '▶️ Running...' : '▶️ Run Code'}
                 </button>
 
-                {/* Samples Dropdown */}
-                <button
-                    onClick={() => setIsHubOpen(true)}
-                    style={{
-                        padding: '8px 12px',
-                        backgroundColor: '#673AB7', // Deep Purple for Hub
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        marginRight: '8px',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                    }}
-                >
-                    🚀 Hub
-                </button>
+
 
                 <button
                     onClick={() => setShowTerminal(!showTerminal)}
@@ -481,21 +521,7 @@ export function BlocklyEditor({
                     🗑️ Clear All
                 </button>
 
-                {/* Language Indicator */}
-                <div style={{
-                    marginLeft: '8px',
-                    padding: '6px 12px',
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: '16px',
-                    fontSize: '12px',
-                    color: '#555',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                }}>
-                    <span>⚡ Generating:</span>
-                    <span style={{ fontWeight: 'bold', color: '#f7df1e' }}>JavaScript</span>
-                </div>
+
 
                 <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
                     Drag blocks from the left to build your program
@@ -812,6 +838,7 @@ const KIDS_TOOLBOX = {
                 { kind: 'block', type: 'lists_sort' }
             ]
         },
+
         {
             kind: 'sep',
         },
@@ -831,7 +858,7 @@ const KIDS_TOOLBOX = {
             kind: 'sep',
         },
         // ⛏️ Minecraft Category (Bedrock Edition blocks)
-        MINECRAFT_TOOLBOX_CATEGORY
+        // MINECRAFT_TOOLBOX_CATEGORY (Disabled by user request)
     ]
 };
 
