@@ -47,20 +47,32 @@ export default function BlocklyPage() {
         const load = async () => {
             try {
                 const client = IpcClient.getInstance();
-                const appData = await client.getApp(appId);
-                setApp(appData);
-                setNewName(appData.displayName || appData.name);
+                
+                // 🚀 OPTIMIZATION: Load app data and workspace in parallel
+                const [appData, workspaceResult] = await Promise.allSettled([
+                    client.getApp(appId),
+                    client.readFile({ appId, filePath: 'workspace.json' }).catch(() => null)
+                ]);
 
-                // Load workspace.json
+                // Handle app data
+                if (appData.status === 'fulfilled') {
+                    setApp(appData.value);
+                    setNewName(appData.value.displayName || appData.value.name);
+                    // Show UI immediately after app data loads
+                    setLoading(false);
+                } else {
+                    throw appData.reason;
+                }
+
+                // Handle workspace data
                 let loadedWorkspace = null;
-                try {
-                    const result = await client.readFile({ appId, filePath: 'workspace.json' });
-                    if (result && result.content) {
-                        loadedWorkspace = JSON.parse(result.content);
+                if (workspaceResult.status === 'fulfilled' && workspaceResult.value?.content) {
+                    try {
+                        loadedWorkspace = JSON.parse(workspaceResult.value.content);
                         console.log("✅ Loaded workspace from Backend");
+                    } catch (parseErr) {
+                        console.warn("Failed to parse workspace.json", parseErr);
                     }
-                } catch (e) {
-                    console.log("⚠️ Backend load failed, checking backup...");
                 }
 
                 // EMERGENCY FALLBACK: Check LocalStorage if backend failed
@@ -86,7 +98,6 @@ export default function BlocklyPage() {
             } catch (err) {
                 console.error("Failed to load app", err);
                 toast.error("Failed to load app data");
-            } finally {
                 setLoading(false);
             }
         };

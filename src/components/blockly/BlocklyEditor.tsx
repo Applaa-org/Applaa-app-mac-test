@@ -3,9 +3,11 @@ import * as Blockly from 'blockly/core';
 import * as En from 'blockly/msg/en'; // Import English language
 import 'blockly/blocks'; // Import default blocks
 import { initCustomBlocks } from './CustomBlocks'; // Import Custom Blocks
-import { SampleHub } from './SampleHub'; // Import Hub
-import { RobotWelcome } from './RobotWelcome'; // Import Robot Welcome
-import { AppyAnimated } from './AppyAnimated'; // Import Animated Appy
+// 🚀 OPTIMIZATION: Lazy load heavy components to improve initial load time
+import { lazy, Suspense } from 'react';
+const SampleHub = lazy(() => import('./SampleHub').then(m => ({ default: m.SampleHub })));
+const RobotWelcome = lazy(() => import('./RobotWelcome').then(m => ({ default: m.RobotWelcome })));
+const AppyAnimated = lazy(() => import('./AppyAnimated')); // Has default export
 import { aiBlockAssistant } from '@/services/AiBlockAssistant'; // Import AI Brain
 import { MINECRAFT_TOOLBOX_CATEGORY, initMinecraftBlocks } from '@/lib/minecraft/minecraft-blocks'; // Import Minecraft Blocks
 
@@ -18,6 +20,176 @@ import { dartGenerator } from 'blockly/dart';
 
 // Set the locale
 Blockly.setLocale(En as any);
+
+/**
+ * Applaa Custom Theme
+ */
+const APPLAA_THEME = Blockly.Theme.defineTheme('applaa', {
+    name: 'applaa',
+    base: Blockly.Themes.Classic,
+    blockStyles: {
+        logic_blocks: { colourPrimary: "#4C97FF", colourSecondary: "#CFE4FF", colourTertiary: "#3373CC" },
+        loop_blocks: { colourPrimary: "#0FBD8C", colourSecondary: "#CBF0E6", colourTertiary: "#0B8E69" },
+        math_blocks: { colourPrimary: "#59C059", colourSecondary: "#DDF4DD", colourTertiary: "#3E913E" },
+        text_blocks: { colourPrimary: "#FFBF00", colourSecondary: "#FFF2CC", colourTertiary: "#CC9900" },
+        list_blocks: { colourPrimary: "#FF6680", colourSecondary: "#FFCCD6", colourTertiary: "#CC3352" },
+        variable_blocks: { colourPrimary: "#FF8C1A", colourSecondary: "#FFDDA6", colourTertiary: "#CC6A00" },
+        procedure_blocks: { colourPrimary: "#9966FF", colourSecondary: "#E2D1FF", colourTertiary: "#774DCB" },
+        colour_blocks: { colourPrimary: "#CF63CF", colourSecondary: "#EFD1EF", colourTertiary: "#BD42BD" }
+    },
+    categoryStyles: {
+        logic_category: { colour: "#4C97FF" },
+        loop_category: { colour: "#0FBD8C" },
+        math_category: { colour: "#59C059" },
+        text_category: { colour: "#FFBF00" },
+        list_category: { colour: "#FF6680" },
+        variable_category: { colour: "#FF8C1A" },
+        procedure_category: { colour: "#9966FF" },
+        colour_category: { colour: "#CF63CF" }
+    },
+    componentStyles: {
+        workspaceBackgroundColour: "#F5F8FA",
+        toolboxBackgroundColour: "#FFFFFF",
+        toolboxForegroundColour: "#333333",
+        flyoutBackgroundColour: "#FFFFFF",
+        flyoutOpacity: 1,
+        scrollbarColour: "#CCCCCC",
+        scrollbarOpacity: 0.4
+    },
+    fontStyle: {
+        family: "Fredoka, 'Segoe UI', cursive, sans-serif",
+        weight: "bold",
+        size: 12
+    }
+});
+
+/**
+ * Enhanced Applaa Toolbox for Kids
+ */
+const KIDS_TOOLBOX = {
+    kind: 'categoryToolbox',
+    contents: [
+        {
+            kind: 'category',
+            name: '🧩 Logic',
+            categorystyle: 'logic_category',
+            contents: [
+                { kind: 'block', type: 'controls_if' },
+                { kind: 'block', type: 'logic_compare' },
+                { kind: 'block', type: 'logic_operation' },
+                { kind: 'block', type: 'logic_negate' },
+                { kind: 'block', type: 'logic_boolean' },
+                { kind: 'block', type: 'logic_null' },
+                { kind: 'block', type: 'logic_ternary' }
+            ]
+        },
+        {
+            kind: 'category',
+            name: '🔄 Loops',
+            categorystyle: 'loop_category',
+            contents: [
+                { kind: 'block', type: 'controls_repeat_ext', inputs: { TIMES: { shadow: { type: 'math_number', fields: { NUM: 10 } } } } },
+                { kind: 'block', type: 'controls_whileUntil' },
+                { kind: 'block', type: 'controls_for', inputs: { FROM: { shadow: { type: 'math_number', fields: { NUM: 1 } } }, TO: { shadow: { type: 'math_number', fields: { NUM: 10 } } }, BY: { shadow: { type: 'math_number', fields: { NUM: 1 } } } } },
+                { kind: 'block', type: 'controls_forEach' },
+                { kind: 'block', type: 'controls_flow_statements' }
+            ]
+        },
+        {
+            kind: 'category',
+            name: '🔢 Math',
+            categorystyle: 'math_category',
+            contents: [
+                { kind: 'block', type: 'math_number', fields: { NUM: 123 } },
+                { kind: 'block', type: 'math_arithmetic', inputs: { A: { shadow: { type: 'math_number', fields: { NUM: 1 } } }, B: { shadow: { type: 'math_number', fields: { NUM: 1 } } } } },
+                { kind: 'block', type: 'math_single', inputs: { NUM: { shadow: { type: 'math_number', fields: { NUM: 9 } } } } },
+                { kind: 'block', type: 'math_trig', inputs: { NUM: { shadow: { type: 'math_number', fields: { NUM: 45 } } } } },
+                { kind: 'block', type: 'math_constant' },
+                { kind: 'block', type: 'math_number_property', inputs: { NUMBER_TO_CHECK: { shadow: { type: 'math_number', fields: { NUM: 0 } } } } },
+                { kind: 'block', type: 'math_round', inputs: { NUM: { shadow: { type: 'math_number', fields: { NUM: 3.1 } } } } },
+                { kind: 'block', type: 'math_on_list' },
+                { kind: 'block', type: 'math_modulo', inputs: { DIVIDEND: { shadow: { type: 'math_number', fields: { NUM: 64 } } }, DIVISOR: { shadow: { type: 'math_number', fields: { NUM: 10 } } } } },
+                { kind: 'block', type: 'math_random_int', inputs: { FROM: { shadow: { type: 'math_number', fields: { NUM: 1 } } }, TO: { shadow: { type: 'math_number', fields: { NUM: 100 } } } } }
+            ]
+        },
+        {
+            kind: 'category',
+            name: '📝 Text',
+            categorystyle: 'text_category',
+            contents: [
+                { kind: 'block', type: 'text' },
+                { kind: 'block', type: 'text_join' },
+                { kind: 'block', type: 'text_append' },
+                { kind: 'block', type: 'text_length', inputs: { VALUE: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
+                { kind: 'block', type: 'text_isEmpty', inputs: { VALUE: { shadow: { type: 'text', fields: { TEXT: '' } } } } },
+                { kind: 'block', type: 'text_indexOf', inputs: { VALUE: { block: { type: 'variables_get', fields: { VAR: 'text' } } }, FIND: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
+                { kind: 'block', type: 'text_charAt', inputs: { VALUE: { block: { type: 'variables_get', fields: { VAR: 'text' } } } } },
+                { kind: 'block', type: 'text_changeCase', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
+                { kind: 'block', type: 'text_trim', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
+                { kind: 'block', type: 'text_print', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
+                { kind: 'block', type: 'applaa_speak' },
+                { kind: 'block', type: 'text_prompt_ext', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } }
+            ]
+        },
+        {
+            kind: 'category',
+            name: '🎮 Game',
+            categorystyle: 'logic_category',
+            contents: [
+                { kind: 'block', type: 'game_start' },
+                { kind: 'block', type: 'game_move_sprite' },
+                { kind: 'block', type: 'applaa_log', inputs: { MESSAGE: { shadow: { type: 'text', fields: { TEXT: 'Hello Applaa!' } } } } },
+                { kind: 'label', text: 'Maze' },
+                { kind: 'block', type: 'maze_move_forward' },
+                { kind: 'block', type: 'maze_turn' },
+                { kind: 'label', text: 'Turtle' },
+                { kind: 'block', type: 'turtle_move', inputs: { VALUE: { shadow: { type: 'math_number', fields: { NUM: 50 } } } } },
+                { kind: 'block', type: 'turtle_turn', inputs: { VALUE: { shadow: { type: 'math_number', fields: { NUM: 90 } } } } }
+            ]
+        },
+        {
+            kind: 'sep',
+        },
+        {
+            kind: 'category',
+            name: '📋 Lists',
+            categorystyle: 'list_category',
+            contents: [
+                { kind: 'block', type: 'lists_create_with', extraState: { itemCount: 0 } },
+                { kind: 'block', type: 'lists_create_with' },
+                { kind: 'block', type: 'lists_repeat', inputs: { NUM: { shadow: { type: 'math_number', fields: { NUM: 5 } } } } },
+                { kind: 'block', type: 'lists_length' },
+                { kind: 'block', type: 'lists_isEmpty' },
+                { kind: 'block', type: 'lists_indexOf', inputs: { VALUE: { block: { type: 'variables_get', fields: { VAR: 'list' } } } } },
+                { kind: 'block', type: 'lists_getIndex', inputs: { VALUE: { block: { type: 'variables_get', fields: { VAR: 'list' } } } } },
+                { kind: 'block', type: 'lists_setIndex', inputs: { LIST: { block: { type: 'variables_get', fields: { VAR: 'list' } } } } },
+                { kind: 'block', type: 'lists_getSublist', inputs: { LIST: { block: { type: 'variables_get', fields: { VAR: 'list' } } } } },
+                { kind: 'block', type: 'lists_split', inputs: { DELIM: { shadow: { type: 'text', fields: { TEXT: ',' } } } } },
+                { kind: 'block', type: 'lists_sort' }
+            ]
+        },
+        {
+            kind: 'sep',
+        },
+        {
+            kind: 'category',
+            name: '📦 Variables',
+            categorystyle: 'variable_category',
+            custom: 'VARIABLE'
+        },
+        {
+            kind: 'category',
+            name: '⚡ Functions',
+            categorystyle: 'procedure_category',
+            custom: 'PROCEDURE'
+        },
+        {
+            kind: 'sep',
+        },
+        // ⛏️ Minecraft Category (Bedrock Edition blocks)
+        // MINECRAFT_TOOLBOX_CATEGORY (Disabled by user request)
+    ]
+};
 
 interface BlocklyEditorProps {
     appId: number;
@@ -145,8 +317,6 @@ export function BlocklyEditor({
         // Initialize Applaa Custom Blocks
         initCustomBlocks();
 
-        console.log('Available blocks:', Object.keys(Blockly.Blocks));
-
         // Initialize Blockly workspace
         workspaceRef.current = Blockly.inject(blocklyDivRef.current, {
             toolbox: KIDS_TOOLBOX,
@@ -236,17 +406,22 @@ export function BlocklyEditor({
 
                 Blockly.serialization.workspaces.load(initialWorkspace, workspaceRef.current);
                 console.log('✅ [LOADER] Workspace loaded successfully');
+                
+                // 🚀 OPTIMIZATION: Use requestAnimationFrame for faster, smoother loading
+                // This allows the browser to render before generating code
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        isRestoring.current = false; // Disable guard
+                        generateAllCode();
+                        console.log('🟢 [LOADER] Ready for interaction');
+                    }, 50); // Reduced to 50ms - just enough for DOM to settle
+                });
             } else {
                 console.log('⚪ [LOADER] No initial workspace data (New App or Cleared)');
-            }
-
-            // Always force a generation pass after load/init to ensure state is synced
-            // Use a timeout to allow the blockly engine to settle
-            setTimeout(() => {
-                isRestoring.current = false; // Disable guard
+                // No delay needed for empty workspace
+                isRestoring.current = false;
                 generateAllCode();
-                console.log('🟢 [LOADER] Ready for interaction');
-            }, 500);
+            }
 
         } catch (error) {
             isRestoring.current = false;
@@ -404,17 +579,21 @@ export function BlocklyEditor({
 
     return (
         <div className="blockly-editor-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Robot Welcome */}
-            <RobotWelcome
-                isFirstTime={showWelcome}
-                onComplete={() => setShowWelcome(false)}
-            />
+            {/* Robot Welcome - Lazy loaded */}
+            <Suspense fallback={null}>
+                <RobotWelcome
+                    isFirstTime={showWelcome}
+                    onComplete={() => setShowWelcome(false)}
+                />
+            </Suspense>
 
-            {/* Appy the AI Teacher */}
-            <AppyAnimated
-                ref={appyRef}
-                onQuickAction={handleQuickAction}
-            />
+            {/* Appy the AI Teacher - Lazy loaded */}
+            <Suspense fallback={null}>
+                <AppyAnimated
+                    ref={appyRef}
+                    onQuickAction={handleQuickAction}
+                />
+            </Suspense>
 
             {/* Toolbar */}
             <div className="blockly-toolbar" style={{
@@ -650,12 +829,16 @@ export function BlocklyEditor({
                     </div>
                 )}
 
-                {/* Sample Hub Sidebar */}
-                <SampleHub
-                    isOpen={isHubOpen}
-                    onClose={() => setIsHubOpen(false)}
-                    onLoadSample={handleLoadHubSample}
-                />
+                {/* Sample Hub Sidebar - Lazy loaded */}
+                <Suspense fallback={null}>
+                    {isHubOpen && (
+                        <SampleHub
+                            isOpen={isHubOpen}
+                            onClose={() => setIsHubOpen(false)}
+                            onLoadSample={handleLoadHubSample}
+                        />
+                    )}
+                </Suspense>
             </div>
 
             {/* Sandbox iframe for safe code execution */}
@@ -689,178 +872,6 @@ export function BlocklyEditor({
         </div >
     );
 }
-
-/**
- * Kid-friendly Blockly toolbox with essential categories
- */
-// Applaa Custom Theme
-const APPLAA_THEME = Blockly.Theme.defineTheme('applaa', {
-    name: 'applaa',
-    base: Blockly.Themes.Classic,
-    blockStyles: {
-        logic_blocks: { colourPrimary: "#4C97FF", colourSecondary: "#CFE4FF", colourTertiary: "#3373CC" },
-        loop_blocks: { colourPrimary: "#0FBD8C", colourSecondary: "#CBF0E6", colourTertiary: "#0B8E69" },
-        math_blocks: { colourPrimary: "#59C059", colourSecondary: "#DDF4DD", colourTertiary: "#3E913E" },
-        text_blocks: { colourPrimary: "#FFBF00", colourSecondary: "#FFF2CC", colourTertiary: "#CC9900" },
-        list_blocks: { colourPrimary: "#FF6680", colourSecondary: "#FFCCD6", colourTertiary: "#CC3352" },
-        variable_blocks: { colourPrimary: "#FF8C1A", colourSecondary: "#FFDDA6", colourTertiary: "#CC6A00" },
-        procedure_blocks: { colourPrimary: "#9966FF", colourSecondary: "#E2D1FF", colourTertiary: "#774DCB" },
-        colour_blocks: { colourPrimary: "#CF63CF", colourSecondary: "#EFD1EF", colourTertiary: "#BD42BD" }
-    },
-    categoryStyles: {
-        logic_category: { colour: "#4C97FF" },
-        loop_category: { colour: "#0FBD8C" },
-        math_category: { colour: "#59C059" },
-        text_category: { colour: "#FFBF00" },
-        list_category: { colour: "#FF6680" },
-        variable_category: { colour: "#FF8C1A" },
-        procedure_category: { colour: "#9966FF" },
-        colour_category: { colour: "#CF63CF" }
-    },
-    componentStyles: {
-        workspaceBackgroundColour: "#F5F8FA",
-        toolboxBackgroundColour: "#FFFFFF",
-        toolboxForegroundColour: "#333333",
-        flyoutBackgroundColour: "#FFFFFF",
-        flyoutOpacity: 1,
-        scrollbarColour: "#CCCCCC",
-        scrollbarOpacity: 0.4
-    },
-    fontStyle: {
-        family: "Fredoka, 'Segoe UI', cursive, sans-serif",
-        weight: "bold",
-        size: 12
-    }
-});
-
-/**
- * Enhanced Applaa Toolbox for Kids
- */
-const KIDS_TOOLBOX = {
-    kind: 'categoryToolbox',
-    contents: [
-        {
-            kind: 'category',
-            name: '🧩 Logic',
-            categorystyle: 'logic_category',
-            contents: [
-                { kind: 'block', type: 'controls_if' },
-                { kind: 'block', type: 'logic_compare' },
-                { kind: 'block', type: 'logic_operation' },
-                { kind: 'block', type: 'logic_negate' },
-                { kind: 'block', type: 'logic_boolean' },
-                { kind: 'block', type: 'logic_null' },
-                { kind: 'block', type: 'logic_ternary' }
-            ]
-        },
-        {
-            kind: 'category',
-            name: '🔄 Loops',
-            categorystyle: 'loop_category',
-            contents: [
-                { kind: 'block', type: 'controls_repeat_ext', inputs: { TIMES: { shadow: { type: 'math_number', fields: { NUM: 10 } } } } },
-                { kind: 'block', type: 'controls_whileUntil' },
-                { kind: 'block', type: 'controls_for', inputs: { FROM: { shadow: { type: 'math_number', fields: { NUM: 1 } } }, TO: { shadow: { type: 'math_number', fields: { NUM: 10 } } }, BY: { shadow: { type: 'math_number', fields: { NUM: 1 } } } } },
-                { kind: 'block', type: 'controls_forEach' },
-                { kind: 'block', type: 'controls_flow_statements' }
-            ]
-        },
-        {
-            kind: 'category',
-            name: '🔢 Math',
-            categorystyle: 'math_category',
-            contents: [
-                { kind: 'block', type: 'math_number', fields: { NUM: 123 } },
-                { kind: 'block', type: 'math_arithmetic', inputs: { A: { shadow: { type: 'math_number', fields: { NUM: 1 } } }, B: { shadow: { type: 'math_number', fields: { NUM: 1 } } } } },
-                { kind: 'block', type: 'math_single', inputs: { NUM: { shadow: { type: 'math_number', fields: { NUM: 9 } } } } },
-                { kind: 'block', type: 'math_trig', inputs: { NUM: { shadow: { type: 'math_number', fields: { NUM: 45 } } } } },
-                { kind: 'block', type: 'math_constant' },
-                { kind: 'block', type: 'math_number_property', inputs: { NUMBER_TO_CHECK: { shadow: { type: 'math_number', fields: { NUM: 0 } } } } },
-                { kind: 'block', type: 'math_round', inputs: { NUM: { shadow: { type: 'math_number', fields: { NUM: 3.1 } } } } },
-                { kind: 'block', type: 'math_on_list' },
-                { kind: 'block', type: 'math_modulo', inputs: { DIVIDEND: { shadow: { type: 'math_number', fields: { NUM: 64 } } }, DIVISOR: { shadow: { type: 'math_number', fields: { NUM: 10 } } } } },
-                { kind: 'block', type: 'math_random_int', inputs: { FROM: { shadow: { type: 'math_number', fields: { NUM: 1 } } }, TO: { shadow: { type: 'math_number', fields: { NUM: 100 } } } } }
-            ]
-        },
-        {
-            kind: 'category',
-            name: '📝 Text',
-            categorystyle: 'text_category',
-            contents: [
-                { kind: 'block', type: 'text' },
-                { kind: 'block', type: 'text_join' },
-                { kind: 'block', type: 'text_append' },
-                { kind: 'block', type: 'text_length', inputs: { VALUE: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
-                { kind: 'block', type: 'text_isEmpty', inputs: { VALUE: { shadow: { type: 'text', fields: { TEXT: '' } } } } },
-                { kind: 'block', type: 'text_indexOf', inputs: { VALUE: { block: { type: 'variables_get', fields: { VAR: 'text' } } }, FIND: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
-                { kind: 'block', type: 'text_charAt', inputs: { VALUE: { block: { type: 'variables_get', fields: { VAR: 'text' } } } } },
-                { kind: 'block', type: 'text_changeCase', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
-                { kind: 'block', type: 'text_trim', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
-                { kind: 'block', type: 'text_print', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } },
-                { kind: 'block', type: 'applaa_speak' },
-                { kind: 'block', type: 'text_prompt_ext', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'abc' } } } } }
-            ]
-        },
-        {
-            kind: 'category',
-            name: '🎮 Game',
-            categorystyle: 'logic_category',
-            contents: [
-                { kind: 'block', type: 'game_start' },
-                { kind: 'block', type: 'game_move_sprite' },
-                { kind: 'block', type: 'applaa_log', inputs: { MESSAGE: { shadow: { type: 'text', fields: { TEXT: 'Hello Applaa!' } } } } },
-                { kind: 'label', text: 'Maze' },
-                { kind: 'block', type: 'maze_move_forward' },
-                { kind: 'block', type: 'maze_turn' },
-                { kind: 'label', text: 'Turtle' },
-                { kind: 'block', type: 'turtle_move', inputs: { VALUE: { shadow: { type: 'math_number', fields: { NUM: 50 } } } } },
-                { kind: 'block', type: 'turtle_turn', inputs: { VALUE: { shadow: { type: 'math_number', fields: { NUM: 90 } } } } }
-            ]
-        },
-        {
-            kind: 'sep',
-        },
-        {
-            kind: 'category',
-            name: '📋 Lists',
-            categorystyle: 'list_category',
-            contents: [
-                { kind: 'block', type: 'lists_create_with', extraState: { itemCount: 0 } },
-                { kind: 'block', type: 'lists_create_with' },
-                { kind: 'block', type: 'lists_repeat', inputs: { NUM: { shadow: { type: 'math_number', fields: { NUM: 5 } } } } },
-                { kind: 'block', type: 'lists_length' },
-                { kind: 'block', type: 'lists_isEmpty' },
-                { kind: 'block', type: 'lists_indexOf', inputs: { VALUE: { block: { type: 'variables_get', fields: { VAR: 'list' } } } } },
-                { kind: 'block', type: 'lists_getIndex', inputs: { VALUE: { block: { type: 'variables_get', fields: { VAR: 'list' } } } } },
-                { kind: 'block', type: 'lists_setIndex', inputs: { LIST: { block: { type: 'variables_get', fields: { VAR: 'list' } } } } },
-                { kind: 'block', type: 'lists_getSublist', inputs: { LIST: { block: { type: 'variables_get', fields: { VAR: 'list' } } } } },
-                { kind: 'block', type: 'lists_split', inputs: { DELIM: { shadow: { type: 'text', fields: { TEXT: ',' } } } } },
-                { kind: 'block', type: 'lists_sort' }
-            ]
-        },
-
-        {
-            kind: 'sep',
-        },
-        {
-            kind: 'category',
-            name: '📦 Variables',
-            categorystyle: 'variable_category',
-            custom: 'VARIABLE'
-        },
-        {
-            kind: 'category',
-            name: '⚡ Functions',
-            categorystyle: 'procedure_category',
-            custom: 'PROCEDURE'
-        },
-        {
-            kind: 'sep',
-        },
-        // ⛏️ Minecraft Category (Bedrock Edition blocks)
-        // MINECRAFT_TOOLBOX_CATEGORY (Disabled by user request)
-    ]
-};
 
 // Sample Workspaces (JSON serialization)
 const SAMPLE_WORKSPACES = {
