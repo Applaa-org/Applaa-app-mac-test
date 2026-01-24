@@ -764,24 +764,29 @@ renderer/rendering_method="forward_plus"
   }
 
   // Automatically create a web export for preview
-  try {
-    const { createTestWebExport, exportWithGodotEngine } = await import('./godot_handlers');
-    const exportPath = path.join(fullAppPath, 'godot-web-export');
+  // Only create export if we have a valid game spec (don't create default placeholder game)
+  if (gameSpec && gameSpec.game && !gameSpec.default) {
+    try {
+      const { createTestWebExport, exportWithGodotEngine } = await import('./godot_handlers');
+      const exportPath = path.join(fullAppPath, 'godot-web-export');
 
-    // Try to export using Godot engine first
-    const exportedWithEngine = await exportWithGodotEngine(projectPath, exportPath, params.name);
+      // Try to export using Godot engine first
+      const exportedWithEngine = await exportWithGodotEngine(projectPath, exportPath, params.name);
 
-    // Fall back to test export if Godot engine export failed
-    if (!exportedWithEngine) {
-      logger.info('Creating test web export (Godot engine not available or export failed)');
-      // Use the generated spec to customize the test export
-      await createTestWebExport(exportPath, gameSpec, params.name);
+      // Fall back to test export if Godot engine export failed
+      if (!exportedWithEngine) {
+        logger.info('Creating test web export (Godot engine not available or export failed)');
+        // Use the generated spec to customize the test export
+        await createTestWebExport(exportPath, gameSpec, params.name);
+      }
+
+      logger.info(`✅ Automatically created web export for preview`);
+    } catch (exportError) {
+      logger.warn('⚠️ Failed to auto-create web export:', exportError);
+      // Don't fail project creation if export fails
     }
-
-    logger.info(`✅ Automatically created web export for preview`);
-  } catch (exportError) {
-    logger.warn('⚠️ Failed to auto-create web export:', exportError);
-    // Don't fail project creation if export fails
+  } else {
+    logger.info('⏭️ Skipping web export creation - no valid game spec provided. User should describe their game idea first.');
   }
 
   logger.info(`✅ Godot project structure created at ${projectPath}`);
