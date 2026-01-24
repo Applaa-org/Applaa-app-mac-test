@@ -22,7 +22,7 @@ interface GameTemplate {
   previewUrl?: string | null;
   imageUrl?: string | null;
   emoji?: string | null;
-  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
+  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   displayOrder?: number;
 }
 
@@ -39,7 +39,7 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
   const [previewUrl, setPreviewUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [emoji, setEmoji] = useState('');
-  const [appType, setAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly'>('godot');
+  const [appType, setAppType] = useState<'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python'>('godot');
   const [displayOrder, setDisplayOrder] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -157,6 +157,8 @@ export function EditGameTemplateDialog({ open, onOpenChange, template, onTemplat
                   <SelectItem value="microbit">Applaa:bit</SelectItem>
                   <SelectItem value="minecraft">Minecraft</SelectItem>
                   <SelectItem value="blockly">Blocklaa</SelectItem>
+                  <SelectItem value="roblox">Roblox</SelectItem>
+                  <SelectItem value="python">Python</SelectItem>
                 </SelectContent>
               </Select>
             </div>

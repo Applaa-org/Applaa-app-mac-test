@@ -52,6 +52,9 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/better-sqlite3")) {
     return false;
   }
+  if (file.startsWith("/node_modules/.pnpm/better-sqlite3@")) {
+    return false;
+  }
   if (file.startsWith("/node_modules/bindings")) {
     return false;
   }
@@ -102,6 +105,9 @@ const config: ForgeConfig = {
       "node_modules/onnxruntime-react-native/**",
       "node_modules/react-native-transformers/**",
       "node_modules/better-sqlite3/**",
+      "node_modules/.pnpm/better-sqlite3@*/**",
+      "node_modules/bindings/**",
+      "node_modules/file-uri-to-path/**",
       "node_modules/expo/**",
       "node_modules/@expo/**",
       "node_modules/.bin/**",
@@ -175,6 +181,42 @@ const config: ForgeConfig = {
     // ] : []),
   ],
   hooks: {
+    prePackage: async () => {
+      // Fix native module symlink issues: Copy actual files to node_modules
+      // This ensures Electron Forge can properly unpack the native modules
+      const fs = require('fs');
+      const path = require('path');
+      const { execSync } = require('child_process');
+      
+      const modulesToFix = ['better-sqlite3', 'bindings', 'file-uri-to-path'];
+      
+      for (const moduleName of modulesToFix) {
+        const modulePath = path.join(__dirname, 'node_modules', moduleName);
+        try {
+          if (fs.existsSync(modulePath)) {
+            const stats = fs.lstatSync(modulePath);
+            if (stats.isSymbolicLink()) {
+              console.log(`📦 Fixing ${moduleName} symlink before packaging...`);
+              const targetPath = fs.readlinkSync(modulePath);
+              const actualPath = path.isAbsolute(targetPath) 
+                ? targetPath 
+                : path.resolve(path.dirname(modulePath), targetPath);
+              
+              if (fs.existsSync(actualPath)) {
+                // Remove symlink
+                fs.unlinkSync(modulePath);
+                
+                // Copy actual directory using cp -R
+                execSync(`cp -R "${actualPath}/." "${modulePath}"`, { stdio: 'pipe' });
+                console.log(`✅ ${moduleName} symlink replaced with actual files`);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ Could not fix ${moduleName} symlink: ${e}`);
+        }
+      }
+    },
     preMake: async () => {
       // Unmount any existing Applaa DMG volumes to prevent permission errors
       if (process.platform === 'darwin') {

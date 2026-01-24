@@ -12,12 +12,13 @@ import git from "isomorphic-git";
 import { perfMonitor, startPerf, endPerf } from "../utils/performance_monitor";
 import { getBackgroundTaskManager } from "./background_task_manager";
 import { ExpoTemplateCreator } from "./expo_template_creator";
-import { healAppCode } from "../utils/code_healer";
+// import { healAppCode } from "../utils/code_healer"; // Module removed in new implementation
 import { execAsync } from "../utils/runShellCommand";
 import * as path from 'path';
 import { unifiedInstallDependencies } from "./unified_dependency_manager";
 import { getSupabaseAuth } from "../../lib/supabase";
 import { readSettings } from "../../main/settings";
+import { createRobloxProjectTemplate } from "./roblox_template_creator";
 
 const logger = log.scope("parallel_app_creation");
 
@@ -26,13 +27,14 @@ interface ParallelAppCreationParams {
   displayName?: string;
   packageId?: string;
   slug?: string;
-  appType: 'web' | 'mobile' | 'godot' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'roblox';
-  framework: 'web' | 'expo' | 'flutter' | 'minecraft-makecode' | 'blockly' | 'makecode-arcade' | 'microbit' | 'roblox-lua';
+  appType: 'web' | 'mobile' | 'godot' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'roblox' | 'python';
+  framework: 'web' | 'expo' | 'flutter' | 'minecraft-makecode' | 'blockly' | 'makecode-arcade' | 'microbit' | 'roblox-lua' | 'python';
   prompt?: string;
   attachments?: any[];
   template?: string;
   features?: string[];
   templateId?: string;
+  initialPrompt?: string;
 }
 
 interface ParallelAppCreationResult {
@@ -47,8 +49,29 @@ interface ParallelAppCreationResult {
 const taskManager = getBackgroundTaskManager();
 
 async function ensureAuthLimitForAppCreation(): Promise<void> {
+  console.log('🔍 [ensureAuthLimitForAppCreation] Starting app creation permission check...');
+
+  // Check tier-based app limits first (use async version to get latest tier)
+  const { canCreateAppAsync } = await import("../utils/feature_checks");
+  const appLimitCheck = await canCreateAppAsync();
+
+  console.log('🔍 [ensureAuthLimitForAppCreation] App limit check result:', appLimitCheck);
+
+  if (!appLimitCheck.allowed) {
+    console.log('❌ [ensureAuthLimitForAppCreation] App creation blocked:', appLimitCheck.reason);
+    throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
+  }
+
+  console.log('✅ [ensureAuthLimitForAppCreation] Tier-based check passed');
+
+  // Legacy auth check (keep for backwards compatibility)
   const FREE_UNAUTH_LIMIT = 3;
   const { count } = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
+
+  console.log('🔍 [ensureAuthLimitForAppCreation] Legacy auth check:', {
+    existingApps: count,
+    unauthLimit: FREE_UNAUTH_LIMIT
+  });
 
   // Check both Supabase and WordPress authentication
   let isAuthenticated = false;
@@ -58,8 +81,10 @@ async function ensureAuthLimitForAppCreation(): Promise<void> {
     const auth = getSupabaseAuth();
     const session = await auth.getCurrentSession();
     isAuthenticated = !!session;
+    console.log('🔍 [ensureAuthLimitForAppCreation] Supabase auth check:', { isAuthenticated, hasSession: !!session });
   } catch (error) {
     // Supabase auth not available, continue to check WordPress
+    console.log('⚠️ [ensureAuthLimitForAppCreation] Supabase auth check failed:', error);
     logger.debug("Supabase auth check failed, checking WordPress auth...");
   }
 
@@ -69,25 +94,33 @@ async function ensureAuthLimitForAppCreation(): Promise<void> {
       const settings = readSettings();
       const wordpressAuth = settings.wordpressAuth;
       isAuthenticated = !!(wordpressAuth?.isAuthenticated && wordpressAuth?.user?.username);
+      console.log('🔍 [ensureAuthLimitForAppCreation] WordPress auth check:', {
+        isAuthenticated,
+        hasWordPressAuth: !!wordpressAuth?.isAuthenticated
+      });
       if (isAuthenticated) {
         logger.debug("WordPress authentication found for app creation");
       }
     } catch (error) {
+      console.log(' [ensureAuthLimitForAppCreation] WordPress auth check failed:', error);
       logger.debug("WordPress auth check failed:", error);
     }
   }
 
   // If still not authenticated and at limit, throw error
   if (!isAuthenticated && count >= FREE_UNAUTH_LIMIT) {
-    throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
+    console.log(' [ensureAuthLimitForAppCreation] Unauthenticated user at limit');
+    throw new Error("AUTH_REQUIRED_APP_LIMIT");
   }
+
+  console.log('✅ [ensureAuthLimitForAppCreation] All checks passed, app creation allowed');
 }
 
 /**
  * 🔧 Generate a unique app name by appending numbers
  * Checks both filesystem and database to ensure uniqueness
  */
-async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' = 'web'): Promise<string> {
+async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'roblox' | 'python' = 'web'): Promise<string> {
   // Helper to check if a name is available (both filesystem and database)
   const isNameAvailable = async (name: string): Promise<boolean> => {
     // Check filesystem
@@ -164,7 +197,7 @@ export function registerParallelAppCreationHandlers() {
       await ensureWorkspaceInitialized();
       const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot' ||
         params.appType === 'minecraft' || params.appType === 'blockly' ||
-        params.appType === 'arcade' || params.appType === 'microbit')
+        params.appType === 'arcade' || params.appType === 'microbit' || params.appType === 'roblox' || params.appType === 'python')
         ? params.appType
         : (params.framework === 'expo' || params.framework === 'flutter')
           ? 'mobile'
@@ -172,7 +205,8 @@ export function registerParallelAppCreationHandlers() {
             : params.framework === 'blockly' ? 'blockly'
               : params.framework === 'makecode-arcade' ? 'arcade'
                 : params.framework === 'microbit' ? 'microbit'
-                  : 'web';
+                  : params.framework === 'python' ? 'python'
+                    : 'web';
 
       // Check if app name already exists (filesystem or database)
       let finalAppName = params.name;
@@ -183,7 +217,9 @@ export function registerParallelAppCreationHandlers() {
             appType === 'minecraft' ? 'minecraft' :
               appType === 'blockly' ? 'blockly' :
                 appType === 'arcade' ? 'arcade' :
-                  appType === 'microbit' ? 'microbit' : 'web'
+                  appType === 'microbit' ? 'microbit' :
+                    appType === 'roblox' ? 'roblox' :
+                      appType === 'python' ? 'python' : 'web'
       );
       let fullAppPath = getDyadAppPath(appRelPath);
       const existingAppInDb = await db.query.apps.findFirst({
@@ -210,7 +246,9 @@ export function registerParallelAppCreationHandlers() {
               appType === 'minecraft' ? 'minecraft' :
                 appType === 'blockly' ? 'blockly' :
                   appType === 'arcade' ? 'arcade' :
-                    appType === 'microbit' ? 'microbit' : 'web'
+                    appType === 'microbit' ? 'microbit' :
+                      appType === 'roblox' ? 'roblox' :
+                        appType === 'python' ? 'python' : 'web'
         );
         fullAppPath = getDyadAppPath(appRelPath);
 
@@ -444,9 +482,9 @@ async function createAppBackgroundTasks(
         where: eq(apps.id, appId),
       });
 
-      if (app && app.prompt) {
+      if (app && (app as any).prompt) {
         logger.info(`🎨 Auto-generating assets for app: ${app.name}`);
-        await ipcClient.autoGenerateAppAssets(app.prompt, appId);
+        await ipcClient.autoGenerateAppAssets((app as any).prompt, appId);
         logger.info(`✅ Auto-generated assets for app ${appId}`);
       }
     } catch (error) {
@@ -528,17 +566,28 @@ renderer/rendering_method="forward_plus"
       logger.info(`   Description: ${gameSpec.game?.description || 'N/A'}`);
       logger.info(`   Type: ${gameSpec.game?.type || 'N/A'}`);
     } catch (specError: any) {
-      logger.warn('Failed to generate game spec from prompt, using default:', specError?.message || specError);
-      // Continue with null spec - will use default test game
+      logger.warn('Failed to generate game spec from prompt (likely API Key issue), using default:', specError?.message || specError);
+
+      // Attempt to notify the user via the chat (if possible) or just log it prominently
+      // We can't easily push to chat here as we don't have the webContents, but we can update the app status or name
+      // For now, we'll append a warning to the description if we write one
+
+      // Still continue with null spec to ensure *something* is created, but log error
     }
   } else {
     logger.info('No prompt provided, will use default test game');
   }
 
   // Save game spec (or empty if generation failed)
+  const specToSave = gameSpec || {
+    error: "Failed to generate game spec",
+    note: "Please check your API Key settings. The AI could not generate the game structure.",
+    default: true
+  };
+
   fs.writeFileSync(
     path.join(projectPath, 'game_spec.json'),
-    JSON.stringify(gameSpec || {}, null, 2)
+    JSON.stringify(specToSave, null, 2)
   );
 
   // If we have a valid spec, build the actual Godot project from it
@@ -864,99 +913,7 @@ A Minecraft Bedrock Behavior Pack created with Applaa.
   logger.info(`✅ Minecraft Bedrock template created at ${fullAppPath}`);
 }
 
-/**
- * Create a Roblox project template with Lua scripts
- */
-async function createRobloxProjectTemplate(fullAppPath: string, params: ParallelAppCreationParams) {
-  logger.info(`🏗️ Creating Roblox project template at ${fullAppPath}`);
-
-  // Create the app directory
-  fs.mkdirSync(fullAppPath, { recursive: true });
-
-  // Create standard Roblox folder structure
-  const serverPath = path.join(fullAppPath, 'src', 'ServerScriptService');
-  const clientPath = path.join(fullAppPath, 'src', 'StarterPlayer', 'StarterPlayerScripts');
-  const sharedPath = path.join(fullAppPath, 'src', 'ReplicatedStorage');
-
-  fs.mkdirSync(serverPath, { recursive: true });
-  fs.mkdirSync(clientPath, { recursive: true });
-  fs.mkdirSync(sharedPath, { recursive: true });
-
-  // 1. Generate Project Config (simple structure for now)
-
-  // 2. Create Default Scripts
-  let serverScriptCode = `print("Hello from Applaa Server!")
-
--- This script runs on the server
--- Use it for game logic, data saving, and secure operations
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local config = require(ReplicatedStorage:WaitForChild("config"))
-
-print("Loaded config for: " .. config.APP_NAME)
-`;
-
-  let clientScriptCode = `print("Hello from Applaa Client!")
-
--- This script runs on the client (player's device)
--- Use it for UI, input handling, and visual effects
-
-local Players = game:GetService("Players")
-local localPlayer = Players.LocalPlayer
-
-print("Welcome, " .. localPlayer.Name)
-`;
-
-  // Check if templateId is provided
-  const templateId = (params as any).templateId;
-  if (templateId) {
-    // TODO: Implement Roblox template loader logic here in Phase 2
-    logger.info(`📋 Using pre-built Roblox template: ${templateId}`);
-  }
-
-  // Write the scripts
-  fs.writeFileSync(path.join(serverPath, 'main.server.lua'), serverScriptCode);
-  fs.writeFileSync(path.join(clientPath, 'main.client.lua'), clientScriptCode);
-  fs.writeFileSync(path.join(sharedPath, 'config.lua'), 'return {\n  APP_NAME = "' + (params.displayName || params.name) + '"\n}');
-
-  // 3. Generate Preview Contract
-  const previewContract = {
-    type: "roblox",
-    entry: "src/ServerScriptService/main.server.lua",
-    // Default camera for preview (if we add 3D preview later)
-    camera: { x: 20, y: 20, z: 20 }
-  };
-
-  fs.writeFileSync(
-    path.join(fullAppPath, 'applaa.preview.json'),
-    JSON.stringify(previewContract, null, 2)
-  );
-
-  // 4. Create README
-  const readmeContent = `# ${params.displayName || params.name}
-
-A Roblox project created with Applaa.
-
-## Structure
-- \`src/ServerScriptService/\`: Server-side logic (main.server.lua)
-- \`src/StarterPlayer/StarterPlayerScripts/\`: Client-side logic (main.client.lua)
-- \`src/ReplicatedStorage/\`: Shared modules and data (config.lua)
-
-## How to use
-1. Open **Roblox Studio**
-2. Copy the code from the generated files into corresponding script objects in Studio
-3. Or wait for our upcoming **.rbxmx export** feature to drag-and-drop directly!
-
-## AI Assets (Coming Soon)
-- 3D Models via Meshy.ai
-- Textures via DALL-E
-- Sounds via ElevenLabs
-`;
-
-  fs.writeFileSync(path.join(fullAppPath, 'README.md'), readmeContent);
-
-  logger.info(`✅ Roblox project template created at ${fullAppPath}`);
-}
+// createRobloxProjectTemplate moved to ./roblox_template_creator.ts
 
 // Helper function to get default mcfunction content
 function getDefaultMcFunction(params: ParallelAppCreationParams): string {

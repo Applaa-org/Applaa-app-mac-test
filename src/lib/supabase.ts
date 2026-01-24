@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import log from 'electron-log';
@@ -10,41 +11,156 @@ export interface Database {
         Row: {
           id: string;
           email: string;
+          username: string | null;
           full_name: string | null;
           avatar_url: string | null;
-          subscription_tier: 'free' | 'pro';
+          subscription_tier: 'free' | 'pro' | 'ultra' | 'business';
+          stripe_customer_id: string | null;
+          trial_start: string | null;
+          trial_end: string | null;
           wordpress_user_id: number | null;
           wordpress_username: string | null;
           wordpress_display_name: string | null;
           wordpress_roles: string[] | null;
+          monthly_credits: number | null;
+          remaining_credits: number | null;
+          credits_last_reset: string | null;
+          total_credits_used: number | null;
+          total_tokens_used: number | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           email: string;
+          username?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
-          subscription_tier?: 'free' | 'pro';
+          subscription_tier?: 'free' | 'pro' | 'ultra' | 'business';
+          stripe_customer_id?: string | null;
+          trial_start?: string | null;
+          trial_end?: string | null;
           wordpress_user_id?: number | null;
           wordpress_username?: string | null;
           wordpress_display_name?: string | null;
           wordpress_roles?: string[] | null;
+          monthly_credits?: number | null;
+          remaining_credits?: number | null;
+          credits_last_reset?: string | null;
+          total_credits_used?: number | null;
+          total_tokens_used?: number | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           email?: string;
+          username?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
-          subscription_tier?: 'free' | 'pro';
+          subscription_tier?: 'free' | 'pro' | 'ultra' | 'business';
+          stripe_customer_id?: string | null;
+          trial_start?: string | null;
+          trial_end?: string | null;
           wordpress_user_id?: number | null;
           wordpress_username?: string | null;
           wordpress_display_name?: string | null;
           wordpress_roles?: string[] | null;
+          monthly_credits?: number | null;
+          remaining_credits?: number | null;
+          credits_last_reset?: string | null;
+          total_credits_used?: number | null;
+          total_tokens_used?: number | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          stripe_subscription_id: string;
+          stripe_customer_id: string;
+          status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+          plan_id: string;
+          plan_name: string;
+          current_period_start: string;
+          current_period_end: string;
+          trial_start: string | null;
+          trial_end: string | null;
+          cancel_at_period_end: boolean;
+          canceled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          stripe_subscription_id: string;
+          stripe_customer_id: string;
+          status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+          plan_id: string;
+          plan_name: string;
+          current_period_start: string;
+          current_period_end: string;
+          trial_start?: string | null;
+          trial_end?: string | null;
+          cancel_at_period_end?: boolean;
+          canceled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          stripe_subscription_id?: string;
+          stripe_customer_id?: string;
+          status?: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+          plan_id?: string;
+          plan_name?: string;
+          current_period_start?: string;
+          current_period_end?: string;
+          trial_start?: string | null;
+          trial_end?: string | null;
+          cancel_at_period_end?: boolean;
+          canceled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      credit_usage: {
+        Row: {
+          id: string;
+          user_id: string;
+          operation_type: string;
+          credits_used: number;
+          tokens_used: number | null;
+          app_id: string | null;
+          chat_id: string | null;
+          metadata: any;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          operation_type: string;
+          credits_used: number;
+          tokens_used?: number | null;
+          app_id?: string | null;
+          chat_id?: string | null;
+          metadata?: any;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          operation_type?: string;
+          credits_used?: number;
+          tokens_used?: number | null;
+          app_id?: string | null;
+          chat_id?: string | null;
+          metadata?: any;
+          created_at?: string;
         };
       };
       user_apps: {
@@ -256,6 +372,50 @@ export interface Database {
           updated_at?: string;
         };
       };
+      web_apps: {
+        Row: {
+          id: string;
+          name: string;
+          details: string;
+          category: string;
+          preview_url: string | null;
+          image_url: string | null;
+          emoji: string | null;
+          app_type: 'web' | 'expo' | 'flutter' | 'godot';
+          is_default: boolean;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          details: string;
+          category: string;
+          preview_url?: string | null;
+          image_url?: string | null;
+          emoji?: string | null;
+          app_type?: 'web' | 'expo' | 'flutter' | 'godot';
+          is_default?: boolean;
+          display_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          details?: string;
+          category?: string;
+          preview_url?: string | null;
+          image_url?: string | null;
+          emoji?: string | null;
+          app_type?: 'web' | 'expo' | 'flutter' | 'godot';
+          is_default?: boolean;
+          display_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       sqlite_backups: {
         Row: {
           id: string;
@@ -284,7 +444,7 @@ export interface Database {
 }
 
 // Singleton Supabase client
-let supabaseClient: SupabaseClient<Database> | null = null;
+let supabaseClient: SupabaseClient<any> | null = null;
 
 export interface SupabaseConfig {
   url: string;
@@ -292,13 +452,13 @@ export interface SupabaseConfig {
   serviceRoleKey?: string;
 }
 
-export function initializeSupabase(config: SupabaseConfig): SupabaseClient<Database> {
+export function initializeSupabase(config: SupabaseConfig): SupabaseClient<any> {
   if (supabaseClient) {
     return supabaseClient;
   }
 
   try {
-    supabaseClient = createClient<Database>(config.url, config.anonKey, {
+    supabaseClient = createClient<any>(config.url, config.anonKey, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
@@ -319,7 +479,7 @@ export function initializeSupabase(config: SupabaseConfig): SupabaseClient<Datab
   }
 }
 
-export function getSupabaseClient(): SupabaseClient<Database> {
+export function getSupabaseClient(): SupabaseClient<any> {
   if (!supabaseClient) {
     throw new Error('Supabase client not initialized. Call initializeSupabase() first.');
   }
@@ -328,9 +488,9 @@ export function getSupabaseClient(): SupabaseClient<Database> {
 
 // Auth helper functions
 export class SupabaseAuth {
-  private client: SupabaseClient<Database>;
+  private client: SupabaseClient<any>;
 
-  constructor(client: SupabaseClient<Database>) {
+  constructor(client: SupabaseClient<any>) {
     this.client = client;
   }
 
@@ -373,6 +533,35 @@ export class SupabaseAuth {
       return { user: data.user, session: data.session };
     } catch (error) {
       log.error('Sign in error:', error);
+      throw error;
+    }
+  }
+
+  // Sign in with username or email - looks up username in profiles table to get email
+  async signInWithUsernameOrEmail(identifier: string, password: string) {
+    try {
+      // Check if identifier looks like an email
+      if (identifier.includes('@')) {
+        // It's an email, sign in directly
+        return await this.signIn(identifier, password);
+      }
+
+      // It's a username - look it up in profiles table
+      const profile = await this.getProfileByEmailOrUsername(identifier);
+
+      if (!profile || !profile.email) {
+        throw new Error('User not found. Please check your username or email.');
+      }
+
+      // Use the email from profile to sign in
+      log.info('Username found in profile, using associated email for sign-in:', {
+        username: identifier,
+        email: profile.email,
+      });
+
+      return await this.signIn(profile.email, password);
+    } catch (error) {
+      log.error('Sign in with username/email error:', error);
       throw error;
     }
   }
@@ -662,6 +851,97 @@ export class SupabaseAuth {
       return data;
     } catch (error) {
       log.error('Get profile by email error:', error);
+      throw error;
+    }
+  }
+
+  // Get user profile by email or username (WordPress username)
+  async getProfileByEmailOrUsername(emailOrUsername: string) {
+    try {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!serviceRoleKey) {
+        throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
+      }
+
+      const supabaseUrl = process.env.SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('SUPABASE_URL not configured');
+      }
+
+      const adminClient = createClient<Database>(
+        supabaseUrl,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
+
+      // Try to find by email first
+      const { data: profileByEmail, error: emailError } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('email', emailOrUsername)
+        .maybeSingle();
+
+      if (profileByEmail && !emailError) {
+        console.log('✅ [getProfileByEmailOrUsername] Found profile by email:', {
+          identifier: emailOrUsername,
+          profileId: profileByEmail.id,
+          profileEmail: profileByEmail.email,
+          profileFullName: profileByEmail.full_name,
+          wordpressUsername: profileByEmail.wordpress_username,
+        });
+        return profileByEmail;
+      }
+
+      // If not found by email, try to find by WordPress username
+      const { data: profileByUsername, error: usernameError } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('wordpress_username', emailOrUsername)
+        .maybeSingle();
+
+      if (profileByUsername && !usernameError) {
+        console.log('✅ [getProfileByEmailOrUsername] Found profile by WordPress username:', {
+          identifier: emailOrUsername,
+          profileId: profileByUsername.id,
+          profileEmail: profileByUsername.email,
+          profileFullName: profileByUsername.full_name,
+          wordpressUsername: profileByUsername.wordpress_username,
+        });
+        return profileByUsername;
+      }
+
+      // Also try to find by full_name (display_name) - sometimes WordPress display_name matches the username in database
+      const { data: profileByDisplayName, error: displayNameError } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('full_name', emailOrUsername)
+        .maybeSingle();
+
+      if (profileByDisplayName && !displayNameError) {
+        console.log('✅ [getProfileByEmailOrUsername] Found profile by full_name (display_name):', {
+          identifier: emailOrUsername,
+          profileId: profileByDisplayName.id,
+          profileEmail: profileByDisplayName.email,
+          profileFullName: profileByDisplayName.full_name,
+          wordpressUsername: profileByDisplayName.wordpress_username,
+        });
+        return profileByDisplayName;
+      }
+
+      // Not found by either
+      console.log('❌ [getProfileByEmailOrUsername] Profile not found:', {
+        identifier: emailOrUsername,
+        triedEmail: !emailError && !profileByEmail,
+        triedUsername: !usernameError && !profileByUsername,
+      });
+      return null;
+    } catch (error) {
+      log.error('Get profile by email or username error:', error);
       throw error;
     }
   }
@@ -1047,3 +1327,25 @@ export async function syncWordPressUserToSupabase(wordpressUser: {
   }
 }
 
+
+// Helper to check if user is authenticated (checks both Supabase and WordPress)
+export async function isUserAuthenticated(): Promise<boolean> {
+  try {
+    // Check Supabase session
+    const auth = getSupabaseAuth();
+    const session = await auth.getCurrentSession();
+    if (session) return true;
+
+    // Check WordPress auth
+    const { readSettings } = await import("../main/settings");
+    const settings = readSettings();
+    if (settings.wordpressAuth?.isAuthenticated && settings.wordpressAuth?.user?.username) {
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    log.error('Error checking authentication status:', error);
+    return false;
+  }
+}

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Globe, Smartphone, Gamepad2, ChevronDown, ChevronUp, ArrowRight, Image as ImageIcon } from 'lucide-react';
 import { IpcClient } from '@/ipc/ipc_client';
+import { useSettings } from '@/hooks/useSettings';
 
 interface DeployedApp {
   id: string;
@@ -30,11 +31,23 @@ interface YourDeployedAppsProps {
 
 export function YourDeployedApps({ className = '', maxApps = 3, filterByAppType = null }: YourDeployedAppsProps) {
   const navigate = useNavigate();
+  const { settings, updateSettings } = useSettings();
   const [selectedAppUrl, setSelectedAppUrl] = useState<string | null>(null);
   const [isAppModalOpen, setIsAppModalOpen] = useState(false);
   const [apps, setApps] = useState<DeployedApp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(true);
+  
+  // Initialize from settings, default to true if not set
+  const [isExpanded, setIsExpanded] = useState(
+    settings?.deployedAppsSectionExpanded ?? true
+  );
+
+  // Load saved state when settings are available
+  useEffect(() => {
+    if (settings?.deployedAppsSectionExpanded !== undefined) {
+      setIsExpanded(settings.deployedAppsSectionExpanded);
+    }
+  }, [settings?.deployedAppsSectionExpanded]);
 
   useEffect(() => {
     const fetchApps = async () => {
@@ -94,6 +107,21 @@ export function YourDeployedApps({ className = '', maxApps = 3, filterByAppType 
 
     fetchApps();
   }, [maxApps, filterByAppType]);
+
+  // Handle toggle and save state
+  const handleToggleExpanded = async () => {
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    
+    // Save to settings
+    try {
+      await updateSettings({ deployedAppsSectionExpanded: newExpanded });
+    } catch (error) {
+      console.error('Failed to save deployed apps section state:', error);
+      // Revert on error
+      setIsExpanded(isExpanded);
+    }
+  };
 
   const handleLoadApp = (url: string) => {
     setSelectedAppUrl(url);
@@ -245,7 +273,7 @@ export function YourDeployedApps({ className = '', maxApps = 3, filterByAppType 
               </p>
             </div>
             <button
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={handleToggleExpanded}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200 hover:scale-105"
               aria-label={isExpanded ? "Hide deployed apps" : "Show deployed apps"}
             >

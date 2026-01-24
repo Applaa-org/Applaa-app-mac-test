@@ -87,7 +87,7 @@ export function PlatformFeaturesPanel({
             platform: {
                 ...features.platform,
                 [feature]: {
-                    ...((features.platform as any)?.[feature] || {}),
+                    ...(features.platform as any)?.[feature],
                     ...updates,
                 },
             },

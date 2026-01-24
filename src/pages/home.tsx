@@ -237,8 +237,7 @@ ${extraDbText}`;
       const promptLower = finalPrompt.toLowerCase();
       const isMinecraftPrompt = ['minecraft', 'mod', 'creeper', 'zombie', 'spawn', 'blocks', 'craft', 'mine', 'agent'].some(keyword => promptLower.includes(keyword));
 
-      // Determine appType from explicit selection, settings, OR auto-detect
-      type AppType = 'web' | 'mobile' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'godot' | 'roblox';
+      type AppType = 'web' | 'mobile' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'godot' | 'roblox' | 'python';
       let appType: AppType;
 
       if (pendingAppType) {
@@ -257,7 +256,8 @@ ${extraDbText}`;
                 settings?.selectedPlatform === 'microbit' ? 'microbit' :
                   settings?.selectedPlatform === 'godot' ? 'godot' :
                     settings?.selectedPlatform === 'roblox' ? 'roblox' :
-                      'web';
+                      settings?.selectedPlatform === 'python' ? 'python' :
+                        'web';
       }
 
       const framework = settings?.selectedPlatform === 'expo' ? 'expo' :
@@ -413,12 +413,19 @@ ${extraDbText}`;
   // Loading overlay for app creation
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center max-w-3xl m-auto p-8">
+      <div className="flex flex-col items-center justify-center max-w-3xl m-auto p-8 relative">
         <CombinedAuthDialog
           open={showAuthDialog}
           onOpenChange={handleAuthDialogOpenChange}
           forceOpen={forceAuthDialog}
         />
+
+        {/* Top Right Building Status Message */}
+        <div className="fixed top-4 right-4 z-50 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
+          <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
+          <span className="text-sm font-medium">App building in progress</span>
+        </div>
+
         <div className="w-full flex flex-col items-center">
           {/* Loading Spinner */}
           <div className="relative w-24 h-24 mb-8">

@@ -179,6 +179,13 @@ export const ReleaseChannelSchema = z.enum(["stable", "beta"]);
 export type ReleaseChannel = z.infer<typeof ReleaseChannelSchema>;
 
 /**
+ * User subscription tiers - sourced from Supabase database
+ * This is a standalone type (not Zod schema) since tiers are managed in the database,
+ * not in local settings
+ */
+export type UserTier = "free" | "pro" | "ultra" | "business";
+
+/**
  * Zod schema for user settings
  */
 export const UserSettingsSchema = z.object({
@@ -197,6 +204,7 @@ export const UserSettingsSchema = z.object({
   analyticsConsent: z.enum(["granted", "denied", "unset"]).optional(), // For analytics consent
   hasRunBefore: z.boolean().optional(),
   enableApplaaPro: z.boolean().optional(),
+  // userTier removed - now fetched directly from Supabase database, not stored in local settings
   experiments: ExperimentsSchema.optional(),
   lastShownReleaseNotesVersion: z.string().optional(),
   maxChatTurnsInContext: z.number().optional(),
@@ -207,7 +215,7 @@ export const UserSettingsSchema = z.object({
   enableSparkEditsMode: z.boolean().optional(),
   enableSparkContextMode: z.boolean().optional(),
   selectedTemplateId: z.string(),
-  selectedPlatform: z.enum(["web", "expo", "flutter", "godot", "arcade", "microbit", "minecraft"]).optional(),
+  selectedPlatform: z.enum(["web", "expo", "flutter", "godot", "arcade", "microbit", "minecraft", "blockly", "roblox", "python"]).optional(),
   customAppsDirectory: z.string().optional(),
   enableSupabaseWriteSqlMigration: z.boolean().optional(),
   selectedChatMode: ChatModeSchema.optional(),
@@ -247,6 +255,9 @@ export const UserSettingsSchema = z.object({
   // Game Window Settings
   enableGameWindowDuringStream: z.boolean().optional(),
 
+  // UI State Settings
+  deployedAppsSectionExpanded: z.boolean().optional(),
+
   // WordPress Authentication Settings
   wordpressAuth: z.object({
     isAuthenticated: z.boolean(),
@@ -257,7 +268,24 @@ export const UserSettingsSchema = z.object({
       display_name: z.string(),
       roles: z.array(z.string()),
       avatar_url: z.string().optional(),
-      capabilities: z.array(z.string()),
+      // ✅ FIX: WordPress sends capabilities as an object with string values (e.g. {"read": "1"})
+      // Accept both array and object formats for compatibility
+      capabilities: z.union([
+        z.array(z.string()),
+        z.record(z.union([z.boolean(), z.string(), z.number()]))
+      ]).transform((val) => {
+        // If it's already an array, keep it
+        if (Array.isArray(val)) return val;
+        // If it's an object, convert to array of keys where value is truthy
+        return Object.keys(val).filter(key => {
+          const value = val[key];
+          // Handle various truthy formats: true, "1", 1, non-empty strings
+          if (typeof value === 'boolean') return value;
+          if (typeof value === 'number') return value !== 0;
+          if (typeof value === 'string') return value !== '' && value !== '0' && value !== 'false';
+          return false;
+        });
+      }),
     }).optional(),
     token: z.string().optional(),
     lastLogin: z.string().optional(),

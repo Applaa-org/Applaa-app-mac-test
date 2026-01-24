@@ -44,7 +44,7 @@ export function IntegrationsPanel({
             integrations: {
                 ...features.integrations,
                 [integration]: {
-                    ...((features.integrations as any)?.[integration] || {}),
+                    ...(features.integrations as any)?.[integration],
                     ...updates,
                 },
             },

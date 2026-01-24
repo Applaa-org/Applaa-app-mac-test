@@ -12,6 +12,8 @@ import { promptToProjectRoute } from "./routes/create-with-prompt";
 import { blocklyRoute } from "./routes/blockly";
 import { browserAgentRoute } from "./routes/browser-agent";
 import { minecraftHubRoute } from "./routes/minecraft-hub";
+import { automationRoute } from "./routes/automation";
+import { profileRoute } from "./routes/profile";
 
 
 const routeTree = rootRoute.addChildren([
@@ -26,6 +28,8 @@ const routeTree = rootRoute.addChildren([
   appDetailsRoute,
   settingsRoute.addChildren([providerSettingsRoute]),
   docsRoute,
+  automationRoute,
+  profileRoute,
 ]);
 
 

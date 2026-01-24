@@ -303,6 +303,15 @@ const MINECRAFT_ESSENTIAL_DEPS = [
   'minecraft-protocol'
 ];
 
+/**
+ * 🧱 ROBLOX ESSENTIALS: Dependencies for Roblox Asset Generation
+ */
+const ROBLOX_ESSENTIAL_DEPS = [
+  'node-fetch',
+  'adm-zip',
+  'uuid'
+];
+
 // AI model caching removed for MVP
 
 /**
@@ -731,6 +740,52 @@ export async function ensureMinecraftDependencies(projectPath: string): Promise<
 
   } catch (error) {
     logger.error("Failed to ensure Minecraft dependencies:", error);
+    return false;
+  }
+}
+
+/**
+ * 🧱 ROBLOX COMPATIBILITY: Ensure Roblox asset generation dependencies are ready
+ */
+export async function ensureRobloxDependencies(projectPath: string): Promise<boolean> {
+  try {
+    const packageJsonPath = path.join(projectPath, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      return false;
+    }
+
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+
+    const missingDeps = ROBLOX_ESSENTIAL_DEPS.filter(dep => !deps[dep]);
+
+    if (missingDeps.length === 0) {
+      logger.info("✅ All essential Roblox dependencies are present");
+      return true;
+    }
+
+    logger.info(`📦 Installing missing Roblox dependencies: ${missingDeps.join(', ')}`);
+
+    // Install missing dependencies
+    const child = await runPackageManagerCommand("add", missingDeps, projectPath, {
+      stdio: "pipe"
+    });
+
+    return new Promise<boolean>((resolve) => {
+      child.on("close", (code: number) => {
+        if (code === 0) {
+          logger.info(`✅ Installed Roblox dependencies`);
+          resolve(true);
+        } else {
+          logger.error(`❌ Failed to install Roblox dependencies`);
+          resolve(false);
+        }
+      });
+      child.on("error", () => resolve(false));
+    });
+
+  } catch (error) {
+    logger.error("Failed to ensure Roblox dependencies:", error);
     return false;
   }
 }

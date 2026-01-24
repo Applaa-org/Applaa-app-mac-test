@@ -15,6 +15,7 @@ export interface VisualEditingElement {
   selector?: string;
   file?: string;
   line?: number;
+  textContent?: string;
 }
 
 export interface VisualEditingChange {

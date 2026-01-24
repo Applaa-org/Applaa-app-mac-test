@@ -24,6 +24,11 @@ export function registerSettingsHandlers() {
   ipcMain.handle(
     "set-user-settings",
     async (_, settings: Partial<UserSettings>) => {
+      console.log('🔧 [IPC] set-user-settings called with:', { 
+        hasSelectedModel: !!settings.selectedModel,
+        modelProvider: settings.selectedModel?.provider,
+        modelName: settings.selectedModel?.name  
+      });
       writeSettings(settings);
       const updatedSettings = readSettings();
 
@@ -35,6 +40,11 @@ export function registerSettingsHandlers() {
         console.error('Failed to re-initialize asset generation service:', error);
       }
 
+      console.log(' [IPC] Returning updated settings:', { 
+        hasSelectedModel: !!updatedSettings.selectedModel,
+        modelProvider: updatedSettings.selectedModel?.provider,
+        modelName: updatedSettings.selectedModel?.name
+      });
       return updatedSettings;
     },
   );

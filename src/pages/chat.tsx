@@ -205,6 +205,30 @@ export default function ChatPage() {
   const ref = useRef<ImperativePanelHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
 
+  // 🚀 BLOCKLAA EXCLUSIVE: Full Screen "Builder" Mode
+  // Completely bypass the Chat/AI interface for Blocklaa to emphasize manual learning/building.
+  const isBlocklaaApp = app?.appType === 'blockly';
+
+  if (isBlocklaaApp) {
+    return (
+      <div className="h-full w-full bg-background">
+        <PreviewPanel
+          isLeftPanelOpen={false}
+          onToggleLeftPanel={() => { }} // No-op, no panel to toggle
+          isBlocklaaMode={true} // New prop to signal simplified UI
+        />
+
+        {/* Preview Ready Popup - Keep for consistency if needed */}
+        <PreviewReadyPopup
+          isOpen={showPreviewReadyPopup}
+          onClose={() => setShowPreviewReadyPopup(false)}
+          appName={app?.name}
+          previewType={previewType}
+        />
+      </div>
+    );
+  }
+
   return (
     <PanelGroup autoSaveId="persistence" direction="horizontal">
       <Panel

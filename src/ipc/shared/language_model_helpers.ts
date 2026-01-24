@@ -117,8 +117,28 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       temperature: 0,
       tag: "Stable",
     },
+    // https://ai.google.dev/gemini-api/docs/models/gemini
+    {
+      name: "gemini-3-flash-preview",
+      displayName: "Gemini 3 Flash",
+      description: "Google's Gemini 3 Flash model (Preview) - faster, lower-cost iterations",
+      maxOutputTokens: 65_536 - 1,
+      // Gemini context window = input token + output token
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Preview",
+    },
   ],
   "google-vertex": [
+    {
+      name: "gemini-3-flash-preview",
+      displayName: "Gemini 3 Flash (Vertex)",
+      description: "Google Vertex AI Gemini 3 Flash model (Preview)",
+      maxOutputTokens: 65_536 - 1,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Preview",
+    },
     {
       name: "gemini-1.5-pro",
       displayName: "Gemini 1.5 Pro (Vertex)",

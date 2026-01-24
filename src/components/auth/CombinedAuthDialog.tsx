@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff, Lock, Mail, User, CheckCircle, AlertCircle, Chrome, LogIn, UserPlus } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
@@ -22,6 +22,7 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
   onOpenChange,
   forceOpen = false,
 }) => {
+  const queryClient = useQueryClient();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -77,16 +78,28 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
     const { emailOrUsername, password } = signInForm;
 
     try {
-      // Try Supabase first (uses email)
-      if (supabaseConfig?.isConfigured && emailOrUsername.includes('@')) {
+      // ✅ FIX: Try Supabase first (supports both email and username)
+      if (supabaseConfig?.isConfigured) {
         try {
-          await supabaseSignIn({
-            email: emailOrUsername,
+          // Use new method that supports both username and email
+          const ipcClient = IpcClient.getInstance();
+          const result = await ipcClient.supabaseSignInWithUsernameOrEmail({
+            identifier: emailOrUsername,
             password: password,
           });
-          toast.success('Signed in successfully');
-          onOpenChange(false);
-          return;
+          
+          if (result.success) {
+            // ✅ FIX: Invalidate auth queries to refresh UI immediately
+            await queryClient.invalidateQueries({ queryKey: ['auth', 'status'] });
+            await queryClient.invalidateQueries({ queryKey: ['wordpress', 'auth', 'status'] });
+            await queryClient.invalidateQueries({ queryKey: ['profile'] });
+            
+            toast.success('Signed in successfully');
+            onOpenChange(false);
+            return;
+          } else {
+            throw new Error(result.error || 'Sign in failed');
+          }
         } catch (supabaseError: any) {
           // If Supabase fails, try WordPress
           console.log('Supabase sign in failed, trying WordPress:', supabaseError.message);
@@ -98,9 +111,15 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
         await wpLogin({
           username: emailOrUsername,
           password: password,
-      });
+        });
+        
+        // ✅ FIX: Invalidate auth queries to refresh UI immediately
+        await queryClient.invalidateQueries({ queryKey: ['auth', 'status'] });
+        await queryClient.invalidateQueries({ queryKey: ['wordpress', 'auth', 'status'] });
+        await queryClient.invalidateQueries({ queryKey: ['profile'] });
+        
         toast.success('Signed in successfully');
-      onOpenChange(false);
+        onOpenChange(false);
       } catch (wpError: any) {
         // Both failed
         const errorMessage = wpError?.message || 'Invalid credentials. Please check your email/username and password.';
@@ -146,6 +165,8 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
           email: email,
           password: password,
           fullName: fullName,
+          firstName: finalFirstName,
+          lastName: finalLastName,
         });
         supabaseSuccess = true;
         console.log('✅ Supabase sign up successful');
@@ -206,6 +227,11 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
             password: password,
           });
         }
+        
+        // ✅ FIX: Invalidate auth queries to refresh UI immediately after auto-login
+        await queryClient.invalidateQueries({ queryKey: ['auth', 'status'] });
+        await queryClient.invalidateQueries({ queryKey: ['wordpress', 'auth', 'status'] });
+        await queryClient.invalidateQueries({ queryKey: ['profile'] });
       } catch (loginError) {
         console.log('Auto-login failed, but account was created:', loginError);
       }
@@ -346,6 +372,12 @@ export const CombinedAuthDialog: React.FC<CombinedAuthDialogProps> = ({
                 onClick={async () => {
                   try {
                     await signInWithGoogle();
+                    
+                    // ✅ FIX: Invalidate auth queries to refresh UI immediately
+                    await queryClient.invalidateQueries({ queryKey: ['auth', 'status'] });
+                    await queryClient.invalidateQueries({ queryKey: ['wordpress', 'auth', 'status'] });
+                    await queryClient.invalidateQueries({ queryKey: ['profile'] });
+                    
                     onOpenChange(false);
                   } catch (error) {
                     // handled by hook

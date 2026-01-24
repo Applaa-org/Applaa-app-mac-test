@@ -11,7 +11,7 @@ import { ThinkingBudgetSelector } from "@/components/ThinkingBudgetSelector";
 import { useSettings } from "@/hooks/useSettings";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
 import { useRouter, Outlet, useLocation } from "@tanstack/react-router";
 import { GitHubIntegration } from "@/components/GitHubIntegration";
 import { VercelIntegration } from "@/components/VercelIntegration";
@@ -29,6 +29,7 @@ import { NeonIntegration } from "@/components/NeonIntegration";
 import { CloudServicesSettings } from "@/components/settings/CloudServicesSettings";
 import { CacheDebugPanel } from "@/components/settings/CacheDebugPanel";
 import { PlanningModelSelector } from "@/components/PlanningModelSelector";
+
 
 // Temporary Pro Toggle for Development
 function DevProToggle() {
@@ -58,6 +59,7 @@ function DevProToggle() {
     </div>
   );
 }
+
 
 export default function SettingsPage() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -345,8 +347,7 @@ export function GeneralSettings({ appVersion }: { appVersion: string | null }) {
         </div>
 
         <CustomAppsDirectorySelector />
-
-        {/* Temporary Pro Toggle for Development */}
+{/* Temporary Pro Toggle for Development */}
         <DevProToggle />
       </div>
 

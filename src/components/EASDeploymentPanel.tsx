@@ -23,6 +23,7 @@ import { useEASStatus, useEASLogin, useEASBuild, useEASDeploy, useEASProjects } 
 import { useLoadApp } from "@/hooks/useLoadApp";
 import { IpcClient } from "@/ipc/ipc_client";
 import { LocalBuildPanel } from "@/components/LocalBuildPanel";
+import { useApplaaPro } from "@/hooks/useApplaaPro";
 import { toast } from "sonner";
 
 interface EASDeploymentPanelProps {
@@ -35,6 +36,9 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
   const [buildId, setBuildId] = useState<string | null>(null);
   const [showTokenLogin, setShowTokenLogin] = useState(false);
   const [token, setToken] = useState("");
+  
+  // Check user tier for deployment restrictions
+  const { canDeploy } = useApplaaPro();
   
   // Hooks
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useEASStatus();
@@ -141,10 +145,19 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
   };
 
   const handleDeploy = async () => {
+    if (!canDeploy) {
+      toast.error("Deployment is only available for Pro users. Please upgrade to Pro tier in Settings.");
+      return;
+    }
+    
     try {
       await deployMutation.mutateAsync({ appId });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Deploy error:", error);
+      // Check if error is about deployment not allowed
+      if (error?.message?.includes("DEPLOYMENT_NOT_ALLOWED") || error?.message?.includes("FREE_TIER")) {
+        toast.error("Deployment requires Pro tier. Upgrade in Settings to deploy your apps.");
+      }
     }
   };
 
@@ -405,9 +418,35 @@ export function EASDeploymentPanel({ appId, appName }: EASDeploymentPanelProps) 
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {!canDeploy && (
+                <Alert className="mb-4">
+                  <AlertDescription>
+                    <div className="space-y-3">
+                      <p>
+                        Deployment is only available for Pro users. Please upgrade to Pro tier to deploy your apps.
+                      </p>
+                      <Button
+                        onClick={async () => {
+                          try {
+                            await IpcClient.getInstance().redirectToSubscribe();
+                            toast.success("Opening subscription page in your browser...");
+                          } catch (error: any) {
+                            toast.error(error.message || "Failed to open subscription page");
+                          }
+                        }}
+                        variant="default"
+                        size="sm"
+                        className="w-full"
+                      >
+                        Upgrade to Pro
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
               <Button
                 onClick={handleDeploy}
-                disabled={!status?.isLoggedIn || deployMutation.isPending}
+                disabled={!canDeploy || !status?.isLoggedIn || deployMutation.isPending}
                 className="w-full"
               >
                 {deployMutation.isPending ? (

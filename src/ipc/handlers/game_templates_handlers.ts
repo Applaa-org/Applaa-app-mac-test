@@ -15,7 +15,7 @@ export interface GameTemplate {
   previewUrl?: string | null;
   imageUrl?: string | null;
   emoji?: string | null;
-  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
+  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   isDefault?: boolean;
   displayOrder?: number;
   createdAt: Date;
@@ -28,7 +28,7 @@ export interface CreateGameTemplateParams {
   previewUrl?: string;
   imageUrl?: string;
   emoji?: string;
-  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
+  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   displayOrder?: number;
 }
 
@@ -39,7 +39,7 @@ export interface UpdateGameTemplateParams {
   previewUrl?: string;
   imageUrl?: string;
   emoji?: string;
-  appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft';
+  appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   displayOrder?: number;
 }
 
@@ -65,7 +65,7 @@ export function registerGameTemplatesHandlers() {
   // List game templates by app type
   handle(
     "game-templates:list",
-    async (_, params: { appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' }): Promise<GameTemplate[]> => {
+    async (_, params: { appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python' }): Promise<GameTemplate[]> => {
       try {
         const adminClient = getSupabaseAdminClient();
         if (!adminClient) {
@@ -188,7 +188,7 @@ export function registerGameTemplatesHandlers() {
           throw new Error("Supabase not configured");
         }
 
-        const updateData: Partial<Database['public']['Tables']['game_templates']['Update']> = {};
+        const updateData: any = {};
         if (params.name !== undefined) updateData.name = params.name;
         if (params.details !== undefined) updateData.details = params.details;
         if (params.previewUrl !== undefined) updateData.preview_url = params.previewUrl || null;
@@ -201,8 +201,8 @@ export function registerGameTemplatesHandlers() {
           throw new Error("At least one field must be provided for update");
         }
 
-        const { data: template, error } = await adminClient
-          .from('game_templates')
+        const { data: template, error } = await (adminClient
+          .from('game_templates') as any)
           .update(updateData)
           .eq('id', params.id)
           .select()
@@ -210,7 +210,15 @@ export function registerGameTemplatesHandlers() {
 
         if (error) {
           logger.error("Failed to update game template:", error);
-          throw error;
+          logger.error("Error details:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          });
+          // Extract meaningful error message from Supabase error
+          const errorMessage = error.message || error.details || error.hint || `Error code: ${error.code || 'UNKNOWN'}`;
+          throw new Error(`Failed to update game template: ${errorMessage}`);
         }
 
         if (!template) {
@@ -232,7 +240,17 @@ export function registerGameTemplatesHandlers() {
         };
       } catch (error) {
         logger.error("Failed to update game template:", error);
-        throw new Error(`Failed to update game template: ${error instanceof Error ? error.message : String(error)}`);
+        // Better error message extraction with Supabase error details
+        let errorMessage = "Unknown error";
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+          const err = error as any;
+          errorMessage = err.message || err.details || err.hint || `Error code: ${err.code || 'UNKNOWN'}` || JSON.stringify(error);
+        } else {
+          errorMessage = String(error);
+        }
+        throw new Error(`Failed to update game template: ${errorMessage}`);
       }
     }
   );

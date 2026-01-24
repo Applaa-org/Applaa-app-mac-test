@@ -64,11 +64,22 @@ export function useSettings() {
   }, []); // Empty dependency array - run only once
 
   const updateSettings = async (newSettings: Partial<UserSettings>) => {
+    console.log('🔧 [useSettings] updateSettings called with:', {
+      hasSelectedModel: !!newSettings.selectedModel,
+      modelProvider: newSettings.selectedModel?.provider,
+      modelName: newSettings.selectedModel?.name
+    });
     setLoading(true);
     try {
       const ipcClient = IpcClient.getInstance();
       const updatedSettings = await ipcClient.setUserSettings(newSettings);
+      console.log('🔧 [useSettings] Received updated settings from IPC:', {
+        hasSelectedModel: !!updatedSettings.selectedModel,
+        modelProvider: updatedSettings.selectedModel?.provider,
+        modelName: updatedSettings.selectedModel?.name
+      });
       setSettingsAtom(updatedSettings);
+      console.log('🔧 [useSettings] Atom updated, should trigger re-render');
       processSettingsForTelemetry(updatedSettings);
 
       // 🚀 CACHE FIX: Invalidate all settings-related caches

@@ -46,7 +46,7 @@ export function GamificationPanel({
             gamification: {
                 ...features.gamification,
                 [feature]: {
-                    ...((features.gamification as any)?.[feature] || {}),
+                    ...(features.gamification as any)?.[feature],
                     ...updates,
                 },
             },

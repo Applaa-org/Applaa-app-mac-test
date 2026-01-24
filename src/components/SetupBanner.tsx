@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { NodeSystemInfo } from "@/ipc/ipc_types";
 import { usePostHog } from "posthog-js/react";
 import { useLanguageModelProviders } from "@/hooks/useLanguageModelProviders";
-import applaaLogo from "@/assets/applaa-logo-new.jpeg";
+import applaaLogo from "../../assets/logo.png";
 type NodeInstallStep =
   | "install"
   | "waiting-for-continue"
@@ -102,15 +102,15 @@ export function SetupBanner() {
   if (itemsNeedAction.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 mb-8">
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+        <div className="w-48 h-32 px-4  flex items-center justify-center overflow-hidden">
           <img 
             src={applaaLogo} 
             alt="Applaa Logo" 
             className="w-full h-full object-cover"
           />
         </div>
-        <h1 className="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 tracking-tight">
-          Prompt → App in minutes
+        <h1 className="text-5xl mt-4 font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 tracking-tight">
+          Your Idea → App instantly
         </h1>
       </div>
     );

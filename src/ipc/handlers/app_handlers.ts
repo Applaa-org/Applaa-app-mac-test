@@ -17,7 +17,7 @@ import fsExtra from "fs-extra";
 import path from "node:path";
 import os from "node:os";
 import { getDyadAppPath, getUserDataPath } from "../../paths/paths";
-import { ensureWorkspaceInitialized, getAppRelativePath } from "../../paths/workspace";
+import { ensureWorkspaceInitialized, getAppRelativePath, getWorkspaceRoot } from "../../paths/workspace";
 // import { readSettings } from "../../main/settings";
 import { spawn } from "node:child_process";
 import git from "isomorphic-git";
@@ -56,12 +56,17 @@ import { Worker } from "worker_threads";
 import { createFromTemplate } from "./createFromTemplate";
 import { generateSmartAppNames } from "../utils/smart_naming";
 import { gitCommit } from "../utils/git_utils";
+import { createRobloxProjectTemplate } from "./roblox_template_creator";
 import { safeSend } from "../utils/safe_sender";
 import { normalizePath } from "../../../shared/normalizePath";
 import { isServerFunction } from "@/supabase_admin/supabase_utils";
 import { getVercelTeamSlug } from "../utils/vercel_utils";
 import { storeDbTimestampAtCurrentVersion } from "../utils/neon_timestamp_utils";
 import { perfMonitor, logPerfReport } from "../utils/performance_monitor";
+import { backendAPI } from "../../lib/backend-api";
+import { getSupabaseAuth } from "../../lib/supabase";
+import { checkCredits, deductCredits } from "../../services/credit_service";
+import { CREDIT_COSTS } from "../../utils/credit_costs";
 
 const logger = log.scope("app-handlers");
 
@@ -188,7 +193,7 @@ fixPath();
 /**
  * 🔧 Generate a unique app name by appending numbers
  */
-async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' = 'web'): Promise<string> {
+async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python' = 'web'): Promise<string> {
   let counter = 2;
   let suggestedName = `${baseName}-${counter}`;
 
@@ -610,15 +615,49 @@ export function registerAppHandlers() {
     const app = await getAppSafe(params.appId);
     if (!app) throw new Error("App not found");
 
-    const appBasePath = getDyadAppPath(app.path);
-    const fullPath = path.join(appBasePath, params.filePath);
+    // Fix: Blocklaa and Minecraft apps store full relative paths (apps/blockly/name) in DB
+    // typical app_handlers logic assumes app.path is just the folder name inside main apps dir.
+    // We must mirror blockly_handlers logic: getWorkspaceRoot() + app.path
+    let appBasePath = getDyadAppPath(app.path);
+
+    if (app.appType === 'blockly' || app.appType === 'minecraft' || app.appType === 'roblox') {
+      // Use getWorkspaceRoot() to match blockly_handlers logic exactly.
+      const workspaceRoot = getWorkspaceRoot();
+
+      // Should match: path.join(root, app.path)
+      const legacyPath = path.join(workspaceRoot, app.path);
+
+      if (fs.existsSync(legacyPath)) {
+        appBasePath = legacyPath;
+        logger.info(`Context corrected path for ${app.appType} app ${app.id} to ${appBasePath}`);
+      } else {
+        logger.warn(`Could not find app files at ${legacyPath}, trying default: ${appBasePath}`);
+      }
+    }
+
+    let fullPath = path.join(appBasePath, params.filePath);
+
+    // If app.path implies it's already a full relative path (e.g. apps/blockly/foo)
+    // we want to ensure we aren't double-nesting inside apps/web by accident depending on getDyadAppPath implementation
+    if (app.appType === 'blockly' || app.appType === 'minecraft' || app.appType === 'roblox') {
+      // For these types, we want to be less strict about "appBasePath" containment if safe
+      // but actually getDyadAppPath should handle it.
+      // Let's ensure we are reading exactly what we expect.
+    }
 
     // Safety check path traversal
     const normalizedAppPath = path.resolve(appBasePath);
     const normalizedFullPath = path.resolve(fullPath);
 
+    // Allow reading if it's within the specific app folder OR the general apps directory (less strict for Blocklaa)
+    // This fixes the issue where app.path might be 'apps/blockly/xyz' but getDyadAppPath resolves differently
     if (!normalizedFullPath.startsWith(normalizedAppPath)) {
-      throw new Error("Invalid file path: Must be within app directory");
+      // Double check if it is inside the workspace apps directory at least
+      const workspaceApps = path.resolve(getDyadAppPath('apps'));
+      if (!normalizedFullPath.startsWith(workspaceApps)) {
+        console.warn(`Blocked file read access: ${normalizedFullPath} is outside ${normalizedAppPath}`);
+        throw new Error("Invalid file path: Must be within app directory");
+      }
     }
 
     try {
@@ -682,8 +721,8 @@ export function registerAppHandlers() {
         await ensureWorkspaceInitialized();
 
         // Determine app type (same logic as create-app handler)
-        let appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft';
-        if (params.appType && ['mobile', 'web', 'godot', 'blockly', 'arcade', 'microbit', 'minecraft'].includes(params.appType)) {
+        let appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python';
+        if (params.appType && ['mobile', 'web', 'godot', 'blockly', 'arcade', 'microbit', 'minecraft', 'roblox', 'python'].includes(params.appType)) {
           appType = params.appType as any;
         } else if (params.framework === 'expo' || params.framework === 'flutter') {
           appType = 'mobile';
@@ -877,28 +916,31 @@ export function registerAppHandlers() {
       _,
       params: CreateAppParams,
     ): Promise<{ app: any; chatId: number }> => {
-      // 🚀 PERFORMANCE: Cache settings once at start to avoid repeated disk reads
-      const settings = readSettings();
-      // For development: just check the Pro toggle, don't require API key
-      const isProUser = settings.enableApplaaPro === true;
+      // Check tier-based app limits (use async to get latest tier from database)
+      const { canCreateAppAsync } = await import("../utils/feature_checks");
+      const appLimitCheck = await canCreateAppAsync();
+      if (!appLimitCheck.allowed) {
+        throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
+      }
 
-      if (!isProUser) {
-        // Count existing apps for free users
-        const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
-        const FREE_APP_LIMIT = 5;
+      // Legacy auth check (keep for backwards compatibility)
+      const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
+      const FREE_UNAUTH_LIMIT = 3;
+      const { isUserAuthenticated } = await import("../../lib/supabase");
+      const isAuthenticated = await isUserAuthenticated();
 
-        if (existingApps.count >= FREE_APP_LIMIT) {
-          throw new Error(`Free users are limited to ${FREE_APP_LIMIT} apps. Upgrade to Applaa Pro for unlimited apps.`);
-        }
+      // Require authentication after 3 apps (only if not already checked by tier)
+      if (!isAuthenticated && existingApps.count >= FREE_UNAUTH_LIMIT) {
+        throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
       }
 
       await ensureWorkspaceInitialized();
 
       // Determine app type from explicit params, then framework hint, fallback to web
       // Support game frameworks: blockly, arcade, microbit, minecraft
-      let appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft';
+      let appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python';
 
-      if (params.appType && ['mobile', 'web', 'godot', 'blockly', 'arcade', 'microbit', 'minecraft'].includes(params.appType)) {
+      if (params.appType && ['mobile', 'web', 'godot', 'blockly', 'arcade', 'microbit', 'minecraft', 'roblox', 'python'].includes(params.appType)) {
         appType = params.appType as any;
       } else if (params.framework === 'expo' || params.framework === 'flutter') {
         appType = 'mobile';
@@ -914,7 +956,49 @@ export function registerAppHandlers() {
         appType = 'web';
       }
 
-      const appRelPath2 = getAppRelativePath(
+      // 💎 CREDIT CHECK: Verify user has enough credits before creating app
+      let userId: string | null = null;
+      let creditCost = 0;
+      try {
+        const auth = getSupabaseAuth();
+        const supabaseUser = await auth.getCurrentUser();
+        if (supabaseUser) {
+          userId = supabaseUser.id;
+        } else {
+          // Try WordPress auth as fallback
+          const settings = readSettings();
+          const wordpressAuth = settings.wordpressAuth;
+          if (wordpressAuth?.isAuthenticated && wordpressAuth?.user) {
+            const profile = await auth.getProfileByEmailOrUsername(wordpressAuth.user.email || wordpressAuth.user.username || wordpressAuth.user.display_name || '');
+            if (profile) {
+              userId = profile.id;
+            }
+          }
+        }
+
+        if (userId) {
+          // Determine credit cost based on app type
+          if (appType === 'godot') {
+            creditCost = CREDIT_COSTS.APP_CREATION_GAME;
+          } else if (appType === 'mobile') {
+            creditCost = CREDIT_COSTS.APP_CREATION_MOBILE;
+          } else {
+            creditCost = CREDIT_COSTS.APP_CREATION_WEB;
+          }
+
+          const creditCheck = await checkCredits(userId, 'app_creation', creditCost);
+          if (!creditCheck.hasCredits) {
+            throw new Error(`Insufficient credits. You need ${creditCheck.required} credits to create a ${appType} app but only have ${creditCheck.remaining} remaining.`);
+          }
+        }
+      } catch (creditError: any) {
+        // If it's an insufficient credits error, throw it
+        if (creditError.message?.includes('Insufficient credits')) {
+          throw creditError;
+        }
+        // Otherwise, log and continue (don't block app creation if credit check fails)
+        logger.warn('Credit check failed, continuing anyway:', creditError);
+      } const appRelPath2 = getAppRelativePath(
         params.name,
         appType // Pass the full appType instead of mapping to web/mobile/godot
       );
@@ -1011,7 +1095,9 @@ renderer/rendering_method="forward_plus"
       } else {
         const isGameFramework = ['makecode-arcade', 'arcade', 'microbit', 'minecraft-makecode', 'blockly'].includes(params.framework as string);
 
-        if (appType === 'minecraft') {
+        if (appType === 'roblox') {
+          await createRobloxProjectTemplate(fullAppPath, params);
+        } else if (appType === 'minecraft') {
           // For Minecraft apps, use the minecraft-basic template with starter Java mod
           await createFromTemplate({
             fullAppPath,
@@ -1100,6 +1186,20 @@ renderer/rendering_method="forward_plus"
       logger.info(`⏰ Waiting 500ms for chat ${chat.id} to be fully committed...`);
       await new Promise(resolve => setTimeout(resolve, 500));
       logger.info(`✅ Chat ${chat.id} should now be visible to all queries`);
+
+      // 💎 CREDIT DEDUCTION: Deduct credits after successful app creation
+      if (userId && creditCost > 0) {
+        try {
+          await deductCredits(userId, 'app_creation', creditCost, {
+            appId: app.id,
+            appName: app.name,
+            appType: appType,
+          });
+        } catch (creditError: any) {
+          // Log but don't throw - the app was created successfully
+          logger.error('Failed to deduct credits after app creation:', creditError);
+        }
+      }
 
       return { app, chatId: chat.id };
     },

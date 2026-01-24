@@ -90,9 +90,18 @@ import { registerBuddyHandlers } from "./handlers/buddy_handlers";
 import { registerLocalBrainHandlers } from "./handlers/local_brain_handlers";
 import { registerSkillHandlers } from "./handlers/skill_handlers";
 import { registerBrowserAutomationHandlers } from "./handlers/browser_automation_handlers";
-
-
-
+import { registerWebAppsHandlers } from "./handlers/web_apps_handlers";
+import { registerBackendDeployHandlers } from "./handlers/backend_deploy_handlers";
+import { registerDatabaseHandlers } from "./handlers/database_handlers";
+import { registerVaultHandlers } from "./handlers/vault_handlers";
+import { registerApplaaAutomationHandlers } from "./handlers/applaa_automation_handlers";
+import { registerSecurityHandlers } from "./handlers/security_handlers";
+import { registerVisualEditingHandlers } from "./handlers/visual_editing_handlers";
+import { registerPreviewImageHandlers } from "./handlers/preview_image_handlers";
+import { registerWebCloneHandlers } from "./handlers/web_clone_handlers";
+import { registerSubscriptionHandlers } from "./handlers/subscription_handlers";
+import { registerProfileHandlers } from "./handlers/profile_handlers";
+import { registerCreditHandlers } from "./handlers/credit_handlers";
 
 
 export function registerIpcHandlers() {
@@ -253,6 +262,58 @@ export function registerIpcHandlers() {
   // 🌐 Browser Automation (Planning + Execution)
   console.log('🌐 Registering Browser Automation handlers...');
   registerBrowserAutomationHandlers();
+
+  // 🌐 Web Apps Templates Management
+  console.log('🌐 Registering web apps handlers...');
+  registerWebAppsHandlers();
+
+  // 🚀 Backend Auto-Deployment
+  console.log('🚀 Registering backend deployment handlers...');
+  registerBackendDeployHandlers();
+
+  // 🗄️ Database Operations (Export, Credentials)
+  console.log('🗄️ Registering database handlers...');
+  registerDatabaseHandlers();
+
+  // 🔐 Supabase Vault for Environment Variables
+  console.log('🔐 Registering Vault handlers...');
+  registerVaultHandlers();
+
+  // 🤖 Applaa Automation handlers
+  console.log('🤖 Registering Applaa automation handlers...');
+  registerApplaaAutomationHandlers();
+
+  // 🔒 Security Review handlers
+  console.log('🔒 Registering Security review handlers...');
+  registerSecurityHandlers();
+
+  // 🎨 Visual Editing handlers
+  console.log('🎨 Registering Visual Editing handlers...');
+  registerVisualEditingHandlers();
+
+  // 📸 Preview Image handlers
+  console.log('📸 Registering Preview Image handlers...');
+  registerPreviewImageHandlers();
+
+  // 🌐 Website Cloning handlers
+  console.log('🌐 Registering Website Cloning handlers...');
+  registerWebCloneHandlers();
+
+  // 💳 Subscription handlers (Stripe integration - optional)
+  try {
+    registerSubscriptionHandlers();
+    console.log('💳 Subscription handlers registered');
+  } catch (error: any) {
+    console.warn('⚠️ Subscription handlers not available (Stripe may not be installed):', error.message);
+  }
+
+  // 👤 Profile handlers
+  registerProfileHandlers();
+  console.log('👤 Profile handlers registered');
+
+  // 💎 Credit handlers
+  registerCreditHandlers();
+  console.log('💎 Credit handlers registered');
 
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

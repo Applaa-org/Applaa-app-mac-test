@@ -52,8 +52,8 @@ export interface CreateAppParams {
   packageId?: string;
   slug?: string;
   // Platform hints so main process can persist correct app_type
-  framework?: 'web' | 'expo' | 'flutter' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox-lua';
-  appType?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox';
+  framework?: 'web' | 'expo' | 'flutter' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox-lua' | 'python';
+  appType?: 'web' | 'mobile' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   // Optional extras passed by some creators
   template?: string;
   platforms?: string[];
@@ -64,6 +64,22 @@ export interface CreateAppParams {
 }
 
 export interface CreateAppResult {
+  app: {
+    id: number;
+    name: string;
+    path: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  chatId: number;
+}
+
+export interface CloneWebsiteParams {
+  url: string;
+  appName: string;
+}
+
+export interface CloneWebsiteResult {
   app: {
     id: number;
     name: string;

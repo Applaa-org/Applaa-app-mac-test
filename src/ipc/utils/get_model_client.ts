@@ -19,6 +19,12 @@ const dyadEngineUrl = process.env.DYAD_ENGINE_URL;
 const dyadGatewayUrl = process.env.DYAD_GATEWAY_URL;
 
 const AUTO_MODELS = [
+
+  {
+    provider: "google",
+    name: "gemini-2.5-flash",
+  },
+
   // Prefer Azure router model if Azure credentials are present
   {
     provider: "azure-openai",
@@ -65,12 +71,8 @@ export async function getModelClient(
 
   const allProviders = await getLanguageModelProviders();
 
-  const dyadApiKey = settings.providerSettings?.auto?.apiKey?.value;
-
   // 🔧 DEBUG: Log API key availability for debugging
   logger.info(`🔍 API Key Debug - Provider: ${model.provider}`);
-  logger.info(`🔍 Applaa Pro enabled: ${settings.enableApplaaPro}`);
-  logger.info(`🔍 Auto API key present: ${!!dyadApiKey}`);
   if (settings.providerSettings?.[model.provider]?.apiKey?.value) {
     logger.info(`🔍 Direct provider API key present: YES`);
   } else {
@@ -84,84 +86,11 @@ export async function getModelClient(
     throw new Error(`Configuration not found for provider: ${model.provider}`);
   }
 
-  // 🔧 APPLAA PRO: Handle Applaa Pro override with proper fallback
-  if (settings.enableApplaaPro) {
-    if (!dyadApiKey) {
-      logger.warn(
-        `🚨 Applaa Pro is enabled but no 'auto' provider API key found. Falling back to direct provider: ${model.provider}`
-      );
-      logger.info(`🔧 FALLBACK: Using direct provider API key for ${model.provider}`);
-      // Fall through to regular provider logic - this should work
-    } else if (providerConfig.gatewayPrefix != null || dyadEngineUrl) {
-      // Check if the selected provider supports Applaa Pro (has a gateway prefix) OR
-      // we're using local engine.
-      // IMPORTANT: some providers like OpenAI have an empty string gateway prefix,
-      // so we do a nullish and not a truthy check here.
-      // Spark features require Applaa Pro to be enabled
-      const hasApplaaPro = settings.enableApplaaPro === true;
-      const isEngineEnabled = hasApplaaPro && (
-        settings.enableProSmartFilesContextMode ||
-        settings.enableProLazyEditsMode ||
-        settings.enableWebSearch
-      );
-      const provider = isEngineEnabled
-        ? createDyadEngine({
-          apiKey: dyadApiKey,
-          baseURL: dyadEngineUrl ?? "https://engine.applaa.dev/v1",
-          originalProviderId: model.provider,
-          dyadOptions: {
-            enableLazyEdits:
-              settings.selectedChatMode === "ask"
-                ? false
-                : (hasApplaaPro && settings.enableProLazyEditsMode),
-            enableSmartFilesContext: hasApplaaPro && settings.enableProSmartFilesContextMode,
-            enableWebSearch: settings.enableWebSearch ?? true, // Enabled by default
-          },
-          settings,
-        })
-        : createOpenAICompatible({
-          name: "dyad-gateway",
-          apiKey: dyadApiKey,
-          baseURL: dyadGatewayUrl ?? "https://llm-gateway.applaa.dev/v1",
-        });
 
-      logger.info(
-        `\x1b[1;97;44m Using Applaa Pro API key for model: ${model.name}. engine_enabled=${isEngineEnabled} \x1b[0m`,
-      );
-      if (isEngineEnabled) {
-        logger.info(
-          `\x1b[1;30;42m Using Applaa Pro engine: ${dyadEngineUrl ?? "<prod>"} \x1b[0m`,
-        );
-      } else {
-        logger.info(
-          `\x1b[1;30;43m Using Applaa Pro gateway: ${dyadGatewayUrl ?? "<prod>"} \x1b[0m`,
-        );
-      }
-      // Do not use free variant (for openrouter).
-      const modelName = model.name.split(":free")[0];
-      const autoModelClient = {
-        model: provider(
-          `${providerConfig.gatewayPrefix || ""}${modelName}`,
-          isEngineEnabled
-            ? {
-              files,
-            }
-            : undefined,
-        ),
-        builtinProviderId: model.provider,
-      };
+  // ✅ SIMPLIFIED: Pro users now work the same as Free users
+  // Pro tier only controls feature access (unlimited apps, deployment, etc.)
+  // NOT how API keys and providers work
 
-      return {
-        modelClient: autoModelClient,
-        isEngineEnabled,
-      };
-    } else {
-      logger.warn(
-        `Applaa Pro enabled, but provider ${model.provider} does not have a gateway prefix defined. Falling back to direct provider connection.`,
-      );
-      // Fall through to regular provider logic if gateway prefix is missing
-    }
-  }
   // Handle 'auto' provider by trying each model in AUTO_MODELS until one works
   if (model.provider === "auto") {
     for (const autoModel of AUTO_MODELS) {
@@ -215,8 +144,21 @@ function getRegularModelClient(
   logger.info(`🔑 Regular provider ${model.provider} - API key present: ${!!apiKey}`);
   if (apiKey) {
     logger.info(`🔑 API key length: ${apiKey.length} chars, starts with: ${apiKey.substring(0, 8)}...`);
+    // Check for common issues
+    if (apiKey.trim() !== apiKey) {
+      logger.warn(`⚠️ API key has leading/trailing whitespace!`);
+    }
+    if (apiKey.includes('"') || apiKey.includes("'")) {
+      logger.warn(`⚠️ API key contains quotes (possible malformed JSON/string)!`);
+    }
   } else {
     logger.error(`❌ NO API KEY found for provider: ${model.provider}`);
+    logger.info(`Keys in providerSettings: ${Object.keys(settings.providerSettings || {}).join(', ')}`);
+    if (settings.providerSettings?.[model.provider]) {
+      logger.info(`Settings for ${model.provider} exist, apiKey value is: ${typeof settings.providerSettings[model.provider]?.apiKey?.value}`);
+    } else {
+      logger.warn(`Settings for ${model.provider} DO NOT exist in providerSettings`);
+    }
   }
 
   const providerId = providerConfig.id;

@@ -5,10 +5,18 @@ interface SampleHubProps {
     onLoadSample: (workspace: any) => void;
     isOpen: boolean;
     onClose: () => void;
+    initialCategory?: string;
 }
 
-export function SampleHub({ onLoadSample, isOpen, onClose }: SampleHubProps) {
-    const [selectedCategory, setSelectedCategory] = useState<string>('All');
+export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'All' }: SampleHubProps) {
+    const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
+
+    // Update selected category when initialCategory changes and hub opens
+    React.useEffect(() => {
+        if (isOpen) {
+            setSelectedCategory(initialCategory);
+        }
+    }, [isOpen, initialCategory]);
 
     // Get unique categories
     const categories = ['All', ...Array.from(new Set(SAMPLE_PROJECTS.map(p => p.category)))];

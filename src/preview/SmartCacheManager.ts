@@ -82,16 +82,16 @@ export class SmartCacheManager extends EventEmitter {
     averageLoadTime: 0,
     memoryEfficiency: 0,
   };
-  
+
   private templateUsagePatterns = new Map<string, UsagePattern>();
   private loadTimeTracker = new Map<string, number[]>();
-  
+
   private maxSize = 500 * 1024 * 1024; // 500MB
   private maxEntries = 10000;
   private defaultTtl = 24 * 60 * 60 * 1000; // 24 hours
   private cacheDir: string;
   private isInitialized = false;
-  
+
   private hits = 0;
   private misses = 0;
 
@@ -111,16 +111,16 @@ export class SmartCacheManager extends EventEmitter {
 
     try {
       logger.info('🔧 Initializing SmartCacheManager...');
-      
+
       // Ensure cache directory exists
       await fs.mkdir(this.cacheDir, { recursive: true });
-      
+
       // Load persistent cache
       await this.loadPersistentCache();
-      
+
       this.isInitialized = true;
       logger.info('✅ SmartCacheManager initialized successfully');
-      
+
     } catch (error) {
       logger.error('❌ Failed to initialize SmartCacheManager:', error);
       throw error;
@@ -133,13 +133,13 @@ export class SmartCacheManager extends EventEmitter {
   public get<T>(key: string): T | null {
     const startTime = Date.now();
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       this.misses++;
       this.updateStats();
       return null;
     }
-    
+
     // Check TTL
     if (entry.ttl && Date.now() - entry.timestamp > entry.ttl) {
       this.cache.delete(key);
@@ -147,16 +147,16 @@ export class SmartCacheManager extends EventEmitter {
       this.updateStats();
       return null;
     }
-    
+
     // Update access info and usage patterns
     entry.accessCount++;
     entry.lastAccessed = Date.now();
     this.updateUsagePattern(key, entry);
-    
+
     // Track load time
     const loadTime = Date.now() - startTime;
     this.trackLoadTime(key, loadTime);
-    
+
     // Update specific cache type stats
     if (key.startsWith('template:')) {
       this.stats.templateCacheHits++;
@@ -165,10 +165,10 @@ export class SmartCacheManager extends EventEmitter {
     } else if (key.startsWith('build:')) {
       this.stats.buildCacheHits++;
     }
-    
+
     this.hits++;
     this.updateStats();
-    
+
     logger.debug(`📖 Cache hit for key: ${key} (${loadTime}ms)`);
     return entry.data as T;
   }
@@ -186,7 +186,7 @@ export class SmartCacheManager extends EventEmitter {
     try {
       const size = this.calculateSize(data);
       const priority = options.priority || this.determinePriority(key, options.tags || []);
-      
+
       const entry: CacheEntry = {
         key,
         data: options.compress ? this.compress(data) : data,
@@ -200,15 +200,15 @@ export class SmartCacheManager extends EventEmitter {
         templateType: options.templateType,
         usagePattern: this.initializeUsagePattern(key),
       };
-      
+
       // Check if we need to evict entries
       await this.ensureCapacity(size);
-      
+
       this.cache.set(key, entry);
       this.updateStats();
-      
+
       logger.debug(`💾 Cached item with key: ${key} (size: ${size} bytes, priority: ${CachePriority[priority]})`);
-      
+
     } catch (error) {
       logger.error(`❌ Failed to cache item with key ${key}:`, error);
     }
@@ -231,19 +231,19 @@ export class SmartCacheManager extends EventEmitter {
    */
   public clearByTags(tags: string[]): number {
     let cleared = 0;
-    
+
     for (const [key, entry] of Array.from(this.cache.entries())) {
       if (entry.tags.some(tag => tags.includes(tag))) {
         this.cache.delete(key);
         cleared++;
       }
     }
-    
+
     if (cleared > 0) {
       this.updateStats();
       logger.info(`🧹 Cleared ${cleared} cache entries by tags: ${tags.join(', ')}`);
     }
-    
+
     return cleared;
   }
 
@@ -253,27 +253,27 @@ export class SmartCacheManager extends EventEmitter {
   public async preWarm(appType: AppType, templates: string[]): Promise<void> {
     try {
       logger.info(`🔥 Pre-warming cache for ${appType} with ${templates.length} templates`);
-      
+
       // Sort templates by popularity and priority
       const sortedTemplates = templates.sort((a, b) => {
         const popularTemplates = ['react', 'vue', 'next', 'angular', 'svelte'];
         const aIndex = popularTemplates.indexOf(a);
         const bIndex = popularTemplates.indexOf(b);
-        
+
         if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
         if (aIndex !== -1) return -1;
         if (bIndex !== -1) return 1;
         return a.localeCompare(b);
       });
-      
+
       const preWarmPromises = sortedTemplates.map(async (template, index) => {
         const key = this.generateTemplateKey(appType, template);
-        
+
         // Skip if already cached
         if (this.cache.has(key)) {
           return;
         }
-        
+
         // Load and cache template data
         const templateData = await this.loadTemplateData(appType, template);
         if (templateData) {
@@ -286,11 +286,11 @@ export class SmartCacheManager extends EventEmitter {
           });
         }
       });
-      
+
       await Promise.all(preWarmPromises);
-      
+
       logger.info(`✅ Pre-warming complete for ${appType}`);
-      
+
     } catch (error) {
       logger.error(`❌ Pre-warming failed for ${appType}:`, error);
     }
@@ -302,7 +302,7 @@ export class SmartCacheManager extends EventEmitter {
   public async preloadByUsagePattern(appType: AppType): Promise<void> {
     const currentHour = new Date().getHours();
     const templatesToPreload: string[] = [];
-    
+
     // Find templates that are typically used at this hour
     for (const [key, pattern] of Array.from(this.templateUsagePatterns.entries())) {
       if (pattern.peakHours.includes(currentHour) && pattern.frequency !== 'rare') {
@@ -312,13 +312,13 @@ export class SmartCacheManager extends EventEmitter {
         }
       }
     }
-    
+
     if (templatesToPreload.length > 0) {
       logger.info(`🕐 Preloading ${templatesToPreload.length} templates for peak hour ${currentHour}`);
       await this.preWarm(appType, templatesToPreload);
     }
   }
-  
+
   /**
    * Get template recommendations based on current usage patterns
    */
@@ -332,10 +332,10 @@ export class SmartCacheManager extends EventEmitter {
       })
       .slice(0, limit)
       .map(([key, _]) => key.replace(`template:${appType}:`, ''));
-    
+
     return recommendations;
   }
-  
+
   /**
    * Calculate pattern score for recommendations
    */
@@ -346,11 +346,11 @@ export class SmartCacheManager extends EventEmitter {
       'frequent': 7,
       'constant': 10
     }[pattern.frequency];
-    
+
     const currentHour = new Date().getHours();
     const isPeakHour = pattern.peakHours.includes(currentHour);
     const peakBonus = isPeakHour ? 5 : 0;
-    
+
     return frequencyScore + peakBonus + (pattern.trendingScore / 100);
   }
 
@@ -401,22 +401,22 @@ export class SmartCacheManager extends EventEmitter {
     try {
       const now = Date.now();
       let cleaned = 0;
-      
+
       for (const [key, entry] of Array.from(this.cache.entries())) {
         if (entry.ttl && now - entry.timestamp > entry.ttl) {
           this.cache.delete(key);
           cleaned++;
         }
       }
-      
+
       if (cleaned > 0) {
         this.updateStats();
         logger.info(`🧹 Cleaned up ${cleaned} expired cache entries`);
       }
-      
+
       // Save persistent cache
       await this.savePersistentCache();
-      
+
     } catch (error) {
       logger.error('❌ Cache cleanup failed:', error);
     }
@@ -453,15 +453,15 @@ export class SmartCacheManager extends EventEmitter {
     // Check entry count limit with priority-aware eviction
     if (this.cache.size >= this.maxEntries) {
       const toEvict = Math.ceil(this.maxEntries * 0.1); // Evict 10%
-      
+
       // First try to evict low priority items
       this.evictByPriority(CachePriority.LOW);
-      
+
       // If still over limit, evict medium priority items
       if (this.cache.size >= this.maxEntries) {
         this.evictByPriority(CachePriority.MEDIUM);
       }
-      
+
       // Last resort: evict by usage patterns (but preserve critical)
       if (this.cache.size >= this.maxEntries) {
         await this.evictLeastUsed(toEvict);
@@ -480,57 +480,57 @@ export class SmartCacheManager extends EventEmitter {
         const scoreB = this.calculateEvictionScore(b);
         return scoreA - scoreB; // Lower score = more likely to evict
       });
-    
+
     for (let i = 0; i < Math.min(count, entries.length); i++) {
       const [key] = entries[i];
       this.cache.delete(key);
       this.stats.evictionCount++;
     }
-    
+
     logger.info(`🗑️ Evicted ${Math.min(count, entries.length)} cache entries`);
   }
-  
+
   /**
    * Smart eviction based on template usage patterns
    */
   private evictByTemplate(targetSize: number): void {
     const currentSize = this.stats.totalSize;
     if (currentSize <= targetSize) return;
-    
+
     const entries = Array.from(this.cache.entries())
       .map(([key, entry]) => ({ key, entry, score: this.calculateEvictionScore(entry) }))
       .sort((a, b) => a.score - b.score);
-    
+
     let freedSize = 0;
     const toEvict: string[] = [];
-    
+
     for (const { key, entry } of entries) {
       // Never evict critical priority items
       if (entry.priority === CachePriority.CRITICAL) continue;
-      
+
       toEvict.push(key);
       freedSize += entry.size;
-      
+
       if (currentSize - freedSize <= targetSize) break;
     }
-    
+
     for (const key of toEvict) {
       this.delete(key);
     }
   }
-  
+
   /**
    * Evict entries by priority level
    */
   private evictByPriority(maxPriority: CachePriority): void {
     const toEvict: string[] = [];
-    
+
     for (const [key, entry] of Array.from(this.cache.entries())) {
       if (entry.priority <= maxPriority) {
         toEvict.push(key);
       }
     }
-    
+
     for (const key of toEvict) {
       this.delete(key);
     }
@@ -546,21 +546,21 @@ export class SmartCacheManager extends EventEmitter {
         const scoreB = this.calculateEvictionScore(b);
         return scoreA - scoreB;
       });
-    
+
     let currentSize = this.stats.totalSize;
     let evicted = 0;
-    
+
     for (const [key, entry] of entries) {
       if (currentSize <= targetSize) {
         break;
       }
-      
+
       this.cache.delete(key);
       currentSize -= entry.size;
       evicted++;
       this.stats.evictionCount++;
     }
-    
+
     logger.info(`🗑️ Evicted ${evicted} cache entries to reach target size`);
   }
 
@@ -571,15 +571,15 @@ export class SmartCacheManager extends EventEmitter {
     const now = Date.now();
     const age = now - entry.timestamp;
     const timeSinceAccess = now - entry.lastAccessed;
-    
+
     // Base factors
     const accessScore = entry.accessCount * 100;
     const recencyScore = Math.max(0, 1000 - timeSinceAccess / 1000);
     const sizeScore = -entry.size / 1024;
-    
+
     // Priority multiplier (higher priority = higher score = less likely to evict)
     const priorityMultiplier = entry.priority * 500;
-    
+
     // Usage pattern bonus
     let patternBonus = 0;
     if (entry.usagePattern) {
@@ -591,20 +591,33 @@ export class SmartCacheManager extends EventEmitter {
         'frequent': 300,
         'constant': 500
       }[entry.usagePattern.frequency];
-      
+
       patternBonus = frequencyBonus + (isPeakHour ? 200 : 0) + entry.usagePattern.trendingScore;
     }
-    
+
     // Template type bonus
     let templateBonus = 0;
     if (entry.templateType) {
       const popularTemplates = ['react', 'vue', 'next', 'angular'];
       templateBonus = popularTemplates.includes(entry.templateType) ? 300 : 100;
     }
-    
+
     return accessScore + recencyScore + sizeScore + priorityMultiplier + patternBonus + templateBonus;
   }
-  
+
+  /**
+   * Get usage stats for a specific key
+   */
+  public async getUsageStats(key: string): Promise<{ accessCount: number; lastAccessed: number } | null> {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    return {
+      accessCount: entry.accessCount,
+      lastAccessed: entry.lastAccessed
+    };
+  }
+
   /**
    * Determine cache priority based on key and tags
    */
@@ -613,21 +626,21 @@ export class SmartCacheManager extends EventEmitter {
     if (tags.includes('system') || tags.includes('core') || key.includes('critical')) {
       return CachePriority.CRITICAL;
     }
-    
+
     // High: Popular templates and frequently used dependencies
     if (tags.includes('template') || tags.includes('popular') || key.startsWith('template:react') || key.startsWith('template:vue')) {
       return CachePriority.HIGH;
     }
-    
+
     // Medium: Build artifacts and common dependencies
     if (tags.includes('build') || tags.includes('dependencies')) {
       return CachePriority.MEDIUM;
     }
-    
+
     // Low: Everything else
     return CachePriority.LOW;
   }
-  
+
   /**
    * Initialize usage pattern for new cache entry
    */
@@ -636,7 +649,7 @@ export class SmartCacheManager extends EventEmitter {
     if (existing) {
       return existing;
     }
-    
+
     return {
       peakHours: [],
       frequency: 'rare',
@@ -644,7 +657,7 @@ export class SmartCacheManager extends EventEmitter {
       trendingScore: 0
     };
   }
-  
+
   /**
    * Update usage pattern based on access
    */
@@ -652,10 +665,10 @@ export class SmartCacheManager extends EventEmitter {
     if (!entry.usagePattern) {
       entry.usagePattern = this.initializeUsagePattern(key);
     }
-    
+
     const currentHour = new Date().getHours();
     const pattern = entry.usagePattern;
-    
+
     // Track peak hours
     if (!pattern.peakHours.includes(currentHour)) {
       pattern.peakHours.push(currentHour);
@@ -663,11 +676,11 @@ export class SmartCacheManager extends EventEmitter {
         pattern.peakHours.shift();
       }
     }
-    
+
     // Update frequency based on access count and time
     const hoursSinceCreation = (Date.now() - entry.timestamp) / (1000 * 60 * 60);
     const accessesPerHour = entry.accessCount / Math.max(hoursSinceCreation, 1);
-    
+
     if (accessesPerHour > 10) {
       pattern.frequency = 'constant';
     } else if (accessesPerHour > 2) {
@@ -677,14 +690,14 @@ export class SmartCacheManager extends EventEmitter {
     } else {
       pattern.frequency = 'rare';
     }
-    
+
     // Update trending score
     const recentAccesses = entry.accessCount * Math.max(0, 1 - (Date.now() - entry.lastAccessed) / (24 * 60 * 60 * 1000));
     pattern.trendingScore = Math.min(1000, recentAccesses * 10);
-    
+
     this.templateUsagePatterns.set(key, pattern);
   }
-  
+
   /**
    * Track load time for performance monitoring
    */
@@ -692,15 +705,15 @@ export class SmartCacheManager extends EventEmitter {
     if (!this.loadTimeTracker.has(key)) {
       this.loadTimeTracker.set(key, []);
     }
-    
+
     const times = this.loadTimeTracker.get(key)!;
     times.push(loadTime);
-    
+
     // Keep only last 100 measurements
     if (times.length > 100) {
       times.shift();
     }
-    
+
     // Update average load time
     const allTimes = Array.from(this.loadTimeTracker.values()).flat();
     this.stats.averageLoadTime = allTimes.reduce((sum, time) => sum + time, 0) / allTimes.length;
@@ -769,7 +782,7 @@ export class SmartCacheManager extends EventEmitter {
     this.stats.totalEntries = this.cache.size;
     this.stats.totalSize = Array.from(this.cache.values())
       .reduce((sum, entry) => sum + entry.size, 0);
-    
+
     const total = this.hits + this.misses;
     if (total > 0) {
       this.stats.hitRate = this.hits / total;
@@ -785,19 +798,19 @@ export class SmartCacheManager extends EventEmitter {
       const cacheFile = path.join(this.cacheDir, 'cache.json');
       const data = await fs.readFile(cacheFile, 'utf-8');
       const persistentData = JSON.parse(data);
-      
+
       // Restore cache entries
       for (const entry of persistentData.entries || []) {
         this.cache.set(entry.key, entry);
       }
-      
+
       // Restore stats
       if (persistentData.stats) {
         this.stats = { ...this.stats, ...persistentData.stats };
       }
-      
+
       logger.info(`📂 Loaded ${this.cache.size} entries from persistent cache`);
-      
+
     } catch (error) {
       // It's okay if cache file doesn't exist
       logger.debug('No persistent cache found, starting fresh');
@@ -815,10 +828,10 @@ export class SmartCacheManager extends EventEmitter {
         stats: this.stats,
         timestamp: Date.now(),
       };
-      
+
       await fs.writeFile(cacheFile, JSON.stringify(persistentData, null, 2));
       logger.debug('💾 Saved persistent cache to disk');
-      
+
     } catch (error) {
       logger.error('❌ Failed to save persistent cache:', error);
     }
@@ -829,13 +842,13 @@ export class SmartCacheManager extends EventEmitter {
    */
   public async shutdown(): Promise<void> {
     logger.info('🔄 Shutting down SmartCacheManager...');
-    
+
     // Save persistent cache
     await this.savePersistentCache();
-    
+
     // Clear memory cache
     this.cache.clear();
-    
+
     this.isInitialized = false;
     logger.info('✅ SmartCacheManager shutdown complete');
   }

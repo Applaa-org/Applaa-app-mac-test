@@ -131,7 +131,15 @@ export async function onReady() {
   } catch (e) {
     logger.error("Error initializing backup manager", e);
   }
-  initializeDatabase();
+  
+  try {
+    initializeDatabase();
+    logger.info("✅ Database initialized successfully");
+  } catch (e) {
+    logger.error("❌ Failed to initialize database:", e);
+    // Re-throw to prevent app from starting with broken database
+    throw e;
+  }
 
   // 🚀 PERFORMANCE: Initialize workspace dependency manager for faster app creation
   try {

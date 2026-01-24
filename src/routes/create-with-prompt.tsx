@@ -5,7 +5,7 @@ import { PromptToProjectScreen } from '@/components/creator/PromptToProjectScree
 import { z } from 'zod';
 
 const promptSearchSchema = z.object({
-    type: z.enum(['minecraft', 'blockly']).optional(),
+    type: z.enum(['minecraft', 'blockly', 'microbit', 'arcade', 'roblox', 'python']).optional(),
 });
 
 export const promptToProjectRoute = createRoute({

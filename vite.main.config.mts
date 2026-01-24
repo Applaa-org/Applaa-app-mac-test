@@ -33,6 +33,7 @@ export default defineConfig({
         "utf-8-validate",
         "ws",
         "@browserbasehq/stagehand",
+        "stripe",
         ...builtinModules,
         ...builtinModules.map((m) => `node:${m}`),
         // Handle subpath imports like stream/promises

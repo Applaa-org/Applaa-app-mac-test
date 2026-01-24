@@ -2,7 +2,7 @@ export interface SampleProject {
     id: string;
     title: string;
     description: string;
-    category: 'Games' | 'Art' | 'Math' | 'Logic' | 'Music' | 'Science';
+    category: 'Tutorials' | 'Games' | 'Art' | 'Math' | 'Logic' | 'Music' | 'Science';
     difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
     workspace: any; // Blockly JSON serialization
 }
@@ -16,6 +16,96 @@ const createWorkspace = (blocks: any[]) => ({
 });
 
 export const SAMPLE_PROJECTS: SampleProject[] = [
+    // --- 📚 TUTORIALS (Quick Start) ---
+    {
+        id: 'tutorial_level_1',
+        title: 'Level 1: The First Step',
+        description: 'Learn how to move the robot forward.',
+        category: 'Tutorials',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "game_start",
+                "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "applaa_log",
+                        "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "💡 Instruction: Snap a 'Move Forward' block below me!" } } } },
+                        "next": {
+                            "block": {
+                                "type": "maze_move_forward"
+                            }
+                        }
+                    }
+                }
+            }
+        ])
+    },
+    {
+        id: 'tutorial_level_2',
+        title: 'Level 2: Looping Magic',
+        description: 'Make the robot walk forever using a Loop.',
+        category: 'Tutorials',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "game_start",
+                "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "applaa_log",
+                        "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "💡 Instruction: Put the Move block INSIDE the Loop!" } } } },
+                        "next": {
+                            "block": {
+                                "type": "controls_repeat_ext",
+                                "inputs": {
+                                    "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 4 } } },
+                                    "DO": {
+                                        "block": {
+                                            "type": "maze_move_forward"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ])
+    },
+    {
+        id: 'tutorial_level_3',
+        title: 'Level 3: Smart Choices',
+        description: 'Use Logic to check a condition.',
+        category: 'Tutorials',
+        difficulty: 'Intermediate',
+        workspace: createWorkspace([
+            {
+                "type": "game_start",
+                "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "controls_if",
+                        "inputs": {
+                            "IF0": {
+                                "block": {
+                                    "type": "logic_boolean",
+                                    "fields": { "BOOL": "TRUE" }
+                                }
+                            },
+                            "DO0": {
+                                "block": {
+                                    "type": "applaa_log",
+                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "It is True! I will run!" } } } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ])
+    },
+
     // --- 🎮 GAMES ---
     {
         id: 'demo_speaking_calc',

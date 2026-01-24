@@ -8,7 +8,7 @@ import {
 } from "@/atoms/appAtoms";
 import { useExpoUrl } from "@/hooks/useExpoUrl";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,15 +17,15 @@ import {
   Loader2,
   X,
   Sparkles,
-  ChevronDown,
   Lightbulb,
   ChevronRight,
-  MousePointerClick,
+  ChevronDown,
   Power,
-  Upload,
   Github,
   Globe,
   Pen,
+  Edit,
+  Upload,
 } from "lucide-react";
 import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import { IpcClient } from "@/ipc/ipc_client";
@@ -38,20 +38,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useStreamChat } from "@/hooks/useStreamChat";
 import { selectedComponentPreviewAtom, visualEditingEnabledAtom, selectedVisualElementAtom, type VisualEditingElement } from "@/atoms/previewAtoms";
 import { VisualEditingToolbar } from "./VisualEditingToolbar";
-import { useApplaaPro } from "@/hooks/useApplaaPro";
 import { AutoErrorFixBanner } from "./AutoErrorFixBanner";
 import { ComponentSelection } from "@/ipc/ipc_types";
-import { StreamingGameSelector } from "@/components/StreamingGameSelector";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useRunApp } from "@/hooks/useRunApp";
 import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
 import { useGodotExport } from "@/hooks/useGodotExport";
@@ -224,10 +217,24 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPicking, setIsPicking] = useState(false);
   
-  // Visual Editing state
-  const { isPro } = useApplaaPro();
+  const activateSelector = useCallback(() => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: "activate-dyad-component-selector" },
+        "*",
+      );
+    }
+  }, []);
+  
   const [visualEditingEnabled, setVisualEditingEnabled] = useAtom(visualEditingEnabledAtom);
   const [selectedVisualElement, setSelectedVisualElement] = useAtom(selectedVisualElementAtom);
+  
+  // Keep selector active - always activate when either mode is active
+  useEffect(() => {
+    if (isPicking || visualEditingEnabled) {
+      activateSelector();
+    }
+  }, [isPicking, visualEditingEnabled, activateSelector]);
   
   // Publish state
   const [isPublishing, setIsPublishing] = useState(false);
@@ -245,18 +252,29 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
   // Global persistent publish state
   const [publishState, setPublishState] = useAtom(globalPublishStateAtom);
 
-  // Deactivate component selector when selection is cleared
+  // Deactivate component selector when visual editing is enabled or selection is cleared
+  // Also convert existing component selection to visual editing when visual editing is enabled
   useEffect(() => {
-    if (!selectedComponentPreview) {
+    if (visualEditingEnabled || !selectedComponentPreview) {
       if (iframeRef.current?.contentWindow) {
         iframeRef.current.contentWindow.postMessage(
           { type: "deactivate-dyad-component-selector" },
           "*",
         );
       }
-      setIsPicking(false);
+      if (!visualEditingEnabled) {
+        setIsPicking(false);
+      }
     }
-  }, [selectedComponentPreview]);
+    
+    // When visual editing is enabled, clear component selection
+    // The visual editing script will handle clicks directly via postMessage
+    // We can't access iframe document for cross-origin iframes, so we rely on the script
+    if (visualEditingEnabled && selectedComponentPreview) {
+      // Clear component selection - visual editing will handle it via its own click handler
+      setSelectedComponentPreview(null);
+    }
+  }, [selectedComponentPreview, visualEditingEnabled, selectedVisualElement, setSelectedVisualElement]);
 
   // Load saved URLs and app data when app changes
   useEffect(() => {
@@ -284,37 +302,26 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     }
   }, [selectedAppId]);
 
-  // Inject visual editing script into iframe (always inject, activate based on state)
+  // Visual editing script injection (disabled - using component selector instead)
+  // This useEffect is kept for potential future use but currently not needed
+  // since we use the same component selector for both Edit with AI and Edit Manually
   useEffect(() => {
-    if (!iframeRef.current) return;
-
+    if (!iframeRef.current || isGodotApp || expoUrl) return;
+    
     const iframe = iframeRef.current;
     
     const injectVisualEditingScript = () => {
       if (!iframe.contentWindow) return;
       
-      // Check if we can access the iframe document (might be cross-origin)
-      let canAccessDocument = false;
       try {
-        canAccessDocument = !!iframe.contentDocument;
+        if (!iframe.contentDocument) return;
       } catch (e) {
-        // Cross-origin iframe - cannot access document
-        console.debug('Cannot access iframe document (cross-origin):', e);
         return;
       }
 
       try {
-        // Check if script already exists
         const existingScript = (iframe.contentWindow as any).__visualEditing;
-        if (existingScript) {
-          // Script already injected, just activate/deactivate based on state
-          if (visualEditingEnabled) {
-            existingScript.activate();
-          } else {
-            existingScript.deactivate();
-          }
-          return;
-        }
+        if (existingScript) return;
 
         const script = `
           (function() {
@@ -333,19 +340,31 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 border: 2px solid #9333ea;
                 background: rgba(147, 51, 234, 0.1);
                 display: none;
+                transition: all 0.1s ease-out;
+                border-radius: 2px;
               \`;
               document.body.appendChild(overlay);
             }
             
+            let rafId = null;
             function highlightElement(el) {
               if (!overlay || !el) return;
-              const rect = el.getBoundingClientRect();
-              overlay.style.display = 'block';
-              // position: fixed is relative to viewport, no scroll offset needed
-              overlay.style.top = rect.top + 'px';
-              overlay.style.left = rect.left + 'px';
-              overlay.style.width = rect.width + 'px';
-              overlay.style.height = rect.height + 'px';
+              
+              // Cancel previous animation frame for smooth updates
+              if (rafId) {
+                cancelAnimationFrame(rafId);
+              }
+              
+              rafId = requestAnimationFrame(() => {
+                const rect = el.getBoundingClientRect();
+                overlay.style.display = 'block';
+                // position: fixed is relative to viewport, no scroll offset needed
+                overlay.style.top = rect.top + 'px';
+                overlay.style.left = rect.left + 'px';
+                overlay.style.width = rect.width + 'px';
+                overlay.style.height = rect.height + 'px';
+                rafId = null;
+              });
             }
             
             function handleScroll() {
@@ -355,6 +374,11 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             }
             
             function getSelector(el) {
+              // Prefer data-dyad-id for accurate element targeting
+              const dyadId = el.getAttribute('data-dyad-id');
+              if (dyadId) {
+                return '[data-dyad-id="' + dyadId + '"]';
+              }
               if (el.id) return '#' + el.id;
               if (el.className && typeof el.className === 'string') {
                 const classes = el.className.split(' ').filter(c => c).slice(0, 1);
@@ -363,67 +387,300 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               return el.tagName.toLowerCase();
             }
             
+            let lastTarget = null;
             function handleMouseMove(e) {
               if (!window.__visualEditing.active) return;
-              highlightElement(e.target);
+              
+              // Only update if target changed (optimize performance)
+              if (e.target !== lastTarget) {
+                lastTarget = e.target;
+                highlightElement(e.target);
+              }
             }
             
             function handleClick(e) {
               if (!window.__visualEditing.active) return;
+              
+              // Stop the component selector from handling this click
               e.preventDefault();
               e.stopPropagation();
+              e.stopImmediatePropagation();
+              
               selectedElement = e.target;
               highlightElement(selectedElement);
               
-              const computedStyle = window.getComputedStyle(selectedElement);
+              // Try to extract file/line info from data-dyad-id attribute
+              let filePath = null;
+              let lineNumber = null;
+              let columnNumber = null;
+              
+              // Walk up the DOM to find the closest element with data-dyad-id
+              let elementWithId = selectedElement;
+              while (elementWithId && !elementWithId.getAttribute('data-dyad-id')) {
+                elementWithId = elementWithId.parentElement;
+                if (!elementWithId || elementWithId === document.body) break;
+              }
+              
+              const dyadId = elementWithId ? elementWithId.getAttribute('data-dyad-id') : null;
+              if (dyadId) {
+                // Parse format: "src/components/Button.tsx:45:12"
+                const parts = dyadId.split(':');
+                if (parts.length >= 3) {
+                  const columnStr = parts.pop();
+                  const lineStr = parts.pop();
+                  filePath = parts.join(':');
+                  lineNumber = parseInt(lineStr, 10);
+                  columnNumber = parseInt(columnStr, 10);
+                }
+              }
+              
+              // Use the element with data-dyad-id if found, otherwise use clicked element
+              const targetElement = elementWithId || selectedElement;
+              
+              const computedStyle = window.getComputedStyle(targetElement);
               const styles = {
-                marginLeft: computedStyle.marginLeft,
+                // Layout
+                width: computedStyle.width,
+                height: computedStyle.height,
+                display: computedStyle.display,
+                position: computedStyle.position,
+                flexDirection: computedStyle.flexDirection,
+                justifyContent: computedStyle.justifyContent,
+                alignItems: computedStyle.alignItems,
+                // Spacing
                 marginTop: computedStyle.marginTop,
-                paddingLeft: computedStyle.paddingLeft,
+                marginRight: computedStyle.marginRight,
+                marginBottom: computedStyle.marginBottom,
+                marginLeft: computedStyle.marginLeft,
                 paddingTop: computedStyle.paddingTop,
+                paddingRight: computedStyle.paddingRight,
+                paddingBottom: computedStyle.paddingBottom,
+                paddingLeft: computedStyle.paddingLeft,
+                // Border
                 borderWidth: computedStyle.borderWidth,
                 borderRadius: computedStyle.borderRadius,
                 borderColor: computedStyle.borderColor,
+                // Background & Effects
                 backgroundColor: computedStyle.backgroundColor,
+                opacity: computedStyle.opacity,
+                boxShadow: computedStyle.boxShadow,
+                zIndex: computedStyle.zIndex,
+                // Text
                 fontSize: computedStyle.fontSize,
                 fontWeight: computedStyle.fontWeight,
                 color: computedStyle.color,
+                textAlign: computedStyle.textAlign,
               };
               
-              // Send element info to parent
+              // Get text content (only for text-containing elements)
+              let textContent = '';
+              if (targetElement.childNodes.length > 0) {
+                // Get direct text content (not from nested elements)
+                const textNodes = Array.from(targetElement.childNodes)
+                  .filter(node => node.nodeType === Node.TEXT_NODE)
+                  .map(node => node.textContent?.trim())
+                  .filter(text => text && text.length > 0);
+                textContent = textNodes.join(' ') || '';
+              }
+              
+              // Send element info to parent with file information
+              // This works even for cross-origin iframes since we're sending from iframe to parent
               window.parent.postMessage({
                 type: 'visual-editing-element-selected',
                 element: {
-                  tagName: selectedElement.tagName.toLowerCase(),
-                  className: selectedElement.className || '',
-                  id: selectedElement.id || '',
-                  selector: getSelector(selectedElement),
-                  styles: styles
+                  tagName: targetElement.tagName.toLowerCase(),
+                  className: targetElement.className || '',
+                  id: targetElement.id || '',
+                  selector: getSelector(targetElement),
+                  styles: styles,
+                  file: filePath || undefined,
+                  line: lineNumber || undefined,
+                  column: columnNumber || undefined,
+                  textContent: textContent || undefined,
                 }
               }, '*');
             }
             
             function activate() {
               if (window.__visualEditing.active) return;
+              
               window.__visualEditing.active = true;
               createOverlay();
+              
               document.addEventListener('mousemove', handleMouseMove, true);
               document.addEventListener('click', handleClick, true);
               window.addEventListener('scroll', handleScroll, true);
+              
+              window.parent.postMessage({ type: "deactivate-dyad-component-selector" }, "*");
+              
               document.body.style.cursor = 'crosshair';
               document.body.style.userSelect = 'none';
             }
             
             function deactivate() {
               if (!window.__visualEditing.active) return;
+              
               window.__visualEditing.active = false;
+              
+              if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+              }
+              
               if (overlay) overlay.style.display = 'none';
               document.removeEventListener('mousemove', handleMouseMove, true);
               document.removeEventListener('click', handleClick, true);
               window.removeEventListener('scroll', handleScroll, true);
               document.body.style.cursor = '';
               document.body.style.userSelect = '';
+              lastTarget = null;
+              selectedElement = null;
             }
+            
+            window.addEventListener('message', function(e) {
+              if (e.source !== window.parent) return;
+              
+              if (e.data?.type === 'activate-visual-editing') {
+                activate();
+                return;
+              }
+              
+              if (e.data?.type === 'deactivate-visual-editing') {
+                deactivate();
+                return;
+              }
+              
+              if (e.data?.type === 'visual-editing-request-element-data' && e.data.elementId) {
+                console.log('🎯 [iframe] Received request for element data:', e.data.elementId);
+                // Find element by checking all elements with data-dyad-id attribute
+                // This is more reliable than querySelector with special characters like backslashes
+                let element = null;
+                const allElements = document.querySelectorAll('[data-dyad-id]');
+                console.log('🔍 [iframe] Total elements with data-dyad-id:', allElements.length);
+                
+                // Try exact match first
+                for (let i = 0; i < allElements.length; i++) {
+                  const dyadId = allElements[i].getAttribute('data-dyad-id');
+                  if (dyadId === e.data.elementId) {
+                    element = allElements[i];
+                    console.log('✅ [iframe] Found element with exact match');
+                    break;
+                  }
+                }
+                
+                // If not found, try normalizing path separators (backslash to forward slash)
+                if (!element) {
+                  const normalizedRequestId = e.data.elementId.replace(/\\/g, '/');
+                  for (let i = 0; i < allElements.length; i++) {
+                    const dyadId = allElements[i].getAttribute('data-dyad-id');
+                    const normalizedDyadId = dyadId ? dyadId.replace(/\\/g, '/') : '';
+                    if (normalizedDyadId === normalizedRequestId) {
+                      element = allElements[i];
+                      console.log('✅ [iframe] Found element with normalized path match');
+                      break;
+                    }
+                  }
+                }
+                
+                if (element) {
+                  console.log('📊 [iframe] Found element, computing styles...');
+                  const computedStyle = window.getComputedStyle(element);
+                  let filePath = null;
+                  let lineNumber = null;
+                  let columnNumber = null;
+                  
+                  const dyadId = element.getAttribute('data-dyad-id');
+                  if (dyadId) {
+                    const parts = dyadId.split(':');
+                    if (parts.length >= 3) {
+                      const columnStr = parts.pop();
+                      const lineStr = parts.pop();
+                      filePath = parts.join(':');
+                      lineNumber = parseInt(lineStr, 10);
+                      columnNumber = parseInt(columnStr, 10);
+                    }
+                  }
+                  
+                  const styles = {
+                    width: computedStyle.width,
+                    height: computedStyle.height,
+                    display: computedStyle.display,
+                    position: computedStyle.position,
+                    flexDirection: computedStyle.flexDirection,
+                    justifyContent: computedStyle.justifyContent,
+                    alignItems: computedStyle.alignItems,
+                    marginTop: computedStyle.marginTop,
+                    marginRight: computedStyle.marginRight,
+                    marginBottom: computedStyle.marginBottom,
+                    marginLeft: computedStyle.marginLeft,
+                    paddingTop: computedStyle.paddingTop,
+                    paddingRight: computedStyle.paddingRight,
+                    paddingBottom: computedStyle.paddingBottom,
+                    paddingLeft: computedStyle.paddingLeft,
+                    borderWidth: computedStyle.borderWidth,
+                    borderRadius: computedStyle.borderRadius,
+                    borderColor: computedStyle.borderColor,
+                    backgroundColor: computedStyle.backgroundColor,
+                    opacity: computedStyle.opacity,
+                    boxShadow: computedStyle.boxShadow,
+                    zIndex: computedStyle.zIndex,
+                    fontSize: computedStyle.fontSize,
+                    fontWeight: computedStyle.fontWeight,
+                    color: computedStyle.color,
+                    textAlign: computedStyle.textAlign,
+                  };
+                  
+                  // Get text content
+                  let textContent = '';
+                  if (element.childNodes.length > 0) {
+                    const textNodes = Array.from(element.childNodes)
+                      .filter(node => node.nodeType === Node.TEXT_NODE)
+                      .map(node => node.textContent?.trim())
+                      .filter(text => text && text.length > 0);
+                    textContent = textNodes.join(' ') || '';
+                  }
+                  
+                  console.log('📤 [iframe] Sending element data response:', {
+                    elementId: e.data.elementId,
+                    stylesCount: Object.keys(styles).length,
+                    hasWidth: !!styles.width,
+                    hasHeight: !!styles.height,
+                    width: styles.width,
+                    height: styles.height,
+                  });
+                  
+                  window.parent.postMessage({
+                    type: 'visual-editing-element-data-response',
+                    elementId: e.data.elementId,
+                    element: {
+                      tagName: element.tagName.toLowerCase(),
+                      className: element.className || '',
+                      id: element.id || '',
+                      selector: '[data-dyad-id="' + e.data.elementId + '"]',
+                      styles: styles,
+                      file: filePath || undefined,
+                      line: lineNumber || undefined,
+                      column: columnNumber || undefined,
+                      textContent: textContent || undefined,
+                    }
+                  }, '*');
+                } else {
+                  console.warn('❌ [iframe] Element not found for:', e.data.elementId);
+                  // Send empty response so the handler knows the request was processed
+                  window.parent.postMessage({
+                    type: 'visual-editing-element-data-response',
+                    elementId: e.data.elementId,
+                    element: {
+                      tagName: 'div',
+                      className: '',
+                      id: '',
+                      selector: '[data-dyad-id="' + e.data.elementId + '"]',
+                      styles: {},
+                    }
+                  }, '*');
+                }
+              }
+            });
             
             window.__visualEditing = { activate, deactivate, active: false };
             window.parent.postMessage({ type: 'visual-editing-ready' }, '*');
@@ -444,36 +701,17 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               (iframe.contentWindow as any).eval(script);
             }
           } else {
-            // Fallback to eval
             (iframe.contentWindow as any).eval(script);
           }
-          
-          // Activate if visual editing is enabled
-          setTimeout(() => {
-            try {
-              const script = (iframe.contentWindow as any).__visualEditing;
-              if (script && visualEditingEnabled) {
-                script.activate();
-              }
-            } catch (e) {
-              console.debug('Failed to activate visual editing:', e);
-            }
-          }, 100);
         } catch (evalError: any) {
-          // Cross-origin iframe - cannot inject script
-          if (evalError?.name === 'SecurityError' || evalError?.message?.includes('cross-origin')) {
-            console.debug('Cannot inject visual editing script (cross-origin iframe):', evalError);
-          } else {
-            console.error('Failed to inject visual editing script:', evalError);
-          }
+          // Cross-origin iframe - cannot inject script (expected for some apps)
         }
       } catch (error) {
-        console.error('Failed to inject visual editing script:', error);
+        // Silently fail for cross-origin iframes
       }
     };
 
     const handleLoad = () => {
-      // Wait for iframe to be fully ready
       const checkReady = () => {
         try {
           if (iframe.contentDocument) {
@@ -501,65 +739,43 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       checkReady();
     };
 
-    // Inject script when iframe loads
     iframe.addEventListener('load', handleLoad);
     
-    // If iframe is already loaded, inject immediately
     try {
-      if (iframe.contentDocument?.readyState === 'complete' || iframe.contentDocument?.readyState === 'interactive') {
+      const readyState = iframe.contentDocument?.readyState;
+      if (readyState === 'complete' || readyState === 'interactive') {
         handleLoad();
       }
     } catch (e) {
-      // Cross-origin - try anyway after delay
-      setTimeout(handleLoad, 500);
+      // Cross-origin - will wait for load event
     }
 
-    // Handle when visualEditingEnabled changes after script is injected
-    const checkAndUpdate = () => {
-      try {
-        const iframeWindow = iframe.contentWindow as any;
-        if (iframeWindow?.__visualEditing) {
-          if (visualEditingEnabled) {
-            iframeWindow.__visualEditing.activate();
-          } else {
-            iframeWindow.__visualEditing.deactivate();
-          }
-        }
-      } catch (error) {
-        // Cross-origin - ignore
-      }
-    };
-
-    // Check periodically and when visualEditingEnabled changes
-    const interval = setInterval(checkAndUpdate, 500);
-
     return () => {
-      clearInterval(interval);
       iframe.removeEventListener('load', handleLoad);
-      // Deactivate visual editing when component unmounts or visual editing is disabled
-      try {
-        const iframeWindow = iframe.contentWindow as any;
-        if (iframeWindow?.__visualEditing) {
-          iframeWindow.__visualEditing.deactivate();
-        }
-      } catch (error) {
-        // Cross-origin iframe - cannot access contentWindow
-        console.debug('Cannot access iframe contentWindow (cross-origin):', error);
-      }
     };
-  }, [visualEditingEnabled]);
+  }, [isGodotApp, expoUrl, selectedAppId, appUrl]);
 
-  // 🚫 DISABLED: Console error monitoring to match Dyad's approach
-  // Add message listener for iframe errors and navigation events
-  // useEffect(() => {
-  //   detectConsoleErrors(appOutput);
-  // }, [appOutput, detectConsoleErrors]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Only handle messages from our iframe
-      if (event.source !== iframeRef.current?.contentWindow) {
-        return;
+      // For visual editing messages, accept from any origin (iframe sends to parent with '*')
+      // This is necessary for cross-origin iframes
+      const isVisualEditingMessage = event.data?.type === 'visual-editing-element-selected' || 
+                                     event.data?.type === 'visual-editing-ready' ||
+                                     event.data?.type === 'visual-editing-element-data-response' ||
+                                     event.data?.type === 'element-styles-response';
+      
+      if (isVisualEditingMessage) {
+        // Accept visual editing messages from any origin (they come from the iframe)
+        // We validate the message structure instead
+        if (!event.data || typeof event.data !== 'object') {
+          return;
+        }
+      } else {
+        // For other messages, only accept from our iframe (same origin)
+        if (event.source !== iframeRef.current?.contentWindow) {
+          return;
+        }
       }
 
       if (event.data?.type === "dyad-component-selector-initialized") {
@@ -568,29 +784,266 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       }
 
       if (event.data?.type === "dyad-component-selected") {
-        console.log("Component picked:", event.data);
-        setSelectedComponentPreview(parseComponentSelection(event.data));
-        setIsPicking(false);
+        const componentSelection = parseComponentSelection(event.data);
+        if (!componentSelection) return;
+        
+        setSelectedComponentPreview(componentSelection);
+        
+        // Edit with AI mode: focus chat
+        if (isPicking && !visualEditingEnabled) {
+          window.dispatchEvent(new CustomEvent('focus-chat-input', { 
+            detail: { componentSelection } 
+          }));
+          return;
+        }
+        
+        // Manual Edit mode: open popup
+        if (visualEditingEnabled) {
+          const componentData = event.data;
+          console.log('🎨 Manual Edit: Component selected', componentData);
+          const parts = componentData.id.split(':');
+          let filePath = null;
+          let lineNumber = null;
+          if (parts.length >= 3) {
+            const lineStr = parts[parts.length - 2];
+            filePath = parts.slice(0, -2).join(':');
+            filePath = filePath.replace(/\\/g, '/');
+            lineNumber = parseInt(lineStr, 10);
+          }
+          
+          setIsPicking(false);
+          
+          // Use postMessage to request element styles (works for cross-origin iframes)
+          const elementId = `visual-edit-${componentData.id}`;
+          const selector = `[data-dyad-id="${componentData.id}"]`;
+          
+          // Create placeholder element first
+          const placeholderElement: VisualEditingElement = {
+            id: elementId,
+            tagName: componentData.name || 'div',
+            className: '',
+            elementId: '',
+            styles: {},
+            selector,
+            file: filePath || undefined,
+            line: lineNumber || undefined,
+            textContent: undefined,
+          };
+          
+          console.log('📝 Setting placeholder element, requesting styles via postMessage');
+          setSelectedVisualElement(placeholderElement);
+          
+          // Request element data via postMessage (works for cross-origin)
+          if (iframeRef.current?.contentWindow) {
+            console.log('📤 Requesting element data via postMessage for:', componentData.id);
+            // Try multiple message types - component selector might handle one of them
+            iframeRef.current.contentWindow.postMessage({
+              type: 'visual-editing-request-element-data',
+              elementId: componentData.id
+            }, '*');
+            
+            // Also try a direct request to the component selector
+            iframeRef.current.contentWindow.postMessage({
+              type: 'request-element-styles',
+              elementId: componentData.id
+            }, '*');
+          }
+        }
+        
+        return;
+      }
+      
+      if (event.data?.type === "dyad-edit-with-ai-clicked") {
+        const componentSelection = parseComponentSelection({
+          type: "dyad-component-selected",
+          id: event.data.id,
+          name: event.data.name,
+        });
+        
+        if (componentSelection) {
+          setSelectedComponentPreview(componentSelection);
+          window.dispatchEvent(new CustomEvent('focus-chat-input', { 
+            detail: { componentSelection } 
+          }));
+        }
+        
         return;
       }
 
-      // Handle visual editing element selection
       if (event.data?.type === "visual-editing-element-selected") {
         const elementData = event.data.element;
         const visualElement: VisualEditingElement = {
           id: Date.now().toString(),
-          tagName: elementData.tagName,
-          className: elementData.className,
-          elementId: elementData.id,
+          tagName: elementData.tagName || 'div',
+          className: elementData.className || '',
+          elementId: elementData.id || '',
           styles: elementData.styles || {},
-          selector: elementData.selector || (elementData.id ? `#${elementData.id}` : elementData.className ? `.${elementData.className.split(' ')[0]}` : elementData.tagName),
+          selector: elementData.selector || (elementData.id ? `#${elementData.id}` : elementData.className ? `.${elementData.className.split(' ')[0]}` : elementData.tagName || 'div'),
+          file: elementData.file,
+          line: elementData.line,
+          textContent: elementData.textContent,
         };
         setSelectedVisualElement(visualElement);
+        
+        if (elementData.file && elementData.line) {
+          try {
+            const componentName = elementData.tagName || elementData.selector || 'element';
+            const componentSelection: ComponentSelection = {
+              id: `${elementData.file}:${elementData.line}:${elementData.column || 0}`,
+              name: componentName,
+              relativePath: elementData.file,
+              lineNumber: elementData.line,
+              columnNumber: elementData.column || 0,
+            };
+            setSelectedComponentPreview(componentSelection);
+          } catch (error) {
+            // Silently fail
+          }
+        }
+        
         return;
       }
 
       if (event.data?.type === "visual-editing-ready") {
-        console.log("Visual editing script ready");
+        if (visualEditingEnabled) {
+          setTimeout(() => {
+            try {
+              const iframeWindow = iframeRef.current?.contentWindow as any;
+              if (iframeWindow?.__visualEditing) {
+                iframeWindow.__visualEditing.activate();
+              }
+            } catch (error) {
+              // Silently fail for cross-origin
+            }
+          }, 100);
+        }
+        return;
+      }
+
+      if (event.data?.type === "visual-editing-element-data-response") {
+        console.log('📥 Received element data response:', event.data);
+        const elementData = event.data.element;
+        const requestedElementId = event.data.elementId;
+        
+        console.log('📊 Element data:', {
+          tagName: elementData.tagName,
+          styles: elementData.styles,
+          stylesType: typeof elementData.styles,
+          stylesKeys: elementData.styles ? Object.keys(elementData.styles) : [],
+          requestedElementId,
+        });
+        
+        // Update the existing element with the fetched styles
+        // Match by checking if the selector or requestedElementId matches the current element
+        setSelectedVisualElement((prev) => {
+          console.log('🔄 Updating element. Previous:', prev);
+          
+          if (!prev) {
+            console.log('⚠️ No previous element, creating new one');
+            // If no previous element, create a new one with styles
+            const newElement = {
+              id: `visual-edit-${requestedElementId || Date.now()}`,
+              tagName: elementData.tagName || 'div',
+              className: elementData.className || '',
+              elementId: elementData.id || '',
+              styles: elementData.styles && typeof elementData.styles === 'object' 
+                ? { ...elementData.styles } 
+                : {},
+              selector: elementData.selector || '[data-dyad-id]',
+              file: elementData.file,
+              line: elementData.line,
+              textContent: elementData.textContent,
+            };
+            console.log('✅ Created new element with styles:', {
+              ...newElement,
+              stylesCount: Object.keys(newElement.styles).length,
+            });
+            // Force a new object reference to ensure React/Jotai detects the change
+            return JSON.parse(JSON.stringify(newElement)) as VisualEditingElement;
+          }
+          
+          // Check if this response is for the current element
+          // Normalize path separators for matching (handle both \ and /)
+          const normalizePath = (str: string) => str ? str.replace(/\\/g, '/') : '';
+          const normalizedPrevId = normalizePath(prev.id);
+          const normalizedRequestedId = requestedElementId ? normalizePath(requestedElementId) : '';
+          const normalizedExpectedId = requestedElementId ? normalizePath(`visual-edit-${requestedElementId}`) : '';
+          
+          // Match by selector or by checking if the elementId matches (with path normalization)
+          const isMatchingElement = 
+            prev.selector === elementData.selector ||
+            (requestedElementId && (
+              prev.id === `visual-edit-${requestedElementId}` ||
+              normalizedPrevId === normalizedExpectedId ||
+              normalizedPrevId.endsWith(normalizedRequestedId)
+            ));
+          
+          console.log('🔍 Matching check:', {
+            prevSelector: prev.selector,
+            elementDataSelector: elementData.selector,
+            prevId: prev.id,
+            requestedElementId,
+            expectedId: `visual-edit-${requestedElementId}`,
+            normalizedPrevId,
+            normalizedExpectedId,
+            normalizedRequestedId,
+            isMatching: isMatchingElement,
+          });
+          
+          if (!isMatchingElement) {
+            console.log('❌ Response is for different element, not updating');
+            // This response is for a different element, don't update
+            return prev;
+          }
+          
+          // Update existing element with fetched styles and data
+          // Create a new styles object to ensure React detects the change
+          const newStyles = elementData.styles && typeof elementData.styles === 'object' 
+            ? { ...elementData.styles } // Spread to create a new object reference
+            : {};
+          
+          console.log('🎨 New styles object:', {
+            newStyles,
+            stylesCount: Object.keys(newStyles).length,
+            sampleStyles: Object.keys(newStyles).slice(0, 5).reduce((acc, key) => {
+              acc[key] = newStyles[key];
+              return acc;
+            }, {} as Record<string, string>),
+          });
+          
+          // Return a completely new element object to ensure React detects the change
+          // Force a new object reference by spreading all properties
+          const updatedElement: VisualEditingElement = {
+            id: prev.id, // Keep the same ID
+            tagName: elementData.tagName || prev.tagName,
+            className: elementData.className || prev.className,
+            elementId: elementData.id || prev.elementId,
+            styles: newStyles, // New styles object with computed values
+            selector: elementData.selector || prev.selector,
+            file: elementData.file !== undefined ? elementData.file : prev.file,
+            line: elementData.line !== undefined ? elementData.line : prev.line,
+            textContent: elementData.textContent !== undefined ? elementData.textContent : prev.textContent,
+          };
+          
+          console.log('✅ Updated element with styles:', {
+            id: updatedElement.id,
+            stylesCount: Object.keys(updatedElement.styles).length,
+            hasWidth: !!updatedElement.styles.width,
+            hasHeight: !!updatedElement.styles.height,
+            hasColor: !!updatedElement.styles.color,
+            sampleStyles: {
+              width: updatedElement.styles.width,
+              height: updatedElement.styles.height,
+              color: updatedElement.styles.color,
+              backgroundColor: updatedElement.styles.backgroundColor,
+            },
+          });
+          
+          // Force a new object reference by using JSON parse/stringify to break any reference
+          // This ensures React/Jotai detects the change
+          return JSON.parse(JSON.stringify(updatedElement)) as VisualEditingElement;
+        });
+        setIsPicking(false);
         return;
       }
 
@@ -624,7 +1077,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
         const errorMessage = `Error ${
           payload?.message || payload?.reason
         }\nStack trace: ${stack}`;
-        console.error("Iframe error:", errorMessage);
+        // Error logged to console by iframe
         setErrorMessage(errorMessage);
         setAppOutput((prev) => [
           ...prev,
@@ -636,7 +1089,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           },
         ]);
       } else if (type === "build-error-report") {
-        console.debug(`Build error report: ${payload}`);
+        // Build error handled
         const errorMessage = `${payload?.message} from file ${payload?.file}.\n\nSource code:\n${payload?.frame}`;
         setErrorMessage(errorMessage);
         setAppOutput((prev) => [
@@ -649,7 +1102,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           },
         ]);
       } else if (type === "pushState" || type === "replaceState") {
-        console.debug(`Navigation event: ${type}`, payload);
+        // Navigation event handled
 
         // Update navigation history based on the type of state change
         if (type === "pushState" && payload?.newUrl) {
@@ -679,6 +1132,8 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     setErrorMessage,
     setIsComponentSelectorInitialized,
     setSelectedComponentPreview,
+    visualEditingEnabled,
+    setSelectedVisualElement,
   ]);
 
   useEffect(() => {
@@ -776,7 +1231,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     setErrorMessage(undefined);
     // Optionally, add logic here if you need to explicitly stop/start the app again
     // For now, just changing the key should remount the iframe
-    console.debug("Reloading iframe preview for app", selectedAppId);
+    // Reloading iframe
   };
 
   // Function to navigate to a specific route
@@ -893,29 +1348,96 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       <div className="godot-toolbar">
         {/* Navigation Buttons */}
         <div className="flex gap-1">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          {/* Edit Mode Dropdown */}
+          {!isGodotApp && !expoUrl && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
-                  onClick={handleActivateComponentSelector}
-                  className={`godot-button godot-button-icon ${isPicking ? "godot-button-primary" : ""}`}
+                  className={`godot-button godot-button-icon ${(isPicking || visualEditingEnabled) ? "godot-button-primary" : ""}`}
                   disabled={loading || !selectedAppId}
-                  data-testid="preview-pick-element-button"
+                  data-testid="edit-button"
+                  title="Edit Mode"
                 >
-                  <MousePointerClick size={16} />
+                  <Edit size={16} />
                 </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  {!isComponentSelectorInitialized
-                    ? "Click to enable component selector (will install component tagger)"
-                    : isPicking
-                    ? "Deactivate component selector"
-                    : "Select component"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem
+                  onSelect={async () => {
+                    if (!isComponentSelectorInitialized && selectedAppId) {
+                      try {
+                        const ipcClient = IpcClient.getInstance();
+                        await ipcClient.executeAppUpgrade({ 
+                          appId: selectedAppId, 
+                          upgradeId: "component-tagger" 
+                        });
+                        restartApp();
+                        return;
+                      } catch (error) {
+                        console.error("Failed to apply component tagger upgrade:", error);
+                        return;
+                      }
+                    }
+                    
+                    // Activate selector FIRST before any state changes
+                    activateSelector();
+                    
+                    // Batch state updates together - React 18 batches these automatically
+                    setVisualEditingEnabled(false);
+                    setSelectedVisualElement(null);
+                    setIsPicking(true);
+                    
+                    // Activate again after a tiny delay to ensure it stays on
+                    setTimeout(() => activateSelector(), 10);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Sparkles size={16} />
+                  <span>Edit with AI</span>
+                  {isPicking && !visualEditingEnabled && (
+                    <span className="ml-auto text-blue-500">✓</span>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={async () => {
+                    if (!isComponentSelectorInitialized && selectedAppId) {
+                      try {
+                        const ipcClient = IpcClient.getInstance();
+                        await ipcClient.executeAppUpgrade({ 
+                          appId: selectedAppId, 
+                          upgradeId: "component-tagger" 
+                        });
+                        restartApp();
+                        return;
+                      } catch (error) {
+                        console.error("Failed to apply component tagger upgrade:", error);
+                        return;
+                      }
+                    }
+                    
+                    // Activate selector FIRST before any state changes
+                    activateSelector();
+                    
+                    // Batch state updates together - React 18 batches these automatically
+                    setIsPicking(false);
+                    setSelectedComponentPreview(null);
+                    setVisualEditingEnabled(true);
+                    
+                    // Activate again after a tiny delay to ensure it stays on
+                    setTimeout(() => activateSelector(), 10);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Pen size={16} />
+                  <span>Edit Manually</span>
+                  {visualEditingEnabled && !isPicking && (
+                    <span className="ml-auto text-blue-500">✓</span>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <button
             className="godot-button godot-button-icon"
             disabled={!canGoBack || loading || !selectedAppId}
@@ -1057,32 +1579,6 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               onChange={setScreenSize}
             />
           )}
-
-          {/* Visual Editing Toggle - Available for all users, web apps only */}
-          {!isGodotApp && !expoUrl && (
-            <TooltipProvider>
-              {/* <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => {
-                      setVisualEditingEnabled(!visualEditingEnabled);
-                      if (visualEditingEnabled) {
-                        setSelectedVisualElement(null);
-                      }
-                    }}
-                    className={`godot-button godot-button-icon ${visualEditingEnabled ? "godot-button-primary" : ""}`}
-                    disabled={loading || !selectedAppId}
-                    title={visualEditingEnabled ? "Disable Visual Editing" : "Enable Visual Editing"}
-                  >
-                    <Pen size={16} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{visualEditingEnabled ? "Disable" : "Enable"} Visual Editing</p>
-                </TooltipContent>
-              </Tooltip> */}
-            </TooltipProvider>
-          )}
         </div>
       </div>
 
@@ -1092,33 +1588,19 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
           error={errorMessage}
           onDismiss={() => setErrorMessage(undefined)}
           onAIFix={async () => {
-            console.log("🔧 Fix error with AI button clicked");
-            console.log("🔧 Error message:", errorMessage);
-            console.log("🔧 Selected app ID:", selectedAppId);
-            console.log("🔧 Selected chat ID:", selectedChatId);
-            console.log("🔧 App chat ID:", appChatId);
-            console.log("🔧 Available chats:", chats);
-            
-            // 🚀 IMPROVED: Use proper chat lookup - selectedChatId first, then app's main chat
-            let chatIdToUse = selectedChatId || appChatId;
+            const chatIdToUse = selectedChatId || appChatId;
             
             if (!chatIdToUse) {
-              console.error("❌ Cannot fix error: No chat ID available - selectedChatId:", selectedChatId, "appChatId:", appChatId, "selectedAppId:", selectedAppId);
-              // Try to show an error message to the user
               alert("No chat available to send the error fix request. Please create a chat first.");
               return;
             }
-            
-            console.log("✅ Fixing error with chat ID:", chatIdToUse, "(source:", selectedChatId ? "selectedChat" : "appChat", ")");
             
             try {
               await streamMessage({
                 prompt: `Fix this error: ${errorMessage}. Please analyze the error and provide the corrected code.`,
                 chatId: chatIdToUse,
               });
-              console.log("✅ Error fix request sent successfully");
             } catch (error) {
-              console.error("❌ Failed to send error fix request:", error);
               alert(`Failed to send error fix request: ${error instanceof Error ? error.message : String(error)}`);
             }
           }}
@@ -1189,12 +1671,12 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                         data-testid="preview-iframe-element"
                         onLoad={(e) => {
                           const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                          console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                          // Iframe loaded successfully
                           setErrorMessage(undefined);
                         }}
                         onError={(e) => {
                           const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                          console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                          // Iframe load error (handled by error handler)
                           setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
                         }}
                         ref={iframeRef}
@@ -1226,22 +1708,22 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 data-testid="preview-iframe-element"
                 onLoad={(e) => {
                   const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                  console.log(`✅ Preview iframe loaded successfully: ${url}`);
+                  // Iframe loaded
                   setErrorMessage(undefined);
                   
                   // Try to access iframe content for debugging (may fail due to CORS)
                   try {
                     const iframe = iframeRef.current;
                     if (iframe && iframe.contentWindow) {
-                      console.log('Iframe contentWindow accessible');
+                      // Iframe accessible
                     }
                   } catch (err) {
-                    console.log('Cannot access iframe content (CORS):', err);
+                    // Cross-origin iframe (expected)
                   }
                 }}
                 onError={(e) => {
                   const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
-                  console.error(`❌ Preview iframe failed to load: ${url}`, e);
+                  // Iframe load error
                   setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
                 }}
                 ref={iframeRef}
@@ -1260,21 +1742,14 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
       {visualEditingEnabled && selectedVisualElement && (
         <VisualEditingToolbar
           onClose={() => {
+            // Closing toolbar
             setSelectedVisualElement(null);
-            // Deactivate visual editing in iframe
-            try {
-              const iframeWindow = iframeRef.current?.contentWindow as any;
-              if (iframeWindow?.__visualEditing) {
-                iframeWindow.__visualEditing.deactivate();
-              }
-            } catch (error) {
-              // Cross-origin iframe - cannot access contentWindow
-              // This is expected for some iframes and safe to ignore
-              console.debug('Cannot access iframe contentWindow (cross-origin):', error);
-            }
+            // Keep visual editing active so user can select another element
+            // Don't deactivate - just clear the selected element
           }}
         />
       )}
+      
 
       {/* AutoPush Dropdown */}
       {showPublishDialog && selectedAppId && (
@@ -1320,7 +1795,7 @@ function parseComponentSelection(data: any): ComponentSelection | null {
   // The id is expected to be in the format "filepath:line:column"
   const parts = id.split(":");
   if (parts.length < 3) {
-    console.error(`Invalid component selection id format: "${id}"`);
+    // Invalid format
     return null;
   }
 
@@ -1329,7 +1804,7 @@ function parseComponentSelection(data: any): ComponentSelection | null {
   const relativePath = parts.join(":");
 
   if (!columnStr || !lineStr || !relativePath) {
-    console.error(`Could not parse component selection from id: "${id}"`);
+    // Parse error
     return null;
   }
 
@@ -1337,7 +1812,7 @@ function parseComponentSelection(data: any): ComponentSelection | null {
   const columnNumber = parseInt(columnStr, 10);
 
   if (isNaN(lineNumber) || isNaN(columnNumber)) {
-    console.error(`Could not parse line/column from id: "${id}"`);
+    // Parse error
     return null;
   }
 

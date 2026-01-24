@@ -49,6 +49,8 @@ export function PromptToProjectScreen({ onProjectCreated }: PromptToProjectScree
                     'microbit': 'microbit',
                     'minecraft': 'minecraft-makecode',
                     'blockly': 'blockly',
+                    'roblox': 'roblox-lua',
+                    'python': 'python',
                 };
                 return f.id === appTypeMap[type];
             });
@@ -231,6 +233,8 @@ export function PromptToProjectScreen({ onProjectCreated }: PromptToProjectScree
             'microbit': 'microbit',
             'minecraft-makecode': 'minecraft',
             'blockly': 'blockly',
+            'roblox-lua': 'roblox',
+            'python': 'python',
         };
 
         const appType = appTypeMap[routing.frameworkId!];
@@ -313,6 +317,8 @@ export function PromptToProjectScreen({ onProjectCreated }: PromptToProjectScree
             'microbit': 'microbit',
             'minecraft-makecode': 'minecraft',
             'blockly': 'blockly',
+            'roblox-lua': 'roblox',
+            'python': 'python',
         };
 
         const appType = appTypeMap[routing.frameworkId!];
@@ -343,11 +349,11 @@ export function PromptToProjectScreen({ onProjectCreated }: PromptToProjectScree
                     const appId = result.app.id;
 
                     // Save the generated code to the app
-                    if (project.payload?.minecraftMod) {
+                    if ((project.payload as any)?.minecraftMod) {
                         await ipcClient.writeFile({
                             appId: appId,
-                            filePath: project.payload.minecraftMod.fileName || 'Mod.java',
-                            content: project.payload.minecraftMod.code,
+                            filePath: (project.payload as any).minecraftMod.fileName || 'Mod.java',
+                            content: (project.payload as any).minecraftMod.code,
                         });
                     }
 
@@ -418,6 +424,8 @@ export function PromptToProjectScreen({ onProjectCreated }: PromptToProjectScree
             case 'microbit': return <Cpu className="h-5 w-5" />;
             case 'minecraft-makecode': return <Box className="h-5 w-5" />;
             case 'blockly': return <Code className="h-5 w-5" />;
+            case 'roblox-lua': return <Box className="h-5 w-5" />; // TODO: Add Roblox icon
+            case 'python': return <Code className="h-5 w-5" />;
             default: return <Sparkles className="h-5 w-5" />;
         }
     };

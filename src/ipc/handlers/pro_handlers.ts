@@ -25,7 +25,9 @@ export function registerProHandlers() {
     const apiKey = settings.providerSettings?.auto?.apiKey?.value;
 
     if (!apiKey) {
-      logger.error("LLM Gateway API key (Dyad Pro) is not configured.");
+      // ✅ OPTIONAL: Gateway API key is optional now
+      // Pro users don't need this - they use their own provider API keys
+      logger.info("LLM Gateway API key not configured. Skipping budget fetch (this is normal for Pro users using direct provider keys).");
       return null;
     }
 

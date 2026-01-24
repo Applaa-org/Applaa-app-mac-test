@@ -4,23 +4,13 @@ import { useLoadApps } from "@/hooks/useLoadApps";
 import { useRouter, useLocation } from "@tanstack/react-router";
 import { useSettings } from "@/hooks/useSettings";
 import { Button } from "@/components/ui/button";
-import { providerSettingsRoute } from "@/routes/settings/providers/$provider";
-import { cn } from "@/lib/utils";
-import { useDeepLink } from "@/contexts/DeepLinkContext";
 import { useEffect, useState, useMemo } from "react";
-import { DyadProSuccessDialog } from "@/components/DyadProSuccessDialog";
+// ✅ REMOVED: Gateway-related imports (DyadProSuccessDialog, useDeepLink, useUserBudgetInfo, UserBudgetInfo, etc.)
 import { useTheme } from "@/contexts/ThemeContext";
 import { IpcClient } from "@/ipc/ipc_client";
-import { useUserBudgetInfo } from "@/hooks/useUserBudgetInfo";
-import { UserBudgetInfo } from "@/ipc/ipc_types";
 import { useRunApp } from "@/hooks/useRunApp";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { PreviewHeader } from "@/components/preview_panel/PreviewHeader";
-import applaaLogo from "@/assets/applaa-logo-new.jpeg";
+import applaasmallLogo from "../../assets/logo-small.png";
 import { Globe } from "lucide-react";
 
 export const TitleBar = () => {
@@ -28,8 +18,7 @@ export const TitleBar = () => {
   const { apps } = useLoadApps();
   const { navigate } = useRouter();
   const location = useLocation();
-  const { settings, refreshSettings } = useSettings();
-  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const { settings } = useSettings();
   const [showWindowControls, setShowWindowControls] = useState(false);
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const { app } = useRunApp();
@@ -48,20 +37,7 @@ export const TitleBar = () => {
     checkPlatform();
   }, []);
 
-  const showDyadProSuccessDialog = () => {
-    setIsSuccessDialogOpen(true);
-  };
-
-  const { lastDeepLink } = useDeepLink();
-  useEffect(() => {
-    const handleDeepLink = async () => {
-      if (lastDeepLink?.type === "dyad-pro-return") {
-        await refreshSettings();
-        showDyadProSuccessDialog();
-      }
-    };
-    handleDeepLink();
-  }, [lastDeepLink]);
+  // ✅ REMOVED: Dyad Pro deep link handler (gateway feature removed)
 
   // Get selected app name - use displayName if available, fallback to name
   const selectedApp = apps.find((app) => app.id === selectedAppId);
@@ -97,8 +73,7 @@ export const TitleBar = () => {
     }
   };
 
-  const hasApplaaProKey = !!settings?.providerSettings?.auto?.apiKey?.value;
-  const isApplaaProEnabled = Boolean(settings?.enableApplaaPro);
+  // ✅ REMOVED: hasApplaaProKey check - Pro status now shown via ProModeSelector in sidebar
 
   return (
     <>
@@ -106,7 +81,7 @@ export const TitleBar = () => {
         <div className={`${showWindowControls ? "pl-2" : "pl-18"}`}></div>
 
         <div className="flex items-center gap-2 mr-2">
-          <img src={applaaLogo} alt="Applaa Logo" className="w-6 h-6" />
+          <img src={applaasmallLogo} alt="Applaa Logo" className="w-6 h-6" />
           <span className="text-sm font-semibold text-foreground">Applaa</span>
         </div>
         <Button
@@ -120,7 +95,6 @@ export const TitleBar = () => {
         >
           {displayText}
         </Button>
-        {hasApplaaProKey && <ApplaaProButton isApplaaProEnabled={isApplaaProEnabled} />}
 
         {/* Applaa Setup Button - positioned on the right */}
         <div className="ml-auto mr-2">
@@ -148,11 +122,6 @@ export const TitleBar = () => {
 
         {showWindowControls && <WindowsControls />}
       </div>
-
-      <DyadProSuccessDialog
-        isOpen={isSuccessDialogOpen}
-        onClose={() => setIsSuccessDialogOpen(false)}
-      />
     </>
   );
 };
@@ -238,59 +207,6 @@ function WindowsControls() {
   );
 }
 
-export function ApplaaProButton({
-  isApplaaProEnabled,
-}: {
-  isApplaaProEnabled: boolean;
-}) {
-  const { navigate } = useRouter();
-  const { userBudget } = useUserBudgetInfo();
-  return (
-    <Button
-      data-testid="title-bar-dyad-pro-button"
-      onClick={() => {
-        navigate({
-          to: providerSettingsRoute.id,
-          params: { provider: "auto" },
-        });
-      }}
-      variant="outline"
-      className={cn(
-        "hidden @2xl:block ml-1 no-app-region-drag h-7 bg-indigo-600 text-white dark:bg-indigo-600 dark:text-white text-xs px-2 pt-1 pb-1",
-        !isApplaaProEnabled && "bg-zinc-600 dark:bg-zinc-600",
-      )}
-      size="sm"
-    >
-      {isApplaaProEnabled ? "Pro" : "Pro (off)"}
-      {userBudget && isApplaaProEnabled && (
-        <AICreditStatus userBudget={userBudget} />
-      )}
-    </Button>
-  );
-}
-
-export function AICreditStatus({ userBudget }: { userBudget: UserBudgetInfo }) {
-  const remaining = Math.round(
-    userBudget.totalCredits - userBudget.usedCredits,
-  );
-  return (
-    <Tooltip>
-      <TooltipTrigger>
-        <div className="text-xs pl-1 mt-0.5">{remaining} credits</div>
-      </TooltipTrigger>
-      <TooltipContent>
-        <div>
-          <p>
-            You have used {Math.round(userBudget.usedCredits)} credits out of{" "}
-            {userBudget.totalCredits}.
-          </p>
-          <p>
-            Your budget resets on{" "}
-            {userBudget.budgetResetDate.toLocaleDateString()}
-          </p>
-          <p>Note: there is a slight delay in updating the credit status.</p>
-        </div>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
+// ✅ REMOVED: ApplaaProButton and AICreditStatus
+// These components were tied to the Applaa gateway infrastructure
+// Pro status is now shown via ProModeSelector in the sidebar instead

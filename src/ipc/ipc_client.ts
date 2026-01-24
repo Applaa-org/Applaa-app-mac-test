@@ -1,3 +1,4 @@
+
 import type { AppChatContext, ProposalResult } from "@/lib/schemas";
 import { showError } from "@/lib/toast";
 import type { IpcRenderer } from "electron";
@@ -24,6 +25,8 @@ import type {
   ChatProblemsEvent,
   ChatResponseEnd,
   ComponentSelection,
+  CloneWebsiteParams,
+  CloneWebsiteResult,
   ConnectToExistingVercelProjectParams,
   CopyAppParams,
   CreateAppParams,
@@ -104,10 +107,10 @@ export interface GitHubDeviceFlowSuccessData {
 export interface StarterProjectRequest {
   prompt: string;
   frameworkId:
-    | "makecode-arcade"
-    | "microbit"
-    | "minecraft-makecode"
-    | "blockly";
+  | "makecode-arcade"
+  | "microbit"
+  | "minecraft-makecode"
+  | "blockly";
 }
 
 export interface StarterProject {
@@ -364,6 +367,16 @@ export class IpcClient {
   // Create a new app with an initial chat
   public async createApp(params: CreateAppParams): Promise<CreateAppResult> {
     return this.ipcRenderer.invoke("create-app", params);
+  }
+
+  // Clone a website and create a new app
+  public async cloneWebsite(params: CloneWebsiteParams): Promise<CloneWebsiteResult> {
+    return this.ipcRenderer.invoke("clone-website", params);
+  }
+
+  // Rename an app
+  public async renameApp(appId: number, newName: string): Promise<{ success: boolean; error?: string }> {
+    return this.ipcRenderer.invoke("app:rename", { appId, newName });
   }
 
   public async generateAppNames(params: {
@@ -791,8 +804,18 @@ export class IpcClient {
     appId: number,
     onOutput: (output: AppOutput) => void,
   ): Promise<void> {
-    await this.ipcRenderer.invoke("run-app", { appId });
-    this.appStreams.set(appId, { onOutput });
+    const callbacks: AppStreamCallbacks = { onOutput };
+    this.appStreams.set(appId, callbacks);
+    return this.ipcRenderer.invoke("run-app", appId);
+  }
+
+  // Save Blockly workspace
+  public async saveBlocklyWorkspace(params: {
+    appId: number;
+    workspaceJson: any;
+    generatedCode: Record<string, string>;
+  }): Promise<{ success: boolean; savedAt?: string; error?: string }> {
+    return this.ipcRenderer.invoke("blockly:save-workspace", params);
   }
 
   // Stop a running app
@@ -1972,6 +1995,8 @@ export class IpcClient {
     email: string;
     password: string;
     fullName?: string;
+    firstName?: string;
+    lastName?: string;
   }): Promise<{
     success: boolean;
     user?: any;
@@ -1993,6 +2018,20 @@ export class IpcClient {
     error?: string;
   }> {
     return this.ipcRenderer.invoke("supabase:sign-in", params);
+  }
+
+  // ✅ NEW: Sign in with username or email (looks up username in profiles table)
+  public async supabaseSignInWithUsernameOrEmail(params: {
+    identifier: string;
+    password: string;
+  }): Promise<{
+    success: boolean;
+    user?: any;
+    session?: any;
+    message?: string;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("supabase:sign-in-with-username-or-email", params);
   }
 
   public async supabaseSignOut(): Promise<{
@@ -2095,6 +2134,210 @@ export class IpcClient {
     expiresIn: number;
   }): Promise<{ success: boolean; error?: string }> {
     return this.ipcRenderer.invoke("supabase:set-session", params);
+  }
+
+  // Subscription Methods
+  public async subscriptionInitialize(secretKey: string): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:initialize", secretKey);
+  }
+
+  public async subscriptionInitializeFromSettings(): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:initialize-from-settings");
+  }
+
+  public async subscriptionGetCurrent(): Promise<{
+    subscription: {
+      id: string;
+      status: string;
+      planName: string;
+      currentPeriodStart: string;
+      currentPeriodEnd: string;
+      trialStart?: string;
+      trialEnd?: string;
+      cancelAtPeriodEnd: boolean;
+      canceledAt?: string;
+    } | null;
+    isPro: boolean;
+    tier: 'free' | 'pro' | 'ultra' | 'business';
+    trialStart?: string;
+    trialEnd?: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:get-current");
+  }
+
+  public async redirectToSubscribe(): Promise<{ success: boolean; url: string }> {
+    return this.ipcRenderer.invoke("subscription:redirect-to-subscribe");
+  }
+
+  public async syncSubscriptionFromSupabase(): Promise<{
+    success: boolean;
+    tier: 'free' | 'pro' | 'ultra' | 'business';
+    isPro: boolean;
+  }> {
+    return this.ipcRenderer.invoke("subscription:sync-from-supabase");
+  }
+
+  // Profile Management Methods
+  public async getCurrentProfile(): Promise<{
+    success: boolean;
+    profile: {
+      id: string;
+      email: string;
+      username: string | null;
+      full_name: string | null;
+      avatar_url: string | null;
+      subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
+      wordpress_user_id: number | null;
+      wordpress_username: string | null;
+      wordpress_display_name: string | null;
+      wordpress_roles: string[] | null;
+      created_at: string;
+      updated_at: string;
+    };
+  }> {
+    return this.ipcRenderer.invoke("profile:get-current");
+  }
+
+  public async updateProfile(updates: {
+    username?: string;
+    full_name?: string;
+    avatar_url?: string;
+  }): Promise<{
+    success: boolean;
+    profile: {
+      id: string;
+      email: string;
+      username: string | null;
+      full_name: string | null;
+      avatar_url: string | null;
+      subscription_tier: 'free' | 'pro' | 'ultra' | 'business' | null;
+      wordpress_user_id: number | null;
+      wordpress_username: string | null;
+      wordpress_display_name: string | null;
+      wordpress_roles: string[] | null;
+      created_at: string;
+      updated_at: string;
+    };
+  }> {
+    return this.ipcRenderer.invoke("profile:update", updates);
+  }
+
+  // Credit Management Methods
+  public async getCreditBalance(): Promise<{
+    success: boolean;
+    balance: {
+      remaining: number;
+      monthly: number;
+      totalUsed: number;
+      lastReset: string | null;
+    };
+  }> {
+    return this.ipcRenderer.invoke("credit:get-balance");
+  }
+
+  public async getCreditUsage(filters?: {
+    operationType?: string;
+    appId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    history: Array<{
+      id: string;
+      operationType: string;
+      creditsUsed: number;
+      tokensUsed: number;
+      appId: string | null;
+      chatId: string | null;
+      metadata: any;
+      createdAt: string;
+    }>;
+  }> {
+    return this.ipcRenderer.invoke("credit:get-usage", filters);
+  }
+
+  public async checkCredits(operationType: string, cost?: number): Promise<{
+    success: boolean;
+    hasCredits: boolean;
+    remaining: number;
+    required: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:check", operationType, cost);
+  }
+
+  public async resetCredits(): Promise<{
+    success: boolean;
+    newBalance?: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:reset");
+  }
+
+  public async checkAndResetCredits(): Promise<{
+    success: boolean;
+    reset: boolean;
+    newBalance?: number;
+  }> {
+    return this.ipcRenderer.invoke("credit:check-reset");
+  }
+
+  public async topUpCredits(amount: number): Promise<{
+    success: boolean;
+    newBalance?: number;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("credit:top-up", amount);
+  }
+
+  public async subscriptionCreateCheckout(params: {
+    priceId: string;
+    trialDays?: number;
+  }): Promise<{
+    success: boolean;
+    sessionId: string;
+    url: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:create-checkout", params);
+  }
+
+  public async subscriptionCreatePortal(returnUrl: string): Promise<{
+    success: boolean;
+    url: string;
+  }> {
+    return this.ipcRenderer.invoke("subscription:create-portal", returnUrl);
+  }
+
+  public async subscriptionCancel(params: {
+    subscriptionId: string;
+    cancelAtPeriodEnd?: boolean;
+  }): Promise<{
+    success: boolean;
+    subscription: {
+      id: string;
+      status: string;
+      cancelAtPeriodEnd: boolean;
+    };
+  }> {
+    return this.ipcRenderer.invoke("subscription:cancel", params);
+  }
+
+  public async subscriptionResume(subscriptionId: string): Promise<{
+    success: boolean;
+    subscription: {
+      id: string;
+      status: string;
+      cancelAtPeriodEnd: boolean;
+    };
+  }> {
+    return this.ipcRenderer.invoke("subscription:resume", subscriptionId);
+  }
+
+  public async subscriptionWebhook(params: {
+    payload: string;
+    signature: string;
+    secret: string;
+  }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("subscription:webhook", params);
   }
 
   // R2 Storage Methods
@@ -2649,11 +2892,11 @@ export class IpcClient {
     id: string;
     type: "message_batch";
     processing_status:
-      | "in_progress"
-      | "completed"
-      | "failed"
-      | "canceled"
-      | "expired";
+    | "in_progress"
+    | "completed"
+    | "failed"
+    | "canceled"
+    | "expired";
     request_counts: {
       processing: number;
       succeeded: number;
@@ -3634,14 +3877,16 @@ export class IpcClient {
   // Game Templates Management Methods
   public async listGameTemplates(params?: {
     appType?:
-      | "web"
-      | "expo"
-      | "flutter"
-      | "godot"
-      | "arcade"
-      | "microbit"
-      | "minecraft"
-      | "blockly";
+    | "web"
+    | "expo"
+    | "flutter"
+    | "godot"
+    | "arcade"
+    | "microbit"
+    | "minecraft"
+    | "blockly"
+    | "roblox"
+    | "python";
   }): Promise<
     Array<{
       id: string;
@@ -3651,14 +3896,16 @@ export class IpcClient {
       imageUrl?: string | null;
       emoji?: string | null;
       appType:
-        | "web"
-        | "expo"
-        | "flutter"
-        | "godot"
-        | "arcade"
-        | "microbit"
-        | "minecraft"
-        | "blockly";
+      | "web"
+      | "expo"
+      | "flutter"
+      | "godot"
+      | "arcade"
+      | "microbit"
+      | "minecraft"
+      | "blockly"
+      | "roblox"
+      | "python";
       isDefault?: boolean;
       displayOrder?: number;
       createdAt: Date;
@@ -3668,6 +3915,24 @@ export class IpcClient {
     return this.ipcRenderer.invoke("game-templates:list", params || {});
   }
 
+  // Web Apps Templates Management Methods
+  public async listWebApps(params?: { category?: string; appType?: 'web' | 'expo' | 'flutter' | 'godot' }): Promise<Array<{
+    id: string;
+    name: string;
+    details: string;
+    category: string;
+    previewUrl?: string | null;
+    imageUrl?: string | null;
+    emoji?: string | null;
+    appType: 'web' | 'expo' | 'flutter' | 'godot';
+    isDefault?: boolean;
+    displayOrder?: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>> {
+    return this.ipcRenderer.invoke("web-apps:list", params || {});
+  }
+
   public async createGameTemplate(params: {
     name: string;
     details: string;
@@ -3675,14 +3940,16 @@ export class IpcClient {
     imageUrl?: string;
     emoji?: string;
     appType:
-      | "web"
-      | "expo"
-      | "flutter"
-      | "godot"
-      | "arcade"
-      | "microbit"
-      | "minecraft"
-      | "blockly";
+    | "web"
+    | "expo"
+    | "flutter"
+    | "godot"
+    | "arcade"
+    | "microbit"
+    | "minecraft"
+    | "blockly"
+    | "roblox"
+    | "python";
     displayOrder?: number;
   }): Promise<{
     id: string;
@@ -3692,14 +3959,16 @@ export class IpcClient {
     imageUrl?: string | null;
     emoji?: string | null;
     appType:
-      | "web"
-      | "expo"
-      | "flutter"
-      | "godot"
-      | "arcade"
-      | "microbit"
-      | "minecraft"
-      | "blockly";
+    | "web"
+    | "expo"
+    | "flutter"
+    | "godot"
+    | "arcade"
+    | "microbit"
+    | "minecraft"
+    | "blockly"
+    | "roblox"
+    | "python";
     isDefault?: boolean;
     displayOrder?: number;
     createdAt: Date;
@@ -3716,14 +3985,16 @@ export class IpcClient {
     imageUrl?: string;
     emoji?: string;
     appType?:
-      | "web"
-      | "expo"
-      | "flutter"
-      | "godot"
-      | "arcade"
-      | "microbit"
-      | "minecraft"
-      | "blockly";
+    | "web"
+    | "expo"
+    | "flutter"
+    | "godot"
+    | "arcade"
+    | "microbit"
+    | "minecraft"
+    | "blockly"
+    | "roblox"
+    | "python";
     displayOrder?: number;
   }): Promise<{
     id: string;
@@ -3733,14 +4004,16 @@ export class IpcClient {
     imageUrl?: string | null;
     emoji?: string | null;
     appType:
-      | "web"
-      | "expo"
-      | "flutter"
-      | "godot"
-      | "arcade"
-      | "microbit"
-      | "minecraft"
-      | "blockly";
+    | "web"
+    | "expo"
+    | "flutter"
+    | "godot"
+    | "arcade"
+    | "microbit"
+    | "minecraft"
+    | "blockly"
+    | "roblox"
+    | "python";
     isDefault?: boolean;
     displayOrder?: number;
     createdAt: Date;

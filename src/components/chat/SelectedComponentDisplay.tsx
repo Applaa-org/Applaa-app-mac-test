@@ -1,6 +1,6 @@
 import { selectedComponentPreviewAtom } from "@/atoms/previewAtoms";
 import { useAtom } from "jotai";
-import { Code2, X } from "lucide-react";
+import { Code2, X, Sparkles } from "lucide-react";
 
 export function SelectedComponentDisplay() {
   const [selectedComponent, setSelectedComponent] = useAtom(
@@ -12,7 +12,7 @@ export function SelectedComponentDisplay() {
   }
 
   return (
-    <div className="p-2 pb-1" data-testid="selected-component-display">
+    <div className="p-2 pb-1 space-y-2" data-testid="selected-component-display">
       <div className="flex items-center justify-between rounded-md bg-indigo-600/10 px-2 py-1 text-sm">
         <div className="flex items-center gap-2 overflow-hidden">
           <Code2
@@ -41,6 +41,14 @@ export function SelectedComponentDisplay() {
         >
           <X size={18} className="text-indigo-600 dark:text-indigo-400" />
         </button>
+      </div>
+      
+      {/* Helper prompt asking what user wants to change */}
+      <div className="flex items-start gap-2 rounded-md bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 px-3 py-2">
+        <Sparkles size={14} className="flex-shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
+        <span className="text-sm text-indigo-800 dark:text-indigo-300 font-medium">
+          What would you like to change?
+        </span>
       </div>
     </div>
   );

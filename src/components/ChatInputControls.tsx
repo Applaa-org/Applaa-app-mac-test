@@ -6,6 +6,7 @@ import { SparkModeSelector } from "./SparkModeSelector";
 import { PlatformSelector } from "./PlatformSelector";
 import { ImportAppIcon } from "./ImportAppIcon";
 import { PromptEnhanceButton } from "./PromptEnhanceButton";
+import { CloneWebsiteButton } from "./CloneWebsiteButton";
 
 export function ChatInputControls({
   showContextFilesPicker = false,
@@ -15,6 +16,8 @@ export function ChatInputControls({
   onInputChange,
   appType,
   disabled = false,
+  isCloneModeActive = false,
+  onCloneModeToggle,
 }: {
   showContextFilesPicker?: boolean;
   showImportButton?: boolean;
@@ -23,6 +26,8 @@ export function ChatInputControls({
   onInputChange?: (value: string) => void;
   appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
   disabled?: boolean;
+  isCloneModeActive?: boolean;
+  onCloneModeToggle?: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-1 py-0.5">
@@ -41,9 +46,19 @@ export function ChatInputControls({
         )}
       </div>
 
-      {/* Right group: App Type, Spark, and Import App */}
+      
+      {/* Right group: Clone Website, Spark, and Import App */}
+
       <div className="flex items-center gap-0.5">
         {/* <ChatModeSelector /> */}
+        {/* Show Clone Website button only for web apps - positioned first (leftmost) */}
+        {appType === 'web' && onCloneModeToggle && (
+          <CloneWebsiteButton
+            isActive={isCloneModeActive}
+            onClick={onCloneModeToggle}
+            disabled={disabled}
+          />
+        )}
         <SparkModeSelector />
         {/* 🚀 MVP: Import option hidden for simplicity - can be re-enabled post-MVP */}
         {/* {showImportButton && <ImportAppIcon />} */}

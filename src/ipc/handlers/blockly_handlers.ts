@@ -54,7 +54,9 @@ ipcMain.handle('blockly:save-workspace', async (event, params: {
         }
 
         const root = getWorkspaceRoot();
-        const appPath = path.join(root, 'apps', 'blockly', app.name);
+        // Use app.path from DB if available, otherwise fallback (though app.path should always exist)
+        const relativeAppPath = app.path || `apps/blockly/${app.name}`;
+        const appPath = path.join(root, relativeAppPath);
 
         if (!fs.existsSync(appPath)) {
             fs.mkdirSync(appPath, { recursive: true });
