@@ -8,6 +8,7 @@ import { lazy, Suspense } from 'react';
 const SampleHub = lazy(() => import('./SampleHub').then(m => ({ default: m.SampleHub })));
 const RobotWelcome = lazy(() => import('./RobotWelcome').then(m => ({ default: m.RobotWelcome })));
 const AppyAnimated = lazy(() => import('./AppyAnimated')); // Has default export
+const AppyCustomizer = lazy(() => import('./appy/AppyCustomizer').then(m => ({ default: m.AppyCustomizer })));
 import { aiBlockAssistant } from '@/services/AiBlockAssistant'; // Import AI Brain
 import { MINECRAFT_TOOLBOX_CATEGORY, initMinecraftBlocks } from '@/lib/minecraft/minecraft-blocks'; // Import Minecraft Blocks
 
@@ -406,7 +407,7 @@ export function BlocklyEditor({
 
                 Blockly.serialization.workspaces.load(initialWorkspace, workspaceRef.current);
                 console.log('✅ [LOADER] Workspace loaded successfully');
-                
+
                 // 🚀 OPTIMIZATION: Use requestAnimationFrame for faster, smoother loading
                 // This allows the browser to render before generating code
                 requestAnimationFrame(() => {

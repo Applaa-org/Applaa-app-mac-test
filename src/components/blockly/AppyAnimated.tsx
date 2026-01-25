@@ -24,8 +24,8 @@ const ANIMATION_FILES: Record<string, string> = {
     'Dozing': 'Meshy_AI_Animation_Dozing_Elderly_withSkin'
 };
 
-// Meshy FBX Model with proper animation mixer
-function AppyModel({ animation, setAnimation, facing }: { animation: string, setAnimation: (anim: string) => void, facing: string }) {
+// Meshy FBX Model with proper animation mixer AND dynamic color support
+function AppyModel({ animation, setAnimation, facing, color }: { animation: string, setAnimation: (anim: string) => void, facing: string, color?: string }) {
     // Get correct filename
     const fileName = ANIMATION_FILES[animation] || ANIMATION_FILES['Idle'];
     const filePath = `/appy/meshy/${fileName}.fbx`;
@@ -37,6 +37,31 @@ function AppyModel({ animation, setAnimation, facing }: { animation: string, set
     // Load FBX file
     console.log(`🎬 Loading Meshy BestFbx: ${fileName}`);
     const fbx = useLoader(FBXLoader, filePath);
+
+    // Dynamic Color Application
+    useEffect(() => {
+        if (!fbx || !color) return;
+
+        // Traverse and clone materials to avoid affecting other instances
+        fbx.traverse((child: any) => {
+            if (child.isMesh) {
+                // Heuristic: identify body/suit mesh parts. Usually named 'Body', 'Suit', or generic mesh
+                // For simplicity, we tint the entire skinned mesh or specific known parts if names are consistent
+                // Meshy models often have one main mesh. We'll tint it.
+
+                // Clone material to allow unique color per instance
+                if (!child.userData.originalMaterial) {
+                    child.userData.originalMaterial = child.material;
+                }
+
+                // Apply color tint while preserving textures
+                const newMat = child.userData.originalMaterial.clone();
+                newMat.color.set(color);
+                child.material = newMat;
+                console.log(`🎨 Applied color ${color} to mesh: ${child.name || 'unnamed mesh'}`);
+            }
+        });
+    }, [fbx, color]);
 
     // Calibrated Rotation:
     // User confirmed: PI/2 = Right.
@@ -132,6 +157,7 @@ export interface AppyAnimatedRef {
 
 interface AppyAnimatedProps {
     onQuickAction?: (action: string) => void;
+    color?: string;
 }
 
 export const AppyAnimated = forwardRef<AppyAnimatedRef, AppyAnimatedProps>((props, ref) => {
@@ -244,6 +270,7 @@ export const AppyAnimated = forwardRef<AppyAnimatedRef, AppyAnimatedProps>((prop
                         animation={currentAnimation}
                         setAnimation={setCurrentAnimation}
                         facing={position.facing || 'south'}
+                        color={props.color}
                     />
                 </Suspense>
             </Canvas>
@@ -298,7 +325,8 @@ export const AppyAnimated = forwardRef<AppyAnimatedRef, AppyAnimatedProps>((prop
                 {[
                     { icon: '▶️', color: '#4CAF50', label: 'Run', action: 'run-help' },
                     { icon: '❓', color: '#2196F3', label: 'Help', action: 'chat-help' },
-                    { icon: '🎯', color: '#FF9800', label: 'Tour', action: 'tour' }
+                    { icon: '🎯', color: '#FF9800', label: 'Tour', action: 'tour' },
+                    { icon: '🎨', color: '#9C27B0', label: 'Style', action: 'style' }
                 ].map((btn, i) => (
                     <button
                         key={i}
