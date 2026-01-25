@@ -47,7 +47,7 @@ export default function BlocklyPage() {
         const load = async () => {
             try {
                 const client = IpcClient.getInstance();
-                
+
                 // 🚀 OPTIMIZATION: Load app data and workspace in parallel
                 const [appData, workspaceResult] = await Promise.allSettled([
                     client.getApp(appId),
@@ -165,23 +165,33 @@ export default function BlocklyPage() {
         try {
             // Optimistic update
             const oldName = app.name;
+            const oldPath = app.path;
             setApp({ ...app, name: newName, displayName: newName });
             setIsEditingName(false);
 
             const client = IpcClient.getInstance();
-            const result = await client.renameApp(appId, newName);
+            console.log('🔄 Calling renameApp with:', { appId: Number(appId), appName: newName, appPath: newName });
 
-            if (result.success) {
-                toast.success('App renamed');
-                // Update global app list for sidebar
-                setAppsList(prev => prev.map(a => a.id === Number(appId) ? { ...a, name: newName } : a));
-            } else {
-                // Revert on failure
-                setApp({ ...app, name: oldName, displayName: oldName });
-                toast.error('Failed to rename: ' + result.error);
-            }
+            // Use the EXISTING renameApp method which expects { appId, appName, appPath }
+            // Pass newName as appPath to rename both app and folder (recommended behavior)
+            await client.renameApp({
+                appId: Number(appId),
+                appName: newName,
+                appPath: newName // This renames the folder too
+            });
+
+            console.log('✅ Rename successful, refreshing app list...');
+            toast.success('App renamed');
+
+            // Force refresh
+            const list = await client.listApps();
+            console.log('📋 Fetched app list:', list.apps.map(a => ({ id: a.id, name: a.name })));
+            setAppsList(list.apps);
+            console.log('✅ App list updated in atom');
         } catch (e) {
-            toast.error('Failed to rename app');
+            console.error('❌ Rename failed with exception:', e);
+            console.error('Error details:', JSON.stringify(e, null, 2));
+            toast.error('Failed to rename app: ' + (e instanceof Error ? e.message : String(e)));
         }
     };
 

@@ -150,16 +150,18 @@ let proxyWorker: Worker | null = null;
 
 // Helper function for legacy-safe app queries
 async function getAppSafe(appId: number): Promise<any> {
+  logger.info(`[getAppSafe] Looking up app with ID: ${appId} (type: ${typeof appId})`);
   try {
     const app = await db.query.apps.findFirst({
       where: eq(apps.id, appId),
     });
+    logger.info(`[getAppSafe] Query result:`, app ? `Found: ${app.name}` : 'Not found');
     return app as any;
   } catch (err) {
     logger.warn("getAppSafe: falling back to legacy SELECT due to:", err);
     const row = db.$client
       .prepare(
-        "SELECT id, name, path, created_at as createdAt, " +
+        "SELECT id, name, path, app_type as appType, created_at as createdAt, " +
         "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
         "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
         "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
@@ -167,6 +169,8 @@ async function getAppSafe(appId: number): Promise<any> {
         "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
       )
       .get(appId) as any;
+
+    logger.info(`[getAppSafe] Legacy query result:`, row ? `Found: ${row.name}` : 'Not found');
 
     if (!row) return undefined;
 
@@ -673,17 +677,23 @@ export function registerAppHandlers() {
   });
 
   // Rename an app
-  handle("app:rename", async (_, { appId, newName }: { appId: number; newName: string }) => {
+  handle("app:rename", async (_, params: { appId: number; newName?: string; appName?: string; appPath?: string }) => {
+    // Handle both signatures (params.newName from my prev fix, params.appName from existing code)
+    const appId = params.appId;
+    const newName = params.appName || params.newName || "";
     try {
       if (!newName || !newName.trim()) {
         throw new Error("New name cannot be empty");
       }
 
       // 1. Fetch current app details
+      logger.info(`[RENAME] Attempting to rename app ${appId} to "${newName}"`);
       const app = await getAppSafe(appId);
       if (!app) {
+        logger.error(`[RENAME] App not found for ID: ${appId} (type: ${typeof appId})`);
         throw new Error("App not found");
       }
+      logger.info(`[RENAME] Found app: ${app.name} (ID: ${app.id})`);
 
       // 2. Sanitize new name and determine paths
       const { getAppRelativePath } = await import("../../paths/workspace");
@@ -692,9 +702,39 @@ export function registerAppHandlers() {
       // Use existing app type logic if available, or fallback to determining from path
       let appType = app.appType as 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python' || 'web';
 
-      // Calculate paths
+      // Safe access to old path
       const oldRelPath = app.path;
-      const newRelPath = getAppRelativePath(sanitizedNewName, appType);
+
+      // GUARD: If old path is missing, we can't move the folder, but we can update the name
+      if (!oldRelPath) {
+        logger.warn(`App path is undefined for app ${appId}. Updating name only.`);
+
+        await db.update(apps)
+          .set({ name: newName })
+          .where(eq(apps.id, appId));
+
+        try {
+          db.$client.prepare("UPDATE apps SET display_name = ? WHERE id = ?").run(newName, appId);
+        } catch (e) { /* ignore */ }
+
+        return { success: true };
+      }
+
+      // Determine new path based on params.appPath
+      // If params.appPath is specified and equals oldRelPath (or ends with it), user chose "Rename app only"
+      let newRelPath: string;
+      const userWantsToKeepPath = params.appPath && (params.appPath === oldRelPath || oldRelPath.endsWith(params.appPath));
+
+      if (userWantsToKeepPath) {
+        newRelPath = oldRelPath;
+        logger.info(`User requested to keep folder path: ${newRelPath}`);
+      } else {
+        // Default behavior: calculate new path based on new name
+        // If params.appPath is provided and different, treat it as the basis for new path (if it's just a name)
+        // app-details.tsx passes the new NAME as appPath when "Rename Folder" is true
+        const nameForPath = (params.appPath && params.appPath !== oldRelPath) ? params.appPath : sanitizedNewName;
+        newRelPath = getAppRelativePath(nameForPath, appType);
+      }
 
       const oldFullPath = getDyadAppPath(oldRelPath);
       const newFullPath = getDyadAppPath(newRelPath);
@@ -759,6 +799,13 @@ export function registerAppHandlers() {
           path: newRelPath, // Sync path with folder name
         })
         .where(eq(apps.id, appId));
+
+      // 💥 FORCE UPDATE DISPLAY_NAME via Raw SQL (drizzle schema ignores it)
+      try {
+        db.$client.prepare("UPDATE apps SET display_name = ? WHERE id = ?").run(newName, appId);
+      } catch (rawErr) {
+        logger.warn("Failed to update display_name (legacy column)", rawErr);
+      }
 
       logger.info(`Successfully renamed app ${appId} and updated path`);
       return { success: true, newPath: newRelPath };

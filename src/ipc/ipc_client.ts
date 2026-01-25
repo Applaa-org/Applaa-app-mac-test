@@ -374,10 +374,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("clone-website", params);
   }
 
-  // Rename an app
-  public async renameApp(appId: number, newName: string): Promise<{ success: boolean; error?: string }> {
-    return this.ipcRenderer.invoke("app:rename", { appId, newName });
-  }
+
 
   public async generateAppNames(params: {
     concept: string;
@@ -591,6 +588,8 @@ export class IpcClient {
     // Auto-fix now reuses the main handler (model selection may still choose a cheaper model via settings).
     this.streamMessageInternal("chat:stream", prompt, options);
   }
+
+
 
   // Performance monitoring methods
   public async getPerformanceReport(): Promise<string> {
@@ -4330,14 +4329,7 @@ export class IpcClient {
     return this.ipcRenderer.invoke("minecraft-sandbox:test-item", { itemName });
   }
 
-  // Blockly workspace management
-  async saveBlocklyWorkspace(params: {
-    appId: number;
-    workspaceJson: any;
-    generatedCode: Record<string, string>;
-  }): Promise<{ success: boolean; savedAt?: string; error?: string }> {
-    return this.ipcRenderer.invoke("blockly:save-workspace", params);
-  }
+
 
   // Bedrock Pack Builder
   async buildBedrockPack(moduleSpecJson: string): Promise<{
