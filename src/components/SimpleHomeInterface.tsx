@@ -126,9 +126,8 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
         toast.success('Blocklaa workspace ready!');
 
-        // Navigate to Blocklaa editor (via chat page which loads PreviewPanel)
-        // Blocklaa uses the generic chat/preview interface but shows the editor
-        window.location.href = `/chat?id=${result.chatId}`;
+        // Navigate directly to Blocklaa editor page (same as AppList.tsx)
+        window.location.href = `/blockly?id=${result.app.id}`;
       } catch (error: any) {
         console.error('Failed to create Blocklaa app:', error);
         toast.error(`Failed to create Blocklaa app: ${error?.message || 'Unknown error'}`);

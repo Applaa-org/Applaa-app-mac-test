@@ -7,11 +7,12 @@ import * as Blockly from 'blockly';
 import { AppyDOMNavigator } from './AppyDOMNavigator';
 import { BlocklyEventMonitor, type BlocklyEventData, type WorkspaceState } from './BlocklyEventMonitor';
 import { AppyLLMIntegration, type AppyResponse, type UserGoal } from './AppyLLMIntegration';
+import { IpcClient } from '@/ipc/ipc_client';
 
-export interface AppyConfig {
-    onSpeak: (message: string) => void;
-    onAnimate: (animation: string) => void;
-    onMoveTo: (position: { x: number; y: number }) => void;
+export interface UserContext {
+    appCount: number;
+    lastApp?: string;
+    userName: string;
 }
 
 export class AppyCore {
@@ -19,6 +20,7 @@ export class AppyCore {
     private eventMonitor: BlocklyEventMonitor;
     private llm: AppyLLMIntegration;
     private config: AppyConfig;
+    private userContext: UserContext | null = null;
 
     private currentGoal: UserGoal | null = null;
     private currentStep: number = 0;
@@ -32,16 +34,90 @@ export class AppyCore {
     }
 
     /**
+     * Speak using Browser TTS with a kid-friendly voice
+     */
+    private speakWithVoice(text: string) {
+        if (!('speechSynthesis' in window)) {
+            console.warn('🔊 TTS not supported in this browser');
+            return;
+        }
+
+        console.log(`🔊 Appy Speaking: "${text}"`);
+
+        // Cancel existing speech
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+
+        // Find a suitable voice
+        // Prefer "Junior", "Kid", "Samantha", or generally higher pitch voices
+        const voices = window.speechSynthesis.getVoices();
+
+        // DEBUG: List voices to see what's available
+        if (voices.length === 0) {
+            console.warn('🔊 No voices loaded yet. Retrying in 1s...');
+            setTimeout(() => this.speakWithVoice(text), 1000); // Retry logic
+            return;
+        }
+
+        const kidVoice = voices.find(v =>
+            v.name.includes('Junior') ||
+            v.name.includes('Samantha') ||
+            v.name.includes('Google US English')
+        );
+
+        if (kidVoice) {
+            utterance.voice = kidVoice;
+            console.log(`🔊 Using voice: ${kidVoice.name}`);
+        } else {
+            console.log('🔊 Using default voice');
+        }
+
+        // Kid-like characteristics
+        utterance.pitch = 1.2; // Higher pitch
+        utterance.rate = 1.1;  // Slightly faster / more energetic
+        utterance.volume = 1.0;
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+
+    /**
      * Initialize Appy with Blockly workspace
      */
-    initialize(workspace: Blockly.WorkspaceSvg) {
+    async initialize(workspace: Blockly.WorkspaceSvg) {
         // Start monitoring workspace events
         this.eventMonitor.initialize(workspace, (event) => {
             this.handleBlocklyEvent(event);
         });
 
+        // Load user context
+        await this.fetchUserContext();
+
         // Greet the user
         this.greet();
+    }
+
+    /**
+     * Fetch user context from backend
+     */
+    private async fetchUserContext() {
+        try {
+            const client = IpcClient.getInstance();
+            const { apps } = await client.listApps();
+            // Assuming we can get user profile or default to 'Friend'
+            // For now, we'll assume the user is "Friend" or try to find a name if stored
+
+            this.userContext = {
+                appCount: apps.length,
+                lastApp: apps.length > 0 ? apps[0].name : undefined,
+                userName: 'Friend'
+            };
+            console.log('🤖 Appy loaded context:', this.userContext);
+        } catch (e) {
+            console.error('Failed to load Appy context:', e);
+            this.userContext = { appCount: 0, userName: 'Friend' };
+        }
     }
 
     /**
@@ -50,12 +126,54 @@ export class AppyCore {
     private async greet() {
         this.config.onMoveTo({ x: 50, y: 50 });
         this.config.onAnimate('Waving');
-        this.config.onSpeak("Hi! I'm Appy! I'll help you code! 👋");
+
+        let message = "Hi! I'm Appy! I'll help you code! 👋";
+
+        if (this.userContext && this.userContext.appCount > 0) {
+            message = `Hi ${this.userContext.userName}! Wow, you have ${this.userContext.appCount} apps created! Let's make another one! 🚀`;
+        }
+
+
+        this.config.onSpeak(message);
+        this.speakWithVoice(message);
     }
 
+    // ... (rest of file)
+
     /**
-     * Handle Blockly workspace events
+     * Execute an LLM response
      */
+    private async executeResponse(response: AppyResponse) {
+        // Handle movement
+        if (response.action === 'walk_to' && response.target) {
+            const element = this.domNavigator.getElement(response.target);
+            if (element) {
+                const actualPos = this.domNavigator.getActualPosition(response.target);
+                if (actualPos) {
+                    this.config.onMoveTo(actualPos);
+                } else {
+                    this.config.onMoveTo(element.position);
+                }
+            }
+        }
+
+        // Handle animation
+        const animation = this.getAnimationForEmotion(response.emotion);
+        this.config.onAnimate(animation);
+
+        // Speak the message
+        this.config.onSpeak(response.message);
+        this.speakWithVoice(response.message);
+
+        // Show next steps if available
+        if (response.nextSteps && response.nextSteps.length > 0) {
+            setTimeout(() => {
+                const stepsMessage = "Next steps:\n" + response.nextSteps!.map((s, i) => `${i + 1}. ${s}`).join('\n');
+                this.config.onSpeak(stepsMessage);
+                // Don't voice the long list of steps, just show them
+            }, 3000);
+        }
+    }
     private async handleBlocklyEvent(event: BlocklyEventData) {
         switch (event.type) {
             case 'create':
