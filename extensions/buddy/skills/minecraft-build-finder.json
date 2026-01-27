@@ -1,0 +1,534 @@
+{
+    "id": "minecraft-build-finder",
+    "version": "1.0.0",
+    "createdBy": "claude-opus-4.5",
+    "createdAt": "2026-01-09",
+    "metadata": {
+        "title": "Find Amazing Minecraft Builds",
+        "category": "minecraft",
+        "subcategory": "building",
+        "icon": "🏰",
+        "difficulty": "beginner",
+        "ageRange": "8-14",
+        "estimatedDuration": "60-90 seconds",
+        "tags": [
+            "minecraft",
+            "building",
+            "inspiration",
+            "tutorials",
+            "schematics"
+        ],
+        "description": "Discover incredible Minecraft builds from top creators, get step-by-step tutorials, and download schematics!",
+        "learningOutcomes": [
+            "Find inspiration for Minecraft builds",
+            "Learn building techniques from experts",
+            "Download schematics and world files",
+            "Discover new building styles"
+        ]
+    },
+    "objective": "Browse Planet Minecraft, Minecraft.net community, and YouTube for top-rated builds matching user's interests (castles, modern houses, redstone, etc.), extract tutorials and schematics, organize by difficulty level, and present with images and direct links.",
+    "prerequisites": {
+        "browserState": "ready",
+        "internetConnection": true,
+        "permissions": [
+            "tabs",
+            "storage",
+            "downloads"
+        ],
+        "userInput": {
+            "buildType": {
+                "type": "select",
+                "options": [
+                    "castle",
+                    "modern-house",
+                    "medieval",
+                    "redstone",
+                    "farm",
+                    "pixel-art",
+                    "any"
+                ],
+                "default": "any",
+                "prompt": "What type of build are you looking for?"
+            },
+            "difficulty": {
+                "type": "select",
+                "options": [
+                    "easy",
+                    "medium",
+                    "hard",
+                    "any"
+                ],
+                "default": "any",
+                "prompt": "What difficulty level?"
+            }
+        }
+    },
+    "workflow": {
+        "steps": [
+            {
+                "id": "step-1",
+                "name": "Get User Preferences",
+                "action": "user-input",
+                "params": {
+                    "questions": [
+                        {
+                            "id": "buildType",
+                            "text": "What kind of Minecraft build do you want to find?",
+                            "type": "buttons",
+                            "options": [
+                                {
+                                    "label": "🏰 Castle",
+                                    "value": "castle"
+                                },
+                                {
+                                    "label": "🏠 Modern House",
+                                    "value": "modern-house"
+                                },
+                                {
+                                    "label": "⚔️ Medieval",
+                                    "value": "medieval"
+                                },
+                                {
+                                    "label": "⚡ Redstone",
+                                    "value": "redstone"
+                                },
+                                {
+                                    "label": "🌾 Farm",
+                                    "value": "farm"
+                                },
+                                {
+                                    "label": "🎨 Pixel Art",
+                                    "value": "pixel-art"
+                                },
+                                {
+                                    "label": "✨ Surprise Me!",
+                                    "value": "any"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "difficulty",
+                            "text": "What's your building skill level?",
+                            "type": "buttons",
+                            "options": [
+                                {
+                                    "label": "🌱 Beginner",
+                                    "value": "easy"
+                                },
+                                {
+                                    "label": "⭐ Intermediate",
+                                    "value": "medium"
+                                },
+                                {
+                                    "label": "🏆 Expert",
+                                    "value": "hard"
+                                },
+                                {
+                                    "label": "🎯 Any Level",
+                                    "value": "any"
+                                }
+                            ]
+                        }
+                    ],
+                    "timeout": 30000,
+                    "defaultValues": {
+                        "buildType": "any",
+                        "difficulty": "any"
+                    }
+                },
+                "reasoning": "Personalization makes results more relevant. Kids get exactly what they're interested in rather than generic results.",
+                "kidFriendlyExplanation": "Let me know what you want to build so I can find the perfect ideas for you!"
+            },
+            {
+                "id": "step-2",
+                "name": "Navigate to Planet Minecraft",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.planetminecraft.com/projects/",
+                    "waitFor": "networkidle",
+                    "timeout": 15000
+                },
+                "successCriteria": {
+                    "urlContains": "planetminecraft.com",
+                    "elementExists": ".project, .resource-pack"
+                },
+                "reasoning": "Planet Minecraft is the largest community for Minecraft creations with millions of builds, mods, and schematics.",
+                "kidFriendlyExplanation": "I'm visiting Planet Minecraft - the biggest website for Minecraft builds!"
+            },
+            {
+                "id": "step-3",
+                "name": "Search for Specific Build Type",
+                "action": "interact",
+                "params": {
+                    "sequence": [
+                        {
+                            "action": "click",
+                            "selector": "input[type='search'], .search-input",
+                            "waitAfter": 500
+                        },
+                        {
+                            "action": "type",
+                            "text": "{buildType} minecraft build tutorial",
+                            "clearFirst": true
+                        },
+                        {
+                            "action": "press",
+                            "key": "Enter"
+                        },
+                        {
+                            "action": "wait",
+                            "condition": "networkidle",
+                            "timeout": 10000
+                        }
+                    ],
+                    "fallback": {
+                        "onSearchNotFound": "use-category-navigation",
+                        "alternativeSelectors": [
+                            ".search-box",
+                            "#search",
+                            "input[name='q']"
+                        ]
+                    }
+                },
+                "reasoning": "Searching with specific keywords yields more relevant results than browsing categories. We include 'tutorial' to prioritize educational content.",
+                "kidFriendlyExplanation": "I'm searching for {buildType} builds that match what you want!"
+            },
+            {
+                "id": "step-4",
+                "name": "Apply Filters for Quality and Difficulty",
+                "action": "interact",
+                "params": {
+                    "filters": [
+                        {
+                            "name": "sort",
+                            "selector": ".sort-dropdown, select[name='sort']",
+                            "value": "most-popular"
+                        },
+                        {
+                            "name": "time",
+                            "selector": ".time-filter",
+                            "value": "all-time"
+                        },
+                        {
+                            "name": "difficulty",
+                            "selector": ".difficulty-filter",
+                            "value": "{difficulty}",
+                            "optional": true
+                        }
+                    ],
+                    "waitAfterEach": 1000
+                },
+                "reasoning": "Filtering by popularity ensures we get proven, high-quality builds. Time filter set to 'all-time' captures classic builds that have stood the test of time.",
+                "kidFriendlyExplanation": "I'm filtering to show you only the best and most popular builds!"
+            },
+            {
+                "id": "step-5",
+                "name": "Extract Build Information",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".project, .resource-item, .build-card",
+                        "title": "h2, h3, .project-title",
+                        "creator": ".author, .creator-name",
+                        "thumbnail": "img.project-img, .thumbnail",
+                        "description": ".description, .project-desc",
+                        "downloads": ".download-count, .downloads",
+                        "views": ".view-count, .views",
+                        "rating": ".rating, .stars",
+                        "tags": ".tag, .category",
+                        "buildUrl": "a.project-link, .view-project",
+                        "schematicUrl": "a[href*='download'], .download-button",
+                        "difficulty": ".difficulty-badge, .skill-level"
+                    },
+                    "limit": 20,
+                    "validation": {
+                        "required": [
+                            "title",
+                            "buildUrl"
+                        ],
+                        "optional": [
+                            "schematicUrl",
+                            "difficulty",
+                            "rating"
+                        ]
+                    },
+                    "dataProcessing": {
+                        "parseNumbers": [
+                            "downloads",
+                            "views"
+                        ],
+                        "validateUrls": [
+                            "buildUrl",
+                            "schematicUrl"
+                        ],
+                        "extractDifficulty": "easy|medium|hard from text"
+                    }
+                },
+                "reasoning": "We extract comprehensive metadata to help kids make informed decisions. Download counts and ratings indicate quality and popularity.",
+                "kidFriendlyExplanation": "I'm collecting all the details about each build - who made it, how many people liked it, and where to get it!"
+            },
+            {
+                "id": "step-6",
+                "name": "Navigate to Minecraft.net Community",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.minecraft.net/en-us/community",
+                    "waitFor": "networkidle",
+                    "timeout": 15000
+                },
+                "successCriteria": {
+                    "urlContains": "minecraft.net"
+                },
+                "fallback": {
+                    "onFailure": "skip-to-step-8"
+                },
+                "reasoning": "Official Minecraft community showcases featured builds and provides safe, verified content.",
+                "kidFriendlyExplanation": "Now checking the official Minecraft website for featured builds!"
+            },
+            {
+                "id": "step-7",
+                "name": "Extract Featured Builds",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": ".featured-build, .showcase-item",
+                        "title": "h2, h3",
+                        "image": "img",
+                        "link": "a",
+                        "description": "p, .description"
+                    },
+                    "limit": 10
+                },
+                "reasoning": "Featured builds from official Minecraft are high-quality and safe for kids.",
+                "kidFriendlyExplanation": "Getting the special builds that Minecraft picked as the best!"
+            },
+            {
+                "id": "step-8",
+                "name": "Search YouTube for Tutorials",
+                "action": "navigate",
+                "params": {
+                    "url": "https://www.youtube.com/results?search_query={buildType}+minecraft+build+tutorial+step+by+step",
+                    "waitFor": "networkidle"
+                },
+                "successCriteria": {
+                    "elementExists": "ytd-video-renderer"
+                },
+                "reasoning": "YouTube tutorials provide visual, step-by-step guidance which is ideal for kids learning to build.",
+                "kidFriendlyExplanation": "Looking for video tutorials that show you exactly how to build!"
+            },
+            {
+                "id": "step-9",
+                "name": "Extract Top Tutorial Videos",
+                "action": "extract",
+                "params": {
+                    "selectors": {
+                        "container": "ytd-video-renderer",
+                        "title": "#video-title",
+                        "channel": "#channel-name",
+                        "thumbnail": "img#img",
+                        "duration": "span.style-scope.ytd-thumbnail-overlay-time-status-renderer",
+                        "views": "#metadata-line span:first-child",
+                        "uploadDate": "#metadata-line span:nth-child(2)",
+                        "videoUrl": "a#thumbnail"
+                    },
+                    "limit": 10,
+                    "filters": {
+                        "minDuration": "5:00",
+                        "maxDuration": "30:00",
+                        "excludeKeywords": [
+                            "mod",
+                            "modded",
+                            "18+"
+                        ]
+                    }
+                },
+                "reasoning": "We filter for appropriate video lengths (5-30 min) and exclude modded content to keep it vanilla Minecraft. This ensures tutorials are followable and safe.",
+                "kidFriendlyExplanation": "Finding the best tutorial videos that aren't too long or too short!"
+            },
+            {
+                "id": "step-10",
+                "name": "Rank and Organize Results",
+                "action": "process",
+                "params": {
+                    "ranking": {
+                        "criteria": [
+                            {
+                                "field": "hasSchematic",
+                                "weight": 0.3
+                            },
+                            {
+                                "field": "hasTutorial",
+                                "weight": 0.25
+                            },
+                            {
+                                "field": "popularityScore",
+                                "weight": 0.25
+                            },
+                            {
+                                "field": "difficultyMatch",
+                                "weight": 0.2
+                            }
+                        ]
+                    },
+                    "grouping": {
+                        "primary": "difficulty",
+                        "secondary": "buildType"
+                    },
+                    "deduplication": {
+                        "matchFields": [
+                            "title"
+                        ],
+                        "threshold": 0.8
+                    }
+                },
+                "reasoning": "Builds with schematics and tutorials are prioritized because they're easier to follow. We group by difficulty so kids can find appropriate challenges.",
+                "kidFriendlyExplanation": "Organizing everything so the best builds are at the top!"
+            },
+            {
+                "id": "step-11",
+                "name": "Generate Build Guides with AI",
+                "action": "ai-enhance",
+                "params": {
+                    "model": "gemini-flash-2.0",
+                    "promptTemplate": "For this Minecraft build '{title}', create a beginner-friendly overview that includes: 1) What makes this build special, 2) Key materials needed (estimate), 3) Approximate time to build, 4) One helpful tip for building it. Keep it encouraging and exciting for kids!",
+                    "batchSize": 5,
+                    "temperature": 0.7
+                },
+                "reasoning": "AI-generated guides provide context and encouragement, making builds less intimidating for beginners.",
+                "kidFriendlyExplanation": "Writing helpful guides for each build so you know what to expect!"
+            },
+            {
+                "id": "step-12",
+                "name": "Create Interactive Build Collection",
+                "action": "compile",
+                "params": {
+                    "format": "interactive-html",
+                    "template": "minecraft-builds-gallery",
+                    "sections": [
+                        {
+                            "name": "🏆 Top Picks for You",
+                            "filter": "difficulty-match + high-rating",
+                            "limit": 5,
+                            "layout": "featured-cards"
+                        },
+                        {
+                            "name": "📹 Video Tutorials",
+                            "source": "youtube",
+                            "limit": 10,
+                            "layout": "video-grid",
+                            "embedPreviews": true
+                        },
+                        {
+                            "name": "📦 Builds with Schematics",
+                            "filter": "has-schematic",
+                            "limit": 15,
+                            "layout": "download-cards",
+                            "includeDownloadButtons": true
+                        },
+                        {
+                            "name": "🌟 All Builds",
+                            "source": "all",
+                            "sortBy": "rank",
+                            "layout": "grid",
+                            "pagination": true
+                        }
+                    ],
+                    "features": {
+                        "search": true,
+                        "filterByDifficulty": true,
+                        "filterByType": true,
+                        "favorites": true,
+                        "shareButtons": true
+                    }
+                },
+                "reasoning": "Interactive format lets kids explore, filter, and save favorites. Video embeds allow preview without leaving the page.",
+                "kidFriendlyExplanation": "Creating your personal Minecraft build gallery with all the best ideas!"
+            },
+            {
+                "id": "step-13",
+                "name": "Save and Present",
+                "action": "output",
+                "params": {
+                    "displayInSidebar": {
+                        "enabled": true,
+                        "format": "interactive",
+                        "autoOpen": true
+                    },
+                    "saveToFile": {
+                        "filename": "minecraft_builds_{buildType}_{date}.html",
+                        "location": "downloads",
+                        "includeImages": true
+                    },
+                    "notification": {
+                        "title": "🏰 Found {count} Amazing Builds!",
+                        "message": "Check out these {buildType} builds perfect for your skill level!",
+                        "actions": [
+                            {
+                                "label": "View Gallery",
+                                "action": "open-sidebar"
+                            },
+                            {
+                                "label": "Download Schematics",
+                                "action": "download-all"
+                            },
+                            {
+                                "label": "Watch Tutorials",
+                                "action": "open-youtube-playlist"
+                            }
+                        ]
+                    }
+                },
+                "reasoning": "Interactive sidebar display provides immediate access. Saved HTML file serves as offline reference.",
+                "kidFriendlyExplanation": "All done! Opening your build gallery now!"
+            }
+        ]
+    },
+    "reactLoop": {
+        "enabled": true,
+        "maxIterations": 15,
+        "adaptationRules": [
+            {
+                "condition": "no-results-found",
+                "reasoning": "Search term too specific or website structure changed",
+                "action": "broaden-search",
+                "params": {
+                    "removeModifiers": true,
+                    "tryGenericTerms": true
+                }
+            },
+            {
+                "condition": "youtube-age-restriction",
+                "reasoning": "Video requires age verification",
+                "action": "skip-video",
+                "params": {
+                    "logSkipped": true
+                }
+            },
+            {
+                "condition": "download-link-broken",
+                "reasoning": "Schematic link is dead or moved",
+                "action": "mark-unavailable",
+                "params": {
+                    "notifyInResults": true
+                }
+            }
+        ]
+    },
+    "safety": {
+        "contentFiltering": {
+            "blockInappropriate": true,
+            "requireKidSafe": true,
+            "excludeModded": "optional"
+        },
+        "downloadSafety": {
+            "scanFiles": true,
+            "allowedExtensions": [
+                ".schematic",
+                ".litematic",
+                ".nbt",
+                ".mcworld"
+            ],
+            "maxFileSize": "50MB"
+        }
+    }
+}

@@ -6,7 +6,10 @@ import {
   type ImperativePanelHandle,
 } from "react-resizable-panels";
 import { ChatPanel } from "../components/ChatPanel";
-import { PreviewPanel } from "../components/preview_panel/PreviewPanel";
+// 🚀 CRITICAL: Lazy load PreviewPanel to prevent blocking app startup
+// PreviewPanel imports BlocklyEditor which is huge (~500KB+)
+import { lazy, Suspense } from "react";
+const PreviewPanel = lazy(() => import("../components/preview_panel/PreviewPanel").then(m => ({ default: m.PreviewPanel })));
 import { CodeView } from "../components/preview_panel/CodeView";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -30,7 +33,7 @@ export default function ChatPage() {
   const navigate = useNavigate();
   const { streamMessage } = useStreamChat({ hasChatId: false });
   const hasAutoSubmitted = useRef(false);
-  
+
   const [isPreviewOpen, setIsPreviewOpen] = useAtom(isPreviewOpenAtom);
   const [isResizing, setIsResizing] = useState(false);
   const [leftPanelView, setLeftPanelView] = useState<"chat" | "code">("chat");
@@ -52,20 +55,37 @@ export default function ChatPage() {
         try {
           // First try to find the chat in the already loaded chats
           let currentChat = chats.find(chat => chat.id === chatId);
-          
+
           // If not found in loaded chats, get it directly from the database
           if (!currentChat) {
             console.log(`🔍 [ChatPage] Chat ${chatId} not found in loaded chats, fetching directly...`);
             const { IpcClient } = await import("@/ipc/ipc_client");
             const ipcClient = IpcClient.getInstance();
-            const chatData = await ipcClient.getChat(chatId);
-            
-            // Get all chats to find the appId (since getChat doesn't return appId directly)
-            const allChats = await ipcClient.getChats();
-            currentChat = allChats.find(chat => chat.id === chatId);
+
+            // Retry logic for getChat (up to 5 times for race conditions)
+            let attempts = 0;
+            const maxAttempts = 5;
+
+            while (attempts < maxAttempts) {
+              try {
+                const chatData = await ipcClient.getChat(chatId);
+                if (chatData) {
+                  // Direct result has appId, no need to fetch all chats!
+                  currentChat = chatData as any;
+                  console.log(`✅ [ChatPage] Successfully fetched chat ${chatId} (appId: ${chatData.appId})`);
+                  break;
+                }
+              } catch (err) {
+                attempts++;
+                console.warn(`⚠️ [ChatPage] getChat ${chatId} failed (attempt ${attempts}/${maxAttempts}):`, err);
+                if (attempts >= maxAttempts) throw err;
+                // Exponential backoff
+                await new Promise(r => setTimeout(r, 500 * attempts));
+              }
+            }
           }
-          
-          if (currentChat && currentChat.appId !== selectedAppId) {
+
+          if (currentChat && currentChat.appId && currentChat.appId !== selectedAppId) {
             console.log(`🔄 [ChatPage] Syncing selectedAppId: ${selectedAppId} -> ${currentChat.appId} for chatId: ${chatId}`);
             setSelectedAppId(currentChat.appId);
           }
@@ -84,7 +104,7 @@ export default function ChatPage() {
     if (initialPrompt && chatId && !hasAutoSubmitted.current) {
       console.log(`🚀 [ChatPage] Auto-submitting initial prompt for chatId: ${chatId}`);
       hasAutoSubmitted.current = true;
-      
+
       // Parse attachments if provided
       let attachments: FileAttachment[] = [];
       if (initialAttachments) {
@@ -94,7 +114,7 @@ export default function ChatPage() {
           console.error("Failed to parse initial attachments:", error);
         }
       }
-      
+
       // Wait 100ms to ensure ChatPanel is mounted and callbacks are registered
       // This matches Dyad's proven pattern and avoids race conditions
       setTimeout(() => {
@@ -104,7 +124,7 @@ export default function ChatPage() {
           attachments
         }).then(() => {
           console.log(`✅ [ChatPage] Initial prompt submitted successfully for chatId: ${chatId}`);
-          
+
           // Clean up URL to remove initialPrompt/initialAttachments params
           navigate({
             to: "/chat",
@@ -119,11 +139,11 @@ export default function ChatPage() {
   }, [initialPrompt, chatId, streamMessage, navigate, initialAttachments]);
 
   useEffect(() => {
-    
+
     if (!chatId && chats.length && !loading) {
       // Not a real navigation, just a redirect, when the user navigates to /chat
       // without a chatId, we redirect to the first chat
-      
+
       setSelectedAppId(chats[0].appId);
       navigate({ to: "/chat", search: { id: chats[0].id }, replace: true });
     }
@@ -155,6 +175,29 @@ export default function ChatPage() {
     }
   }, [previewMode]);
 
+  // 🚀 GAME MODE: Auto-collapse chat for game apps to give full screen focus
+  // NOTE: Minecraft KEEPS chat open so users can modify templates via chat
+  // DISABLED: Chat should show by default for all app types
+  // const isGameApp = app && ['blockly', 'godot'].includes(app.appType || '');
+
+  // useEffect(() => {
+  //   if (isGameApp && isLeftPanelOpen) {
+  //     setIsLeftPanelOpen(false);
+  //   }
+  // }, [isGameApp]); // Only run when app type changes/loads
+
+  // Sync state to Panel ref
+  useEffect(() => {
+    const panel = leftPanelRef.current;
+    if (panel) {
+      if (isLeftPanelOpen) {
+        panel.expand();
+      } else {
+        panel.collapse();
+      }
+    }
+  }, [isLeftPanelOpen]);
+
   // Show popup when preview becomes ready (only once)
   useEffect(() => {
     if (isPreviewReady && !showPreviewReadyPopup && !isAlreadyRendered) {
@@ -166,9 +209,42 @@ export default function ChatPage() {
   const ref = useRef<ImperativePanelHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
 
+  // 🚀 BLOCKLAA EXCLUSIVE: Full Screen "Builder" Mode
+  // Completely bypass the Chat/AI interface for Blocklaa to emphasize manual learning/building.
+  const isBlocklaaApp = app?.appType === 'blockly';
+
+  if (isBlocklaaApp) {
+    return (
+      <div className="h-full w-full bg-background">
+        <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+          <PreviewPanel
+            isLeftPanelOpen={false}
+            onToggleLeftPanel={() => { }} // No-op, no panel to toggle
+            isBlocklaaMode={true} // New prop to signal simplified UI
+          />
+        </Suspense>
+
+        {/* Preview Ready Popup - Keep for consistency if needed */}
+        <PreviewReadyPopup
+          isOpen={showPreviewReadyPopup}
+          onClose={() => setShowPreviewReadyPopup(false)}
+          appName={app?.name}
+          previewType={previewType}
+        />
+      </div>
+    );
+  }
+
   return (
     <PanelGroup autoSaveId="persistence" direction="horizontal">
-      <Panel id="left-panel" minSize={30} ref={leftPanelRef} collapsible>
+      <Panel
+        id="left-panel"
+        minSize={30}
+        ref={leftPanelRef}
+        collapsible
+        onCollapse={() => setIsLeftPanelOpen(false)}
+        onExpand={() => setIsLeftPanelOpen(true)}
+      >
         <div className="h-full w-full flex flex-col">
           {/* Toggle Header */}
           <div className="flex items-center border-b border-border bg-background px-4 py-1">
@@ -199,7 +275,7 @@ export default function ChatPage() {
               </button>
             </div>
           </div>
-          
+
           {/* Content Area */}
           <div className="flex-1 overflow-hidden">
             {leftPanelView === "chat" ? (
@@ -227,13 +303,15 @@ export default function ChatPage() {
             !isResizing && "transition-all duration-100 ease-in-out",
           )}
         >
-          <PreviewPanel 
-            isLeftPanelOpen={isLeftPanelOpen}
-            onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
-          />
+          <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <PreviewPanel
+              isLeftPanelOpen={isLeftPanelOpen}
+              onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+            />
+          </Suspense>
         </Panel>
       </>
-      
+
       {/* Preview Ready Popup */}
       <PreviewReadyPopup
         isOpen={showPreviewReadyPopup}

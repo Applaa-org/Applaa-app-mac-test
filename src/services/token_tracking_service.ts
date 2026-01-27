@@ -95,7 +95,7 @@ export async function trackTokenUsage(
             app_id: appId ? String(appId) : null,
             chat_id: chatId ? String(chatId) : null,
             metadata: {
-              ...(metadata || {}),
+              ...metadata,
               tokens_used: tokensUsed,
               previous_total: currentTotal,
               new_total: newTotal,
@@ -114,7 +114,7 @@ export async function trackTokenUsage(
             app_id: appId ? String(appId) : null,
             chat_id: chatId ? String(chatId) : null,
             metadata: {
-              ...(metadata || {}),
+              ...metadata,
               tokens_used: tokensUsed,
               previous_total: currentTotal,
               new_total: newTotal,

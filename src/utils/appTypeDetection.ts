@@ -1,6 +1,6 @@
 import type { App } from "@/ipc/ipc_types";
 
-export type AppCategory = 'web' | 'mobile' | 'flutter' | 'capacitor' | 'game';
+export type AppCategory = 'web' | 'mobile' | 'flutter' | 'capacitor' | 'game' | 'blockly' | 'minecraft' | 'roblox';
 
 // Store for external app type data (will be populated by the AppList component)
 const appTypeCache = new Map<number, AppCategory>();
@@ -25,74 +25,80 @@ export function detectAppCategory(app: App): AppCategory {
       return 'web';
     } else if (app.appType === 'godot') {
       return 'game';
+    } else if (app.appType === 'blockly') {
+      return 'blockly';
+    } else if (app.appType === 'minecraft') {
+      return 'minecraft';
+    } else if (app.appType === 'roblox') {
+      return 'roblox';
     }
   }
-  
+
   // Second, check if we have cached data from external detection
   const cachedCategory = appTypeCache.get(app.id);
   if (cachedCategory) {
     return cachedCategory;
   }
-  
+
   // If no files available, default to web for now
   if (!app.files || app.files.length === 0) {
     return 'web';
   }
-  
+
   // Check for Expo/React Native mobile app
-  const hasExpoConfig = app.files.some(file => 
+  const hasExpoConfig = app.files.some(file =>
     file === 'app.json' || file === 'expo.json'
   );
-  
-  const hasExpoRouterStructure = app.files.some(file => 
+
+  const hasExpoRouterStructure = app.files.some(file =>
     file.startsWith('app/') && (file.endsWith('.tsx') || file.endsWith('.ts'))
   );
-  
-  const hasTraditionalWebFiles = app.files.some(file => 
+
+  const hasTraditionalWebFiles = app.files.some(file =>
     file === 'index.html' || file === 'vite.config.js' || file === 'vite.config.ts'
   );
-  
+
   // If it has app.json but no traditional web files, it's likely Expo
   // OR if it has both app.json and app/ structure, it's definitely Expo
   if (hasExpoConfig && (!hasTraditionalWebFiles || hasExpoRouterStructure)) {
     return 'mobile';
   }
-  
+
   // Check for Capacitor app (has capacitor.config.js/ts and android/ios folders)
-  const hasCapacitorConfig = app.files.some(file => 
+  const hasCapacitorConfig = app.files.some(file =>
     file === 'capacitor.config.js' || file === 'capacitor.config.ts' || file === 'capacitor.config.json'
   );
-  
-  const hasCapacitorFolders = app.files.some(file => 
+
+  const hasCapacitorFolders = app.files.some(file =>
     file.startsWith('android/') || file.startsWith('ios/')
   );
-  
+
   if (hasCapacitorConfig && hasCapacitorFolders) {
     return 'capacitor';
   }
-  
+
   // Check for Flutter app (has pubspec.yaml and lib/main.dart)
-  const hasFlutterConfig = app.files.some(file => 
+  const hasFlutterConfig = app.files.some(file =>
     file === 'pubspec.yaml'
   );
-  
-  const hasFlutterMain = app.files.some(file => 
+
+  const hasFlutterMain = app.files.some(file =>
     file === 'lib/main.dart'
   );
-  
+
   if (hasFlutterConfig && hasFlutterMain) {
     return 'flutter';
   }
-  
+
   // Check for Godot game (has godot-project/project.godot or project.godot)
-  const hasGodotProject = app.files.some(file => 
+  const hasGodotProject = app.files.some(file =>
     file === 'project.godot' || file === 'godot-project/project.godot' || file.endsWith('/project.godot')
   );
-  
+
   if (hasGodotProject) {
     return 'game';
   }
-  
+
   // Default to web app
   return 'web';
 }
@@ -111,7 +117,13 @@ export function getCategoryLabel(category: AppCategory): string {
     case 'capacitor':
       return 'Capacitor Apps';
     case 'game':
-      return 'Games';
+      return 'Godot Games';
+    case 'blockly':
+      return 'Blocklaa Apps';
+    case 'minecraft':
+      return 'Minecraft Mods';
+    case 'roblox':
+      return 'Roblox Apps';
     default:
       return 'Apps';
   }
@@ -131,6 +143,12 @@ export function getCategoryIcon(category: AppCategory): string {
     case 'capacitor':
       return '⚡';
     case 'game':
+      return '🎮';
+    case 'blockly':
+      return '🧩';
+    case 'minecraft':
+      return '🧊';
+    case 'roblox':
       return '🎮';
     default:
       return '📁';

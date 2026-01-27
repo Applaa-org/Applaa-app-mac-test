@@ -11,7 +11,7 @@ import { useSettings } from "@/hooks/useSettings";
 interface PromptEnhanceButtonProps {
   inputValue: string;
   onEnhanced: (enhancedPrompt: string) => void;
-  appType?: 'web' | 'expo' | 'flutter' | 'mobile';
+  appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly';
   disabled?: boolean;
 }
 
@@ -26,17 +26,17 @@ export function PromptEnhanceButton({
 
   const handleEnhance = async () => {
     if (!inputValue.trim() || isOptimizing || disabled) {
-      console.log("[PromptEnhance] Enhancement blocked:", { 
-        hasInput: !!inputValue.trim(), 
-        isOptimizing, 
+      console.log("[PromptEnhance] Enhancement blocked:", {
+        hasInput: !!inputValue.trim(),
+        isOptimizing,
         disabled,
-        hasModel: !!settings?.selectedModel 
+        hasModel: !!settings?.selectedModel
       });
       return;
     }
 
     console.log("[PromptEnhance] Starting enhancement for:", inputValue.substring(0, 50));
-    
+
     try {
       const enhancedPrompt = await optimizePrompt(inputValue);
       console.log("[PromptEnhance] Enhancement completed, length:", enhancedPrompt?.length);
@@ -52,7 +52,7 @@ export function PromptEnhanceButton({
   };
 
   const isDisabled = !inputValue.trim() || isOptimizing || disabled || !settings?.selectedModel;
-  
+
   // Log state for debugging
   if (isOptimizing) {
     console.log("[PromptEnhance] Currently optimizing...");
@@ -66,9 +66,8 @@ export function PromptEnhanceButton({
           size="sm"
           onClick={handleEnhance}
           disabled={isDisabled}
-          className={`flex items-center gap-1 h-8 px-1 text-xs !bg-white hover:!bg-green-50 !text-green-700 hover:!text-green-700 border-green-300 shadow-sm ${
-            isOptimizing ? "opacity-75 cursor-wait" : ""
-          }`}
+          className={`flex items-center gap-1 h-6 px-2 text-xs !bg-white hover:!bg-green-50 !text-green-700 hover:!text-green-700 border-green-300 shadow-sm ${isOptimizing ? "opacity-75 cursor-wait" : ""
+            }`}
         >
           {isOptimizing ? (
             <>
@@ -87,10 +86,10 @@ export function PromptEnhanceButton({
         {isOptimizing
           ? "Enhancing prompt with AI..."
           : error
-          ? `Error: ${error.message || "Failed to enhance"}`
-          : !settings?.selectedModel
-          ? "Please select an AI model first"
-          : "Enhance prompt with AI"}
+            ? `Error: ${error.message || "Failed to enhance"}`
+            : !settings?.selectedModel
+              ? "Please select an AI model first"
+              : "Enhance prompt with AI"}
       </TooltipContent>
     </Tooltip>
   );

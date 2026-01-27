@@ -38,7 +38,7 @@ const ignore = (file: string) => {
   if (file.startsWith("/userData")) {
     return false;
   }
-  
+
 
   if (file.startsWith("/worker") && !file.startsWith("/workers")) {
     return false;
@@ -94,11 +94,11 @@ const config: ForgeConfig = {
     osxNotarize:
       process.platform === 'darwin' && process.env.APPLE_ID && (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD)
         ? {
-            tool: "notarytool",
-            appleId: process.env.APPLE_ID as string,
-            appleIdPassword: (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD) as string,
-            teamId: process.env.APPLE_TEAM_ID || process.env.TEAM_ID || "P7VCYRVVPQ",
-          } as any
+          tool: "notarytool",
+          appleId: process.env.APPLE_ID as string,
+          appleIdPassword: (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD) as string,
+          teamId: process.env.APPLE_TEAM_ID || process.env.TEAM_ID || "P7VCYRVVPQ",
+        } as any
         : undefined,
     asarUnpack: [
       "node_modules/@google/gemini-cli/**",
@@ -111,6 +111,8 @@ const config: ForgeConfig = {
       "node_modules/expo/**",
       "node_modules/@expo/**",
       "node_modules/.bin/**",
+      "node_modules/sharp/**",
+      "node_modules/@img/**",
       "drizzle/**"
     ],
     // extraResource: [
@@ -122,7 +124,7 @@ const config: ForgeConfig = {
     // Use onlyModules to explicitly control which modules to rebuild
     // This prevents auto-detection of better-sqlite3 which requires Windows SDK
     onlyModules: [
-      "onnxruntime-react-native", 
+      "onnxruntime-react-native",
       "react-native-transformers",
       "@react-native-async-storage/async-storage",
       "expo-sqlite",
@@ -237,10 +239,10 @@ const config: ForgeConfig = {
       // This ensures the .app is stapled before ZIP/DMG creation
       // Also remove quarantine attributes to prevent "damaged" errors
       try {
-      const results = Array.isArray(packageResults) ? packageResults : [packageResults];
-      for (const result of results) {
+        const results = Array.isArray(packageResults) ? packageResults : [packageResults];
+        for (const result of results) {
           if (result.platform !== 'darwin') continue;
-          
+
           // Find the .app bundle
           let appPath: string | undefined;
           if (result.outputPaths) {
@@ -250,21 +252,21 @@ const config: ForgeConfig = {
           if (!appPath && result.outputPath) {
             appPath = result.outputPath.endsWith('.app') ? result.outputPath : undefined;
           }
-          
+
           if (appPath && require('fs').existsSync(appPath)) {
             // Remove ALL extended attributes recursively to prevent "damaged" errors
             // This ensures the .app is completely clean before stapling
             try {
               execSync(`xattr -cr "${appPath}"`, { stdio: 'pipe' });
               console.log(`🧹 Removed all extended attributes from ${appPath}`);
-              
+
               // Verify signature is still valid after removing attributes
               execSync(`codesign --verify --deep --strict "${appPath}"`, { stdio: 'pipe' });
               console.log(`✅ Signature verified after attribute removal`);
             } catch (e) {
               console.warn(`⚠️ Could not remove attributes or verify signature: ${e}`);
             }
-            
+
             // Verify staple
             try {
               const validateOutput = execSync(`xcrun stapler validate "${appPath}"`, { encoding: 'utf8', stdio: 'pipe' });
@@ -295,34 +297,34 @@ const config: ForgeConfig = {
       try {
         const results = Array.isArray(makeResults) ? makeResults : [makeResults];
         const fs = require('fs');
-        
+
         for (const result of results) {
           if (result.platform !== 'darwin') continue;
-          
+
           // Get artifacts (ZIP files, DMG files, etc.)
           const artifacts = Array.isArray(result.artifacts) ? result.artifacts : [];
-          
+
           // Process ZIP files
           for (const artifact of artifacts) {
             if (!artifact.endsWith('.zip')) continue;
-            
+
             const zipPath = artifact;
             const zipName = path.basename(zipPath);
             const tempDir = path.join(__dirname, '.tmp-zip-repack');
             const tempZipPath = zipPath + '.tmp';
-            
+
             try {
               console.log(`📦 Re-creating ZIP with ditto: ${zipName}`);
-              
+
               // Create temp directory
               if (fs.existsSync(tempDir)) {
                 fs.rmSync(tempDir, { recursive: true, force: true });
               }
               fs.mkdirSync(tempDir, { recursive: true });
-              
+
               // Extract existing ZIP using ditto (preserves extended attributes)
               execSync(`ditto -x -k "${zipPath}" "${tempDir}"`, { stdio: 'pipe' });
-              
+
               // Find the .app bundle in extracted files
               const findApp = (dir: string): string | undefined => {
                 try {
@@ -336,29 +338,29 @@ const config: ForgeConfig = {
                       if (found) return found;
                     }
                   }
-                } catch {}
+                } catch { }
                 return undefined;
               };
-              
+
               const appPath = findApp(tempDir);
               if (!appPath || !fs.existsSync(appPath)) {
                 console.warn(`⚠️ Could not find .app in ZIP: ${zipName}`);
                 fs.rmSync(tempDir, { recursive: true, force: true });
                 continue;
               }
-              
+
               // Remove ALL extended attributes recursively to prevent "damaged" errors
               // This ensures the app is completely clean before re-zipping
               try {
                 execSync(`xattr -cr "${appPath}"`, { stdio: 'pipe' });
                 console.log(`🧹 Removed all extended attributes from app before re-zipping`);
-                
+
                 // Verify signature is still valid
                 execSync(`codesign --verify --deep --strict "${appPath}"`, { stdio: 'pipe' });
               } catch (e) {
                 console.warn(`⚠️ Could not remove attributes or verify signature: ${e}`);
               }
-              
+
               // Verify the app is stapled before re-zipping
               try {
                 const validateOutput = execSync(`xcrun stapler validate "${appPath}"`, { encoding: 'utf8', stdio: 'pipe' });
@@ -370,13 +372,13 @@ const config: ForgeConfig = {
                 // Try to staple anyway
                 try {
                   execSync(`xcrun stapler staple "${appPath}"`, { stdio: 'pipe' });
-                } catch {}
+                } catch { }
               }
-              
+
               // Create new ZIP with ditto (preserves extended attributes and signatures)
               // --sequesterRsrc is CRITICAL: prevents quarantine attributes from being included in ZIP
               execSync(`ditto -c -k --sequesterRsrc --keepParent "${appPath}" "${tempZipPath}"`, { stdio: 'inherit' });
-              
+
               // Verify the new ZIP contains a valid app
               const verifyDir = path.join(__dirname, '.tmp-zip-verify');
               if (fs.existsSync(verifyDir)) {
@@ -397,7 +399,7 @@ const config: ForgeConfig = {
                 }
               }
               fs.rmSync(verifyDir, { recursive: true, force: true });
-              
+
               // Cleanup
               fs.rmSync(tempDir, { recursive: true, force: true });
             } catch (e) {
@@ -449,7 +451,7 @@ const config: ForgeConfig = {
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,
       [FuseV1Options.EnableCookieEncryption]: true,
-      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: true,
       [FuseV1Options.EnableNodeCliInspectArguments]: isEndToEndTestBuild,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,

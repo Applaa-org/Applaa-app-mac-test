@@ -17,12 +17,17 @@ import {
   ChartColumnIncreasing,
   SendHorizontalIcon,
   Zap,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { useSearch, useNavigate } from "@tanstack/react-router";
+import { aiBlockAssistant } from '@/services/AiBlockAssistant'; // Brain Import
 
 import { useSettings } from "@/hooks/useSettings";
 import { IpcClient } from "@/ipc/ipc_client";
+import { useChatContext } from "@/contexts/ChatContext";
 import {
   chatInputValueAtom,
   chatMessagesAtom,
@@ -40,7 +45,7 @@ import {
   FileChange,
   SqlQuery,
 } from "@/lib/schemas";
-import type { Message } from "@/ipc/ipc_types";
+import type { Message, ComponentSelection } from "@/ipc/ipc_types";
 import { isPreviewOpenAtom } from "@/atoms/viewAtoms";
 import { useRunApp } from "@/hooks/useRunApp";
 import { AutoApproveSwitch } from "../AutoApproveSwitch";
@@ -53,13 +58,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-import { useNavigate } from "@tanstack/react-router";
+// import { useNavigate } from "@tanstack/react-router"; // Combined above
 import { useVersions } from "@/hooks/useVersions";
 import { useAttachments } from "@/hooks/useAttachments";
 import { AttachmentsList } from "./AttachmentsList";
 import { DragDropOverlay } from "./DragDropOverlay";
 import { FileAttachmentDropdown } from "./FileAttachmentDropdown";
-import { showError, showExtraFilesToast } from "@/lib/toast";
+import { showError as toastError, showExtraFilesToast } from "@/lib/toast";
 import { ChatInputControls } from "../ChatInputControls";
 import { ChatErrorBox } from "./ChatErrorBox";
 import { selectedComponentPreviewAtom } from "@/atoms/previewAtoms";
@@ -67,39 +72,48 @@ import { SelectedComponentDisplay } from "./SelectedComponentDisplay";
 // Prompt optimization imports removed for app-specific chat
 import { useCheckProblems } from "@/hooks/useCheckProblems";
 import { LexicalChatInput } from "./LexicalChatInput";
-import { enhancePromptForGameStorage } from "@/utils/promptEnhancement";
+import { useGeminiSpeech } from "@/hooks/useGeminiSpeech";
 // Voice input removed for MVP performance optimization
 
 const showTokenBarAtom = atom(false);
 
 export function ChatInput({ chatId }: { chatId?: number }) {
+  const { isBlockChat } = useChatContext();
   const posthog = usePostHog();
   const [inputValue, setInputValue] = useAtom(chatInputValueAtom);
   const { settings } = useSettings();
   const appId = useAtomValue(selectedAppIdAtom);
   const { refreshVersions } = useVersions(appId);
-  const { streamMessage, isStreaming, setIsStreaming, error, setError } =
-    useStreamChat({ hasChatId: false });
-  const [showError, setShowError] = useState(true);
+  const { streamMessage, isStreaming, error, setError } =
+    useStreamChat({ hasChatId: !isBlockChat });
+  const [isErrorVisible, setIsErrorVisible] = useState(true);
   const [isApproving, setIsApproving] = useState(false); // State for approving
   const [isRejecting, setIsRejecting] = useState(false); // State for rejecting
   const [, setMessages] = useAtom<Message[]>(chatMessagesAtom);
   const setIsPreviewOpen = useSetAtom(isPreviewOpenAtom);
   const [showTokenBar, setShowTokenBar] = useAtom(showTokenBarAtom);
-  const [selectedComponent, setSelectedComponent] = useAtom(
-    selectedComponentPreviewAtom,
-  );
+  const [selectedComponent, setLocalSelectedComponent] = useAtom(selectedComponentPreviewAtom);
   const { checkProblems } = useCheckProblems(appId);
-  
+
   // Input history for error recovery
   const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  
+
+  const {
+    isListening,
+    isProcessing: isProcessingVoice,
+    toggleListening
+  } = useGeminiSpeech({
+    onTranscript: (text) => {
+      setInputValue(inputValue + (inputValue && !inputValue.endsWith(" ") ? " " : "") + text);
+    }
+  });
+
   // Prompt optimization disabled for app-specific chat
   // Only available in main home chat input
 
   // Voice input removed for MVP performance optimization
-  
+
   // Use the attachments hook
   const {
     attachments,
@@ -118,7 +132,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     proposalResult,
     isLoading: isProposalLoading,
     error: proposalError,
-    refreshProposal,
+    refreshProposal: runRefreshProposal,
   } = useProposal(chatId);
   const { proposal, messageId } = proposalResult ?? {};
 
@@ -147,7 +161,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
 
   useEffect(() => {
     if (error) {
-      setShowError(true);
+      setIsErrorVisible(true);
     }
   }, [error]);
 
@@ -180,14 +194,52 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   // Voice input disabled for MVP
 
   const handleSubmit = async () => {
+    // 🧠 APPY CHAT INTERCEPTION
+    if (isBlockChat) {
+      if (!inputValue.trim()) return;
+
+      const userMsg: Message = {
+        id: Date.now(),
+        role: 'user',
+        content: inputValue,
+        created_at: new Date().toISOString()
+      };
+
+      // 1. Add User Message immediately
+      setMessages(prev => [...prev, userMsg]);
+      setInputValue("");
+
+      try {
+        // 2. Ask Appy Brain
+        const response = await aiBlockAssistant.processMessage(userMsg.content);
+
+        // 3. Add Appy Response
+        const appyMsg: Message = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: response.text,
+          created_at: new Date().toISOString()
+        };
+
+        // Simulate "typing" delay or just push
+        setTimeout(() => {
+          setMessages(prev => [...prev, appyMsg]);
+        }, 500);
+
+      } catch (e) {
+        console.error("Appy Brain Error:", e);
+      }
+      return; // STOP EXECUTION HERE for Block Chat
+    }
+
     console.log("🚀 ChatInput handleSubmit called", { inputValue, chatId, isStreaming, attachments });
-    
+
     if (
       (!inputValue.trim() && attachments.length === 0) ||
       isStreaming ||
       !chatId
     ) {
-      console.log("❌ Submit blocked:", { 
+      console.log("❌ Submit blocked:", {
         noInput: !inputValue.trim() && attachments.length === 0,
         isStreaming,
         noChatId: !chatId
@@ -197,25 +249,22 @@ export function ChatInput({ chatId }: { chatId?: number }) {
 
     const currentInput = inputValue;
     // Don't clear input immediately - wait for stream to start successfully
-    setSelectedComponent(null);
+    (setLocalSelectedComponent as (val: ComponentSelection | null) => void)(null);
 
     try {
-      // Enhance prompt for game storage if it's a game-related prompt
-      const enhancedPrompt = enhancePromptForGameStorage(currentInput);
-      
-      console.log("📤 Sending message:", { prompt: enhancedPrompt, chatId, attachments: attachments.length });
-      
+      console.log("📤 Sending message:", { prompt: currentInput, chatId, attachments: attachments.length });
+
       // Send message with attachments and clear them after sending
       await streamMessage({
-        prompt: enhancedPrompt,
+        prompt: currentInput,
         chatId,
         attachments,
         redo: false,
         selectedComponent,
       });
-      
+
       console.log("✅ Message sent successfully");
-      
+
       // Only clear input and attachments if stream started successfully
       // Add to history before clearing
       if (currentInput.trim()) {
@@ -225,14 +274,14 @@ export function ChatInput({ chatId }: { chatId?: number }) {
         });
         setHistoryIndex(-1);
       }
-      
+
       setInputValue("");
       clearAttachments();
       posthog.capture("chat:submit");
     } catch (error) {
       console.error("❌ Failed to start chat stream:", error);
       // Don't clear input on error - user can retry
-      showError(`Failed to send message: ${error instanceof Error ? error.message : String(error)}`);
+      toastError(`Failed to send message: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -246,7 +295,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   };
 
   const dismissError = () => {
-    setShowError(false);
+    setIsErrorVisible(false);
   };
 
   const handleApprove = async () => {
@@ -281,8 +330,9 @@ export function ChatInput({ chatId }: { chatId?: number }) {
       }
 
       // Keep same as handleReject
-      refreshProposal();
-      fetchChatMessages();
+      runRefreshProposal();
+      (setLocalSelectedComponent as (val: ComponentSelection | null) => void)(null); // Clear selected component after approval
+      // fetchChatMessages() removed - ChatPanel handles polling/refresh via useProposal
     }
   };
 
@@ -306,8 +356,9 @@ export function ChatInput({ chatId }: { chatId?: number }) {
       setIsRejecting(false);
 
       // Keep same as handleApprove
-      refreshProposal();
-      fetchChatMessages();
+      runRefreshProposal();
+      (setLocalSelectedComponent as (val: ComponentSelection | null) => void)(null); // Clear selected component after rejection
+      // fetchChatMessages() removed - ChatPanel handles polling/refresh via useProposal
     }
   };
 
@@ -317,7 +368,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
 
   return (
     <>
-      {error && showError && (
+      {error && isErrorVisible && (
         <ChatErrorBox
           onDismiss={dismissError}
           error={error}
@@ -337,9 +388,8 @@ export function ChatInput({ chatId }: { chatId?: number }) {
       )}
       <div className="p-4" data-testid="chat-input-container">
         <div
-          className={`relative flex flex-col border border-border rounded-lg bg-(--background-lighter) shadow-sm ${
-            isDraggingOver ? "ring-2 ring-blue-500 border-blue-500" : ""
-          }`}
+          className={`relative flex flex-col border border-border rounded-lg bg-(--background-lighter) shadow-sm ${isDraggingOver ? "ring-2 ring-blue-500 border-blue-500" : ""
+            }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -384,12 +434,29 @@ export function ChatInput({ chatId }: { chatId?: number }) {
               onSubmit={handleSubmit}
               onPaste={handlePaste}
               onKeyDown={handleKeyDown}
+
               placeholder={selectedComponent ? "What would you like to change about this component?" : "Ask Applaa to build..."}
+
               excludeCurrentApp={false}
+              disabled={isStreaming || isProcessingVoice}
             />
 
             <div className="flex items-center gap-1">
-              {/* 🎤 Voice Input - COMPLETELY REMOVED for MVP performance optimization - Cache refresh v2 */}
+              <button
+                onClick={toggleListening}
+                disabled={isStreaming || isProcessingVoice}
+                className={`px-2 py-2 mt-1 mr-1 rounded-lg transition-colors ${isListening ? "text-red-500 bg-red-50" : "text-(--sidebar-accent-fg) hover:bg-(--background-darkest)"
+                  }`}
+                title={isListening ? "Stop listening" : "Start voice input"}
+              >
+                {isProcessingVoice ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isListening ? (
+                  <Mic className="w-4 h-4" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </button>
 
               {/* Send/Cancel button */}
               {isStreaming ? (
@@ -416,19 +483,19 @@ export function ChatInput({ chatId }: { chatId?: number }) {
           <div className="pt-2 pb-2 border-t border-border">
             <div className="px-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ChatInputControls 
-                  showContextFilesPicker={true} 
-                  showImportButton={false} 
+                <ChatInputControls
+                  showContextFilesPicker={true}
+                  showImportButton={false}
                   showPlatformSelector={false}
                   inputValue={inputValue}
                   onInputChange={setInputValue}
                   disabled={isStreaming}
                 />
                 {/* File attachment dropdown */}
-                {/* <FileAttachmentDropdown
+                <FileAttachmentDropdown
                   onFileSelect={handleFileSelect}
                   disabled={isStreaming}
-                /> */}
+                />
               </div>
 
               <TooltipProvider>
@@ -437,9 +504,8 @@ export function ChatInput({ chatId }: { chatId?: number }) {
                     <Button
                       onClick={() => setShowTokenBar(!showTokenBar)}
                       variant="ghost"
-                      className={`has-[>svg]:px-2 ${
-                        showTokenBar ? "text-purple-500 bg-purple-100" : ""
-                      }`}
+                      className={`has-[>svg]:px-2 ${showTokenBar ? "text-purple-500 bg-purple-100" : ""
+                        }`}
                       size="sm"
                     >
                       <ChartColumnIncreasing size={14} />
@@ -490,10 +556,21 @@ function SuggestionButton({
 }
 
 function SummarizeInNewChatButton() {
+  const { isBlockChat } = useChatContext();
+  const search = useSearch({ from: "/chat" });
   const chatId = useAtomValue(selectedChatIdAtom);
   const appId = useAtomValue(selectedAppIdAtom);
-  const { streamMessage } = useStreamChat();
-  const navigate = useNavigate();
+  const { streamMessage } = useStreamChat({ hasChatId: !isBlockChat });
+
+  // Try to get navigate, but it might fail in BlockChat context
+  let navigate: ReturnType<typeof useNavigate> | null = null;
+  try {
+    navigate = useNavigate();
+  } catch (e) {
+    // Not in a valid route context (e.g., BlockChat), navigation won't work
+    console.log("Navigation not available in this context");
+  }
+
   const onClick = async () => {
     if (!appId) {
       console.error("No app id found");
@@ -501,14 +578,21 @@ function SummarizeInNewChatButton() {
     }
     try {
       const newChatId = await IpcClient.getInstance().createChat(appId);
-      // navigate to new chat
-      await navigate({ to: "/chat", search: { id: newChatId } });
+      // navigate to new chat (if navigation is available)
+      if (navigate) {
+        try {
+          await navigate({ to: "/chat", search: { ...search, id: newChatId } as any });
+        } catch (e) {
+          // Navigation might fail in BlockChat context, that's ok
+          console.log("Navigation skipped in BlockChat context");
+        }
+      }
       await streamMessage({
         prompt: "Summarize from chat-id=" + chatId,
         chatId: newChatId,
       });
     } catch (err) {
-      showError(err);
+      toastError(err instanceof Error ? err.message : String(err));
     }
   };
   return (
@@ -522,8 +606,9 @@ function SummarizeInNewChatButton() {
 }
 
 function RefactorFileButton({ path }: { path: string }) {
+  const { isBlockChat } = useChatContext();
   const chatId = useAtomValue(selectedChatIdAtom);
-  const { streamMessage } = useStreamChat();
+  const { streamMessage } = useStreamChat({ hasChatId: !isBlockChat });
   const onClick = () => {
     if (!chatId) {
       console.error("No chat id found");
@@ -634,16 +719,16 @@ function RefreshButton() {
 function BoostMyAppButton({ chatId }: { chatId?: number }) {
   const { streamMessage } = useStreamChat();
   const posthog = usePostHog();
-  
+
   const onClick = useCallback(async () => {
     if (!chatId) {
       console.error("No chat id found for Boost My App");
       return;
     }
-    
+
     console.log(`🚀 Boost My App clicked for chatId: ${chatId}`);
     posthog.capture("action:boost-my-app");
-    
+
     // Enhanced prompt with UI improvement focus
     const boostPrompt = `🚀 BOOST MY APP: Apply premium design enhancements to this application:
 
@@ -680,7 +765,7 @@ Continue building on what's already there while applying these premium design pa
       console.error("Failed to boost app:", error);
     }
   }, [chatId, streamMessage, posthog]);
-  
+
   return (
     <SuggestionButton
       onClick={onClick}
@@ -694,7 +779,7 @@ Continue building on what's already there while applying these premium design pa
 
 function RetryButton({ chatId }: { chatId?: number }) {
   const { streamMessage } = useStreamChat();
-  
+
   const onClick = () => {
     if (!chatId) {
       console.error("No chat id found for Retry");
@@ -707,7 +792,7 @@ function RetryButton({ chatId }: { chatId?: number }) {
       redo: true, // This is the key for retry functionality
     });
   };
-  
+
   return (
     <SuggestionButton onClick={onClick} tooltipText="Retry the last message">
       Retry
@@ -1038,24 +1123,21 @@ function ProposalSummary({
 
   if (sqlQueries.length) {
     parts.push(
-      `${sqlQueries.length} SQL ${
-        sqlQueries.length === 1 ? "query" : "queries"
+      `${sqlQueries.length} SQL ${sqlQueries.length === 1 ? "query" : "queries"
       }`,
     );
   }
 
   if (serverFunctions.length) {
     parts.push(
-      `${serverFunctions.length} Server ${
-        serverFunctions.length === 1 ? "Function" : "Functions"
+      `${serverFunctions.length} Server ${serverFunctions.length === 1 ? "Function" : "Functions"
       }`,
     );
   }
 
   if (packagesAdded.length) {
     parts.push(
-      `${packagesAdded.length} ${
-        packagesAdded.length === 1 ? "package" : "packages"
+      `${packagesAdded.length} ${packagesAdded.length === 1 ? "package" : "packages"
       }`,
     );
   }

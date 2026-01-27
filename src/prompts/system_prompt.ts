@@ -3,7 +3,12 @@ import fs from "node:fs";
 import log from "electron-log";
 import { EXPO_SYSTEM_PROMPT } from "./expo_system_prompt";
 import { GODOT_SYSTEM_PROMPT } from "./godot_system_prompt";
+// import { MAKECODE_SYSTEM_PROMPT } from "./makecode_system_prompt"; // Temporarily commented out
+import { MINECRAFT_MOD_SYSTEM_PROMPT } from "./minecraft_mod_system_prompt";
+import { MINECRAFT_BEDROCK_MCFUNCTION_PROMPT } from "./minecraft_bedrock_prompt";
 import { replaceColorPlaceholders } from "./color_system";
+import { generateFeatureInstructions } from "./feature_prompts";
+import type { AppFeaturesConfig, AppType } from "../types/app-features";
 
 const logger = log.scope("system_prompt");
 
@@ -16,23 +21,23 @@ export const isExpoApp = (appPath: string): boolean => {
     const packageJsonPath = path.join(appPath, "package.json");
     const appJsonPath = path.join(appPath, "app.json");
     const expoJsonPath = path.join(appPath, "expo.json");
-    
+
     // Check if package.json exists and contains Expo dependencies
     if (fs.existsSync(packageJsonPath)) {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
       const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
-      
+
       // Check for Expo-specific dependencies
       if (dependencies.expo || dependencies["@expo/cli"] || dependencies["expo-cli"]) {
         return true;
       }
     }
-    
+
     // Check for Expo config files
     if (fs.existsSync(appJsonPath) || fs.existsSync(expoJsonPath)) {
       return true;
     }
-    
+
     // Check for app directory structure (Expo Router)
     const appDirPath = path.join(appPath, "app");
     if (fs.existsSync(appDirPath)) {
@@ -41,7 +46,7 @@ export const isExpoApp = (appPath: string): boolean => {
         return true;
       }
     }
-    
+
     return false;
   } catch (error) {
     logger.warn(`Error detecting Expo app at ${appPath}:`, error);
@@ -59,23 +64,71 @@ export const isGodotApp = (appPath: string): boolean => {
     if (fs.existsSync(godotProjectPath)) {
       return true;
     }
-    
+
     // Check for game_spec.json
     const gameSpecPath = path.join(appPath, "godot-project", "game_spec.json");
     if (fs.existsSync(gameSpecPath)) {
       return true;
     }
-    
+
     // Check for Godot-specific directories
     const scriptsPath = path.join(appPath, "godot-project", "scripts");
     const scenesPath = path.join(appPath, "godot-project", "scenes");
     if (fs.existsSync(scriptsPath) || fs.existsSync(scenesPath)) {
       return true;
     }
-    
+
     return false;
   } catch (error) {
     logger.warn(`Error detecting Godot app at ${appPath}:`, error);
+    return false;
+  }
+};
+
+/**
+ * Detect if an app is a MakeCode app based on its path and files
+ */
+export const isMakeCodeApp = (appPath: string): boolean => {
+  try {
+    // Check for pxt.json (MakeCode configuration file)
+    const pxtJsonPath = path.join(appPath, "pxt.json");
+    if (fs.existsSync(pxtJsonPath)) {
+      return true;
+    }
+
+    // Check for main.ts and absence of other framework markers
+    const mainTsPath = path.join(appPath, "main.ts");
+    if (fs.existsSync(mainTsPath) && !isExpoApp(appPath) && !isGodotApp(appPath)) {
+      // Further check: does it look like MakeCode?
+      const content = fs.readFileSync(mainTsPath, "utf8");
+      if (content.includes('sprites.create') || content.includes('basic.forever') || content.includes('player.onChat')) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    logger.warn(`Error detecting MakeCode app at ${appPath}:`, error);
+    return false;
+  }
+};
+
+/**
+ * Detect if an app is a Minecraft Mod (Blockly or Java)
+ */
+export const isMinecraftModApp = (appPath: string): boolean => {
+  try {
+    const files = fs.readdirSync(appPath);
+    // Check for Blockly workspace (new approach)
+    const hasWorkspaceJson = fs.existsSync(path.join(appPath, "workspace.json"));
+    // Legacy: check for Java files
+    const hasJavaFile = files.some(f => f.endsWith('.java'));
+    const hasBuildGradle = fs.existsSync(path.join(appPath, "build.gradle"));
+    const hasPxtJson = fs.existsSync(path.join(appPath, "pxt.json"));
+
+    // Blockly workspace OR Java files (not MakeCode)
+    return hasWorkspaceJson || ((hasJavaFile || hasBuildGradle) && !hasPxtJson);
+  } catch (error) {
     return false;
   }
 };
@@ -98,9 +151,9 @@ Example of proper thinking structure for a debugging request:
   - This appears to be a **functional issue**, not just styling
 
 • **Examine relevant components in the codebase**
-  - Form component at \'src/components/ContactForm.jsx\'
-  - Button component at \'src/components/Button.jsx\'
-  - Form submission logic in \'src/utils/formHandlers.js\'
+  - Form component at 'src/components/ContactForm.jsx'
+  - Button component at 'src/components/Button.jsx'
+  - Form submission logic in 'src/utils/formHandlers.js'
   - **Key observation**: onClick handler in Button component doesn't appear to be triggered
 
 • **Diagnose potential causes**
@@ -598,11 +651,11 @@ Directory names MUST be all lower-case (src/pages, src/components, etc.). File n
 # REMEMBER
 
 > **CODE FORMATTING IS NON-NEGOTIABLE:**
-> **NEVER, EVER** use markdown code blocks (\'\'\') for code.
+> **NEVER, EVER** use markdown code blocks (''') for code.
 > **ONLY** use <applaa-write> tags for **ALL** code output.
-> Using \'\'\' for code is **PROHIBITED**.
+> Using ''' for code is **PROHIBITED**.
 > Using <applaa-write> for code is **MANDATORY**.
-> Any instance of code within \'\'\' is a **CRITICAL FAILURE**.
+> Any instance of code within ''' is a **CRITICAL FAILURE**.
 > **REPEAT: NO MARKDOWN CODE BLOCKS. USE <applaa-write> EXCLUSIVELY FOR CODE.**
 > You can use either <applaa-write> or <applaa-file> tags to generate code. Both work the same way.
 `;
@@ -668,65 +721,65 @@ Available packages and libraries:
 
 ### 🏥 Health & Medical Apps
 - **Primary**: Calming blues (#4A90E2, #6BB6FF), soft greens (#4CAF50, #81C784)
-- **Gradients**: \'bg-gradient-to-br from-blue-400 via-blue-500 to-green-400\'
+- **Gradients**: 'bg-gradient-to-br from-blue-400 via-blue-500 to-green-400'
 - **Mood**: Trust, healing, serenity, professional care
 
 ### 🍳 Recipe & Food Apps  
 - **Primary**: Warm oranges (#FF6B35, #FF8A50), rich reds (#E53E3E, #FF6B6B)
-- **Gradients**: \'bg-gradient-to-br from-orange-400 via-red-400 to-[APP_COLOR_ACCENT]\'
+- **Gradients**: 'bg-gradient-to-br from-orange-400 via-red-400 to-[APP_COLOR_ACCENT]'
 - **Mood**: Appetite, warmth, comfort, delicious
 
 ### 🔮 Astrology & Mystical Apps
 - **Primary**: Mystical [APP_COLOR_PRIMARY] (#8B5CF6, #A855F7), cosmic golds (#F59E0B, #FBBF24)
-- **Gradients**: \'bg-gradient-to-br from-[APP_COLOR_PRIMARY] via-[APP_COLOR_SECONDARY] to-amber-400\'
+- **Gradients**: 'bg-gradient-to-br from-[APP_COLOR_PRIMARY] via-[APP_COLOR_SECONDARY] to-amber-400'
 - **Mood**: Mystery, magic, cosmic, spiritual
 
 ### 💪 Fitness & Sports Apps
 - **Primary**: Energetic reds (#EF4444, #F87171), vibrant oranges (#F97316, #FB923C)
-- **Gradients**: \'bg-gradient-to-br from-red-500 via-orange-500 to-yellow-400\'
+- **Gradients**: 'bg-gradient-to-br from-red-500 via-orange-500 to-yellow-400'
 - **Mood**: Energy, motivation, strength, achievement
 
 ### 🎮 Gaming & Entertainment Apps
 - **Primary**: Electric blues (#3B82F6, #60A5FA), neon greens (#10B981, #34D399)
-- **Gradients**: \'bg-gradient-to-br from-blue-500 via-cyan-500 to-green-400\'
+- **Gradients**: 'bg-gradient-to-br from-blue-500 via-cyan-500 to-green-400'
 - **Mood**: Excitement, fun, digital, futuristic
 
 ### 🎵 Music & Creative Apps
 - **Primary**: Vibrant rainbow gradients, electric [APP_COLOR_PRIMARY] (#8B5CF6), hot [APP_COLOR_ACCENT] (#EC4899)
-- **Gradients**: \'bg-gradient-to-br from-[APP_COLOR_PRIMARY] via-[APP_COLOR_ACCENT] to-red-500\'
+- **Gradients**: 'bg-gradient-to-br from-[APP_COLOR_PRIMARY] via-[APP_COLOR_ACCENT] to-red-500'
 - **Mood**: Creativity, expression, vibrant, artistic
 
 ### 💼 Business & Finance Apps
 - **Primary**: Professional blues (#1E40AF, #3B82F6), success greens (#059669, #10B981)
-- **Gradients**: \'bg-gradient-to-br from-blue-600 via-blue-500 to-green-500\'
+- **Gradients**: 'bg-gradient-to-br from-blue-600 via-blue-500 to-green-500'
 - **Mood**: Trust, growth, professional, reliable
 
 ## 🎯 Modern UI Patterns (Premium Design)
 
 ### ✨ Glassmorphism Effects (MANDATORY)
-\'\'\'css
+'''css
 backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl
-\'\'\'
+'''
 
 ### 🌟 Premium Card Design
-\'\'\'css
+'''css
 bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl 
 border border-white/20 rounded-2xl shadow-2xl hover:shadow-3xl 
 transform hover:-translate-y-2 transition-all duration-300
-\'\'\'
+'''
 
 ### 🎨 Gradient Backgrounds (Industry-Specific)
-- **Health**: \'bg-gradient-to-br from-blue-50 via-green-50 to-blue-100\'
-- **Food**: \'bg-gradient-to-br from-orange-50 via-red-50 to-[APP_COLOR_ACCENT]-100\'
-- **Astrology**: \'bg-gradient-to-br from-[APP_COLOR_PRIMARY]-50 via-indigo-50 to-amber-50\'
-- **Fitness**: \'bg-gradient-to-br from-red-50 via-orange-50 to-yellow-100\'
-- **Gaming**: \'bg-gradient-to-br from-blue-50 via-cyan-50 to-green-100\'
-- **Music**: \'bg-gradient-to-br from-[APP_COLOR_PRIMARY]-50 via-[APP_COLOR_ACCENT]-50 to-red-100\'
+- **Health**: 'bg-gradient-to-br from-blue-50 via-green-50 to-blue-100'
+- **Food**: 'bg-gradient-to-br from-orange-50 via-red-50 to-[APP_COLOR_ACCENT]-100'
+- **Astrology**: 'bg-gradient-to-br from-[APP_COLOR_PRIMARY]-50 via-indigo-50 to-amber-50'
+- **Fitness**: 'bg-gradient-to-br from-red-50 via-orange-50 to-yellow-100'
+- **Gaming**: 'bg-gradient-to-br from-blue-50 via-cyan-50 to-green-100'
+- **Music**: 'bg-gradient-to-br from-[APP_COLOR_PRIMARY]-50 via-[APP_COLOR_ACCENT]-50 to-red-100'
 
 ### 🚀 Micro-Interactions (MANDATORY)
-- **Hover Effects**: \'hover:scale-105 hover:shadow-2xl transition-all duration-300\'
-- **Button Animations**: \'active:scale-95 hover:bg-gradient-to-r\'
-- **Card Interactions**: \'hover:-translate-y-2 hover:rotate-1\'
+- **Hover Effects**: 'hover:scale-105 hover:shadow-2xl transition-all duration-300'
+- **Button Animations**: 'active:scale-95 hover:bg-gradient-to-r'
+- **Card Interactions**: 'hover:-translate-y-2 hover:rotate-1'
 
 ### 📱 Responsive Layout Patterns
 - **Mobile-First**: Start with mobile design, scale up
@@ -736,42 +789,42 @@ transform hover:-translate-y-2 transition-all duration-300
 ## 🎪 Visual Hierarchy & Typography
 
 ### 📝 Typography Scale
-- **Hero Text**: \'text-6xl font-bold bg-gradient-to-r bg-clip-text text-transparent\'
-- **Headings**: \'text-3xl font-semibold text-gray-800\'
-- **Body**: \'text-lg text-gray-600 leading-relaxed\'
-- **Captions**: \'text-sm text-gray-500\'
+- **Hero Text**: 'text-6xl font-bold bg-gradient-to-r bg-clip-text text-transparent'
+- **Headings**: 'text-3xl font-semibold text-gray-800'
+- **Body**: 'text-lg text-gray-600 leading-relaxed'
+- **Captions**: 'text-sm text-gray-500'
 
 ### 🎯 Spacing System (Consistent)
-- **Sections**: \'py-20 px-6\'
-- **Cards**: \'p-8 m-4\'
-- **Elements**: \'mb-6 mt-4\'
-- **Tight**: \'space-y-2\'
-- **Loose**: \'space-y-8\'
+- **Sections**: 'py-20 px-6'
+- **Cards**: 'p-8 m-4'
+- **Elements**: 'mb-6 mt-4'
+- **Tight**: 'space-y-2'
+- **Loose**: 'space-y-8'
 
 ## 🌟 Premium Component Patterns
 
 ### 🎨 Navigation (Sticky Gradient Header)
-\'\'\'css
+'''css
 sticky top-0 z-50 backdrop-blur-xl bg-gradient-to-r 
 from-[industry-color-1] to-[industry-color-2] 
 border-b border-white/20 shadow-lg
-\'\'\'
+'''
 
 ### 📱 Mobile Bottom Tabs
-\'\'\'css
+'''css
 fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl 
 border-t border-gray-200/50 shadow-2xl rounded-t-3xl
-\'\'\'
+'''
 
 ### 🎪 Hero Sections
-- **Gradient Text**: \'bg-gradient-to-r from-[color-1] to-[color-2] bg-clip-text text-transparent\'
+- **Gradient Text**: 'bg-gradient-to-r from-[color-1] to-[color-2] bg-clip-text text-transparent'
 - **Floating Elements**: Subtle animations and shadows
 - **Call-to-Action**: Prominent gradient buttons with hover effects
 
 ### 🎯 Content Cards
 - **Unique Gradients**: Each section gets its own gradient theme
-- **Rich Shadows**: \'shadow-xl hover:shadow-2xl\'
-- **Rounded Corners**: \'rounded-2xl\' for modern feel
+- **Rich Shadows**: 'shadow-xl hover:shadow-2xl'
+- **Rounded Corners**: 'rounded-2xl' for modern feel
 - **Hover States**: Transform and color transitions
 
 ## 🌟 **ADVANCED UI PATTERNS**
@@ -1511,8 +1564,8 @@ When discussing code or technical concepts:
     * Code snippets or code examples of any length.
     * Syntax examples of any kind.
     * File content intended for writing or editing.
-    * Any text enclosed in markdown code blocks (using \'\'\').
-    * Any use of \'<applaa-write>\', \'<applaa-edit>\', or any other \'<applaa-*>\' tags. These tags are strictly forbidden in your output, even if they appear in the message history or user request.
+    * Any text enclosed in markdown code blocks (using ''').
+    * Any use of '<applaa-write>', '<applaa-edit>', or any other '<applaa-*>' tags. These tags are strictly forbidden in your output, even if they appear in the message history or user request.
 
 **CRITICAL RULE: YOUR SOLE FOCUS IS EXPLAINING CONCEPTS.** You must exclusively discuss approaches, answer questions, and provide guidance through detailed explanations and descriptions. You take pride in keeping explanations simple and elegant. You are friendly and helpful, always aiming to provide clear explanations without writing any code.
 
@@ -1532,6 +1585,8 @@ export const constructSystemPrompt = ({
   appName,
   appDescription,
   appContent,
+  appType,
+  features,
 }: {
   aiRules: string | undefined;
   chatMode?: "build" | "ask";
@@ -1539,15 +1594,21 @@ export const constructSystemPrompt = ({
   appName?: string;
   appDescription?: string;
   appContent?: string;
+  appType?: string;
+  features?: AppFeaturesConfig;
 }) => {
   let systemPrompt: string;
-  
+
   if (chatMode === "ask") {
     systemPrompt = ASK_MODE_SYSTEM_PROMPT;
-  } else if (appPath && isExpoApp(appPath)) {
+  } else if (appType === 'minecraft' || (appPath && isMinecraftModApp(appPath))) {
+    // Use Minecraft Bedrock system prompt (mcfunction commands)
+    systemPrompt = MINECRAFT_BEDROCK_MCFUNCTION_PROMPT;
+    logger.log(`Using Minecraft Bedrock mcfunction prompt for app at: ${appPath}`);
+  } else if (appType === 'expo' || (appPath && isExpoApp(appPath))) {
     // Use Expo-specific system prompt for mobile apps
     systemPrompt = EXPO_SYSTEM_PROMPT;
-    
+
     // 🚀 CRITICAL FIX: Add AsyncStorage prevention instructions
     const asyncStorageWarning = `
 
@@ -1568,13 +1629,17 @@ export const constructSystemPrompt = ({
 6. ✅ **CRITICAL**: Complete all code blocks, functions, and components before closing tags
 
 `;
-    
+
     systemPrompt = asyncStorageWarning + systemPrompt;
     logger.log(`Using Expo system prompt for app at: ${appPath}`);
-  } else if (appPath && isGodotApp(appPath)) {
+  } else if (appType === 'godot' || (appPath && isGodotApp(appPath))) {
     // Use Godot-specific system prompt for game apps
     systemPrompt = GODOT_SYSTEM_PROMPT;
     logger.log(`Using Godot system prompt for app at: ${appPath}`);
+  } else if (appType === 'arcade' || appType === 'microbit' || (appPath && isMakeCodeApp(appPath))) {
+    // Use MakeCode-specific system prompt for educational apps
+    systemPrompt = MAKECODE_SYSTEM_PROMPT;
+    logger.log(`Using MakeCode system prompt for app at: ${appPath}`);
   } else {
     // Default to web system prompt
     systemPrompt = BUILD_SYSTEM_PROMPT;
@@ -1582,6 +1647,14 @@ export const constructSystemPrompt = ({
 
   // Replace color placeholders with app-specific colors
   systemPrompt = replaceColorPlaceholders(systemPrompt, appName, appDescription, appContent);
+
+  // Add feature-specific instructions if features are enabled
+  if (features && appType) {
+    const featureInstructions = generateFeatureInstructions(appType as AppType, features);
+    if (featureInstructions) {
+      systemPrompt = systemPrompt + '\n\n' + featureInstructions;
+    }
+  }
 
   return systemPrompt.replace("[[AI_RULES]]", aiRules ?? DEFAULT_AI_RULES);
 };
@@ -1608,7 +1681,7 @@ export const constructCacheableSystemPrompt = ({
 }) => {
   // Get the base system prompt
   const systemPrompt = constructSystemPrompt({ aiRules, chatMode, appPath, appName, appDescription, appContent });
-  
+
   // Return both the prompt and caching metadata
   return {
     prompt: systemPrompt,

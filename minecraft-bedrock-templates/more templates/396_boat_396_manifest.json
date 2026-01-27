@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "396_boat_396",
+    "description": "more templates - 396_boat_396",
+    "uuid": "1a4d5a40-f304-44fd-943e-ba0621aa412c",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "18303ee4-a89e-4636-8572-900d293bd07f",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -12,38 +12,38 @@ export interface UniversalFramework {
   platforms: Platform[];
   language: ProgrammingLanguage;
   description: string;
-  
+
   // Framework Detection
   keywords: string[];
   aliases: string[];
-  
+
   // Technical Requirements
   prerequisites: string[];
   dependencies: string[];
   devDependencies: string[];
   globalTools: string[];
-  
+
   // Project Structure
   scaffolding: ProjectScaffolding;
   configFiles: ConfigFile[];
-  
+
   // Development Workflow
   commands: FrameworkCommands;
   hotReload: boolean;
   buildProcess: BuildConfiguration;
-  
+
   // Guidance & Documentation
   gettingStarted: string[];
   commonPatterns: CodePattern[];
   troubleshooting: TroubleshootingTip[];
-  
+
   // Integration
   popularity: number;
   maturity: 'experimental' | 'stable' | 'mature';
   lastUpdated: string;
 }
 
-export type FrameworkCategory = 
+export type FrameworkCategory =
   | 'web-frontend' | 'web-backend' | 'web-fullstack'
   | 'mobile-native' | 'mobile-hybrid' | 'mobile-cross-platform'
   | 'desktop-native' | 'desktop-cross-platform'
@@ -55,15 +55,16 @@ export type FrameworkCategory =
   | 'blockchain' | 'web3'
   | 'testing' | 'automation' | 'devops'
   | 'ui-library' | 'component-library'
-  | 'static-site' | 'jamstack';
+  | 'static-site' | 'jamstack'
+  | 'educational' | 'visual-blocks';
 
-export type Platform = 
+export type Platform =
   | 'web' | 'ios' | 'android' | 'windows' | 'macos' | 'linux'
   | 'server' | 'cloud' | 'edge' | 'iot' | 'embedded'
   | 'browser-extension' | 'pwa' | 'desktop-app'
   | 'smart-tv' | 'watch' | 'ar' | 'vr';
 
-export type ProgrammingLanguage = 
+export type ProgrammingLanguage =
   | 'javascript' | 'typescript' | 'python' | 'rust' | 'go' | 'java'
   | 'kotlin' | 'swift' | 'dart' | 'c#' | 'c++' | 'c' | 'php'
   | 'ruby' | 'elixir' | 'clojure' | 'scala' | 'haskell' | 'f#'
@@ -560,7 +561,116 @@ class Post(models.Model):
     popularity: 85,
     maturity: 'mature',
     lastUpdated: '2024-01-12'
+  },
+
+
+  // BLOCKLY
+  {
+    id: 'blockly',
+    name: 'Blocklaa',
+    category: 'visual-blocks',
+    platforms: ['web'],
+    language: 'javascript',
+    description: 'Visual programming with drag-and-drop logic blocks',
+    keywords: ['blockly', 'blocks', 'visual', 'logic', 'scratch', 'drag and drop'],
+    aliases: ['google-blockly', 'visual-blocks'],
+    prerequisites: [],
+    dependencies: ['blockly'],
+    devDependencies: [],
+    globalTools: [],
+    scaffolding: {
+      structure: {
+        'index.html': 'file',
+        'workspace.json': 'file',
+        'generated.js': 'file'
+      },
+      entryPoint: 'index.html',
+      configurationFiles: ['workspace.json'],
+      initialFiles: [
+        {
+          path: 'workspace.json',
+          content: `{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "text_print",
+        "id": "start_block",
+        "x": 50,
+        "y": 50,
+        "fields": {
+          "TEXT": "Hello from Applaa!"
+        }
+      }
+    ]
   }
+}`,
+          template: true
+        },
+        {
+          path: 'index.html',
+          content: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Blockly Workspace</title>
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+</head>
+<body>
+  <div id="blocklyDiv" style="height: 480px; width: 600px;"></div>
+  <button onclick="runCode()">Run Code</button>
+  <div id="output"></div>
+</body>
+</html>`,
+          template: true
+        }
+      ]
+    },
+    configFiles: [
+      {
+        name: 'workspace.json',
+        path: 'workspace.json',
+        content: {
+          blocks: {
+            languageVersion: 0,
+            blocks: []
+          }
+        },
+        required: true
+      }
+    ],
+    commands: {
+      install: 'npm install blockly',
+      dev: 'echo "Open index.html in browser"',
+      build: 'echo "Export workspace JSON"',
+      test: 'echo "Run in browser"'
+    },
+    hotReload: true,
+    buildProcess: {
+      outputDir: 'dist',
+      assetHandling: 'bundle',
+      optimizations: [],
+      targets: [
+        {
+          platform: 'web',
+          format: 'es',
+          configuration: {}
+        }
+      ]
+    },
+    gettingStarted: [
+      'Drag blocks from the toolbox to the workspace',
+      'Connect blocks together to create logic',
+      'Use variables to store values',
+      'Add loops to repeat actions',
+      'Run your code to see it in action'
+    ],
+    commonPatterns: [],
+    troubleshooting: [],
+    popularity: 90,
+    maturity: 'mature',
+    lastUpdated: '2024-02-01'
+  },
 
   // TODO: Add more frameworks
   // - Vue.js, Angular, Svelte (Web Frontend)
@@ -579,20 +689,20 @@ class Post(models.Model):
 export class FrameworkDetectionEngine {
   static detectFramework(userPrompt: string): UniversalFramework | null {
     const promptLower = userPrompt.toLowerCase();
-    
+
     for (const framework of UNIVERSAL_FRAMEWORKS) {
       // Check direct name matches
       if (promptLower.includes(framework.name.toLowerCase())) {
         return framework;
       }
-      
+
       // Check keyword matches
       for (const keyword of framework.keywords) {
         if (promptLower.includes(keyword.toLowerCase())) {
           return framework;
         }
       }
-      
+
       // Check alias matches
       for (const alias of framework.aliases) {
         if (promptLower.includes(alias.toLowerCase())) {
@@ -600,34 +710,34 @@ export class FrameworkDetectionEngine {
         }
       }
     }
-    
+
     return null;
   }
-  
+
   static suggestFrameworks(userPrompt: string, limit: number = 5): UniversalFramework[] {
     const promptLower = userPrompt.toLowerCase();
     const suggestions: { framework: UniversalFramework; score: number }[] = [];
-    
+
     for (const framework of UNIVERSAL_FRAMEWORKS) {
       let score = 0;
-      
+
       // Category relevance
       if (promptLower.includes('mobile') && framework.category.includes('mobile')) score += 3;
       if (promptLower.includes('web') && framework.category.includes('web')) score += 3;
       if (promptLower.includes('desktop') && framework.category.includes('desktop')) score += 3;
       if (promptLower.includes('game') && framework.category.includes('game')) score += 3;
-      
+
       // Language preference
       if (promptLower.includes(framework.language)) score += 2;
-      
+
       // Popularity boost
       score += framework.popularity / 100;
-      
+
       if (score > 0) {
         suggestions.push({ framework, score });
       }
     }
-    
+
     return suggestions
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
@@ -641,8 +751,8 @@ export class FrameworkDetectionEngine {
  */
 export class UniversalProjectGenerator {
   static async generateProject(
-    framework: UniversalFramework, 
-    projectName: string, 
+    framework: UniversalFramework,
+    projectName: string,
     userPrompt: string
   ): Promise<{
     success: boolean;
@@ -653,19 +763,19 @@ export class UniversalProjectGenerator {
     try {
       // 1. Create project directory
       const projectPath = await this.createProjectDirectory(projectName);
-      
+
       // 2. Generate project structure
       await this.createProjectStructure(framework, projectPath);
-      
+
       // 3. Generate configuration files
       await this.createConfigurationFiles(framework, projectPath, projectName);
-      
+
       // 4. Install dependencies (if possible)
       await this.installDependencies(framework, projectPath);
-      
+
       // 5. Generate next steps
       const nextSteps = this.generateNextSteps(framework, userPrompt);
-      
+
       return {
         success: true,
         projectPath,
@@ -680,19 +790,19 @@ export class UniversalProjectGenerator {
       };
     }
   }
-  
+
   private static async createProjectDirectory(projectName: string): Promise<string> {
     // Implementation would create the directory
     return `/path/to/${projectName}`;
   }
-  
+
   private static async createProjectStructure(
-    framework: UniversalFramework, 
+    framework: UniversalFramework,
     projectPath: string
   ): Promise<void> {
     // Implementation would create directories and files based on framework.scaffolding
   }
-  
+
   private static async createConfigurationFiles(
     framework: UniversalFramework,
     projectPath: string,
@@ -700,14 +810,14 @@ export class UniversalProjectGenerator {
   ): Promise<void> {
     // Implementation would generate config files with proper project name substitution
   }
-  
+
   private static async installDependencies(
     framework: UniversalFramework,
     projectPath: string
   ): Promise<void> {
     // Implementation would run the install command for the framework
   }
-  
+
   private static generateNextSteps(
     framework: UniversalFramework,
     userPrompt: string
@@ -717,16 +827,16 @@ export class UniversalProjectGenerator {
       `Run '${framework.commands.dev}' to start development`,
       ...framework.gettingStarted
     ];
-    
+
     // Add context-specific steps based on user prompt
     if (userPrompt.toLowerCase().includes('api')) {
       steps.push('Create your API endpoints in the appropriate directory');
     }
-    
+
     if (userPrompt.toLowerCase().includes('database')) {
       steps.push('Set up your database connection and models');
     }
-    
+
     return steps;
   }
 }

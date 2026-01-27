@@ -1,0 +1,62 @@
+{
+	"manifest_version": 3,
+	"name": "Applaa Buddy",
+	"description": "Your AI Learning Assistant - Powered by Applaa",
+	"version": "0.0.49",
+	"permissions": [
+		"sidePanel",
+		"storage",
+		"contextMenus",
+		"activeTab",
+		"scripting",
+		"webNavigation"
+	],
+	"host_permissions": [
+		"<all_urls>"
+	],
+	"background": {
+		"service_worker": "background.js",
+		"type": "module"
+	},
+	"content_scripts": [
+		{
+			"matches": [
+				"<all_urls>"
+			],
+			"js": [
+				"content.js"
+			],
+			"run_at": "document_idle"
+		}
+	],
+	"icons": {
+		"16": "icons/icon16.png",
+		"32": "icons/icon32.png",
+		"48": "icons/icon48.png",
+		"64": "icons/icon64.png",
+		"128": "icons/icon128.png",
+		"256": "icons/icon256.png",
+		"512": "icons/icon512.png"
+	},
+	"side_panel": {
+		"default_path": "sidebar.html"
+	},
+	"action": {
+		"default_title": "Open Applaa Buddy",
+		"default_icon": {
+			"16": "icons/icon16.png",
+			"32": "icons/icon32.png",
+			"48": "icons/icon48.png",
+			"64": "icons/icon64.png",
+			"128": "icons/icon128.png"
+		}
+	},
+	"commands": {
+		"open_sidebar": {
+			"suggested_key": {
+				"default": "Ctrl+Shift+U"
+			},
+			"description": "Open the Applaa Buddy sidebar"
+		}
+	}
+}

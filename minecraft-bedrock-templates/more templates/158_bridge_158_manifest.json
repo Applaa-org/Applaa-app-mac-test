@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "158_bridge_158",
+    "description": "more templates - 158_bridge_158",
+    "uuid": "f20dc550-09fe-4852-8f61-6e42fb2c8601",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "7f9b3fe4-49ef-40a7-862b-8703cfb336c1",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

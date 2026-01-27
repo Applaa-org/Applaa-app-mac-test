@@ -4,6 +4,7 @@ import {
   drizzle,
 } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
+import * as sqliteVec from "sqlite-vec";
 import * as schema from "./schema";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "node:path";
@@ -24,7 +25,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const appsTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='apps'
   `).get();
-  
+
   if (!appsTableExists) {
     logger.log("Creating apps table...");
     sqlite.prepare(`
@@ -61,7 +62,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const chatsTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='chats'
   `).get();
-  
+
   if (!chatsTableExists) {
     logger.log("Creating chats table...");
     sqlite.prepare(`
@@ -81,7 +82,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const messagesTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='messages'
   `).get();
-  
+
   if (!messagesTableExists) {
     logger.log("Creating messages table...");
     sqlite.prepare(`
@@ -103,7 +104,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const versionsTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='versions'
   `).get();
-  
+
   if (!versionsTableExists) {
     logger.log("Creating versions table...");
     sqlite.prepare(`
@@ -125,7 +126,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const promptsTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'
   `).get();
-  
+
   if (!promptsTableExists) {
     logger.log("Creating prompts table...");
     sqlite.prepare(`
@@ -146,7 +147,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const languageModelProvidersTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='language_model_providers'
   `).get();
-  
+
   if (!languageModelProvidersTableExists) {
     logger.log("Creating language_model_providers table...");
     sqlite.prepare(`
@@ -166,7 +167,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const languageModelsTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='language_models'
   `).get();
-  
+
   if (!languageModelsTableExists) {
     logger.log("Creating language_models table...");
     sqlite.prepare(`
@@ -191,7 +192,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const contextDocumentsTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='context_documents'
   `).get();
-  
+
   if (!contextDocumentsTableExists) {
     logger.log("Creating context_documents table...");
     sqlite.prepare(`
@@ -210,13 +211,13 @@ function ensureCoreTables(sqlite: Database.Database): void {
         UNIQUE(app_id, file_path)
       )
     `).run();
-    
+
     // Create indexes
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_documents_app_id ON context_documents(app_id)`).run();
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_documents_file_path ON context_documents(file_path)`).run();
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_documents_language ON context_documents(language)`).run();
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_documents_updated_at ON context_documents(updated_at)`).run();
-    
+
     logger.log("Successfully created context_documents table with indexes");
   }
 
@@ -224,7 +225,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const contextUsageTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='context_usage'
   `).get();
-  
+
   if (!contextUsageTableExists) {
     logger.log("Creating context_usage table...");
     sqlite.prepare(`
@@ -238,12 +239,12 @@ function ensureCoreTables(sqlite: Database.Database): void {
         FOREIGN KEY (document_id) REFERENCES context_documents (id) ON DELETE CASCADE
       )
     `).run();
-    
+
     // Create indexes
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_usage_document_id ON context_usage(document_id)`).run();
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_usage_accepted ON context_usage(accepted)`).run();
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_context_usage_created_at ON context_usage(created_at)`).run();
-    
+
     logger.log("Successfully created context_usage table with indexes");
   }
 
@@ -251,7 +252,7 @@ function ensureCoreTables(sqlite: Database.Database): void {
   const contextAnalyticsTableExists = sqlite.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='context_analytics'
   `).get();
-  
+
   if (!contextAnalyticsTableExists) {
     logger.log("Creating context_analytics table...");
     sqlite.prepare(`
@@ -268,8 +269,102 @@ function ensureCoreTables(sqlite: Database.Database): void {
         UNIQUE(app_id, file_path)
       )
     `).run();
-    
+
     logger.log("Successfully created context_analytics table");
+  }
+
+  // ============================================================================
+  // SUPER POWERS BROWSER TABLES
+  // ============================================================================
+
+  // Check if browser_tabs table exists
+  const browserTabsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='browser_tabs'
+  `).get();
+
+  if (!browserTabsTableExists) {
+    logger.log("Creating browser_tabs table...");
+    sqlite.prepare(`
+      CREATE TABLE browser_tabs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT DEFAULT 'New Tab' NOT NULL,
+        url TEXT DEFAULT '' NOT NULL,
+        chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
+        favicon_url TEXT,
+        is_active INTEGER DEFAULT 0,
+        position INTEGER DEFAULT 0 NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+        updated_at INTEGER DEFAULT (unixepoch()) NOT NULL
+      )
+    `).run();
+    logger.log("Successfully created browser_tabs table");
+  }
+
+  // Check if chat_embeddings table exists
+  const chatEmbeddingsTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='chat_embeddings'
+  `).get();
+
+  if (!chatEmbeddingsTableExists) {
+    logger.log("Creating chat_embeddings table...");
+    sqlite.prepare(`
+      CREATE TABLE chat_embeddings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        embedding TEXT NOT NULL,
+        embedding_model TEXT DEFAULT 'text-embedding-3-small' NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()) NOT NULL
+      )
+    `).run();
+    logger.log("Successfully created chat_embeddings table");
+  }
+
+  // Check if app_knowledge table exists
+  const appKnowledgeTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='app_knowledge'
+  `).get();
+
+  if (!appKnowledgeTableExists) {
+    logger.log("Creating app_knowledge table...");
+    sqlite.prepare(`
+      CREATE TABLE app_knowledge (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_id INTEGER REFERENCES apps(id) ON DELETE CASCADE,
+        content_type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        embedding TEXT NOT NULL,
+        metadata TEXT,
+        created_at INTEGER DEFAULT (unixepoch()) NOT NULL
+      )
+    `).run();
+    logger.log("Successfully created app_knowledge table");
+  }
+
+  // Check if automation_plans table exists
+  const automationPlansTableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='automation_plans'
+  `).get();
+
+  if (!automationPlansTableExists) {
+    logger.log("Creating automation_plans table...");
+    sqlite.prepare(`
+      CREATE TABLE automation_plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tab_id INTEGER REFERENCES browser_tabs(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        description TEXT,
+        goal TEXT NOT NULL,
+        steps TEXT NOT NULL,
+        script_type TEXT DEFAULT 'playwright' NOT NULL,
+        script_content TEXT,
+        status TEXT DEFAULT 'draft' NOT NULL,
+        embedding TEXT,
+        execution_log TEXT,
+        created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+        updated_at INTEGER DEFAULT (unixepoch()) NOT NULL
+      )
+    `).run();
+    logger.log("Successfully created automation_plans table");
   }
 
   logger.log("✅ All core tables verified/created successfully");
@@ -288,7 +383,7 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
     dflt_value: any;
     pk: number;
   }>;
-  
+
   const hasAppType = tableInfo.some(col => col.name === 'app_type');
   const hasStatus = tableInfo.some(col => col.name === 'status');
   const hasDisplayName = tableInfo.some(col => col.name === 'display_name');
@@ -315,162 +410,178 @@ function ensureCriticalColumns(sqlite: Database.Database): void {
   const hasLocalAabBuiltAt = tableInfo.some(col => col.name === 'local_aab_built_at');
   const hasLocalIpaBuiltAt = tableInfo.some(col => col.name === 'local_ipa_built_at');
   const hasShowInHub = tableInfo.some(col => col.name === 'show_in_hub');
-  
+
   if (!hasAppType) {
     logger.log("Adding missing app_type column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN app_type TEXT DEFAULT 'web'").run();
     logger.log("Successfully added app_type column");
   }
-  
+
   // 🚀 PERFORMANCE: Add status column for parallel app creation
   if (!hasStatus) {
     logger.log("Adding missing status column to apps table for parallel app creation");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN status TEXT DEFAULT 'ready'").run();
     logger.log("Successfully added status column - parallel app creation enabled!");
   }
-  
+
   // 🏷️ USER EXPERIENCE: Add display name columns for better app naming
   if (!hasDisplayName) {
     logger.log("Adding missing display_name column to apps table for user-friendly names");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN display_name TEXT").run();
     logger.log("Successfully added display_name column - user-friendly app names enabled!");
   }
-  
+
   if (!hasPackageId) {
     logger.log("Adding missing package_id column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN package_id TEXT").run();
     logger.log("Successfully added package_id column");
   }
-  
+
   if (!hasSlug) {
     logger.log("Adding missing slug column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN slug TEXT").run();
     logger.log("Successfully added slug column");
   }
-  
+
   // 🔗 DEPLOYMENT: Ensure GitHub and Vercel URL columns exist
   if (!hasGithubOrg) {
     logger.log("Adding missing github_org column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN github_org TEXT").run();
     logger.log("Successfully added github_org column");
   }
-  
+
   if (!hasGithubRepo) {
     logger.log("Adding missing github_repo column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN github_repo TEXT").run();
     logger.log("Successfully added github_repo column");
   }
-  
+
   if (!hasGithubBranch) {
     logger.log("Adding missing github_branch column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN github_branch TEXT").run();
     logger.log("Successfully added github_branch column");
   }
-  
+
   if (!hasVercelDeploymentUrl) {
     logger.log("Adding missing vercel_deployment_url column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN vercel_deployment_url TEXT").run();
     logger.log("Successfully added vercel_deployment_url column");
   }
-  
+
   // 🔗 NEW DEPLOYMENT FIELDS: Add new deployment tracking fields
   if (!hasGithubRepoUrl) {
     logger.log("Adding missing github_repo_url column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN github_repo_url TEXT").run();
     logger.log("Successfully added github_repo_url column");
   }
-  
+
   if (!hasDeploymentStatus) {
     logger.log("Adding missing deployment_status column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN deployment_status TEXT DEFAULT 'not_deployed'").run();
     logger.log("Successfully added deployment_status column");
   }
-  
+
   if (!hasLastDeploymentAt) {
     logger.log("Adding missing last_deployment_at column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN last_deployment_at INTEGER").run();
     logger.log("Successfully added last_deployment_at column");
   }
-  
+
   if (!hasDeploymentNotes) {
     logger.log("Adding missing deployment_notes column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN deployment_notes TEXT").run();
     logger.log("Successfully added deployment_notes column");
   }
-  
+
   if (!hasChatContext) {
     logger.log("Adding missing chat_context column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN chat_context TEXT").run();
     logger.log("Successfully added chat_context column");
   }
-  
+
   // 🚀 EAS INTEGRATION: Add EAS deployment URL columns
   if (!hasEasBuildUrl) {
     logger.log("Adding missing eas_build_url column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_build_url TEXT").run();
     logger.log("Successfully added eas_build_url column");
   }
-  
+
   if (!hasEasDeploymentUrl) {
     logger.log("Adding missing eas_deployment_url column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_deployment_url TEXT").run();
     logger.log("Successfully added eas_deployment_url column");
   }
-  
+
   if (!hasEasProjectId) {
     logger.log("Adding missing eas_project_id column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_project_id TEXT").run();
     logger.log("Successfully added eas_project_id column");
   }
-  
+
   if (!hasEasBuildId) {
     logger.log("Adding missing eas_build_id column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN eas_build_id TEXT").run();
     logger.log("Successfully added eas_build_id column");
   }
-  
+
   // 🔨 LOCAL BUILD: Add local build file columns
   if (!hasLocalApkPath) {
     logger.log("Adding missing local_apk_path column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN local_apk_path TEXT").run();
     logger.log("Successfully added local_apk_path column");
   }
-  
+
   if (!hasLocalAabPath) {
     logger.log("Adding missing local_aab_path column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN local_aab_path TEXT").run();
     logger.log("Successfully added local_aab_path column");
   }
-  
+
   if (!hasLocalIpaPath) {
     logger.log("Adding missing local_ipa_path column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN local_ipa_path TEXT").run();
     logger.log("Successfully added local_ipa_path column");
   }
-  
+
   if (!hasLocalApkBuiltAt) {
     logger.log("Adding missing local_apk_built_at column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN local_apk_built_at INTEGER").run();
     logger.log("Successfully added local_apk_built_at column");
   }
-  
+
   if (!hasLocalAabBuiltAt) {
     logger.log("Adding missing local_aab_built_at column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN local_aab_built_at INTEGER").run();
     logger.log("Successfully added local_aab_built_at column");
   }
-  
+
   if (!hasLocalIpaBuiltAt) {
     logger.log("Adding missing local_ipa_built_at column to apps table");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN local_ipa_built_at INTEGER").run();
     logger.log("Successfully added local_ipa_built_at column");
   }
-  
+
   // 🌐 HUB VISIBILITY: Add show_in_hub column for user consent
   if (!hasShowInHub) {
     logger.log("Adding missing show_in_hub column to apps table for Hub visibility consent");
     sqlite.prepare("ALTER TABLE apps ADD COLUMN show_in_hub INTEGER DEFAULT 0").run();
     logger.log("Successfully added show_in_hub column - Hub visibility consent enabled!");
+  }
+
+  // Add prompt_history column for educational apps (Arcade, Blockly, etc.)
+  const hasPromptHistory = sqlite.prepare("SELECT COUNT(*) as count FROM pragma_table_info('apps') WHERE name='prompt_history'").get() as { count: number };
+  if (!hasPromptHistory || hasPromptHistory.count === 0) {
+    logger.log("Adding missing prompt_history column to apps table for educational apps");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN prompt_history TEXT").run();
+    logger.log("Successfully added prompt_history column!");
+  }
+
+  // Add engine_metadata column for MakeCode/Blockly specific data
+  const hasEngineMetadata = sqlite.prepare("SELECT COUNT(*) as count FROM pragma_table_info('apps') WHERE name='engine_metadata'").get() as { count: number };
+  if (!hasEngineMetadata || hasEngineMetadata.count === 0) {
+    logger.log("Adding missing engine_metadata column to apps table for game engines");
+    sqlite.prepare("ALTER TABLE apps ADD COLUMN engine_metadata TEXT").run();
+    logger.log("Successfully added engine_metadata column!");
   }
 }
 
@@ -509,6 +620,7 @@ export function initializeDatabase(): BetterSQLite3Database<typeof schema> & {
   fs.mkdirSync(getDyadAppPath("."), { recursive: true });
 
   const sqlite = new Database(dbPath, { timeout: 10000 });
+  sqliteVec.load(sqlite);
   sqlite.pragma("foreign_keys = ON");
 
   _db = drizzle(sqlite, { schema });
@@ -525,10 +637,10 @@ export function initializeDatabase(): BetterSQLite3Database<typeof schema> & {
   } catch (error) {
     logger.warn("Migration failed, but continuing app startup:", error.message);
     logger.log("Core app functionality will work with basic database schema");
-    
+
     // Don't try to add problematic columns - just let the app work with basic schema
     // The fallback queries in app_handlers.ts will handle missing columns gracefully
-    
+
     // Don't throw - allow app to continue even if migrations fail
     // This ensures core functionality works even with database issues
   }

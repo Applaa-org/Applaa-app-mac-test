@@ -73,44 +73,79 @@ export function registerChatHandlers() {
   });
 
   ipcMain.handle("get-chat", async (_, chatId: number) => {
-    const chat = await db.query.chats.findFirst({
-      where: eq(chats.id, chatId),
-      with: {
-        messages: {
-          orderBy: (messages, { asc }) => [asc(messages.createdAt)],
+    logger.info(`get-chat called with chatId: ${chatId} (type: ${typeof chatId})`);
+
+    try {
+      let chat = await db.query.chats.findFirst({
+        where: eq(chats.id, chatId),
+        with: {
+          messages: {
+            orderBy: (messages, { asc }) => [asc(messages.createdAt)],
+          },
         },
-      },
-    });
+      });
 
-    if (!chat) {
-      throw new Error("Chat not found");
+      if (!chat) {
+        logger.warn(`get-chat: Chat ${chatId} not found via Drizzle query. Attempting raw SQL fallback...`);
+        // Fallback to raw SQL to verification
+        const rawChat = db.$client.prepare("SELECT * FROM chats WHERE id = ?").get(chatId) as any;
+
+        if (rawChat) {
+          logger.info(`get-chat: Chat ${chatId} found via raw SQL! Drizzle query failed.`);
+          // Fetch messages separately if needed, or just return basic chat (messages will be fetched by UI later if empty?)
+          // The UI expects nested messages. Let's try to simulate it or just return what we have
+          // Note: The UI likely needs messages.
+          const rawMessages = db.$client.prepare("SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC").all(chatId) as any[];
+
+          // Normalize dates
+          if (rawChat.created_at && typeof rawChat.created_at === 'number') rawChat.createdAt = new Date(rawChat.created_at * 1000);
+          rawChat.appId = rawChat.app_id; // Map kebab to camel if needed
+
+          chat = {
+            ...rawChat,
+            messages: rawMessages.map((m: any) => ({
+              ...m,
+              chatId: m.chat_id,
+              createdAt: typeof m.created_at === 'number' ? new Date(m.created_at * 1000) : m.created_at,
+            }))
+          };
+        }
+      }
+
+      if (!chat) {
+        logger.error(`get-chat: Chat ${chatId} truly not found in database.`);
+        throw new Error(`Chat ${chatId} not found`);
+      }
+
+      return chat;
+    } catch (error) {
+      logger.error(`get-chat failed for chatId ${chatId}:`, error);
+      throw error;
     }
-
-    return chat;
   });
 
   handle("get-chats", async (_, appId?: number): Promise<ChatSummary[]> => {
     // If appId is provided, filter chats for that app
     const query = appId
       ? db.query.chats.findMany({
-          where: eq(chats.appId, appId),
-          columns: {
-            id: true,
-            title: true,
-            createdAt: true,
-            appId: true,
-          },
-          orderBy: [desc(chats.createdAt)],
-        })
+        where: eq(chats.appId, appId),
+        columns: {
+          id: true,
+          title: true,
+          createdAt: true,
+          appId: true,
+        },
+        orderBy: [desc(chats.createdAt)],
+      })
       : db.query.chats.findMany({
-          columns: {
-            id: true,
-            title: true,
-            createdAt: true,
-            appId: true,
-          },
-          orderBy: [desc(chats.createdAt)],
-        });
+        columns: {
+          id: true,
+          title: true,
+          createdAt: true,
+          appId: true,
+        },
+        orderBy: [desc(chats.createdAt)],
+      });
 
     const allChats = await query;
     return allChats;

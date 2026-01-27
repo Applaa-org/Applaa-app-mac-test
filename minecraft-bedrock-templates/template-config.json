@@ -1,0 +1,165 @@
+{
+    "name": "Minecraft Bedrock Templates",
+    "description": "Pre-built mcfunction templates for Minecraft Bedrock Edition",
+    "version": "1.0.0",
+    "categories": [
+        {
+            "id": "starter",
+            "name": "🎯 Starter Pack",
+            "description": "Perfect for beginners",
+            "difficulty": "Beginner",
+            "templates": [
+                {
+                    "id": "hello_world",
+                    "name": "Hello World",
+                    "description": "Your first Minecraft mod!",
+                    "file": "starter/hello_world.mcfunction",
+                    "icon": "👋",
+                    "tags": [
+                        "beginner",
+                        "first mod",
+                        "easy"
+                    ]
+                },
+                {
+                    "id": "quick_shelter",
+                    "name": "Quick Shelter",
+                    "description": "Build a tiny shelter in seconds",
+                    "file": "starter/quick_shelter.mcfunction",
+                    "icon": "🏠",
+                    "tags": [
+                        "shelter",
+                        "quick",
+                        "survival"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "houses",
+            "name": "🏠 House Builder",
+            "description": "Various house designs",
+            "difficulty": "Beginner",
+            "templates": [
+                {
+                    "id": "wooden_cottage",
+                    "name": "Wooden Cottage",
+                    "description": "Cozy wooden cottage with garden",
+                    "file": "houses/wooden_cottage.mcfunction",
+                    "icon": "🏡",
+                    "tags": [
+                        "house",
+                        "cottage",
+                        "wood",
+                        "cozy"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "castles",
+            "name": "🏰 Castle Series",
+            "description": "Medieval castle builds",
+            "difficulty": "Intermediate",
+            "templates": [
+                {
+                    "id": "watchtower",
+                    "name": "Watchtower",
+                    "description": "Simple stone watchtower",
+                    "file": "castles/watchtower.mcfunction",
+                    "icon": "🗼",
+                    "tags": [
+                        "castle",
+                        "tower",
+                        "medieval",
+                        "defense"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "mobs",
+            "name": "🧟 Mob Spawner",
+            "description": "Entity spawning templates",
+            "difficulty": "Beginner",
+            "templates": [
+                {
+                    "id": "zombie_horde",
+                    "name": "Zombie Horde",
+                    "description": "Spawn a horde of zombies",
+                    "file": "mobs/zombie_horde.mcfunction",
+                    "icon": "🧟",
+                    "tags": [
+                        "zombie",
+                        "horde",
+                        "combat",
+                        "training"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "powers",
+            "name": "✨ Power Ups",
+            "description": "Effects and abilities",
+            "difficulty": "Beginner",
+            "templates": [
+                {
+                    "id": "god_mode",
+                    "name": "God Mode Bundle",
+                    "description": "All powers combined!",
+                    "file": "powers/god_mode.mcfunction",
+                    "icon": "⭐",
+                    "tags": [
+                        "godmode",
+                        "all",
+                        "bundle",
+                        "ultimate"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "parkour",
+            "name": "🏃 Parkour Challenge",
+            "description": "Jumping challenges",
+            "difficulty": "Intermediate",
+            "templates": [
+                {
+                    "id": "beginner",
+                    "name": "Beginner Parkour",
+                    "description": "Easy jumping course",
+                    "file": "parkour/beginner.mcfunction",
+                    "icon": "🏃",
+                    "tags": [
+                        "parkour",
+                        "jump",
+                        "course",
+                        "beginner"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "farming",
+            "name": "🌾 Farm Life",
+            "description": "Farming and agriculture",
+            "difficulty": "Beginner",
+            "templates": [
+                {
+                    "id": "wheat_field",
+                    "name": "Wheat Field",
+                    "description": "Ready-to-plant wheat field",
+                    "file": "farming/wheat_field.mcfunction",
+                    "icon": "🌾",
+                    "tags": [
+                        "farm",
+                        "wheat",
+                        "crops",
+                        "food"
+                    ]
+                }
+            ]
+        }
+    ]
+}

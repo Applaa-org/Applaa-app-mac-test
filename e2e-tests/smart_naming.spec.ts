@@ -162,7 +162,7 @@ test("smart app naming - special characters handling", async ({ po }) => {
   
   // Technical name should be filesystem-safe
   expect(appName).toMatch(/^[a-zA-Z0-9-_]+$/);
-  expect(appName).not.toMatch(/[&@#$%^*()+=\[\]{}|\\:";'<>?,./]/);
+  expect(appName).not.toMatch(/[&@#$%^*()+=[\]{}|\\:";'<>?,./]/);
   
   // Should still be meaningful
   expect(appName.toLowerCase()).toMatch(/(cafe|restaurant|menu|food|dine)/);

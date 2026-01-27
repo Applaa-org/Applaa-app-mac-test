@@ -20,6 +20,32 @@ interface ComingSoonCardProps {
 const comingSoonItems: ComingSoonCardProps[] = [
   // Original 4 cards
   {
+    id: 'arcade',
+    name: 'MakeCode Arcade',
+    description: 'Make retro-style Arcade games with visual blocks or JavaScript',
+    icon: Gamepad2,
+    gradient: 'from-orange-400 to-red-500',
+    rating: 98,
+    frameworks: ['JavaScript', 'Blocks', 'Arcade API'],
+    examples: ['Space Shooter', 'Dino Runner'],
+    difficulty: 'Beginner',
+    timeRange: '5-20 min',
+    buttonColor: 'bg-orange-500 hover:bg-orange-600',
+  },
+  {
+    id: 'microbit',
+    name: 'Applaa:bit',
+    description: 'Program tiny computers for hardware projects and experiments',
+    icon: Code,
+    gradient: 'from-teal-400 to-blue-500',
+    rating: 96,
+    frameworks: ['TypeScript', 'Blocks', 'micro:bit API'],
+    examples: ['Digital Pet', 'Step Counter'],
+    difficulty: 'Beginner',
+    timeRange: '5-15 min',
+    buttonColor: 'bg-teal-500 hover:bg-teal-600',
+  },
+  {
     id: 'python',
     name: 'Python Applications',
     description: 'Build powerful applications with Python, Django, FastAPI and more',
@@ -200,76 +226,76 @@ export function ComingSoonCards({ className = '' }: { className?: string }) {
           We're constantly expanding our platform support. Here's a sneak peek at what's next!
         </p>
       </div>
-      
+
       {isExpanded && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-        {comingSoonItems.map((item) => {
-          const IconComponent = item.icon;
-          return (
-            <Card
-              key={item.id}
-              className="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full"
-            >
-              {/* Header with Gradient */}
-              <div className={`relative h-20 bg-gradient-to-br ${item.gradient} p-4 flex items-center justify-center flex-shrink-0`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <IconComponent className="h-6 w-6 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white">
-                    {item.name}
-                  </h3>
-                </div>
-              </div>
-
-              {/* Content */}
-              <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
-                {/* Description */}
-                <div className="flex-shrink-0">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                    {item.description}
-                  </p>
-                </div>
-
-                {/* Popular Frameworks */}
-                <div className="flex-shrink-0">
-                  <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
-                    Popular Frameworks
-                  </h4>
-                  <div className="flex flex-wrap gap-1">
-                    {item.frameworks.map((framework, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full"
-                      >
-                        {framework}
-                      </span>
-                    ))}
+          {comingSoonItems.map((item) => {
+            const IconComponent = item.icon;
+            return (
+              <Card
+                key={item.id}
+                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full"
+              >
+                {/* Header with Gradient */}
+                <div className={`relative h-20 bg-gradient-to-br ${item.gradient} p-4 flex items-center justify-center flex-shrink-0`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <IconComponent className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">
+                      {item.name}
+                    </h3>
                   </div>
                 </div>
 
-                {/* Build Examples */}
-                <div className="flex-shrink-0">
-                  <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
-                    Build Examples
-                  </h4>
-                  <div className="flex flex-wrap gap-1">
-                    {item.examples.map((example, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full"
-                      >
-                        {example}
-                      </span>
-                    ))}
+                {/* Content */}
+                <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
+                  {/* Description */}
+                  <div className="flex-shrink-0">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                      {item.description}
+                    </p>
                   </div>
-                </div>
 
-                {/* Spacer to push button to bottom */}
-                <div className="flex-1"></div>
+                  {/* Popular Frameworks */}
+                  <div className="flex-shrink-0">
+                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
+                      Popular Frameworks
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {item.frameworks.map((framework, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full"
+                        >
+                          {framework}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
 
-                {/* Difficulty & Time */}
-                {/* <div className="flex items-center justify-between pt-2 flex-shrink-0">
+                  {/* Build Examples */}
+                  <div className="flex-shrink-0">
+                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
+                      Build Examples
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {item.examples.map((example, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full"
+                        >
+                          {example}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Spacer to push button to bottom */}
+                  <div className="flex-1"></div>
+
+                  {/* Difficulty & Time */}
+                  {/* <div className="flex items-center justify-between pt-2 flex-shrink-0">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -284,19 +310,19 @@ export function ComingSoonCards({ className = '' }: { className?: string }) {
                   </div>
                 </div> */}
 
-                {/* Build Button */}
-                {/* <button
+                  {/* Build Button */}
+                  {/* <button
                   className={`w-full py-3 px-4 rounded-lg text-white font-medium text-sm flex items-center justify-center gap-2 ${item.buttonColor} hover:opacity-90 transition-opacity flex-shrink-0 mt-4 min-h-[48px]`}
                 >
                   <Rocket className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">Build {item.name}</span>
                 </button> */}
-              </CardContent>
+                </CardContent>
 
 
-            </Card>
-          );
-        })}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

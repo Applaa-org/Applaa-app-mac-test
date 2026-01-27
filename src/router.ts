@@ -8,6 +8,10 @@ import { docsRoute } from "./routes/docs";
 import { providerSettingsRoute } from "./routes/settings/providers/$provider";
 import { appDetailsRoute } from "./routes/app-details";
 import { hubRoute } from "./routes/hub";
+import { promptToProjectRoute } from "./routes/create-with-prompt";
+import { blocklyRoute } from "./routes/blockly";
+import { browserAgentRoute } from "./routes/browser-agent";
+import { minecraftHubRoute } from "./routes/minecraft-hub";
 import { automationRoute } from "./routes/automation";
 import { profileRoute } from "./routes/profile";
 
@@ -15,7 +19,11 @@ import { profileRoute } from "./routes/profile";
 const routeTree = rootRoute.addChildren([
   homeRoute,
   hubRoute,
+  minecraftHubRoute,
   chatRoute,
+  blocklyRoute,
+  promptToProjectRoute,
+  browserAgentRoute,
   // libraryRoute, // Disabled for MVP
   appDetailsRoute,
   settingsRoute.addChildren([providerSettingsRoute]),
@@ -23,6 +31,7 @@ const routeTree = rootRoute.addChildren([
   automationRoute,
   profileRoute,
 ]);
+
 
 // src/components/NotFoundRedirect.tsx
 import * as React from "react";

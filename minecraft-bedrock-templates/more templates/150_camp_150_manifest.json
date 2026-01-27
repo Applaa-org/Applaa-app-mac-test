@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "150_camp_150",
+    "description": "more templates - 150_camp_150",
+    "uuid": "6ec08c76-2e10-45c8-9fe7-42fb63af2cd3",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "eac6dc67-ea40-47aa-aa6a-e3fc98588899",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

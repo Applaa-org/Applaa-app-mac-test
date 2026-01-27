@@ -12,12 +12,13 @@ import git from "isomorphic-git";
 import { perfMonitor, startPerf, endPerf } from "../utils/performance_monitor";
 import { getBackgroundTaskManager } from "./background_task_manager";
 import { ExpoTemplateCreator } from "./expo_template_creator";
-import { healAppCode } from "../utils/code_healer";
+// import { healAppCode } from "../utils/code_healer"; // Module removed in new implementation
 import { execAsync } from "../utils/runShellCommand";
 import * as path from 'path';
 import { unifiedInstallDependencies } from "./unified_dependency_manager";
 import { getSupabaseAuth } from "../../lib/supabase";
 import { readSettings } from "../../main/settings";
+import { createRobloxProjectTemplate } from "./roblox_template_creator";
 
 const logger = log.scope("parallel_app_creation");
 
@@ -26,12 +27,14 @@ interface ParallelAppCreationParams {
   displayName?: string;
   packageId?: string;
   slug?: string;
-  appType: 'web' | 'mobile' | 'godot';
-  framework: 'web' | 'expo' | 'flutter';
+  appType: 'web' | 'mobile' | 'godot' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'roblox' | 'python';
+  framework: 'web' | 'expo' | 'flutter' | 'minecraft-makecode' | 'blockly' | 'makecode-arcade' | 'microbit' | 'roblox-lua' | 'python';
   prompt?: string;
   attachments?: any[];
   template?: string;
   features?: string[];
+  templateId?: string;
+  initialPrompt?: string;
 }
 
 interface ParallelAppCreationResult {
@@ -47,27 +50,27 @@ const taskManager = getBackgroundTaskManager();
 
 async function ensureAuthLimitForAppCreation(): Promise<void> {
   console.log('🔍 [ensureAuthLimitForAppCreation] Starting app creation permission check...');
-  
+
   // Check tier-based app limits first (use async version to get latest tier)
   const { canCreateAppAsync } = await import("../utils/feature_checks");
   const appLimitCheck = await canCreateAppAsync();
-  
+
   console.log('🔍 [ensureAuthLimitForAppCreation] App limit check result:', appLimitCheck);
-  
+
   if (!appLimitCheck.allowed) {
     console.log('❌ [ensureAuthLimitForAppCreation] App creation blocked:', appLimitCheck.reason);
     throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
   }
-  
+
   console.log('✅ [ensureAuthLimitForAppCreation] Tier-based check passed');
-  
+
   // Legacy auth check (keep for backwards compatibility)
   const FREE_UNAUTH_LIMIT = 3;
   const { count } = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
 
-  console.log('🔍 [ensureAuthLimitForAppCreation] Legacy auth check:', { 
-    existingApps: count, 
-    unauthLimit: FREE_UNAUTH_LIMIT 
+  console.log('🔍 [ensureAuthLimitForAppCreation] Legacy auth check:', {
+    existingApps: count,
+    unauthLimit: FREE_UNAUTH_LIMIT
   });
 
   // Check both Supabase and WordPress authentication
@@ -91,25 +94,25 @@ async function ensureAuthLimitForAppCreation(): Promise<void> {
       const settings = readSettings();
       const wordpressAuth = settings.wordpressAuth;
       isAuthenticated = !!(wordpressAuth?.isAuthenticated && wordpressAuth?.user?.username);
-      console.log('🔍 [ensureAuthLimitForAppCreation] WordPress auth check:', { 
+      console.log('🔍 [ensureAuthLimitForAppCreation] WordPress auth check:', {
         isAuthenticated,
-        hasWordPressAuth: !!wordpressAuth?.isAuthenticated 
+        hasWordPressAuth: !!wordpressAuth?.isAuthenticated
       });
       if (isAuthenticated) {
         logger.debug("WordPress authentication found for app creation");
-    }
-  } catch (error) {
-      console.log('⚠️ [ensureAuthLimitForAppCreation] WordPress auth check failed:', error);
+      }
+    } catch (error) {
+      console.log(' [ensureAuthLimitForAppCreation] WordPress auth check failed:', error);
       logger.debug("WordPress auth check failed:", error);
     }
   }
 
   // If still not authenticated and at limit, throw error
   if (!isAuthenticated && count >= FREE_UNAUTH_LIMIT) {
-      console.log('❌ [ensureAuthLimitForAppCreation] Unauthenticated user at limit');
-      throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
+    console.log(' [ensureAuthLimitForAppCreation] Unauthenticated user at limit');
+    throw new Error("AUTH_REQUIRED_APP_LIMIT");
   }
-  
+
   console.log('✅ [ensureAuthLimitForAppCreation] All checks passed, app creation allowed');
 }
 
@@ -117,7 +120,7 @@ async function ensureAuthLimitForAppCreation(): Promise<void> {
  * 🔧 Generate a unique app name by appending numbers
  * Checks both filesystem and database to ensure uniqueness
  */
-async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' = 'web'): Promise<string> {
+async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' | 'minecraft' | 'blockly' | 'arcade' | 'microbit' | 'roblox' | 'python' = 'web'): Promise<string> {
   // Helper to check if a name is available (both filesystem and database)
   const isNameAvailable = async (name: string): Promise<boolean> => {
     // Check filesystem
@@ -126,7 +129,7 @@ async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile'
     if (fs.existsSync(testFullPath)) {
       return false;
     }
-    
+
     // Check database
     const existingApp = await db.query.apps.findFirst({
       where: eq(apps.name, name),
@@ -134,15 +137,15 @@ async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile'
     if (existingApp) {
       return false;
     }
-    
+
     return true;
   };
-  
+
   // First check the base name
   if (await isNameAvailable(baseName)) {
     return baseName;
   }
-  
+
   // Try with numbers
   let counter = 2;
   while (counter <= 100) { // Increased limit to handle more duplicates
@@ -152,14 +155,14 @@ async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile'
     }
     counter++;
   }
-  
+
   // If we can't find a unique name with numbers, add timestamp
   const timestamp = Date.now().toString().slice(-6);
   const timestampName = `${baseName}-${timestamp}`;
   if (await isNameAvailable(timestampName)) {
     return timestampName;
   }
-  
+
   // Last resort: add random suffix
   const randomSuffix = Math.random().toString(36).substring(2, 8);
   return `${baseName}-${randomSuffix}`;
@@ -175,77 +178,102 @@ async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile'
  * This allows chat to start immediately while heavy operations run in background
  */
 export function registerParallelAppCreationHandlers() {
-  
+
   // PHASE 1: Instant App Creation (for immediate chat access)
   ipcMain.handle("create-app-instant", async (_, params: ParallelAppCreationParams): Promise<ParallelAppCreationResult> => {
     const startTime = performance.now();
     const perfId = `create-app-instant-${Date.now()}`;
     startPerf(perfId, "create-app-instant");
     logger.info(`🚀 [INSTANT] Starting instant app creation: ${params.name}`);
-    
+
     try {
       // 1. Quick permission check (auth-gated app creation)
       const permissionStart = performance.now();
       await ensureAuthLimitForAppCreation();
       const permissionTime = performance.now() - permissionStart;
-      
+
       // 2. Quick path validation (10ms)
       const pathStart = performance.now();
       await ensureWorkspaceInitialized();
-      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot')
+      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot' ||
+        params.appType === 'minecraft' || params.appType === 'blockly' ||
+        params.appType === 'arcade' || params.appType === 'microbit' || params.appType === 'roblox' || params.appType === 'python')
         ? params.appType
         : (params.framework === 'expo' || params.framework === 'flutter')
           ? 'mobile'
-          : 'web';
-      
+          : params.framework === 'minecraft-makecode' ? 'minecraft'
+            : params.framework === 'blockly' ? 'blockly'
+              : params.framework === 'makecode-arcade' ? 'arcade'
+                : params.framework === 'microbit' ? 'microbit'
+                  : params.framework === 'python' ? 'python'
+                    : 'web';
+
       // Check if app name already exists (filesystem or database)
       let finalAppName = params.name;
       let appRelPath = getAppRelativePath(
         finalAppName,
-        appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
+        appType === 'godot' ? 'godot' :
+          appType === 'mobile' ? 'mobile' :
+            appType === 'minecraft' ? 'minecraft' :
+              appType === 'blockly' ? 'blockly' :
+                appType === 'arcade' ? 'arcade' :
+                  appType === 'microbit' ? 'microbit' :
+                    appType === 'roblox' ? 'roblox' :
+                      appType === 'python' ? 'python' : 'web'
       );
       let fullAppPath = getDyadAppPath(appRelPath);
       const existingAppInDb = await db.query.apps.findFirst({
         where: eq(apps.name, finalAppName),
       });
-      
+
       // Track if name was changed
       const originalName = params.name;
-      
+
       // If name exists, automatically use a unique name
       if (fs.existsSync(fullAppPath) || existingAppInDb) {
         logger.info(`App name "${params.name}" already exists, generating unique name...`);
         finalAppName = await generateUniqueAppName(params.name, appType);
         logger.info(`Using unique app name: "${finalAppName}"`);
-        
+
         // Update params with the new name
         params.name = finalAppName;
-        
+
         // Recalculate paths with the new name
         appRelPath = getAppRelativePath(
           finalAppName,
-          appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
+          appType === 'godot' ? 'godot' :
+            appType === 'mobile' ? 'mobile' :
+              appType === 'minecraft' ? 'minecraft' :
+                appType === 'blockly' ? 'blockly' :
+                  appType === 'arcade' ? 'arcade' :
+                    appType === 'microbit' ? 'microbit' :
+                      appType === 'roblox' ? 'roblox' :
+                        appType === 'python' ? 'python' : 'web'
         );
         fullAppPath = getDyadAppPath(appRelPath);
-        
+
         // Verify the new path doesn't exist (shouldn't, but double-check)
         if (fs.existsSync(fullAppPath)) {
           throw new Error(`Generated unique name "${finalAppName}" still conflicts. Please try a different name.`);
         }
       }
       const pathTime = performance.now() - pathStart;
-      
+
       // 3. Create minimal DB entries (20ms)
       const dbStart = performance.now();
       // Update displayName if it matches the original name (so it matches the final name)
-      const displayName = (params.displayName === originalName || !params.displayName) 
-        ? finalAppName 
+      const displayName = (params.displayName === originalName || !params.displayName)
+        ? finalAppName
         : params.displayName;
+
+      // 🔍 DEBUG: Log the appType being saved
+      logger.info(`📝 Creating app with appType: "${appType}" (from params.appType: "${params.appType}", params.framework: "${params.framework}")`);
+
       const info = db.$client
         .prepare("INSERT INTO apps (name, path, app_type, status) VALUES (?, ?, ?, ?)")
         .run(finalAppName, appRelPath, appType, 'creating');
       const insertedId = Number(info.lastInsertRowid);
-      
+
       // 4. Create chat immediately (30ms)
       const [chat] = await db
         .insert(chats)
@@ -254,16 +282,16 @@ export function registerParallelAppCreationHandlers() {
         })
         .returning();
       const dbTime = performance.now() - dbStart;
-      
+
       // 5. Get app data for return
       const row = db.$client
         .prepare(
           "SELECT id, name, path, created_at as createdAt, app_type as appType, status, " +
-            "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-            "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-            "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-            "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-            "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
+          "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
+          "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
+          "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
+          "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
+          "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
         )
         .get(insertedId) as any;
 
@@ -274,9 +302,9 @@ export function registerParallelAppCreationHandlers() {
       row.displayName = displayName;
       row.packageId = params.packageId;
       row.slug = params.slug;
-      
+
       const taskId = `parallel-app-${insertedId}-${Date.now()}`;
-      
+
       // Initialize task tracking
       // 🚀 PHASE 2: Create and start background task (NON-BLOCKING)
       taskManager.createTask({
@@ -286,7 +314,7 @@ export function registerParallelAppCreationHandlers() {
         description: "Setting up app template and dependencies",
         metadata: { appId: insertedId, appName: params.name, framework: params.framework }
       });
-      
+
       // Start the background work immediately
       setImmediate(() => {
         taskManager.startTask(taskId, async (abortController, updateProgress) => {
@@ -295,7 +323,7 @@ export function registerParallelAppCreationHandlers() {
           logger.error(`Background task ${taskId} failed:`, error);
         });
       });
-      
+
       const totalTime = performance.now() - startTime;
       endPerf(perfId, {
         appName: params.name,
@@ -305,23 +333,23 @@ export function registerParallelAppCreationHandlers() {
         dbTime: dbTime.toFixed(2),
         totalTime: totalTime.toFixed(2)
       });
-      
+
       logger.info(`⚡ [INSTANT] App creation completed in ${totalTime.toFixed(2)}ms - Chat ready!`);
-      
+
       return {
         app: row,
         chatId: chat.id,
         taskId,
         readyForChat: true // Chat can start immediately!
       };
-      
+
     } catch (error) {
       endPerf(perfId, { error: error.message });
       logger.error(`❌ [INSTANT] App creation failed:`, error);
       throw error;
     }
   });
-  
+
   // Background task status checker
   ipcMain.handle("get-app-creation-status", async (_, taskId: string) => {
     const task = taskManager.getTask(taskId);
@@ -332,17 +360,17 @@ export function registerParallelAppCreationHandlers() {
         message: 'Task not found - likely completed'
       };
     }
-    
+
     return {
-      status: task.status === 'running' ? 'running' : 
-             task.status === 'completed' ? 'completed' : 'error',
+      status: task.status === 'running' ? 'running' :
+        task.status === 'completed' ? 'completed' : 'error',
       progress: task.progress,
       message: task.description || task.title,
       error: task.error,
       appId: task.metadata?.appId
     };
   });
-  
+
   // Clean up completed tasks (optional)
   ipcMain.handle("cleanup-app-creation-task", async (_, taskId: string) => {
     // The BackgroundTaskManager handles cleanup automatically
@@ -354,8 +382,8 @@ export function registerParallelAppCreationHandlers() {
  * PHASE 2: Background Template Creation (Parallel, Non-blocking)
  */
 async function createAppBackgroundTasks(
-  appId: number, 
-  fullAppPath: string, 
+  appId: number,
+  fullAppPath: string,
   params: ParallelAppCreationParams,
   taskId: string,
   updateProgress: (progress: number, message?: string) => void
@@ -364,15 +392,15 @@ async function createAppBackgroundTasks(
   const perfId = `create-app-background-${taskId}`;
   startPerf(perfId, "create-app-background");
   logger.info(`🔄 [BACKGROUND] Starting background tasks for app ${appId}`);
-  
+
   try {
     // Update status to 'building'
     db.$client
       .prepare("UPDATE apps SET status = ? WHERE id = ?")
       .run('building', appId);
-    
+
     updateProgress(30, 'Creating app template and initializing git...');
-    
+
     // Parallel execution of heavy operations
     updateProgress(50, 'Creating template files...');
     const templateStart = performance.now();
@@ -380,6 +408,12 @@ async function createAppBackgroundTasks(
       if (params.appType === 'godot') {
         // For Godot apps, create the project structure
         await createGodotProjectFiles(fullAppPath, params);
+      } else if (params.appType === 'minecraft' || params.framework === 'minecraft-makecode') {
+        // For Minecraft mods, copy the starter template
+        await createMinecraftModTemplate(fullAppPath, params);
+      } else if (params.appType === 'roblox' || params.framework === 'roblox-lua') {
+        // For Roblox games, create Lua project structure
+        await createRobloxProjectTemplate(fullAppPath, params);
       } else {
         await createTemplateFiles(fullAppPath, params.framework, params);
         // ✅ Template files copied without modification - no healing needed
@@ -387,21 +421,21 @@ async function createAppBackgroundTasks(
         logger.info('✅ Template files copied without modification - preserving original Dyad approach');
       }
     })();
-    
+
     updateProgress(60, 'Initializing git repository...');
     const gitStart = performance.now();
     const gitPromise = initializeGitRepository(fullAppPath);
-    
+
     // 🚀 OPTIMIZATION: Install dependencies immediately after template copy (skip for Godot)
     const dependencyStart = performance.now();
-    const dependencyPromise = params.appType === 'godot' 
+    const dependencyPromise = params.appType === 'godot'
       ? Promise.resolve() // Godot doesn't need npm dependencies
       : installDependenciesForNewApp(fullAppPath, appId, params.framework);
-    
+
     if (params.appType !== 'godot') {
       updateProgress(70, 'Installing dependencies...');
     }
-    
+
     // 🚀 PARALLEL PREBUILD: Start prebuild process for instant previews (Expo only)
     if (params.framework === 'expo') {
       updateProgress(75, 'Starting parallel prebuild for instant previews...');
@@ -412,21 +446,21 @@ async function createAppBackgroundTasks(
         logger.warn(`⚠️ Parallel prebuild failed for app ${appId}:`, error);
       });
     }
-    
+
     // Wait for all three to complete in parallel
     updateProgress(80, 'Finalizing setup...');
     await Promise.all([templatePromise, gitPromise, dependencyPromise]);
-    
+
     const templateTime = performance.now() - templateStart;
     const gitTime = performance.now() - gitStart;
-    
+
     // Update status to 'ready'
     db.$client
       .prepare("UPDATE apps SET status = ? WHERE id = ?")
       .run('ready', appId);
-    
+
     const totalTime = performance.now() - startTime;
-    
+
     endPerf(perfId, {
       appId,
       templateTime: templateTime.toFixed(2),
@@ -434,43 +468,43 @@ async function createAppBackgroundTasks(
       totalTime: totalTime.toFixed(2),
       framework: params.framework
     });
-    
+
     logger.info(`✅ [BACKGROUND] Background tasks completed in ${totalTime.toFixed(2)}ms for app ${appId}`);
-    
+
     // Auto-generate icons and UI designs based on app prompt
     try {
       updateProgress(95, "Generating app icons and UI designs...");
       const { IpcClient } = await import("../ipc_client");
       const ipcClient = IpcClient.getInstance();
-      
+
       // Get the app to retrieve the original prompt
       const app = await db.query.apps.findFirst({
         where: eq(apps.id, appId),
       });
-      
-      if (app && app.prompt) {
+
+      if (app && (app as any).prompt) {
         logger.info(`🎨 Auto-generating assets for app: ${app.name}`);
-        await ipcClient.autoGenerateAppAssets(app.prompt, appId);
+        await ipcClient.autoGenerateAppAssets((app as any).prompt, appId);
         logger.info(`✅ Auto-generated assets for app ${appId}`);
       }
     } catch (error) {
       logger.warn(`⚠️ Auto-asset generation failed for app ${appId}:`, error);
       // Don't fail the entire app creation if asset generation fails
     }
-    
+
     // Notify completion with final progress
     updateProgress(100, `App creation completed! Template: ${templateTime.toFixed(0)}ms, Git: ${gitTime.toFixed(0)}ms`);
-    
+
   } catch (error) {
     logger.error(`❌ [BACKGROUND] Background tasks failed for app ${appId}:`, error);
-    
+
     endPerf(perfId, { error: error.message, appId });
-    
+
     // Update status to 'error'
     db.$client
       .prepare("UPDATE apps SET status = ? WHERE id = ?")
       .run('error', appId);
-    
+
     // Notify frontend of error
     // The BackgroundTaskManager will automatically handle the error state
     throw error; // Re-throw so the task manager marks it as failed
@@ -493,7 +527,7 @@ async function createGodotProjectFiles(
   fs.mkdirSync(path.join(projectPath, 'assets', 'sprites'), { recursive: true });
   fs.mkdirSync(path.join(projectPath, 'assets', 'sounds'), { recursive: true });
   fs.mkdirSync(path.join(projectPath, 'assets', 'music'), { recursive: true });
-  
+
   // Create basic project.godot
   const projectGodot = `; Engine configuration file.
 config_version=5
@@ -515,9 +549,9 @@ window/size/resizable=true
 
 renderer/rendering_method="forward_plus"
 `;
-  
+
   fs.writeFileSync(path.join(projectPath, 'project.godot'), projectGodot);
-  
+
   // Try to generate game spec from prompt if provided
   let gameSpec: any = null;
   const userPrompt = params.prompt || params.initialPrompt; // Support both parameter names
@@ -532,39 +566,50 @@ renderer/rendering_method="forward_plus"
       logger.info(`   Description: ${gameSpec.game?.description || 'N/A'}`);
       logger.info(`   Type: ${gameSpec.game?.type || 'N/A'}`);
     } catch (specError: any) {
-      logger.warn('Failed to generate game spec from prompt, using default:', specError?.message || specError);
-      // Continue with null spec - will use default test game
+      logger.warn('Failed to generate game spec from prompt (likely API Key issue), using default:', specError?.message || specError);
+
+      // Attempt to notify the user via the chat (if possible) or just log it prominently
+      // We can't easily push to chat here as we don't have the webContents, but we can update the app status or name
+      // For now, we'll append a warning to the description if we write one
+
+      // Still continue with null spec to ensure *something* is created, but log error
     }
   } else {
     logger.info('No prompt provided, will use default test game');
   }
-  
+
   // Save game spec (or empty if generation failed)
+  const specToSave = gameSpec || {
+    error: "Failed to generate game spec",
+    note: "Please check your API Key settings. The AI could not generate the game structure.",
+    default: true
+  };
+
   fs.writeFileSync(
     path.join(projectPath, 'game_spec.json'),
-    JSON.stringify(gameSpec || {}, null, 2)
+    JSON.stringify(specToSave, null, 2)
   );
-  
+
   // If we have a valid spec, build the actual Godot project from it
   if (gameSpec && gameSpec.game) {
     try {
       logger.info('Building Godot project from generated spec...');
       const { generateGodotProject } = await import('../../godot/godot_project_generator');
-      
+
       // Convert the spec format if needed
       // game_spec_generator may return old format (player, enemies, levels)
       // project generator expects new format (scenes, scripts)
       let projectSpec: any = gameSpec;
-      
+
       // Check if spec uses old format (has player/enemies/levels but no scenes)
       if ((gameSpec.player || gameSpec.enemies || gameSpec.levels) && !gameSpec.scenes) {
         logger.info('Converting spec from old format to new format...');
         const gameType = gameSpec.game?.type || '2D';
         const rootType = gameType === '3D' ? 'Node3D' : 'Node2D';
-        
+
         // Build nodes array from player, enemies, and levels
         const nodes: any[] = [];
-        
+
         // Add player node
         if (gameSpec.player) {
           const playerNode: any = {
@@ -573,7 +618,7 @@ renderer/rendering_method="forward_plus"
             position: { x: 100, y: 300, z: 0 },
             children: []
           };
-          
+
           // Add sprite for 2D or mesh for 3D
           if (gameType === '2D') {
             playerNode.children = [
@@ -598,10 +643,10 @@ renderer/rendering_method="forward_plus"
               }
             ];
           }
-          
+
           nodes.push(playerNode);
         }
-        
+
         // Add camera
         nodes.push({
           name: 'Camera',
@@ -609,7 +654,7 @@ renderer/rendering_method="forward_plus"
           position: { x: 0, y: 0, z: 5 },
           properties: gameType === '3D' ? { fov: 75 } : {}
         });
-        
+
         // Add enemies as children
         if (gameSpec.enemies && Array.isArray(gameSpec.enemies)) {
           gameSpec.enemies.forEach((enemy: any, index: number) => {
@@ -619,7 +664,7 @@ renderer/rendering_method="forward_plus"
               position: { x: 300 + index * 100, y: 300, z: 0 },
               children: []
             };
-            
+
             if (gameType === '2D') {
               enemyNode.children = [
                 {
@@ -632,11 +677,11 @@ renderer/rendering_method="forward_plus"
                 }
               ];
             }
-            
+
             nodes.push(enemyNode);
           });
         }
-        
+
         // Convert to new format
         projectSpec = {
           game: gameSpec.game,
@@ -695,7 +740,7 @@ renderer/rendering_method="forward_plus"
           assets: projectSpec.assets || {}
         };
       }
-      
+
       // Ensure settings exist
       if (!projectSpec.settings) {
         projectSpec.settings = {
@@ -704,42 +749,185 @@ renderer/rendering_method="forward_plus"
           rendering: {}
         };
       }
-      
+
       await generateGodotProject({
         appPath: fullAppPath,
         spec: projectSpec,
         regenerateAssets: false
       });
-      
+
       logger.info('✅ Godot project built from spec successfully');
     } catch (buildError: any) {
       logger.warn('Failed to build Godot project from spec, will use basic structure:', buildError?.message || buildError);
       // Continue with basic project structure
     }
   }
-  
+
   // Automatically create a web export for preview
-  try {
-    const { createTestWebExport, exportWithGodotEngine } = await import('./godot_handlers');
-    const exportPath = path.join(fullAppPath, 'godot-web-export');
-    
-    // Try to export using Godot engine first
-    const exportedWithEngine = await exportWithGodotEngine(projectPath, exportPath, params.name);
-    
-    // Fall back to test export if Godot engine export failed
-    if (!exportedWithEngine) {
-      logger.info('Creating test web export (Godot engine not available or export failed)');
-      // Use the generated spec to customize the test export
-      await createTestWebExport(exportPath, gameSpec, params.name);
+  // Only create export if we have a valid game spec (don't create default placeholder game)
+  if (gameSpec && gameSpec.game && !gameSpec.default) {
+    try {
+      const { createTestWebExport, exportWithGodotEngine } = await import('./godot_handlers');
+      const exportPath = path.join(fullAppPath, 'godot-web-export');
+
+      // Try to export using Godot engine first
+      const exportedWithEngine = await exportWithGodotEngine(projectPath, exportPath, params.name);
+
+      // Fall back to test export if Godot engine export failed
+      if (!exportedWithEngine) {
+        logger.info('Creating test web export (Godot engine not available or export failed)');
+        // Use the generated spec to customize the test export
+        await createTestWebExport(exportPath, gameSpec, params.name);
+      }
+
+      logger.info(`✅ Automatically created web export for preview`);
+    } catch (exportError) {
+      logger.warn('⚠️ Failed to auto-create web export:', exportError);
+      // Don't fail project creation if export fails
     }
-    
-    logger.info(`✅ Automatically created web export for preview`);
-  } catch (exportError) {
-    logger.warn('⚠️ Failed to auto-create web export:', exportError);
-    // Don't fail project creation if export fails
+  } else {
+    logger.info('⏭️ Skipping web export creation - no valid game spec provided. User should describe their game idea first.');
   }
-  
+
   logger.info(`✅ Godot project structure created at ${projectPath}`);
+}
+
+/**
+ * Create Minecraft Mod template files (Blockly-based)
+ */
+async function createMinecraftModTemplate(
+  fullAppPath: string,
+  params: ParallelAppCreationParams
+) {
+  logger.info(`⛏️ Creating Minecraft Bedrock template at ${fullAppPath}`);
+
+  // Create the app directory
+  fs.mkdirSync(fullAppPath, { recursive: true });
+
+  // Create behavior pack structure
+  const bpPath = path.join(fullAppPath, 'behavior_pack');
+  const functionsPath = path.join(bpPath, 'functions');
+  fs.mkdirSync(functionsPath, { recursive: true });
+
+  // 1. Generate Manifest
+  const manifest = {
+    format_version: 2,
+    header: {
+      name: params.displayName || params.name,
+      description: "Created with Applaa Builder",
+      uuid: require('crypto').randomUUID(),
+      version: [1, 0, 0],
+      min_engine_version: [1, 20, 0]
+    },
+    modules: [
+      {
+        type: "data",
+        uuid: require('crypto').randomUUID(),
+        version: [1, 0, 0]
+      }
+    ]
+  };
+
+  fs.writeFileSync(
+    path.join(bpPath, 'manifest.json'),
+    JSON.stringify(manifest, null, 2)
+  );
+
+  // 2. Check if we should use a pre-built template
+  let mcFunctionCode: string;
+  let previewBounds = { width: 40, height: 40, depth: 40 };
+  let cameraPosition = { x: 25, y: 20, z: 25 };
+
+  // Check if templateId is provided (for pre-built templates)
+  const templateId = (params as any).templateId;
+
+  if (templateId) {
+    logger.info(`📋 Using pre-built template: ${templateId}`);
+
+    try {
+      // Import template loader (dynamic to avoid circular dependencies)
+      const templateLoaderPath = path.join(__dirname, '../../services/minecraft/template-loader');
+      const { loadTemplate } = require(templateLoaderPath);
+
+      const template = loadTemplate(templateId);
+
+      if (template) {
+        mcFunctionCode = template.mcfunctionCode;
+
+        // Use template-specific preview bounds and camera
+        if (template.metadata.previewBounds) {
+          previewBounds = template.metadata.previewBounds;
+        }
+        if (template.metadata.camera) {
+          cameraPosition = template.metadata.camera;
+        }
+
+        logger.info(`✅ Loaded template "${template.metadata.name}"`);
+      } else {
+        logger.warn(`⚠️ Template "${templateId}" not found, using default`);
+        mcFunctionCode = getDefaultMcFunction(params);
+      }
+    } catch (error) {
+      logger.error(`❌ Error loading template "${templateId}":`, error);
+      mcFunctionCode = getDefaultMcFunction(params);
+    }
+  } else {
+    // No template - use default empty function for LLM generation
+    logger.info(`🤖 No template specified, creating empty template for LLM generation`);
+    mcFunctionCode = getDefaultMcFunction(params);
+  }
+
+  // Write the mcfunction file
+  fs.writeFileSync(
+    path.join(functionsPath, 'main.mcfunction'),
+    mcFunctionCode
+  );
+
+  // 3. Generate Preview Contract
+  const previewContract = {
+    type: "structure",
+    entry: "main",
+    bounds: previewBounds,
+    anchor: { x: 0, y: 0, z: 0 },
+    camera: cameraPosition
+  };
+
+  fs.writeFileSync(
+    path.join(fullAppPath, 'applaa.preview.json'),
+    JSON.stringify(previewContract, null, 2)
+  );
+
+  // 4. Create README
+  const readmeContent = `# ${params.displayName || params.name}
+
+A Minecraft Bedrock Behavior Pack created with Applaa.
+
+## How to Use
+
+1. **Chat with AI**: Ask it to "Build a house" or "Create a zombie arena".
+2. **Preview**: See 3D previews of structures instantly.
+3. **Export**: Download the .mcaddon to install in Minecraft.
+
+## Structure
+- \`behavior_pack/\`: Contains the actual add-on files.
+- \`applaa.preview.json\`: Configures the 3D previewer.
+`;
+
+  fs.writeFileSync(path.join(fullAppPath, 'README.md'), readmeContent);
+
+  logger.info(`✅ Minecraft Bedrock template created at ${fullAppPath}`);
+}
+
+// createRobloxProjectTemplate moved to ./roblox_template_creator.ts
+
+// Helper function to get default mcfunction content
+function getDefaultMcFunction(params: ParallelAppCreationParams): string {
+  return `# ${params.displayName || params.name}
+# Welcome to your Bedrock Behavior Pack!
+# The AI will add your commands here.
+
+say Hello from Applaa!
+`;
 }
 
 /**
@@ -747,7 +935,7 @@ renderer/rendering_method="forward_plus"
  */
 async function createTemplateFiles(fullAppPath: string, framework: string, params: ParallelAppCreationParams) {
   const templateStartTime = performance.now();
-  
+
   if (framework === 'expo') {
     // 🚀 PERFORMANCE: Use template-based creation instead of CLI
     logger.info(`📋 [TEMPLATE] Using fast template-based Expo creation`);
@@ -764,7 +952,7 @@ async function createTemplateFiles(fullAppPath: string, framework: string, param
     // Use createFromTemplate for web apps (template-based)
     await createFromTemplate({ fullAppPath });
   }
-  
+
   const templateTime = performance.now() - templateStartTime;
   logger.info(`📋 [TEMPLATE] Template creation took ${templateTime.toFixed(2)}ms`);
 }
@@ -774,27 +962,27 @@ async function createTemplateFiles(fullAppPath: string, framework: string, param
  */
 async function initializeGitRepository(fullAppPath: string) {
   const gitStartTime = performance.now();
-  
+
   // Initialize Git repository
   await git.init({
     fs: fs,
     dir: fullAppPath,
     defaultBranch: "main",
   });
-  
+
   // Add all files
   await git.add({
     fs: fs,
     dir: fullAppPath,
     filepath: ".",
   });
-  
+
   // Create initial commit
   await gitCommit({
     path: fullAppPath,
     message: "Initial commit - Applaa app created",
   });
-  
+
   const gitTime = performance.now() - gitStartTime;
   logger.info(`🔧 [GIT] Git operations took ${gitTime.toFixed(2)}ms`);
 }
@@ -806,13 +994,13 @@ async function initializeGitRepository(fullAppPath: string) {
 async function installDependenciesForNewApp(fullAppPath: string, appId: number, framework: string) {
   const dependencyStartTime = performance.now();
   logger.info(`📦 [DEPENDENCIES] Starting unified dependency installation for new app ${appId}`);
-  
+
   try {
     const installSuccess = await unifiedInstallDependencies(fullAppPath, appId, 'new-app-creation');
-    
+
     const dependencyTime = performance.now() - dependencyStartTime;
     logger.info(`📦 [DEPENDENCIES] Installation ${installSuccess ? 'completed' : 'failed'} for new app ${appId} in ${dependencyTime.toFixed(2)}ms`);
-    
+
   } catch (error) {
     logger.error(`❌ [DEPENDENCIES] Unified dependency installation failed for new app ${appId}:`, error);
     // Don't throw - allow app creation to continue
@@ -832,7 +1020,7 @@ async function fixPackageJsonVersions(packageJsonPath: string, appId: number): P
     // 🚀 ENHANCED: Remove problematic packages that cause bundling issues
     const problematicPackages = [
       "onnxruntime-react-native",
-      "onnxruntime-web", 
+      "onnxruntime-web",
       "jimp-compact",
       "jimp",
       "react-native-transformers"
@@ -855,7 +1043,7 @@ async function fixPackageJsonVersions(packageJsonPath: string, appId: number): P
     // 🚀 WORKSPACE COMPATIBILITY: Ensure versions match our template
     const workspaceCompatibleVersions = {
       "expo": "~54.0.0",
-      "expo-router": "~4.0.0", 
+      "expo-router": "~4.0.0",
       "react": "18.3.1",
       "react-native": "0.81.0",
       "react-dom": "18.3.1",

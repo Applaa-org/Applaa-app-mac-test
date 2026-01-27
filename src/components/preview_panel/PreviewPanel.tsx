@@ -7,22 +7,21 @@ import {
   showConfigurePanelAtom,
   appUrlAtom,
   gameCreationPromptAtom,
-} from "../../atoms/appAtoms";
+} from "@/atoms/appAtoms";
 import { useCheckProblems } from "@/hooks/useCheckProblems";
 
 import { CodeView } from "./CodeView";
 import { PreviewIframe } from "./PreviewIframe";
 import { Problems } from "./Problems";
 import { ConfigurePanel } from "./ConfigurePanel";
-import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench, AlertTriangle, X, Loader2, Shield } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, Logs, PanelLeftOpen, PanelLeftClose, Wrench, AlertTriangle, X } from "lucide-react";
+import React, { useEffect, useRef, useState, Suspense } from "react";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Console } from "./Console";
 import { useRunApp } from "@/hooks/useRunApp";
 import { PublishPanel } from "./PublishPanel";
 import { TestingPanel } from "./TestingPanel";
 import { SnackPoweredPreview } from "../expo/SnackPoweredPreview";
-import { SecurityPanel } from "./SecurityPanel";
 import { useMemo } from "react";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
@@ -33,6 +32,11 @@ import { useGodotExport } from "@/hooks/useGodotExport";
 import { useGodotProjectStatus } from "@/hooks/useGodotProjectStatus";
 import { useQuery } from "@tanstack/react-query";
 // DesignTab removed for MVP
+// 🚀 CRITICAL: Lazy load BlocklyEditor to prevent blocking home page load
+// Blockly is ~500KB+ and loading it synchronously blocks the entire app
+const BlocklyEditor = React.lazy(() => import("../blockly/BlocklyEditor").then(m => ({ default: m.BlocklyEditor })));
+import { MinecraftModPreview } from "../minecraft/MinecraftModPreview.simplified";
+import { MinecraftDirectEditor } from "../minecraft/MinecraftDirectEditor";
 
 interface ConsoleHeaderProps {
   isOpen: boolean;
@@ -41,7 +45,7 @@ interface ConsoleHeaderProps {
 }
 
 // Console header component
-const ConsoleHeader = ({ 
+const ConsoleHeader = ({
   isOpen,
   onToggle,
   latestMessage,
@@ -81,11 +85,12 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const [, setAppUrlObj] = useAtom(appUrlAtom);
   const { problemReport } = useCheckProblems(selectedAppId);
   const { expoUrl } = useExpoUrl();
+  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
+  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading, isBuilding: isGodotBuilding } = useGodotProjectStatus();
   const appUrl = useAtomValue(appUrlAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
-  const gameCreationPrompt = useAtomValue(gameCreationPromptAtom);
-  const setGameCreationPrompt = useSetAtom(gameCreationPromptAtom);
-  
+  const [gameCreationPrompt, setGameCreationPrompt] = useAtom(gameCreationPromptAtom) as [string | null, any];
+
   // Detect if this is a Godot app (must be defined before useQuery that uses it)
   const isGodotApp = useMemo(() => {
     if (!app) return false;
@@ -93,8 +98,8 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     if (app.appType === 'godot') return true;
     // Check files for Godot project indicators
     if (app.files && app.files.length > 0) {
-      return app.files.some(file => 
-        file.includes('godot-project') || 
+      return app.files.some(file =>
+        file.includes('godot-project') ||
         file.includes('project.godot') ||
         file.includes('game_spec.json') ||
         file.includes('Loader.tscn') ||
@@ -103,11 +108,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     }
     return false;
   }, [app?.appType, app?.files]);
-  
-  // ✅ FIX: Only call Godot hooks if it's actually a Godot app
-  const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
-  const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading, isBuilding: isGodotBuilding } = useGodotProjectStatus();
-  
+
   // Check if Godot engine is installed
   const { data: godotEngine } = useQuery({
     queryKey: ["godot-engine-check"],
@@ -124,28 +125,47 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
     timeoutReason,
     resetTimeout
   } = useWebPreviewTimeout();
-  
+
   // Detect if this is an Expo app based on files
   const isExpoApp = useMemo(() => {
     if (!app?.files) return false;
-    
+
     // Check for Expo-specific files and directories
-    const hasExpoConfig = app.files.some(file => 
+    const hasExpoConfig = app.files.some(file =>
       file === 'app.json' || file === 'expo.json'
     );
-    
-    const hasExpoRouterStructure = app.files.some(file => 
+
+    const hasExpoRouterStructure = app.files.some(file =>
       file.startsWith('app/') && (file.endsWith('.tsx') || file.endsWith('.ts'))
     );
-    
-    const hasExpoPackages = app.files.some(file => 
+
+    const hasExpoPackages = app.files.some(file =>
       file.includes('package.json') || file.includes('expo')
     );
-    
+
     // Require at least app.json + app/ directory structure for Expo apps
     return hasExpoConfig && (hasExpoRouterStructure || hasExpoPackages);
   }, [app?.files]);
-  
+
+  // MakeCode apps are no longer supported
+  const isMakeCodeApp = false;
+
+  // Detect if this is a Minecraft Java Mod
+  const isMinecraftJavaMod = useMemo(() => {
+    if (!app) return false;
+    const hasJavaFile = app.files?.some(f => f.endsWith('.java'));
+    const hasPxtJson = app.files?.some(f => f.includes('pxt.json'));
+    // Show Minecraft preview for minecraft appType (even without files yet) or minecraft-mod type
+    // But exclude MakeCode Minecraft (which has pxt.json)
+    return (app.appType === 'minecraft' && !hasPxtJson) || (app.appType as string === 'minecraft-mod');
+  }, [app?.appType, app?.files]);
+
+  // Detect if this is a Blockly app
+  const isBlocklyApp = useMemo(() => {
+    if (!app) return false;
+    return app.appType === 'blockly';
+  }, [app?.appType]);
+
   const runningAppIdRef = useRef<number | null>(null);
   const key = useAtomValue(previewPanelKeyAtom);
   const appOutput = useAtomValue(appOutputAtom);
@@ -181,7 +201,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
         }
         // Skip running for Godot apps - they don't use dev servers
         // Skip running for Expo apps - they will be handled by BattleTestedExpoPreview component
-        if (!isExpoApp && !isGodotApp) {
+        // Skip running for MakeCode apps - they use the official embedded editor
+        // Skip running for Blockly apps - they use the Blockly editor
+        // Skip running for Minecraft Mods - they are just files
+        if (!isExpoApp && !isGodotApp && !isMakeCodeApp && !isBlocklyApp && !isMinecraftJavaMod) {
           // Clear Expo status when switching to non-Expo app to prevent showing old mobile preview
           const ipcClient = IpcClient.getInstance();
           // Use simpleExpoStop to clear the correct status that useExpoUrl checks
@@ -247,59 +270,32 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
           )}
           <span>{isLeftPanelOpen ? "Hide Chat" : "Show Chat"}</span>
         </button>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowProblemsPanel(!showProblemsPanel)}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
-              showProblemsPanel ? 'bg-[var(--background-lightest)]' : ''
-            } ${
-              // ✅ FIX: Red background when there are problems
-              problemReport?.problems?.length 
-                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30' 
-                : 'hover:bg-[var(--background)]'
-            }`}
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium hover:bg-[var(--background)] transition-colors ${showProblemsPanel ? 'bg-[var(--background-lightest)]' : ''
+              }`}
             title="Toggle Problems Panel"
           >
-            {/* ✅ FIX: Show loader when fix is running AND there are problems */}
-            {isStreaming && problemReport?.problems?.length ? (
-              <Loader2 size={14} className="animate-spin text-red-500" />
-            ) : (
-              <AlertTriangle size={16} className={problemReport?.problems?.length ? 'text-red-500' : ''} />
-            )}
-            <span className={problemReport?.problems?.length ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>
-              Problems
-            </span>
+            <AlertTriangle size={16} />
+            <span>Problems</span>
             {problemReport?.problems?.length ? (
-              <span className="ml-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 font-semibold">
+              <span className="ml-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
                 {problemReport.problems.length}
               </span>
             ) : undefined}
           </button>
-          
+
           <button
-            onClick={() => setPreviewMode(previewMode === "security" ? "preview" : "security")}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
-              previewMode === "security" ? 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30' : 'hover:bg-[var(--background)]'
-            }`}
-            title="Security Review"
-          >
-            <Shield size={16} className={previewMode === "security" ? 'text-purple-500' : ''} />
-            <span className={previewMode === "security" ? 'text-purple-600 dark:text-purple-400 font-semibold' : ''}>
-              Security
-            </span>
-          </button>
-          
-          {/* <button
             onClick={() => setShowConfigurePanel(!showConfigurePanel)}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium hover:bg-[var(--background)] transition-colors ${
-              showConfigurePanel ? 'bg-[var(--background-lightest)]' : ''
-            }`}
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium hover:bg-[var(--background)] transition-colors ${showConfigurePanel ? 'bg-[var(--background-lightest)]' : ''
+              }`}
             title="Toggle Configure Panel"
           >
             <Wrench size={16} />
             <span>Configure</span>
-          </button> */}
+          </button>
         </div>
       </div>
       <div className="flex-1 overflow-hidden">
@@ -309,7 +305,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             <Problems />
           </div>
         )}
-        
+
         {previewMode === "publish" ? (
           // When in publish mode, show 50:50 split between preview and publish
           <PanelGroup direction="horizontal" className="h-full">
@@ -366,7 +362,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                           <div className="godot-message-icon">🎮</div>
                           <div className="godot-message-title">Building Game...</div>
                           <div className="godot-message-text">
-                            {isGodotProjectLoading 
+                            {isGodotProjectLoading
                               ? "Checking project status..."
                               : isGodotBuilding
                                 ? "Game is being created. This may take a moment..."
@@ -380,7 +376,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                           </div>
                           {/* Show user's prompt if available */}
                           {gameCreationPrompt && (
-                            <div className="mt-3 p-3 rounded" style={{ 
+                            <div className="mt-3 p-3 rounded" style={{
                               background: 'rgba(139, 92, 246, 0.1)',
                               border: '1px solid rgba(139, 92, 246, 0.3)'
                             }}>
@@ -398,7 +394,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                           </div>
                           {/* Show error if export failed */}
                           {(godotExportError || (godotExportData && !godotExportData.hasExport && 'error' in godotExportData && godotExportData.error)) && (
-                            <div className="mt-4 p-4 rounded" style={{ 
+                            <div className="mt-4 p-4 rounded" style={{
                               background: 'rgba(239, 68, 68, 0.1)',
                               border: '1px solid rgba(239, 68, 68, 0.3)'
                             }}>
@@ -406,7 +402,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                                 ⚠️ Export Error
                               </div>
                               <div className="text-xs text-red-300 mb-2">
-                                {godotExportError 
+                                {godotExportError
                                   ? (godotExportError instanceof Error ? godotExportError.message : String(godotExportError))
                                   : (godotExportData && 'error' in godotExportData ? String(godotExportData.error) : "Unknown error occurred")}
                               </div>
@@ -443,7 +439,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                                   }
                                 }}
                                 className="mt-4 px-4 py-2 rounded godot-button godot-button-primary"
-                                style={{ 
+                                style={{
                                   background: 'var(--godot-accent-orange)',
                                   color: 'var(--godot-text-primary)',
                                   border: 'none',
@@ -460,7 +456,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                       // Project exists AND export is ready - show preview
                       <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
                     )
-                  ) : (loading || !app || (app && !isExpoApp && !appUrl?.originalUrl)) ? (
+                  ) : (loading || !app || (app && !isExpoApp && !isMakeCodeApp && !isBlocklyApp && !isMinecraftJavaMod && !appUrl?.originalUrl)) ? (
                     <div className="godot-preview-container h-full">
                       <div className="godot-loading">
                         <div className="godot-spinner"></div>
@@ -474,6 +470,21 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                     </div>
                   ) : isExpoApp ? (
                     <SnackPoweredPreview />
+                  ) : isBlocklyApp ? (
+                    <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+                      <BlocklyEditor
+                        appId={selectedAppId!}
+                        onWorkspaceChange={(data) => {
+                          console.log("Blockly workspace updated:", data);
+                          // TODO: Save workspace to file system
+                        }}
+                      />
+                    </Suspense>
+                  ) : isMinecraftJavaMod ? (
+                    <MinecraftDirectEditor
+                      appId={String(selectedAppId)}
+                      appPath={app?.path || ''}
+                    />
                   ) : (
                     <PreviewIframe key={key} loading={loading} />
                   )
@@ -481,12 +492,10 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                   <CodeView loading={loading} app={app} />
                 ) : previewMode === "testing" ? (
                   <TestingPanel />
-                ) : previewMode === "security" ? (
-                  <SecurityPanel />
                 ) : (
                   <Problems />
                 )}
-                
+
                 {/* Debug fallback - improved logic to handle loading states */}
                 {!app && !loading && !selectedAppId && (
                   <div className="godot-preview-container h-full">
@@ -517,14 +526,14 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
           </PanelGroup>
         )}
       </div>
-      
+
       {/* Configure Panel - Show at bottom when in preview mode and toggle is on */}
       {previewMode === "preview" && showConfigurePanel && (
         <div className="border-t border-border bg-background">
           <ConfigurePanel />
         </div>
       )}
-      
+
       {!isExpoApp && !isConsoleOpen && (
         <ConsoleHeader
           isOpen={false}
@@ -532,9 +541,9 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
           latestMessage={latestMessage}
         />
       )}
-      
-      {/* Web Preview Timeout Popup - Only show for non-Expo apps */}
-      {!isExpoApp && (
+
+      {/* Web Preview Timeout Popup - Only show for non-Expo/non-Game/non-Minecraft apps */}
+      {!isExpoApp && !isMinecraftJavaMod && !isGodotApp && !isBlocklyApp && (
         <WebPreviewTimeoutPopup
           isOpen={shouldShowTimeoutPopup}
           message={timeoutReason}

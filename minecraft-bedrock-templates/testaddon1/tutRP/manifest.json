@@ -1,0 +1,19 @@
+{
+  "format_version": 1,
+  "header": {
+    "name": "Test Addon",
+    "description": "Test",
+    "uuid": "216a4c34-3d75-11ea-b77f-2e728ce88125",
+    "platform_locked": false,
+    "min_engine_version": [1, 8, 0],
+    "version": [0, 0, 1]
+  },
+  "modules": [
+    {
+      "description": "test by dakonblackrose@youtube",
+      "type": "resources",
+      "uuid": "216a4ebe-3d75-11ea-b77f-2e728ce88125",
+      "version": [0, 0, 1]
+    }
+  ]
+}

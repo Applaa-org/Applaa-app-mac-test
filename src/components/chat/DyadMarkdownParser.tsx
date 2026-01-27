@@ -17,6 +17,9 @@ import { CustomTagState } from "./stateTypes";
 import { DyadOutput } from "./DyadOutput";
 import { DyadProblemSummary } from "./DyadProblemSummary";
 import { IpcClient } from "@/ipc/ipc_client";
+import { ApplaaWebSearch } from "./ApplaaWebSearch";
+import { ApplaaWebSearchResult } from "./ApplaaWebSearchResult";
+import { ApplaaRead } from "./ApplaaRead";
 
 interface DyadMarkdownParserProps {
   content: string;
@@ -85,15 +88,15 @@ export const DyadMarkdownParser: React.FC<DyadMarkdownParserProps> = ({
         <React.Fragment key={index}>
           {piece.type === "markdown"
             ? piece.content && (
-                <ReactMarkdown
-                  components={{
-                    code: CodeHighlight,
-                    a: customLink,
-                  }}
-                >
-                  {piece.content}
-                </ReactMarkdown>
-              )
+              <ReactMarkdown
+                components={{
+                  code: CodeHighlight,
+                  a: customLink,
+                }}
+              >
+                {piece.content}
+              </ReactMarkdown>
+            )
             : renderCustomTag(piece.tagInfo, { isStreaming })}
         </React.Fragment>
       ))}
@@ -145,6 +148,13 @@ function preprocessUnclosedTags(content: string): {
     "applaa-edit",
     "applaa-codebase-context",
     "applaa-command",
+    // Web search tags
+    "dyad-web-search",
+    "dyad-web-search-result",
+    "dyad-read",
+    "applaa-web-search",
+    "applaa-web-search-result",
+    "applaa-read",
   ];
 
   let processedContent = content;
@@ -231,6 +241,13 @@ function parseCustomTags(content: string): ContentPiece[] {
     "applaa-edit",
     "applaa-codebase-context",
     "applaa-command",
+    // Web search tags
+    "dyad-web-search",
+    "dyad-web-search-result",
+    "dyad-read",
+    "applaa-web-search",
+    "applaa-web-search-result",
+    "applaa-read",
   ];
 
   const tagPattern = new RegExp(
@@ -314,36 +331,41 @@ function renderCustomTag(
   { isStreaming }: { isStreaming: boolean },
 ): React.ReactNode {
   const { tag, attributes, content, inProgress } = tagInfo;
-  
+
   // 🚀 COMPREHENSIVE TAG NORMALIZATION: Map all Applaa tags to Dyad equivalents
   const tagNormalizationMap: Record<string, string> = {
     // File operations
     'applaa-write': 'dyad-write',
     'applaa-file': 'dyad-write',
-    'applaa-create-file': 'dyad-write', 
+    'applaa-create-file': 'dyad-write',
     'applaa-update-file': 'dyad-write',
     'applaa-mkdir': 'dyad-mkdir', // Directory creation
     'applaa-rename': 'dyad-rename',
     'applaa-delete': 'dyad-delete',
     'applaa-file-delete': 'dyad-delete',
     'applaa-file-removal': 'dyad-delete',
-    
+
     // Dependencies and integrations
     'applaa-add-dependency': 'dyad-add-dependency',
     'applaa-execute-sql': 'dyad-execute-sql',
     'applaa-add-integration': 'dyad-add-integration',
-    
+
     // Output and reporting
     'applaa-output': 'dyad-output',
     'applaa-problem-report': 'dyad-problem-report',
     'applaa-chat-summary': 'dyad-chat-summary',
-    
+
     // Editing and context
     'applaa-edit': 'dyad-edit',
     'applaa-codebase-context': 'dyad-codebase-context',
     'applaa-command': 'dyad-command',
+
+    // Web search tags
+    'applaa-web-search': 'dyad-web-search',
+    'applaa-web-search-result': 'dyad-web-search-result',
+    'applaa-read': 'dyad-read',
   };
-  
+
   const normalizedTag = tagNormalizationMap[tag] || tag;
 
   switch (normalizedTag) {
@@ -507,6 +529,47 @@ function renderCustomTag(
     case "dyad-command":
       // Don't render dyad-command tags for Applaa users - these are internal commands
       return null;
+
+    case "dyad-web-search":
+      return (
+        <ApplaaWebSearch
+          node={{
+            properties: {
+              query: attributes.query || "",
+            },
+          }}
+          query={attributes.query}
+        >
+          {content}
+        </ApplaaWebSearch>
+      );
+
+    case "dyad-web-search-result":
+      return (
+        <ApplaaWebSearchResult
+          node={{
+            properties: {
+              state: getState({ isStreaming, inProgress }),
+            },
+          }}
+        >
+          {content}
+        </ApplaaWebSearchResult>
+      );
+
+    case "dyad-read":
+      return (
+        <ApplaaRead
+          node={{
+            properties: {
+              path: attributes.path || "",
+            },
+          }}
+          path={attributes.path}
+        >
+          {content}
+        </ApplaaRead>
+      );
 
     default:
       return null;

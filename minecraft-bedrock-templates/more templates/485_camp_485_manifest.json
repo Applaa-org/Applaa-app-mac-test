@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "485_camp_485",
+    "description": "more templates - 485_camp_485",
+    "uuid": "9050e449-6d73-4227-867b-f4bbfc7a1132",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "7dc693e1-76f0-42af-95f7-136a9664a2f7",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

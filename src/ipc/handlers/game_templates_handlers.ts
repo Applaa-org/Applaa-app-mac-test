@@ -15,7 +15,7 @@ export interface GameTemplate {
   previewUrl?: string | null;
   imageUrl?: string | null;
   emoji?: string | null;
-  appType: 'web' | 'expo' | 'flutter' | 'godot';
+  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   isDefault?: boolean;
   displayOrder?: number;
   createdAt: Date;
@@ -28,7 +28,7 @@ export interface CreateGameTemplateParams {
   previewUrl?: string;
   imageUrl?: string;
   emoji?: string;
-  appType: 'web' | 'expo' | 'flutter' | 'godot';
+  appType: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   displayOrder?: number;
 }
 
@@ -39,7 +39,7 @@ export interface UpdateGameTemplateParams {
   previewUrl?: string;
   imageUrl?: string;
   emoji?: string;
-  appType?: 'web' | 'expo' | 'flutter' | 'godot';
+  appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python';
   displayOrder?: number;
 }
 
@@ -65,7 +65,7 @@ export function registerGameTemplatesHandlers() {
   // List game templates by app type
   handle(
     "game-templates:list",
-    async (_, params: { appType?: 'web' | 'expo' | 'flutter' | 'godot' }): Promise<GameTemplate[]> => {
+    async (_, params: { appType?: 'web' | 'expo' | 'flutter' | 'godot' | 'arcade' | 'microbit' | 'minecraft' | 'blockly' | 'roblox' | 'python' }): Promise<GameTemplate[]> => {
       try {
         const adminClient = getSupabaseAdminClient();
         if (!adminClient) {
@@ -90,7 +90,7 @@ export function registerGameTemplatesHandlers() {
           throw error;
         }
 
-        return (templates || []).map((template) => ({
+        return (templates || []).map((template: any) => ({
           id: template.id,
           name: template.name,
           details: template.details,
@@ -113,13 +113,12 @@ export function registerGameTemplatesHandlers() {
   // Create a new game template
   handle(
     "game-templates:create",
-    async (_, params: CreateGameTemplateParams): Promise<GameTemplate> => {
-      try {
-        // Check admin permission
-        if (!hasAdminPermission()) {
-          throw new Error("You do not have permission to add game templates. Only authorized users can perform this operation.");
-        }
+    async (_, params: CreateGameTemplateParams) => {
+      if (!hasAdminPermission()) {
+        throw new Error("Unauthorized: Admin permission required");
+      }
 
+      try {
         if (!params.name || !params.details || !params.appType) {
           throw new Error("Name, details, and app type are required");
         }
@@ -129,8 +128,8 @@ export function registerGameTemplatesHandlers() {
           throw new Error("Supabase not configured");
         }
 
-        const { data: template, error } = await adminClient
-          .from('game_templates')
+        const { data: template, error } = await (adminClient
+          .from('game_templates') as any)
           .insert({
             name: params.name,
             details: params.details,
@@ -148,6 +147,8 @@ export function registerGameTemplatesHandlers() {
           logger.error("Failed to create game template:", error);
           throw error;
         }
+
+        if (!template) throw new Error("Failed to create template: No data returned");
 
         return {
           id: template.id,
@@ -172,13 +173,12 @@ export function registerGameTemplatesHandlers() {
   // Update an existing game template
   handle(
     "game-templates:update",
-    async (_, params: UpdateGameTemplateParams): Promise<GameTemplate> => {
-      try {
-        // Check admin permission
-        if (!hasAdminPermission()) {
-          throw new Error("You do not have permission to edit game templates. Only authorized users can perform this operation.");
-        }
+    async (_, params: UpdateGameTemplateParams) => {
+      if (!hasAdminPermission()) {
+        throw new Error("Unauthorized: Admin permission required");
+      }
 
+      try {
         if (!params.id) {
           throw new Error("Template ID is required");
         }
@@ -188,7 +188,7 @@ export function registerGameTemplatesHandlers() {
           throw new Error("Supabase not configured");
         }
 
-        const updateData: Partial<Database['public']['Tables']['game_templates']['Update']> = {};
+        const updateData: any = {};
         if (params.name !== undefined) updateData.name = params.name;
         if (params.details !== undefined) updateData.details = params.details;
         if (params.previewUrl !== undefined) updateData.preview_url = params.previewUrl || null;
@@ -201,8 +201,8 @@ export function registerGameTemplatesHandlers() {
           throw new Error("At least one field must be provided for update");
         }
 
-        const { data: template, error } = await adminClient
-          .from('game_templates')
+        const { data: template, error } = await (adminClient
+          .from('game_templates') as any)
           .update(updateData)
           .eq('id', params.id)
           .select()

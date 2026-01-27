@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "092_statue_92",
+    "description": "more templates - 092_statue_92",
+    "uuid": "dc9b5506-50fa-4613-80ab-04131e255a66",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "0d97dcab-a5f4-4eee-a3c7-433d9ae4a2a0",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

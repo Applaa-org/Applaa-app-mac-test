@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Tab - Applaa Buddy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .container {
+            text-align: center;
+            color: white;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .logo {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .tagline {
+            font-size: 20px;
+            opacity: 0.9;
+            margin-bottom: 50px;
+        }
+
+        .shortcuts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+
+        .shortcut {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .shortcut:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .shortcut-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+
+        .shortcut-name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .search-box {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            padding: 16px 24px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 16px;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 40px;
+            outline: none;
+        }
+
+        .search-box::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .search-box:focus {
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="logo">🤖</div>
+        <h1>Applaa Buddy</h1>
+        <p class="tagline">Your AI-Powered Learning & Automation Assistant</p>
+
+        <input type="text" class="search-box" placeholder="Search or type a URL..." id="searchBox">
+
+        <div class="shortcuts">
+            <a href="https://applaa.com" class="shortcut">
+                <div class="shortcut-icon">🚀</div>
+                <div class="shortcut-name">Applaa</div>
+            </a>
+            <a href="https://www.khanacademy.org" class="shortcut">
+                <div class="shortcut-icon">🎓</div>
+                <div class="shortcut-name">Khan Academy</div>
+            </a>
+            <a href="https://scratch.mit.edu" class="shortcut">
+                <div class="shortcut-icon">🐱</div>
+                <div class="shortcut-name">Scratch</div>
+            </a>
+            <a href="https://code.org" class="shortcut">
+                <div class="shortcut-icon">💻</div>
+                <div class="shortcut-name">Code.org</div>
+            </a>
+            <a href="https://www.minecraft.net" class="shortcut">
+                <div class="shortcut-icon">🧱</div>
+                <div class="shortcut-name">Minecraft</div>
+            </a>
+            <a href="https://www.roblox.com" class="shortcut">
+                <div class="shortcut-icon">🎮</div>
+                <div class="shortcut-name">Roblox</div>
+            </a>
+            <a href="https://www.wikipedia.org" class="shortcut">
+                <div class="shortcut-icon">📚</div>
+                <div class="shortcut-name">Wikipedia</div>
+            </a>
+            <a href="https://www.duolingo.com" class="shortcut">
+                <div class="shortcut-icon">🦉</div>
+                <div class="shortcut-name">Duolingo</div>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const searchBox = document.getElementById('searchBox');
+        searchBox.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchBox.value.trim();
+                if (query) {
+                    // Check if it's a URL
+                    if (query.includes('.') && !query.includes(' ')) {
+                        const url = query.startsWith('http') ? query : 'https://' + query;
+                        window.location.href = url;
+                    } else {
+                        // Search on Google
+                        window.location.href = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

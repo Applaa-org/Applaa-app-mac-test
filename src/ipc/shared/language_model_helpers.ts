@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 
 export const PROVIDERS_THAT_SUPPORT_THINKING: (keyof typeof MODEL_OPTIONS)[] = [
   "google",
-  "azure-openai", // 🚀 FIX: Add Azure OpenAI to thinking providers
+  "azure-openai",
   "auto",
 ];
 
@@ -74,6 +74,18 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       maxOutputTokens: 32_768,
       contextWindow: 1_047_576,
       temperature: 0,
+    },
+    {
+      name: "gpt-4o",
+      displayName: "GPT-4o",
+      description: "OpenAI's most capable model",
+      contextWindow: 128_000,
+    },
+    {
+      name: "gpt-4o-mini",
+      displayName: "GPT-4o Mini",
+      description: "Fast, affordable large model",
+      contextWindow: 128_000,
     },
     // https://platform.openai.com/docs/models/o3-mini
     {
@@ -161,6 +173,67 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 1_048_576,
       temperature: 0,
     },
+    {
+      name: "gemini-3-pro",
+      displayName: "Gemini 3 Pro",
+      description: "Google's next-generation high-performance model (Future)",
+      maxOutputTokens: 8192,
+      contextWindow: 2_000_000,
+      temperature: 0,
+      tag: "Experimental",
+    },
+    {
+      name: "gemini-3-flash",
+      displayName: "Gemini 3 Flash",
+      description: "Google's next-generation fast model (Future)",
+      maxOutputTokens: 8192,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Flash",
+    },
+    {
+      name: "gemini-2.0-flash-exp",
+      displayName: "Gemini 2.0 Flash (Exp)",
+      description: "Google's next-generation fast model (Experimental)",
+      maxOutputTokens: 8192,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Experimental",
+    },
+    {
+      name: "gemini-1.5-pro-latest",
+      displayName: "Gemini 1.5 Pro (Latest)",
+      description: "Google's stable high-performance model",
+      maxOutputTokens: 8192,
+      contextWindow: 1_048_576,
+      temperature: 0,
+    },
+    {
+      name: "gemini-1.5-flash-latest",
+      displayName: "Gemini 1.5 Flash (Latest)",
+      description: "Google's stable fast model",
+      maxOutputTokens: 8192,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Recommended",
+    },
+    {
+      name: "gemini-1.5-pro",
+      displayName: "Gemini 1.5 Pro",
+      description: "Google's stable high-performance model",
+      maxOutputTokens: 8192,
+      contextWindow: 1_048_576,
+      temperature: 0,
+    },
+    {
+      name: "gemini-1.5-flash",
+      displayName: "Gemini 1.5 Flash",
+      description: "Google's stable fast model",
+      maxOutputTokens: 8192,
+      contextWindow: 1_048_576,
+      temperature: 0,
+      tag: "Stable",
+    },
     // https://ai.google.dev/gemini-api/docs/models/gemini
     {
       name: "gemini-3-flash-preview",
@@ -206,9 +279,17 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       name: "gemini-1.5-pro",
       displayName: "Gemini 1.5 Pro (Vertex)",
       description: "Google Vertex AI Gemini 1.5 Pro model",
-      maxOutputTokens: 8_192,
+      maxOutputTokens: 8192,
       contextWindow: 2_000_000,
       temperature: 0.7,
+    },
+    {
+      name: "gemini-1.5-flash",
+      displayName: "Gemini 1.5 Flash (Vertex)",
+      description: "Google Vertex AI Gemini 1.5 Flash model",
+      maxOutputTokens: 8192,
+      contextWindow: 1_048_576,
+      temperature: 0,
     },
   ],
   "amazon-bedrock": [
@@ -238,6 +319,7 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       maxOutputTokens: 4_096,
       contextWindow: 200_000,
       temperature: 0,
+      tag: "Turbo",
     },
     {
       name: "meta.llama3-70b-instruct-v1:0",
@@ -365,7 +447,7 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     {
       name: "grok-code-fast-1",
       displayName: "Grok Code Fast 1",
-      description: "xAI's fast coding model optimized for rapid code generation",
+      description: "xAI's fast coding model",
       maxOutputTokens: 32_000,
       contextWindow: 256_000,
       temperature: 0,
@@ -499,9 +581,7 @@ export const PROVIDER_TO_ENV_VAR: Record<string, string> = {
   anthropic: "ANTHROPIC_API_KEY",
   google: "GEMINI_API_KEY",
   openrouter: "OPENROUTER_API_KEY",
-  // Enhanced Azure support per Dyad commit #2ffbbbc
   "azure-openai": "AZURE_API_KEY",
-  // 🚀 NEW PROVIDERS from Dyad v0.21.0-beta.1
   "google-vertex": "GOOGLE_APPLICATION_CREDENTIALS",
   "amazon-bedrock": "AWS_ACCESS_KEY_ID",
   "groq": "GROQ_API_KEY",
@@ -602,15 +682,9 @@ const LOCAL_PROVIDERS: Record<
   },
 };
 
-/**
- * Fetches language model providers from both the database (custom) and hardcoded constants (cloud),
- * merging them with custom providers taking precedence.
- * @returns A promise that resolves to an array of LanguageModelProvider objects.
- */
 export async function getLanguageModelProviders(): Promise<
   LanguageModelProvider[]
 > {
-  // Fetch custom providers from the database
   const customProvidersDb = await db
     .select()
     .from(languageModelProvidersSchema);
@@ -623,20 +697,15 @@ export async function getLanguageModelProviders(): Promise<
       apiBaseUrl: cp.api_base_url,
       envVarName: cp.env_var_name ?? undefined,
       type: "custom",
-      // hasFreeTier, websiteUrl, gatewayPrefix are not in the custom DB schema
-      // They will be undefined unless overridden by hardcoded values if IDs match
     });
   }
 
-  // Get hardcoded cloud providers
   const hardcodedProviders: LanguageModelProvider[] = [];
   for (const providerKey in CLOUD_PROVIDERS) {
     if (Object.prototype.hasOwnProperty.call(CLOUD_PROVIDERS, providerKey)) {
-      // Ensure providerKey is a key of PROVIDERS
       const key = providerKey as keyof typeof CLOUD_PROVIDERS;
       const providerDetails = CLOUD_PROVIDERS[key];
       if (providerDetails) {
-        // Ensure providerDetails is not undefined
         hardcodedProviders.push({
           id: key,
           name: providerDetails.displayName,
@@ -645,7 +714,6 @@ export async function getLanguageModelProviders(): Promise<
           gatewayPrefix: providerDetails.gatewayPrefix,
           envVarName: PROVIDER_TO_ENV_VAR[key] ?? undefined,
           type: "cloud",
-          // apiBaseUrl is not directly in PROVIDERS
         });
       }
     }
@@ -667,11 +735,6 @@ export async function getLanguageModelProviders(): Promise<
   return [...hardcodedProviders, ...customProvidersMap.values()];
 }
 
-/**
- * Fetches language models for a specific provider.
- * @param obj An object containing the providerId.
- * @returns A promise that resolves to an array of LanguageModel objects.
- */
 export async function getLanguageModels({
   providerId,
 }: {
@@ -685,7 +748,6 @@ export async function getLanguageModels({
     return [];
   }
 
-  // Get custom models from DB for all provider types
   let customModels: LanguageModel[] = [];
 
   try {
@@ -718,10 +780,8 @@ export async function getLanguageModels({
       `Error fetching custom models for provider "${providerId}" from DB:`,
       error,
     );
-    // Continue with empty custom models array
   }
 
-  // If it's a cloud provider, also get the hardcoded models
   let hardcodedModels: LanguageModel[] = [];
   if (provider.type === "cloud") {
     if (providerId in MODEL_OPTIONS) {
@@ -731,26 +791,17 @@ export async function getLanguageModels({
         apiName: model.name,
         type: "cloud",
       }));
-    } else {
-      console.warn(
-        `Provider "${providerId}" is cloud type but not found in MODEL_OPTIONS.`,
-      );
     }
   }
 
   return [...hardcodedModels, ...customModels];
 }
 
-/**
- * Fetches all language models grouped by their provider IDs.
- * @returns A promise that resolves to a Record mapping provider IDs to arrays of LanguageModel objects.
- */
 export async function getLanguageModelsByProviders(): Promise<
   Record<string, LanguageModel[]>
 > {
   const providers = await getLanguageModelProviders();
 
-  // Fetch all models concurrently
   const modelPromises = providers
     .filter((p) => p.type !== "local")
     .map(async (provider) => {
@@ -758,10 +809,8 @@ export async function getLanguageModelsByProviders(): Promise<
       return { providerId: provider.id, models };
     });
 
-  // Wait for all requests to complete
   const results = await Promise.all(modelPromises);
 
-  // Convert the array of results to a record
   const record: Record<string, LanguageModel[]> = {};
   for (const result of results) {
     record[result.providerId] = result.models;

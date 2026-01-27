@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "365_boat_365",
+    "description": "more templates - 365_boat_365",
+    "uuid": "fd5e2213-d3db-4259-b11b-e02e257175f6",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "514616c5-21bc-4fc0-9439-8e44f21139a0",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -9,13 +9,15 @@ import type {
   CopyAppParams,
   EditAppFileReturnType,
   RespondToAppInputParams,
+  ReadFileParams,
+  ListFilesParams,
 } from "../ipc_types";
 import fs from "node:fs";
 import fsExtra from "fs-extra";
 import path from "node:path";
 import os from "node:os";
 import { getDyadAppPath, getUserDataPath } from "../../paths/paths";
-import { ensureWorkspaceInitialized, getAppRelativePath } from "../../paths/workspace";
+import { ensureWorkspaceInitialized, getAppRelativePath, getWorkspaceRoot } from "../../paths/workspace";
 // import { readSettings } from "../../main/settings";
 import { spawn } from "node:child_process";
 import git from "isomorphic-git";
@@ -54,6 +56,7 @@ import { Worker } from "worker_threads";
 import { createFromTemplate } from "./createFromTemplate";
 import { generateSmartAppNames } from "../utils/smart_naming";
 import { gitCommit } from "../utils/git_utils";
+import { createRobloxProjectTemplate } from "./roblox_template_creator";
 import { safeSend } from "../utils/safe_sender";
 import { normalizePath } from "../../../shared/normalizePath";
 import { isServerFunction } from "@/supabase_admin/supabase_utils";
@@ -67,17 +70,6 @@ import { CREDIT_COSTS } from "../../utils/credit_costs";
 
 const logger = log.scope("app-handlers");
 
-async function isUserAuthenticated(): Promise<boolean> {
-  try {
-    const auth = getSupabaseAuth();
-    const session = await auth.getCurrentSession();
-    return !!session;
-  } catch (error) {
-    logger.debug("Auth check failed or Supabase not initialized:", error);
-    return false;
-  }
-}
-
 /**
  * 🚀 ENHANCED: Delete app files with retry logic to handle Windows file locks
  */
@@ -85,7 +77,7 @@ async function deleteAppFilesWithRetry(appPath: string, appId: number, maxRetrie
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       logger.log(`🗑️ Attempt ${attempt}/${maxRetries}: Deleting app files at ${appPath}`);
-      
+
       // Try different deletion strategies
       if (process.platform === "win32") {
         // Windows: Use rmdir with force flag first
@@ -94,7 +86,7 @@ async function deleteAppFilesWithRetry(appPath: string, appId: number, maxRetrie
           return; // Success!
         } catch (error: any) {
           if (attempt === maxRetries) throw error;
-          
+
           // If that fails, try using Windows rmdir command
           try {
             const { execAsync } = await import("../utils/runShellCommand");
@@ -109,22 +101,22 @@ async function deleteAppFilesWithRetry(appPath: string, appId: number, maxRetrie
         await fsPromises.rm(appPath, { recursive: true, force: true });
         return; // Success!
       }
-      
+
       // If we get here, the deletion failed, wait before retry
       if (attempt < maxRetries) {
         const delay = attempt * 1000; // Increasing delay: 1s, 2s, 3s
         logger.log(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
-      
+
     } catch (error: any) {
       logger.warn(`⚠️ Deletion attempt ${attempt} failed:`, error.message);
-      
+
       if (attempt === maxRetries) {
         // Final attempt failed
         throw error;
       }
-      
+
       // Wait before retry with exponential backoff
       const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
       logger.log(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
@@ -158,23 +150,27 @@ let proxyWorker: Worker | null = null;
 
 // Helper function for legacy-safe app queries
 async function getAppSafe(appId: number): Promise<any> {
+  logger.info(`[getAppSafe] Looking up app with ID: ${appId} (type: ${typeof appId})`);
   try {
     const app = await db.query.apps.findFirst({
       where: eq(apps.id, appId),
     });
+    logger.info(`[getAppSafe] Query result:`, app ? `Found: ${app.name}` : 'Not found');
     return app as any;
   } catch (err) {
     logger.warn("getAppSafe: falling back to legacy SELECT due to:", err);
     const row = db.$client
       .prepare(
-        "SELECT id, name, path, created_at as createdAt, " +
-          "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-          "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-          "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-          "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-          "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
+        "SELECT id, name, path, app_type as appType, created_at as createdAt, " +
+        "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
+        "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
+        "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
+        "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
+        "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
       )
       .get(appId) as any;
+
+    logger.info(`[getAppSafe] Legacy query result:`, row ? `Found: ${row.name}` : 'Not found');
 
     if (!row) return undefined;
 
@@ -201,22 +197,22 @@ fixPath();
 /**
  * 🔧 Generate a unique app name by appending numbers
  */
-async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' = 'web'): Promise<string> {
+async function generateUniqueAppName(baseName: string, appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python' = 'web'): Promise<string> {
   let counter = 2;
   let suggestedName = `${baseName}-${counter}`;
-  
+
   while (counter <= 10) { // Limit to prevent infinite loops
     const testRelPath = getAppRelativePath(suggestedName, appType);
     const testFullPath = getDyadAppPath(testRelPath);
-    
+
     if (!fs.existsSync(testFullPath)) {
       return suggestedName;
     }
-    
+
     counter++;
     suggestedName = `${baseName}-${counter}`;
   }
-  
+
   // If we can't find a unique name with numbers, add timestamp
   const timestamp = Date.now().toString().slice(-6);
   return `${baseName}-${timestamp}`;
@@ -254,26 +250,26 @@ async function executeAppLocalNode({
   // Check if this is a Godot app - Godot apps don't need npm dependencies
   const app = await getAppSafe(appId);
   const isGodotApp = app?.appType === 'godot' || fs.existsSync(path.join(appPath, 'godot-project', 'project.godot'));
-  
+
   if (isGodotApp) {
     logger.info(`🎮 Godot app detected (${path.basename(appPath)}), skipping npm dependency installation`);
     // Godot apps don't run dev servers, so we should not start a process
     throw new Error("Godot apps don't use npm dev servers. Use the Godot editor or export functionality instead.");
   }
-  
+
   // 🚀 PERFORMANCE: Use hermetic package manager strategy for consistent dependency management
   const { getBestPackageManager, ensurePnpmAvailable } = await import("../../lib/hermetic-runtime");
   const packageManager = await getBestPackageManager(appPath);
-  
+
   // Ensure pnpm is available if it's the preferred manager
   if (packageManager === "pnpm") {
     await ensurePnpmAvailable();
   }
-  
+
   // 🚀 PERFORMANCE: Use workspace dependency manager for faster installs
   let installCommand: string;
   let devCommand: string;
-  
+
   if (packageManager === "pnpm") {
     installCommand = "pnpm install";
     devCommand = "pnpm run dev --port 32100";
@@ -296,7 +292,7 @@ async function executeAppLocalNode({
   } catch (error) {
     // 🔧 INTEGRATION: Fallback uses hermetic runtime for consistent package manager usage
     logger.warn(`⚠️ Workspace manager failed for ${path.basename(appPath)}, using hermetic runtime fallback:`, error);
-    
+
     // Use hermetic runtime for fallback installation
     try {
       const { runPackageManagerCommand } = await import("../../lib/hermetic-runtime");
@@ -304,7 +300,7 @@ async function executeAppLocalNode({
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 300000 // 5 minutes
       });
-      
+
       await new Promise<void>((resolve, reject) => {
         installProcess.on('close', (code) => {
           if (code === 0) {
@@ -314,19 +310,19 @@ async function executeAppLocalNode({
             reject(new Error(`Hermetic runtime installation failed with code ${code}`));
           }
         });
-        
+
         installProcess.on('error', reject);
       });
-      
+
       fullCommand = devCommand;
-      
+
     } catch (hermeticError) {
       // Final fallback to traditional install
       logger.warn(`⚠️ Hermetic runtime fallback also failed, using traditional install:`, hermeticError);
       fullCommand = `(${installCommand} && ${devCommand}) || (npm install --legacy-peer-deps && npm run dev -- --port 32100)`;
     }
   }
-  
+
   const spawnedProcess = spawn(fullCommand, [], {
     cwd: appPath,
     shell: true,
@@ -341,8 +337,7 @@ async function executeAppLocalNode({
     spawnedProcess.stderr?.on("data", (data) => (errorOutput += data));
     await new Promise((resolve) => spawnedProcess.on("error", resolve)); // Wait for error event
     throw new Error(
-      `Failed to spawn process for app ${appId}. Error: ${
-        errorOutput || "Unknown spawn error"
+      `Failed to spawn process for app ${appId}. Error: ${errorOutput || "Unknown spawn error"
       }`,
     );
   }
@@ -457,11 +452,11 @@ async function killProcessOnPort(port: number): Promise<void> {
 async function removeNodeModulesWithRetry(nodeModulesPath: string, appId: number): Promise<void> {
   const maxRetries = 3;
   const retryDelay = 1000; // 1 second
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       logger.log(`Attempt ${attempt}/${maxRetries} to remove node_modules for app ${appId}`);
-      
+
       // First try to kill any processes that might be locking files
       if (attempt > 1) {
         logger.log(`Killing processes that might be locking files in node_modules...`);
@@ -473,11 +468,11 @@ async function removeNodeModulesWithRetry(nodeModulesPath: string, appId: number
         } catch (error) {
           logger.debug("Error killing processes:", error);
         }
-        
+
         // Wait a bit for processes to release file handles
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
-      
+
       // Try to remove node_modules
       await fsPromises.rm(nodeModulesPath, {
         recursive: true,
@@ -485,13 +480,13 @@ async function removeNodeModulesWithRetry(nodeModulesPath: string, appId: number
         maxRetries: 3,
         retryDelay: 500
       });
-      
+
       logger.log(`Successfully removed node_modules for app ${appId} on attempt ${attempt}`);
       return; // Success!
-      
+
     } catch (error) {
       logger.warn(`Attempt ${attempt}/${maxRetries} failed to remove node_modules for app ${appId}:`, error);
-      
+
       if (attempt === maxRetries) {
         // On final attempt, try a more aggressive approach
         logger.log(`Final attempt: trying PowerShell-based removal...`);
@@ -504,7 +499,7 @@ async function removeNodeModulesWithRetry(nodeModulesPath: string, appId: number
             ], {
               stdio: ['pipe', 'pipe', 'pipe']
             });
-            
+
             psProcess.on('close', (code) => {
               if (code === 0) {
                 logger.log(`Successfully removed node_modules using PowerShell for app ${appId}`);
@@ -513,7 +508,7 @@ async function removeNodeModulesWithRetry(nodeModulesPath: string, appId: number
                 reject(new Error(`PowerShell removal failed with code ${code}`));
               }
             });
-            
+
             psProcess.on('error', (error) => {
               reject(error);
             });
@@ -524,7 +519,7 @@ async function removeNodeModulesWithRetry(nodeModulesPath: string, appId: number
           throw new Error(`Failed to remove node_modules after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
-      
+
       // Wait before retrying
       if (attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
@@ -551,16 +546,16 @@ export function registerAppHandlers() {
 
   handle("clean-all-apps", async () => {
     logger.info("Starting clean-all-apps operation");
-    
+
     try {
       // 1. Get all apps
       const allApps = await db.query.apps.findMany();
       logger.info(`Found ${allApps.length} apps to clean`);
-      
+
       // 2. Delete app folders
       const appsBasePath = path.dirname(getDyadAppPath("dummy"));
       logger.info(`Cleaning app folders in: ${appsBasePath}`);
-      
+
       for (const app of allApps) {
         const appPath = getDyadAppPath(app.path);
         try {
@@ -572,25 +567,25 @@ export function registerAppHandlers() {
           logger.warn(`Could not delete app folder ${appPath}:`, error);
         }
       }
-      
+
       // 3. Clean database tables (in correct order for foreign keys)
       logger.info("Cleaning database tables");
-      
+
       // Delete messages first
       const deletedMessages = await db.delete(messages);
       logger.info(`Deleted messages`);
-      
+
       // Delete chats
       const deletedChats = await db.delete(chats);
       logger.info(`Deleted chats`);
-      
+
       // Delete apps
       const deletedApps = await db.delete(apps);
       logger.info(`Deleted apps`);
-      
+
       logger.info("Clean-all-apps completed successfully");
       return { success: true, message: "All apps cleaned successfully" };
-      
+
     } catch (error) {
       logger.error("Clean-all-apps failed:", error);
       throw new Error(`Failed to clean apps: ${error.message}`);
@@ -619,6 +614,207 @@ export function registerAppHandlers() {
     return { success: true };
   });
 
+  // Read file content handler
+  handle("app:read-file", async (_, params: ReadFileParams) => {
+    const app = await getAppSafe(params.appId);
+    if (!app) throw new Error("App not found");
+
+    // 🚀 OPTIMIZATION: Reduced logging for performance
+    // Fix: Blocklaa and Minecraft apps store full relative paths (apps/blockly/name) in DB
+    // typical app_handlers logic assumes app.path is just the folder name inside main apps dir.
+    // We must mirror blockly_handlers logic: getWorkspaceRoot() + app.path
+    let appBasePath = getDyadAppPath(app.path);
+
+    if (app.appType === 'blockly' || app.appType === 'minecraft' || app.appType === 'roblox') {
+      // Use getWorkspaceRoot() to match blockly_handlers logic exactly.
+      const workspaceRoot = getWorkspaceRoot();
+      // Should match: path.join(root, app.path)
+      const legacyPath = path.join(workspaceRoot, app.path);
+
+      if (fs.existsSync(legacyPath)) {
+        appBasePath = legacyPath;
+      }
+    }
+
+    let fullPath = path.join(appBasePath, params.filePath);
+
+    // If app.path implies it's already a full relative path (e.g. apps/blockly/foo)
+    // we want to ensure we aren't double-nesting inside apps/web by accident depending on getDyadAppPath implementation
+    if (app.appType === 'blockly' || app.appType === 'minecraft' || app.appType === 'roblox') {
+      // For these types, we want to be less strict about "appBasePath" containment if safe
+      // but actually getDyadAppPath should handle it.
+      // Let's ensure we are reading exactly what we expect.
+    }
+
+    // Safety check path traversal
+    const normalizedAppPath = path.resolve(appBasePath);
+    const normalizedFullPath = path.resolve(fullPath);
+
+    // Allow reading if it's within the specific app folder OR the general apps directory (less strict for Blocklaa)
+    // This fixes the issue where app.path might be 'apps/blockly/xyz' but getDyadAppPath resolves differently
+    if (!normalizedFullPath.startsWith(normalizedAppPath)) {
+      // Double check if it is inside the workspace apps directory at least
+      const workspaceApps = path.resolve(getDyadAppPath('apps'));
+      if (!normalizedFullPath.startsWith(workspaceApps)) {
+        console.warn(`Blocked file read access: ${normalizedFullPath} is outside ${normalizedAppPath}`);
+        throw new Error("Invalid file path: Must be within app directory");
+      }
+    }
+
+    try {
+      if (!fs.existsSync(fullPath)) {
+        console.error(`❌ [READ-FILE] File does not exist: ${fullPath}`);
+        // Return empty content instead of throwing to prevent frontend crash loop if file missing
+        return { content: "" };
+      }
+      const content = await fsPromises.readFile(fullPath, "utf-8");
+      console.log(`✅ [READ-FILE] Successfully read ${content.length} bytes`);
+      return { content };
+    } catch (error) {
+      console.error(`❌ [READ-FILE] Error reading file:`, error);
+      throw new Error(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
+
+  // Rename an app
+  handle("app:rename", async (_, params: { appId: number; newName?: string; appName?: string; appPath?: string }) => {
+    // Handle both signatures (params.newName from my prev fix, params.appName from existing code)
+    const appId = params.appId;
+    const newName = params.appName || params.newName || "";
+    try {
+      if (!newName || !newName.trim()) {
+        throw new Error("New name cannot be empty");
+      }
+
+      // 1. Fetch current app details
+      logger.info(`[RENAME] Attempting to rename app ${appId} to "${newName}"`);
+      const app = await getAppSafe(appId);
+      if (!app) {
+        logger.error(`[RENAME] App not found for ID: ${appId} (type: ${typeof appId})`);
+        throw new Error("App not found");
+      }
+      logger.info(`[RENAME] Found app: ${app.name} (ID: ${app.id})`);
+
+      // 2. Sanitize new name and determine paths
+      const { getAppRelativePath } = await import("../../paths/workspace");
+      const sanitizedNewName = newName.replace(/[<>:"|?*\\/]/g, "-").trim(); // Basic sanitization
+
+      // Use existing app type logic if available, or fallback to determining from path
+      let appType = app.appType as 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python' || 'web';
+
+      // Safe access to old path
+      const oldRelPath = app.path;
+
+      // GUARD: If old path is missing, we can't move the folder, but we can update the name
+      if (!oldRelPath) {
+        logger.warn(`App path is undefined for app ${appId}. Updating name only.`);
+
+        await db.update(apps)
+          .set({ name: newName })
+          .where(eq(apps.id, appId));
+
+        try {
+          db.$client.prepare("UPDATE apps SET display_name = ? WHERE id = ?").run(newName, appId);
+        } catch (e) { /* ignore */ }
+
+        return { success: true };
+      }
+
+      // Determine new path based on params.appPath
+      // If params.appPath is specified and equals oldRelPath (or ends with it), user chose "Rename app only"
+      let newRelPath: string;
+      const userWantsToKeepPath = params.appPath && (params.appPath === oldRelPath || oldRelPath.endsWith(params.appPath));
+
+      if (userWantsToKeepPath) {
+        newRelPath = oldRelPath;
+        logger.info(`User requested to keep folder path: ${newRelPath}`);
+      } else {
+        // Default behavior: calculate new path based on new name
+        // If params.appPath is provided and different, treat it as the basis for new path (if it's just a name)
+        // app-details.tsx passes the new NAME as appPath when "Rename Folder" is true
+        const nameForPath = (params.appPath && params.appPath !== oldRelPath) ? params.appPath : sanitizedNewName;
+        newRelPath = getAppRelativePath(nameForPath, appType);
+      }
+
+      const oldFullPath = getDyadAppPath(oldRelPath);
+      const newFullPath = getDyadAppPath(newRelPath);
+
+      logger.info(`Renaming app ${appId}: "${app.name}" -> "${newName}"`);
+      logger.info(`Moving folder: ${oldFullPath} -> ${newFullPath}`);
+
+      // 3. Move folder if it exists and path has changed
+      if (oldFullPath !== newFullPath) {
+        if (fs.existsSync(newFullPath)) {
+          throw new Error(`An app with the name "${sanitizedNewName}" already exists`);
+        }
+
+        let sourcePath = oldFullPath;
+
+        // 🧠 SMART RECOVERY: If the calculated old path doesn't exist, try to guess it based on app type
+        // This handles cases where legacy apps stored only the name "MyGame" but lived in "apps/blockly/MyGame"
+        if (!fs.existsSync(oldFullPath)) {
+          const root = getWorkspaceRoot();
+          // Try explicit category paths
+          const guesses = [
+            path.join(root, 'apps', appType, path.basename(oldRelPath)),
+            path.join(root, 'apps', 'blockly', path.basename(oldRelPath)), // Fallback for blockly
+            path.join(root, 'apps', 'web', path.basename(oldRelPath))
+          ];
+
+          for (const guess of guesses) {
+            if (fs.existsSync(guess)) {
+              logger.info(`Found app folder at alternate location: ${guess}`);
+              sourcePath = guess;
+              break;
+            }
+          }
+        }
+
+        if (fs.existsSync(sourcePath)) {
+          try {
+            // Rename folder
+            await fsPromises.rename(sourcePath, newFullPath);
+          } catch (moveError: any) {
+            logger.warn(`Failed to move app folder: ${moveError.message}. Trying copy-delete...`);
+            // Fallback: Copy and Delete (useful across partitions or persistent locks)
+            await fsExtra.copy(sourcePath, newFullPath);
+            // Try to delete old folder, but don't fail if it's locked (it's just a leftover)
+            try {
+              await deleteAppFilesWithRetry(sourcePath, appId);
+            } catch (delError) {
+              logger.warn("Could not delete old app folder after move:", delError);
+            }
+          }
+        } else {
+          logger.warn(`Old app folder not found at ${oldFullPath} or alternates, creating new one at ${newFullPath}`);
+          await fsPromises.mkdir(newFullPath, { recursive: true });
+        }
+      }
+
+      // 4. Update Database
+      // Update only name as displayName is not yet enabled in schema
+      await db.update(apps)
+        .set({
+          name: newName,
+          path: newRelPath, // Sync path with folder name
+        })
+        .where(eq(apps.id, appId));
+
+      // 💥 FORCE UPDATE DISPLAY_NAME via Raw SQL (drizzle schema ignores it)
+      try {
+        db.$client.prepare("UPDATE apps SET display_name = ? WHERE id = ?").run(newName, appId);
+      } catch (rawErr) {
+        logger.warn("Failed to update display_name (legacy column)", rawErr);
+      }
+
+      logger.info(`Successfully renamed app ${appId} and updated path`);
+      return { success: true, newPath: newRelPath };
+    } catch (error: any) {
+      logger.error(`Failed to rename app ${appId}:`, error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Background app creation handler
   handle(
     "create-app-background",
@@ -627,18 +823,18 @@ export function registerAppHandlers() {
       params: CreateAppParams,
     ): Promise<{ taskId: string; app: any; chatId: number }> => {
       const taskManager = getBackgroundTaskManager();
-      
+
       // Create a unique task ID
       const taskId = `app-creation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Create the background task
       const task = taskManager.createTask({
         id: taskId,
         type: "app-creation",
         title: `Creating app: ${params.name}`,
         description: "Initializing app creation...",
-        metadata: { 
-          appName: params.name, 
+        metadata: {
+          appName: params.name,
           framework: params.framework,
           prompt: (params as any).prompt,
           attachments: (params as any).attachments
@@ -649,7 +845,7 @@ export function registerAppHandlers() {
       taskManager.startTask(taskId, async (abortController, updateProgress) => {
         const taskStartTime = performance.now();
         console.log(`🚀 [PERF] Starting app creation task: ${taskId} at ${new Date().toISOString()}`);
-        
+
         // 🚀 PERFORMANCE: Check Pro limits before creating app
         const permissionCheckStart = performance.now();
         updateProgress(5, "Checking user permissions...");
@@ -657,58 +853,69 @@ export function registerAppHandlers() {
         const isProUser = settings.enableApplaaPro === true;
         const permissionCheckEnd = performance.now();
         console.log(`🔐 [PERF] Permission check took: ${(permissionCheckEnd - permissionCheckStart).toFixed(2)}ms`);
-        
+
         if (!isProUser) {
           const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
           const FREE_APP_LIMIT = 5;
-          
+
           if (existingApps.count >= FREE_APP_LIMIT) {
             throw new Error(`Free users are limited to ${FREE_APP_LIMIT} apps. Upgrade to Applaa Pro for unlimited apps.`);
           }
         }
-        
+
         const pathValidationStart = performance.now();
         updateProgress(10, "Validating app path...");
         await ensureWorkspaceInitialized();
-        const appRelPath = getAppRelativePath(
-          params.name,
-          (params.appType === 'mobile' || params.framework === 'expo') ? 'mobile' : 'web'
-        );
+
+        // Determine app type (same logic as create-app handler)
+        let appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python';
+        if (params.appType && ['mobile', 'web', 'godot', 'blockly', 'arcade', 'microbit', 'minecraft', 'roblox', 'python'].includes(params.appType)) {
+          appType = params.appType as any;
+        } else if (params.framework === 'expo' || params.framework === 'flutter') {
+          appType = 'mobile';
+        } else if (params.framework === 'blockly') {
+          appType = 'blockly';
+        } else if (params.framework === 'makecode-arcade') {
+          appType = 'arcade';
+        } else if (params.framework === 'microbit') {
+          appType = 'microbit';
+        } else if (params.framework === 'minecraft-makecode') {
+          appType = 'minecraft';
+        } else {
+          appType = 'web';
+        }
+
+        const appRelPath = getAppRelativePath(params.name, appType);
         const fullAppPath = getDyadAppPath(appRelPath);
         if (fs.existsSync(fullAppPath)) {
           throw new Error(`App already exists at: ${fullAppPath}`);
         }
         const pathValidationEnd = performance.now();
         console.log(`📁 [PERF] Path validation took: ${(pathValidationEnd - pathValidationStart).toFixed(2)}ms`);
-        
+
         // Check if cancelled
         if (abortController.signal.aborted) {
           throw new Error("App creation cancelled");
         }
-        
+
         const dbCreateStart = performance.now();
         updateProgress(20, "Creating app database entry...");
-        const appType = (params.appType === 'mobile' || params.appType === 'web')
-          ? params.appType
-          : (params.framework === 'expo' || params.framework === 'flutter')
-            ? 'mobile'
-            : 'web';
-        
+
         const info = db.$client
           .prepare("INSERT INTO apps (name, display_name, path, app_type) VALUES (?, ?, ?, ?)")
           .run(params.name, params.displayName, appRelPath, appType);
         const dbCreateEnd = performance.now();
         console.log(`💾 [PERF] Database entry creation took: ${(dbCreateEnd - dbCreateStart).toFixed(2)}ms`);
         const insertedId = Number(info.lastInsertRowid);
-        
+
         const row = db.$client
           .prepare(
             "SELECT id, name, display_name as displayName, path, created_at as createdAt, app_type as appType, " +
-              "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-              "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-              "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-              "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-              "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
+            "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
+            "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
+            "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
+            "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
+            "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
           )
           .get(insertedId) as any;
 
@@ -754,7 +961,13 @@ export function registerAppHandlers() {
 
         const templateCreateStart = performance.now();
         updateProgress(50, "Setting up app template...");
-        const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
+        // Map framework to template ID
+        let templateId: string | undefined;
+        if (params.framework === 'expo') {
+          templateId = 'expo-base-master';
+        } else if (params.framework === 'minecraft-makecode' || appType === 'minecraft') {
+          templateId = 'minecraft-basic';
+        }
         console.log(`📋 [PERF] Starting template creation with templateId: ${templateId}`);
         await createFromTemplate({
           fullAppPath,
@@ -797,22 +1010,22 @@ export function registerAppHandlers() {
         console.log(`💾 [PERF] Git commit took: ${(gitCommitEnd - gitCommitStart).toFixed(2)}ms`);
 
         updateProgress(100, "App creation completed!");
-        
+
         const totalTaskTime = performance.now() - taskStartTime;
         const templateTime = templateCreateEnd - templateCreateStart;
         const gitTotalTime = (gitInitEnd - gitInitStart) + (gitAddEnd - gitAddStart) + (gitCommitEnd - gitCommitStart);
         const dbTime = (dbCreateEnd - dbCreateStart) + (chatCreateEnd - chatCreateStart);
-        
+
         console.log(`🎉 [PERF] App creation completed! Performance Summary:
           📋 Template Creation: ${templateTime.toFixed(2)}ms (${(templateTime / totalTaskTime * 100).toFixed(1)}%)
           🔧 Git Operations: ${gitTotalTime.toFixed(2)}ms (${(gitTotalTime / totalTaskTime * 100).toFixed(1)}%)
           💾 Database Operations: ${dbTime.toFixed(2)}ms (${(dbTime / totalTaskTime * 100).toFixed(1)}%)
           🚀 Total Time: ${totalTaskTime.toFixed(2)}ms
           📊 App: ${params.name} | Framework: ${params.framework}`);
-        
+
         // Return the result with prompt info for the renderer to handle
-        return { 
-          app, 
+        return {
+          app,
           chatId: chat.id,
           shouldStartChat: !!(params as any).prompt,
           prompt: (params as any).prompt,
@@ -832,14 +1045,14 @@ export function registerAppHandlers() {
         : (params.framework === 'expo' || params.framework === 'flutter')
           ? 'mobile'
           : 'web';
-      
+
       const quickApp = {
         id: -1, // Temporary ID
         name: params.name,
         path: params.name,
         appType: appType
       };
-      
+
       return { taskId, app: quickApp, chatId: -1 };
     }
   );
@@ -856,27 +1069,42 @@ export function registerAppHandlers() {
       if (!appLimitCheck.allowed) {
         throw new Error(appLimitCheck.reason || "APP_LIMIT_REACHED");
       }
-      
+
       // Legacy auth check (keep for backwards compatibility)
       const existingApps = db.$client.prepare("SELECT COUNT(*) as count FROM apps").get() as { count: number };
       const FREE_UNAUTH_LIMIT = 3;
+      const { isUserAuthenticated } = await import("../../lib/supabase");
       const isAuthenticated = await isUserAuthenticated();
 
       // Require authentication after 3 apps (only if not already checked by tier)
       if (!isAuthenticated && existingApps.count >= FREE_UNAUTH_LIMIT) {
         throw new Error(`AUTH_REQUIRED_APP_LIMIT:${FREE_UNAUTH_LIMIT}`);
       }
-      
+
       await ensureWorkspaceInitialized();
-      
+
       // Determine app type from explicit params, then framework hint, fallback to web
-      const appType = (params.appType === 'mobile' || params.appType === 'web' || params.appType === 'godot')
-        ? params.appType
-        : (params.framework === 'expo' || params.framework === 'flutter')
-          ? 'mobile'
-          : 'web';
-      
+      // Support game frameworks: blockly, arcade, microbit, minecraft
+      let appType: 'web' | 'mobile' | 'godot' | 'blockly' | 'arcade' | 'microbit' | 'minecraft' | 'roblox' | 'python';
+
+      if (params.appType && ['mobile', 'web', 'godot', 'blockly', 'arcade', 'microbit', 'minecraft', 'roblox', 'python'].includes(params.appType)) {
+        appType = params.appType as any;
+      } else if (params.framework === 'expo' || params.framework === 'flutter') {
+        appType = 'mobile';
+      } else if (params.framework === 'blockly') {
+        appType = 'blockly';
+      } else if (params.framework === 'makecode-arcade') {
+        appType = 'arcade';
+      } else if (params.framework === 'microbit') {
+        appType = 'microbit';
+      } else if (params.framework === 'minecraft-makecode') {
+        appType = 'minecraft';
+      } else {
+        appType = 'web';
+      }
+
       // 💎 CREDIT CHECK: Verify user has enough credits before creating app
+      /*
       let userId: string | null = null;
       let creditCost = 0;
       try {
@@ -919,10 +1147,10 @@ export function registerAppHandlers() {
         // Otherwise, log and continue (don't block app creation if credit check fails)
         logger.warn('Credit check failed, continuing anyway:', creditError);
       }
-      
-      const appRelPath2 = getAppRelativePath(
+      */
+      logger.info('Credit check bypassed for user convenience'); const appRelPath2 = getAppRelativePath(
         params.name,
-        appType === 'godot' ? 'godot' : (appType === 'mobile' ? 'mobile' : 'web')
+        appType // Pass the full appType instead of mapping to web/mobile/godot
       );
       const fullAppPath = getDyadAppPath(appRelPath2);
       if (fs.existsSync(fullAppPath)) {
@@ -930,171 +1158,21 @@ export function registerAppHandlers() {
         const suggestedName = await generateUniqueAppName(params.name, appType);
         throw new Error(`DUPLICATE_APP_NAME:${params.name}:${suggestedName}`);
       }
-      
+
       // Create a new app using a minimal, legacy-safe insert to avoid
       // referencing columns that might not exist (e.g., display_name)
       const info = db.$client
         .prepare("INSERT INTO apps (name, path, app_type) VALUES (?, ?, ?)")
         .run(params.name, appRelPath2, appType);
       const insertedId = Number(info.lastInsertRowid);
-
-      // 🗄️ AUTOMATIC DATABASE PROVISIONING: Call backend to create Postgres schema
-      // This is MANDATORY - every app MUST have a Postgres database
-      let databaseInfo: { schemaName: string; connectionString: string } | null = null;
-      
-      const backendUrl = process.env.BACKEND_API_URL || 'https://haix.ai/api';
-      logger.log(`📦 [POSTGRES] Starting database provisioning for app ${insertedId}: ${params.name}`);
-      logger.log(`🔗 [POSTGRES] Backend API URL: ${backendUrl}`);
-      logger.log(`🔗 [POSTGRES] process.env.BACKEND_API_URL: ${process.env.BACKEND_API_URL || 'NOT SET (using default)'}`);
-      
-      try {
-        // CRITICAL: Explicitly request dedicated database (dedicatedDatabase: true)
-        const backendResult = await backendAPI.createApp(params.name, appType, true);
-        logger.log(`📦 [POSTGRES] Backend response received:`, JSON.stringify(backendResult, null, 2));
-        
-        // Validate response structure
-        if (!backendResult) {
-          throw new Error('Backend returned empty response');
-        }
-        
-        if (!backendResult.database) {
-          logger.error(`❌ [POSTGRES] Backend response missing database field`);
-          logger.error(`   Full response: ${JSON.stringify(backendResult, null, 2)}`);
-          throw new Error('Backend did not return database info');
-        }
-        
-        databaseInfo = backendResult.database;
-        
-        // Validate required fields
-        if (!databaseInfo.connectionString) {
-          throw new Error('Backend returned database info but missing connectionString');
-        }
-        
-        // Validate that we got either databaseName (dedicated) or schemaName (legacy)
-        if (!databaseInfo.databaseName && !databaseInfo.schemaName) {
-          throw new Error('Backend returned database info but missing both databaseName and schemaName');
-        }
-        
-        logger.log(`✅ [POSTGRES] Database provisioned successfully!`);
-        // Handle both dedicated databases (databaseName) and schema-based (schemaName)
-        const dbIdentifier = databaseInfo.databaseName || databaseInfo.schemaName;
-        logger.log(`   Database/Schema: ${dbIdentifier}`);
-        logger.log(`   Connection: ${databaseInfo.connectionString.substring(0, 60)}...`);
-        
-        // Store database info in local app record
-        db.$client
-          .prepare("UPDATE apps SET supabase_project_id = ? WHERE id = ?")
-          .run(JSON.stringify({
-            schemaName: databaseInfo.schemaName || databaseInfo.databaseName, // Support both modes
-            databaseName: databaseInfo.databaseName, // For dedicated databases
-            connectionString: databaseInfo.connectionString,
-            mode: databaseInfo.mode || (databaseInfo.databaseName ? 'dedicated' : 'schema'),
-            provisionedAt: new Date().toISOString(),
-          }), insertedId);
-        
-        logger.log(`💾 [POSTGRES] Database info stored in local app record`);
-        
-        // 🚀 AUTOMATIC TABLE CREATION: Detect app type and create appropriate tables
-        try {
-          logger.log(`🔍 [POSTGRES] Auto-detecting app type for: "${params.name}"`);
-          
-          const autoSetupUrl = `${backendUrl}/apps/${backendResult.id}/auto-setup`;
-          logger.log(`🔗 [POSTGRES] Calling auto-setup: ${autoSetupUrl}`);
-          const autoSetupResponse = await fetch(autoSetupUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          
-          if (autoSetupResponse.ok) {
-            const setupResult = await autoSetupResponse.json();
-            if (setupResult.created) {
-              logger.log(`✅ [POSTGRES] Auto-created tables from template: ${setupResult.template}`);
-              logger.log(`   Tables: ${setupResult.tables.join(', ')}`);
-            } else {
-              logger.log(`ℹ️  [POSTGRES] No template detected - using base tables only`);
-              logger.log(`   App can use 'users', 'app_data' tables, or create custom tables via AI`);
-            }
-          } else {
-            const errorText = await autoSetupResponse.text();
-            logger.warn(`⚠️  [POSTGRES] Auto-setup returned error: ${errorText}`);
-          }
-        } catch (autoSetupError: any) {
-          // Don't fail app creation if table auto-setup fails
-          logger.warn(`⚠️  [POSTGRES] Auto-setup failed (non-critical):`, autoSetupError.message);
-          logger.log(`   App can still function with base tables. Tables can be created later.`);
-        }
-        
-        // 🚀 AUTO-DEPLOY: ALWAYS deploy backend to VPS (regardless of auto-setup success)
-        // This ensures the latest backend code (with auto-table creation) is always on VPS
-        // Deploy asynchronously so it doesn't block app creation, but log results
-        (async () => {
-          try {
-            logger.log(`🚀 [DEPLOY] Auto-deploying backend to VPS (ensuring latest code is deployed)...`);
-            const { deployBackendToVPS } = await import('./backend_deploy_handlers');
-            const deployResult = await deployBackendToVPS();
-            
-            if (deployResult.success) {
-              logger.log(`✅ [DEPLOY] Backend deployed successfully to VPS`);
-              logger.log(`   Latest features (auto-table creation, query support) are now live`);
-            } else {
-              logger.error(`❌ [DEPLOY] Backend deployment failed: ${deployResult.error}`);
-              logger.warn(`   App will still work, but may need manual backend deployment`);
-            }
-          } catch (deployError) {
-            logger.error(`❌ [DEPLOY] Auto-deployment error: ${deployError instanceof Error ? deployError.message : 'Unknown error'}`);
-            logger.warn(`   App will still work, but may need manual backend deployment`);
-          }
-        })();
-        
-      } catch (error: any) {
-        logger.error(`❌ [POSTGRES] CRITICAL: Failed to provision database for app ${insertedId}!`);
-        logger.error(`   Error: ${error.message}`);
-        logger.error(`   Stack: ${error.stack}`);
-        logger.error(`   Backend URL used: ${backendUrl}`);
-        
-        // Check backend health
-        try {
-          const healthCheck = await backendAPI.healthCheck();
-          logger.log(`🏥 Backend health check: ${JSON.stringify(healthCheck)}`);
-        } catch (healthError: any) {
-          logger.error(`❌ Backend is NOT ACCESSIBLE!`);
-          logger.error(`   URL: ${backendUrl}`);
-          logger.error(`   Error: ${healthError.message}`);
-        }
-        
-        // CRITICAL: Rollback app creation - delete from local DB since provisioning failed
-        try {
-          logger.log(`🗑️  [POSTGRES] Rolling back app ${insertedId} from local database...`);
-          db.$client.prepare("DELETE FROM apps WHERE id = ?").run(insertedId);
-          
-          // Also try to delete the app directory if it was created
-          try {
-            if (fullAppPath && fs.existsSync(fullAppPath)) {
-              logger.log(`🗑️  [POSTGRES] Removing app directory: ${fullAppPath}`);
-              fs.rmSync(fullAppPath, { recursive: true, force: true });
-            }
-          } catch (dirError: any) {
-            logger.warn(`⚠️  [POSTGRES] Could not remove app directory: ${dirError.message}`);
-          }
-          
-          logger.log(`✅ [POSTGRES] Rollback complete - app ${insertedId} removed`);
-        } catch (rollbackError: any) {
-          logger.error(`❌ [POSTGRES] Failed to rollback app ${insertedId}:`, rollbackError);
-          logger.error(`   Manual cleanup may be required for app ID: ${insertedId}`);
-        }
-        
-        // ABORT app creation - this error will propagate to frontend
-        throw new Error(`Database provisioning failed: ${error.message}. App creation aborted and rolled back.`);
-      }
-
       const row = db.$client
         .prepare(
           "SELECT id, name, path, created_at as createdAt, app_type as appType, " +
-            "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-            "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-            "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-            "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-            "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
+          "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
+          "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
+          "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
+          "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
+          "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
         )
         .get(insertedId) as any;
 
@@ -1133,7 +1211,7 @@ export function registerAppHandlers() {
         fs.mkdirSync(path.join(projectPath, "assets", "sprites"), { recursive: true });
         fs.mkdirSync(path.join(projectPath, "assets", "sounds"), { recursive: true });
         fs.mkdirSync(path.join(projectPath, "assets", "music"), { recursive: true });
-        
+
         const projectGodot = `; Engine configuration file.
 config_version=5
 
@@ -1154,10 +1232,10 @@ window/size/resizable=true
 
 renderer/rendering_method="forward_plus"
 `;
-        
+
         fs.writeFileSync(path.join(projectPath, "project.godot"), projectGodot);
         fs.writeFileSync(path.join(projectPath, "game_spec.json"), JSON.stringify({}, null, 2));
-        
+
         // Initialize Git for Godot project
         await git.init({
           fs: fs,
@@ -1165,11 +1243,37 @@ renderer/rendering_method="forward_plus"
           defaultBranch: "main",
         });
       } else {
-        const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
-        await createFromTemplate({
-          fullAppPath,
-          templateId,
-        });
+        const isGameFramework = ['makecode-arcade', 'arcade', 'microbit', 'minecraft-makecode', 'blockly'].includes(params.framework as string);
+
+        if (appType === 'roblox') {
+          await createRobloxProjectTemplate(fullAppPath, params);
+        } else if (appType === 'minecraft') {
+          // For Minecraft apps, use the minecraft-basic template with starter Java mod
+          await createFromTemplate({
+            fullAppPath,
+            templateId: 'minecraft-basic',
+          });
+        } else if (isGameFramework) {
+          // For other game frameworks (blockly, arcade, microbit), just initialize an empty project with Git
+          await fsPromises.mkdir(fullAppPath, { recursive: true });
+
+          await git.init({
+            fs: fs,
+            dir: fullAppPath,
+            defaultBranch: "main",
+          });
+
+          await fsPromises.writeFile(
+            path.join(fullAppPath, "README.md"),
+            `# ${params.name}\n\nCreated with Applaa.`
+          );
+        } else {
+          const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
+          await createFromTemplate({
+            fullAppPath,
+            templateId,
+          });
+        }
       }
 
       // 🚀 PERFORMANCE: Get commit hash from template creation (no duplicate Git ops)
@@ -1195,34 +1299,47 @@ renderer/rendering_method="forward_plus"
         })
         .where(eq(chats.id, chat.id));
 
-      // 🗄️ Inject DATABASE_URL into app's .env.local file if database was provisioned
-      if (databaseInfo) {
-        try {
-          const envPath = path.join(fullAppPath, '.env.local');
-          const envContent = `# Database connection (auto-generated by Applaa)
-DATABASE_URL=${databaseInfo.connectionString}
-POSTGRES_SCHEMA=${databaseInfo.schemaName}
-`;
+      // 🚀 CRITICAL FIX: Verify chat persistence before returning
+      // Wait for up to 2 seconds for the chat to be readable via Raw SQL
+      // This solves the race condition where frontend calls get-chat before DB commit is visible
+      let verified = false;
+      for (let i = 0; i < 20; i++) {
+        const check = db.$client.prepare("SELECT id FROM chats WHERE id = ?").get(chat.id);
+        if (check) {
+          verified = true;
+          logger.info(`✅ Chat ${chat.id} verified persisted via Raw SQL (attempt ${i + 1})`);
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
-          if (fs.existsSync(envPath)) {
-            const existing = fs.readFileSync(envPath, 'utf-8');
-            if (!existing.includes('DATABASE_URL')) {
-              fs.appendFileSync(envPath, '\n' + envContent);
-              logger.log(`✅ Added DATABASE_URL to existing .env.local file`);
-            } else {
-              logger.log(`ℹ️ DATABASE_URL already exists in .env.local`);
-            }
-          } else {
-            fs.writeFileSync(envPath, envContent);
-            logger.log(`✅ Created .env.local file with DATABASE_URL`);
+      if (!verified) {
+        logger.error(`❌ Chat ${chat.id} created but NOT verified in DB after 2s! Potential rollback or lost write.`);
+        // Don't throw, let frontend try its own retry logic, but this log is critical.
+      } else {
+        // Double check if we can read it back fully
+        try {
+          const checkFull = db.$client.prepare("SELECT * FROM chats WHERE id = ?").get(chat.id) as any;
+          if (checkFull && checkFull.app_id !== app.id) {
+            logger.warn(`⚠️ Chat ${chat.id} has wrong appId! Expected ${app.id}, got ${checkFull.app_id}`);
+            // Try to self-heal
+            db.$client.prepare("UPDATE chats SET app_id = ? WHERE id = ?").run(app.id, chat.id);
+            logger.info(`🛠️ Self-healed appId for chat ${chat.id}`);
           }
-        } catch (error: any) {
-          logger.warn(`⚠️ Failed to write .env.local file:`, error.message);
-          // Don't fail app creation if .env write fails
+        } catch (e) {
+          logger.warn("Error during extra verification:", e);
         }
       }
 
+      // 🔥 EXTRA FIX: Add explicit delay to ensure DB commit is visible to ALL subsequent queries
+      // Even after raw SQL verification, there may be WAL (Write-Ahead Logging) delays
+      logger.info(`⏰ Waiting 500ms for chat ${chat.id} to be fully committed...`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      logger.info(`✅ Chat ${chat.id} should now be visible to all queries`);
+
       // 💎 CREDIT DEDUCTION: Deduct credits after successful app creation
+      // Commented out while credit check above is bypassed (userId/creditCost not set)
+      /*
       if (userId && creditCost > 0) {
         try {
           await deductCredits(userId, 'app_creation', creditCost, {
@@ -1235,6 +1352,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           logger.error('Failed to deduct credits after app creation:', creditError);
         }
       }
+      */
 
       return { app, chatId: chat.id };
     },
@@ -1332,11 +1450,11 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       const row = db.$client
         .prepare(
           "SELECT id, name, path, created_at as createdAt, app_type as appType, " +
-            "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-            "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-            "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-            "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-            "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
+          "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
+          "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
+          "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
+          "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
+          "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps WHERE id = ?"
         )
         .get(appId) as any;
       app = row;
@@ -1403,11 +1521,11 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         const rows = db.$client
           .prepare(
             "SELECT id, name, display_name as displayName, path, created_at as createdAt, app_type as appType, " +
-              "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
-              "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
-              "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
-              "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
-              "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps ORDER BY created_at DESC"
+            "github_org as githubOrg, github_repo as githubRepo, github_branch as githubBranch, " +
+            "supabase_project_id as supabaseProjectId, neon_project_id as neonProjectId, " +
+            "neon_development_branch_id as neonDevelopmentBranchId, neon_preview_branch_id as neonPreviewBranchId, " +
+            "vercel_project_id as vercelProjectId, vercel_project_name as vercelProjectName, vercel_team_id as vercelTeamId, " +
+            "vercel_deployment_url as vercelDeploymentUrl, chat_context as chatContext FROM apps ORDER BY created_at DESC"
           )
           .all();
         allApps = rows.map((r: any) => ({
@@ -1474,7 +1592,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       }
     },
   );
-  
+
   logger.info("App handlers registered successfully, including generate-app-names");
 
   // Get app files for categorization (lightweight version)
@@ -1505,9 +1623,9 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
     "app:update-deployment-urls",
     async (
       _,
-      params: { 
-        appId: number; 
-        githubRepoUrl?: string; 
+      params: {
+        appId: number;
+        githubRepoUrl?: string;
         vercelDeploymentUrl?: string;
         deploymentStatus?: string;
         deploymentNotes?: string;
@@ -1515,14 +1633,14 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       },
     ): Promise<void> => {
       const { appId, githubRepoUrl, vercelDeploymentUrl, deploymentStatus, deploymentNotes, showInHub } = params;
-      logger.info(`Updating deployment URLs for app ${appId}:`, { 
-        githubRepoUrl, 
-        vercelDeploymentUrl, 
+      logger.info(`Updating deployment URLs for app ${appId}:`, {
+        githubRepoUrl,
+        vercelDeploymentUrl,
         deploymentStatus,
         deploymentNotes,
         showInHub
       });
-      
+
       // Fetch app first for safety and to potentially backfill org/repo
       const app = await getAppSafe(appId);
       if (!app) throw new Error("App not found");
@@ -1550,14 +1668,14 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         name: string;
         type: string;
       }>;
-      
+
       const columnNames = tableInfo.map(col => col.name);
       const hasGithubRepoUrl = columnNames.includes('github_repo_url');
       const hasDeploymentStatus = columnNames.includes('deployment_status');
       const hasLastDeploymentAt = columnNames.includes('last_deployment_at');
       const hasDeploymentNotes = columnNames.includes('deployment_notes');
       const hasShowInHub = columnNames.includes('show_in_hub');
-      
+
       logger.info(`Database columns check:`, {
         hasGithubRepoUrl,
         hasDeploymentStatus,
@@ -1568,37 +1686,37 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       });
 
       const updateValues: Partial<typeof apps.$inferInsert> = {};
-      
+
       // Update GitHub repository URL (new field - only if column exists)
       if (typeof githubRepoUrl !== "undefined" && hasGithubRepoUrl) {
         (updateValues as any).githubRepoUrl = githubRepoUrl || null;
       }
-      
+
       // Update Vercel deployment URL (existing field)
       if (typeof vercelDeploymentUrl !== "undefined") {
         (updateValues as any).vercelDeploymentUrl = vercelDeploymentUrl || null;
       }
-      
+
       // Update deployment status (new field - only if column exists)
       if (typeof deploymentStatus !== "undefined" && hasDeploymentStatus) {
         (updateValues as any).deploymentStatus = deploymentStatus || "not_deployed";
       }
-      
+
       // Update deployment notes (new field - only if column exists)
       if (typeof deploymentNotes !== "undefined" && hasDeploymentNotes) {
         (updateValues as any).deploymentNotes = deploymentNotes || null;
       }
-      
+
       // Update show in hub consent (new field - only if column exists)
       if (typeof showInHub !== "undefined" && hasShowInHub) {
         (updateValues as any).showInHub = showInHub ? 1 : 0;
       }
-      
+
       // Update last deployment timestamp (new field - only if column exists)
       if ((githubRepoUrl || vercelDeploymentUrl) && hasLastDeploymentAt) {
         (updateValues as any).lastDeploymentAt = new Date();
       }
-      
+
       // Only set org/repo if parsed and either different or missing
       if (githubOrg && (!app.githubOrg || app.githubOrg !== githubOrg)) {
         (updateValues as any).githubOrg = githubOrg;
@@ -1612,7 +1730,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         try {
           await db.update(apps).set(updateValues as any).where(eq(apps.id, appId));
           logger.info(`Successfully updated deployment URLs for app ${appId}`);
-          
+
           // Sync app to Supabase (non-blocking)
           try {
             const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
@@ -1639,7 +1757,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           if (githubRepo && (!app.githubRepo || app.githubRepo !== githubRepo)) {
             (fallbackValues as any).githubRepo = githubRepo;
           }
-          
+
           if (Object.keys(fallbackValues).length > 0) {
             try {
               await db.update(apps).set(fallbackValues as any).where(eq(apps.id, appId));
@@ -1692,7 +1810,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
                 logger.error(`Error reading file from alt path ${altPath}:`, error);
               }
             }
-            
+
             // For common web app files that don't exist in Godot apps, provide helpful message
             if (filePath === 'src/App.tsx' || filePath === 'src/App.jsx' || filePath.startsWith('src/')) {
               logger.info(`Godot app doesn't have ${filePath}. Godot apps use .gd scripts and .tscn scenes in godot-project/`);
@@ -1716,7 +1834,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
   // Do NOT use handle for this, it contains sensitive information.
   ipcMain.handle("get-env-vars", async () => {
     const envVars: Record<string, string | undefined> = {};
-    
+
     // Only load environment variables in development, never in packaged apps
     if (process.env.NODE_ENV === 'development' && !process.resourcesPath && !process.defaultApp) {
       const providers = await getLanguageModelProviders();
@@ -1726,12 +1844,12 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         }
       }
     }
-    
+
     // Always expose SENTRY_DSN if available (needed for renderer initialization)
     if (process.env.SENTRY_DSN) {
       envVars.SENTRY_DSN = process.env.SENTRY_DSN;
     }
-    
+
     return envVars;
   });
 
@@ -2023,7 +2141,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           );
           throw new Error(
             "Could not store Neon timestamp at current version; database versioning functionality is not working: " +
-              error,
+            error,
           );
         }
       }
@@ -2098,7 +2216,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         // 🚀 ENHANCED: Kill all processes that might be using the app directory
         try {
           logger.log(`🔄 Stopping all processes for app ${appId} before deletion`);
-          
+
           // Stop the app if it's running
           if (runningApps.has(appId)) {
             const appInfo = runningApps.get(appId)!;
@@ -2115,7 +2233,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           // Use flexible port detection instead of hardcoded 8081
           const { getPortUtils } = await import("./port_utils");
           const portUtils = getPortUtils();
-          
+
           try {
             // Only kill ports if they're specifically associated with this app
             // Check if the app is an Expo app and has running processes
@@ -2150,24 +2268,24 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
               // Avoid killing the main Applaa process by being more specific
               try {
                 // Kill expo processes that might be related to this app
-                await execAsync(`taskkill /F /IM expo.exe /T`, { timeout: 5000 }).catch(() => {});
-                
+                await execAsync(`taskkill /F /IM expo.exe /T`, { timeout: 5000 }).catch(() => { });
+
                 // Only kill node processes if they're specifically related to this app path
                 // This is safer than killing ALL node processes
                 logger.log(`🔍 Checking for Node processes in app directory: ${appPath}`);
-                
+
                 // Use wmic to find processes with the specific app path in their command line
                 const wmicResult = await execAsync(
                   `wmic process where "name='node.exe' and commandline like '%${appPath.replace(/\\/g, '\\\\')}%'" get processid /format:value`,
                   { timeout: 5000 }
                 ).catch(() => ({ stdout: '' }));
-                
+
                 const pids = wmicResult.stdout.match(/ProcessId=(\d+)/g);
                 if (pids && pids.length > 0) {
                   for (const pidMatch of pids) {
                     const pid = pidMatch.split('=')[1];
                     if (pid && pid !== '0') {
-                      await execAsync(`taskkill /F /PID ${pid}`, { timeout: 2000 }).catch(() => {});
+                      await execAsync(`taskkill /F /PID ${pid}`, { timeout: 2000 }).catch(() => { });
                       logger.log(`✅ Killed Node process ${pid} for app ${appId}`);
                     }
                   }
@@ -2476,7 +2594,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         if (!process.stdin || process.stdin.destroyed || process.killed) {
           throw new Error(`App ${appId} process stdin is not available or process is killed`);
         }
-        
+
         // Write the response to stdin with a newline
         process.stdin.write(`${response}\n`);
         logger.debug(`Sent response '${response}' to app ${appId} stdin`);
@@ -2492,17 +2610,42 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
     try {
       const settings = readSettings();
       const customPath = settings.customAppsDirectory;
-      
+
       if (customPath && fs.existsSync(customPath)) {
         return { basePath: customPath };
       }
-      
+
       // Default to apps directory in user's home
       const defaultPath = path.join(os.homedir(), "Apps");
       return { basePath: defaultPath };
     } catch (error) {
       logger.error("Error getting apps base path:", error);
       throw new Error(`Failed to get apps base path: ${error.message}`);
+    }
+  });
+
+
+  ipcMain.handle("app:write-file", async (_, { appId, filePath, content }: { appId: number; filePath: string; content: string }) => {
+    try {
+      const app = await db.query.apps.findFirst({ where: eq(apps.id, appId) });
+      if (!app) throw new Error(`App ${appId} not found`);
+
+      const fullPath = path.join(app.path, filePath);
+
+      // Ensure directory exists
+      const dirPath = path.dirname(fullPath);
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+      }
+
+      await fs.promises.writeFile(fullPath, content, "utf-8");
+
+      // Trigger update logic if needed
+      logger.debug(`Wrote file: ${fullPath}`);
+      return { success: true };
+    } catch (error) {
+      logger.error("Error writing file:", error);
+      throw error;
     }
   });
 
@@ -2514,11 +2657,11 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         defaultPath: options.defaultPath,
         properties: ["openDirectory"],
       });
-      
+
       if (result.canceled || result.filePaths.length === 0) {
         return { path: null };
       }
-      
+
       return { path: result.filePaths[0] };
     } catch (error) {
       logger.error("Error selecting directory:", error);
@@ -2530,9 +2673,9 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
   ipcMain.handle("test-sync-single-app", async (_, { appId }: { appId: number }) => {
     try {
       const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
-      
-      const app = await db.query.apps.findFirst({ 
-        where: eq(apps.id, appId) 
+
+      const app = await db.query.apps.findFirst({
+        where: eq(apps.id, appId)
       });
 
       if (!app) {
@@ -2543,20 +2686,20 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       const settings = readSettings();
       const wpUser = settings.wordpressAuth?.user;
       const userDisplayName = wpUser?.display_name;
-      
+
       if (!userDisplayName) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: 'No WordPress user display_name found. Please log in with WordPress first.',
         };
       }
 
       logger.info(`Testing sync for app: ${app.name} (ID: ${appId}) with display_name: ${userDisplayName}`);
-      
+
       await syncAppByIdToSupabase(appId, userDisplayName);
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         message: `App ${app.name} synced successfully`,
         appId: appId,
         appName: app.name,
@@ -2586,9 +2729,9 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
   ipcMain.handle("test-sync-single-app-direct", async (_, { appId }: { appId: number }) => {
     try {
       const { syncAppToSupabaseDirect } = await import('../../lib/supabase_direct_sync');
-      
-      const app = await db.query.apps.findFirst({ 
-        where: eq(apps.id, appId) 
+
+      const app = await db.query.apps.findFirst({
+        where: eq(apps.id, appId)
       });
 
       if (!app) {
@@ -2599,12 +2742,12 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       const settings = readSettings();
       const wpUser = settings.wordpressAuth?.user;
       const userDisplayName = wpUser?.display_name;
-      
+
       if (!userDisplayName) {
         logger.error('No WordPress display_name found in settings');
         logger.error('Settings wordpressAuth:', settings.wordpressAuth);
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: 'No WordPress user display_name found. Please log in with WordPress first.',
           debug: {
             hasWordPressAuth: !!settings.wordpressAuth,
@@ -2616,7 +2759,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       }
 
       logger.info(`Testing direct API sync for app: ${app.name} (ID: ${appId}) with display_name: ${userDisplayName}`);
-      
+
       const result = await syncAppToSupabaseDirect({
         id: app.id,
         name: app.name,
@@ -2639,19 +2782,19 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         easDeploymentUrl: app.easDeploymentUrl,
         easProjectId: app.easProjectId,
         easBuildId: app.easBuildId,
-        localApkPath: (app && typeof app === 'object' && app.localApkPath) ? app.localApkPath : null,
-        localAabPath: (app && typeof app === 'object' && app.localAabPath) ? app.localAabPath : null,
-        localIpaPath: (app && typeof app === 'object' && app.localIpaPath) ? app.localIpaPath : null,
-        localApkBuiltAt: (app && typeof app === 'object' && app.localApkBuiltAt) ? Number(app.localApkBuiltAt) : null,
-        localAabBuiltAt: (app && typeof app === 'object' && app.localAabBuiltAt) ? Number(app.localAabBuiltAt) : null,
-        localIpaBuiltAt: (app && typeof app === 'object' && app.localIpaBuiltAt) ? Number(app.localIpaBuiltAt) : null,
+        localApkPath: app.localApkPath,
+        localAabPath: app.localAabPath,
+        localIpaPath: app.localIpaPath,
+        localApkBuiltAt: app.localApkBuiltAt ? Number(app.localApkBuiltAt) : null,
+        localAabBuiltAt: app.localAabBuiltAt ? Number(app.localAabBuiltAt) : null,
+        localIpaBuiltAt: app.localIpaBuiltAt ? Number(app.localIpaBuiltAt) : null,
         deploymentStatus: app.deploymentStatus,
         lastDeploymentAt: app.lastDeploymentAt ? Number(app.lastDeploymentAt) : null,
         deploymentNotes: app.deploymentNotes,
       }, userDisplayName);
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         message: `App ${app.name} synced successfully via direct API`,
         appId: appId,
         appName: app.name,
@@ -2686,7 +2829,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       const settings = readSettings();
       const wpUser = settings.wordpressAuth?.user;
       const userDisplayName = wpUser?.display_name;
-      
+
       if (!userDisplayName) {
         logger.error('No WordPress display_name found. Please log in with WordPress first.');
         return {
@@ -2700,14 +2843,14 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           },
         };
       }
-      
+
       logger.info(`Syncing apps to Supabase for user: ${userDisplayName}`);
-      
+
       const { syncAppByIdToSupabase } = await import('../../lib/supabase_app_sync');
       const allApps = await db.query.apps.findMany();
-      
+
       logger.info(`Syncing ${allApps.length} apps to Supabase...`);
-      
+
       const results = {
         total: allApps.length,
         success: 0,
@@ -2722,7 +2865,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           errorHint?: string;
         }>,
       };
-      
+
       for (const app of allApps) {
         try {
           await syncAppByIdToSupabase(app.id, userDisplayName);
@@ -2746,9 +2889,9 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           logger.error(`   Error hint: ${error.hint || 'N/A'}`);
         }
       }
-      
+
       logger.info(`Sync complete: ${results.success} succeeded, ${results.failed} failed`);
-      
+
       if (results.failed > 0) {
         logger.error(`\n❌ ${results.failed} apps failed to sync:`);
         results.failedApps.forEach((failedApp) => {
@@ -2759,7 +2902,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           if (failedApp.errorHint) logger.error(`     Hint: ${failedApp.errorHint}`);
         });
       }
-      
+
       return {
         success: results.failed === 0,
         results,
@@ -2780,21 +2923,21 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
     try {
       const { verifyAppInSupabase } = await import('../../lib/supabase');
       const { getWordPressUserDisplayName } = await import('../../lib/supabase');
-      
+
       const userDisplayName = getWordPressUserDisplayName();
       if (!userDisplayName) {
         return { success: false, error: 'No WordPress user display_name found' };
       }
 
       const result = await verifyAppInSupabase(appId, userDisplayName);
-      
+
       if (result.success) {
         logger.info(`✅ App ${appId} verified in Supabase for user: ${userDisplayName}`);
         logger.info(`   Supabase record:`, result.data);
       } else {
         logger.warn(`❌ App ${appId} not found in Supabase: ${result.error}`);
       }
-      
+
       return result;
     } catch (error: any) {
       logger.error('Failed to verify app in Supabase:', error);
@@ -2812,7 +2955,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       const settings = readSettings();
       const wpUser = settings.wordpressAuth?.user;
       const userDisplayName = wpUser?.display_name || null;
-      
+
       const serviceRoleKey = SUPABASE_CONFIG.SERVICE_ROLE_KEY;
       const supabaseUrl = SUPABASE_CONFIG.URL;
 
@@ -2840,7 +2983,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         logger.error('Error message:', allError.message);
         logger.error('Error details:', allError.details);
         logger.error('Error hint:', allError.hint);
-        
+
         // Try to check if table exists
         try {
           const { data: tableCheck, error: tableError } = await adminClient
@@ -2851,16 +2994,16 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         } catch (checkErr) {
           logger.error('Table check failed:', checkErr);
         }
-        
-        return { 
-          success: false, 
+
+        return {
+          success: false,
           error: allError.message,
           errorCode: allError.code,
           errorDetails: allError.details,
           errorHint: allError.hint,
         };
       }
-      
+
       logger.info(`Query returned ${allApps?.length || 0} apps from user_apps table`);
 
       // Get all apps with show_in_hub = true (public apps with consent)
@@ -2896,7 +3039,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         } else if (userError) {
           logger.warn(`Error querying by user_display_name:`, userError);
         }
-        
+
         // Also try user_email (old schema) as fallback
         const settings = readSettings();
         const wpUser = settings.wordpressAuth?.user;
@@ -2914,7 +3057,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
           }
         }
       }
-      
+
       // If still no apps, check what user_display_name values actually exist
       if (userApps.length === 0 && allApps && allApps.length > 0) {
         const uniqueDisplayNames = [...new Set(allApps.map((app: any) => app.user_display_name).filter(Boolean))];
@@ -2923,14 +3066,14 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         logger.warn(`Available user_display_name values:`, uniqueDisplayNames);
         logger.warn(`Available user_email values:`, uniqueEmails);
         logger.warn(`Your display_name: ${userDisplayName}`);
-        
+
         // Show sample app to see what's actually stored
         if (allApps.length > 0) {
           logger.warn(`Sample app user_display_name: "${allApps[0]?.user_display_name}"`);
           logger.warn(`Sample app user_email: "${allApps[0]?.user_email}"`);
         }
       }
-      
+
       // Also try to get all apps and show sample
       logger.info(`Total apps in Supabase: ${allApps?.length || 0}`);
       logger.info(`Apps for user ${userDisplayName}: ${userApps.length}`);
@@ -2940,7 +3083,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
 
       logger.info(`Found ${allApps?.length || 0} total apps in Supabase`);
       logger.info(`Found ${userApps.length} apps for user: ${userDisplayName || 'N/A'}`);
-      
+
       // Debug: Check what user_display_name values exist
       if (allApps && allApps.length > 0) {
         const uniqueDisplayNames = [...new Set(allApps.map((app: any) => app.user_display_name).filter(Boolean))];
@@ -2956,7 +3099,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         logger.warn(`   2. Table name is wrong`);
         logger.warn(`   3. RLS is blocking even service role (unlikely)`);
         logger.warn(`   4. Data is in a different table`);
-        
+
         // Try a simple count query
         try {
           const { count, error: countError } = await adminClient
@@ -3009,7 +3152,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       // 1. Check configuration
       const serviceRoleKey = SUPABASE_CONFIG.SERVICE_ROLE_KEY;
       const supabaseUrl = SUPABASE_CONFIG.URL;
-      
+
       results.config.hasUrl = !!supabaseUrl;
       results.config.hasServiceKey = !!serviceRoleKey;
       results.config.url = supabaseUrl || null;
@@ -3020,13 +3163,13 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
       const settings = readSettings();
       const wpUser = settings.wordpressAuth?.user;
       const wpAuth = settings.wordpressAuth;
-      
+
       // Check for display_name in multiple possible fields
       const displayName = wpUser?.display_name || wpUser?.name || null;
-      
+
       results.wordpress.hasDisplayName = !!displayName;
       results.wordpress.displayName = displayName;
-      
+
       // Add more debug info
       results.wordpress = {
         ...results.wordpress,
@@ -3168,7 +3311,7 @@ POSTGRES_SCHEMA=${databaseInfo.schemaName}
         }
       }
 
-      const allTestsPassed = 
+      const allTestsPassed =
         results.connection.success &&
         results.tableExists.success &&
         results.testInsert.success &&

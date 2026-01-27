@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "059_garden_plot_59",
+    "description": "more templates - 059_garden_plot_59",
+    "uuid": "7aefd6d4-923f-4bbc-a7b8-7a57aaf85f95",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "15cb5196-7de5-41d6-b347-0950dfa8c258",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

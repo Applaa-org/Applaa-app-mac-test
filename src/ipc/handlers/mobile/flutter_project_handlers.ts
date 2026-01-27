@@ -649,7 +649,7 @@ class _MainScreenState extends State<MainScreen> {
     if (query.isNotEmpty) {
       // Inject JavaScript to search in the WebView
       _controller.runJavaScript('''
-        window.find('\$query', false, false, true);
+        window.find('$query', false, false, true);
       ''');
     }
   }
@@ -711,7 +711,7 @@ async function createAndroidFiles(projectPath: string, packageId: string, displa
 
     dependencies {
         classpath 'com.android.tools.build:gradle:7.3.0'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:\$kotlin_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
@@ -762,7 +762,7 @@ if (flutterVersionName == null) {
 
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-apply from: "\$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     namespace "${packageId}"
@@ -802,7 +802,7 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:\$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }`;
 
   fs.writeFileSync(path.join(projectPath, 'android', 'app', 'build.gradle'), appBuildGradle);
@@ -872,7 +872,7 @@ localPropertiesFile.withReader("UTF-8") { reader -> properties.load(reader) }
 
 def flutterSdkPath = properties.getProperty("flutter.sdk")
 assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
-apply from: "\$flutterSdkPath/packages/flutter_tools/gradle/app_plugin_loader.gradle"`;
+apply from: "$flutterSdkPath/packages/flutter_tools/gradle/app_plugin_loader.gradle"`;
 
   fs.writeFileSync(path.join(projectPath, 'android', 'settings.gradle'), settingsGradle);
 }
@@ -887,13 +887,13 @@ async function createIOSFiles(projectPath: string, packageId: string, displayNam
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>\$(DEVELOPMENT_LANGUAGE)</string>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>${displayName}</string>
 	<key>CFBundleExecutable</key>
-	<string>\$(EXECUTABLE_NAME)</string>
+	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
-	<string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -901,11 +901,11 @@ async function createIOSFiles(projectPath: string, packageId: string, displayNam
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>\$(FLUTTER_BUILD_NAME)</string>
+	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>\$(FLUTTER_BUILD_NUMBER)</string>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

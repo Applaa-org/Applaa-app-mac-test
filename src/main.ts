@@ -23,17 +23,19 @@ import { handleNeonOAuthReturn } from "./neon_admin/neon_return_handler";
 import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
+import { startLocalServer } from "./server/api";
+import { initializeSupabase } from "./lib/supabase";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
   // Initialize electron-log properly to avoid "logger isn't initialized" warnings
   log.initialize();
-  
+
   // Configure transports with EPIPE error handling
   log.transports.file.level = 'info';
   log.transports.console.level = 'info';
   log.transports.ipc.level = false; // Disable IPC transport to prevent EPIPE errors
-  
+
   // Add custom error handling for broken pipe errors
   log.errorHandler.startCatching({
     showDialog: false, // Don't show error dialogs for EPIPE errors
@@ -45,7 +47,7 @@ try {
       return true; // Handle other errors normally
     }
   });
-  
+
 } catch (error) {
   console.warn('Failed to initialize electron-log, using console fallback:', error);
 }
@@ -82,24 +84,26 @@ if (!envLoaded) {
 console.log('🚀 App startup - Environment variables status:');
 console.log('SUPABASE_URL loaded:', !!process.env.SUPABASE_URL);
 console.log('SUPABASE_ANON_KEY loaded:', !!process.env.SUPABASE_ANON_KEY);
-console.log('BACKEND_API_URL loaded:', !!process.env.BACKEND_API_URL);
-console.log('BACKEND_API_URL value:', process.env.BACKEND_API_URL || 'NOT SET (will use default: http://localhost:3000/api)');
 console.log('SUPABASE_SERVICE_ROLE_KEY loaded:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 if (process.env.SUPABASE_URL) {
   console.log('SUPABASE_URL value:', process.env.SUPABASE_URL);
-}
 
-// Load secrets from Supabase Vault (after .env is loaded)
-// This allows Vault to supplement .env variables, but .env takes precedence
-(async () => {
-  try {
-    const { loadVaultSecretsIntoEnv } = await import('./lib/vault');
-    await loadVaultSecretsIntoEnv();
-  } catch (error) {
-    console.log('⚠️ Failed to load secrets from Supabase Vault:', error);
-    // Don't block app startup if Vault fails
+  // Initialize Supabase Client
+  if (process.env.SUPABASE_ANON_KEY) {
+    try {
+      initializeSupabase({
+        url: process.env.SUPABASE_URL,
+        anonKey: process.env.SUPABASE_ANON_KEY,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY
+      });
+      console.log('✅ Supabase initialized in main process');
+    } catch (error) {
+      console.error('❌ Failed to initialize Supabase:', error);
+    }
+  } else {
+    console.warn('⚠️ SUPABASE_ANON_KEY missing, skipping Supabase initialization');
   }
-})();
+}
 
 // Register IPC handlers before app is ready
 registerIpcHandlers();
@@ -120,7 +124,11 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient("applaa");
 }
 
+
 export async function onReady() {
+  // 🚀 API: Start Local API Server for Buddy Extension
+  startLocalServer();
+
   // ✅ Enable Web Speech API features in Electron with comprehensive flags
   app.commandLine.appendSwitch('enable-features', 'WebSpeechAPI,SpeechRecognition,SpeechSynthesis');
   app.commandLine.appendSwitch('enable-speech-input');
@@ -130,7 +138,7 @@ export async function onReady() {
   app.commandLine.appendSwitch('use-fake-ui-for-media-stream'); // Auto-grant media permissions
   // ✅ Disable web security only for media permissions (keep other security)
   app.commandLine.appendSwitch('disable-features', 'VizDisplayCompositor');
-  
+
   try {
     const backupManager = new BackupManager({
       settingsFile: getSettingsFilePath(),
@@ -140,7 +148,7 @@ export async function onReady() {
   } catch (e) {
     logger.error("Error initializing backup manager", e);
   }
-  
+
   try {
     initializeDatabase();
     logger.info("✅ Database initialized successfully");
@@ -156,24 +164,30 @@ export async function onReady() {
     const workspaceRoot = path.join(userDataPath, "applaa-workspace");
     await workspaceDependencyManager.initialize(workspaceRoot);
     logger.info("🚀 Workspace dependency manager initialized successfully");
-    
+
     // 🔧 INTEGRATION: Validate container strategy integration
     try {
       const { validateCoreFunctionality } = await import("./ipc/utils/container_strategy_integration_test");
       const validationResults = await validateCoreFunctionality();
       logger.info("🧪 Container strategy integration validation:", validationResults);
-      
+
       if (!validationResults.containerStrategy) {
         logger.warn("⚠️ Container strategy integration validation failed - performance optimizations may not work optimally");
       }
     } catch (validationError) {
       logger.warn("⚠️ Container strategy integration validation failed (non-critical):", validationError);
     }
-    
+
   } catch (error) {
     logger.error("❌ Failed to initialize workspace dependency manager:", error);
   }
-  
+
+
+
+  // 🌐 BROWSER: Buddy Browser will launch on-demand when user requests browsing tasks
+  // No longer auto-launching at startup to improve performance
+  logger.info('✅ Buddy Browser configured for on-demand launch');
+
   // 🔄 Auto-migrate settings encryption for seamless updates
   try {
     if (isMigrationNeeded()) {
@@ -186,7 +200,7 @@ export async function onReady() {
   } catch (error) {
     logger.error("❌ Settings migration failed, but continuing with app startup:", error);
   }
-  
+
   const settings = readSettings();
   await onFirstRunMaybe(settings);
   createWindow();
@@ -198,7 +212,9 @@ export async function onReady() {
         sentryDsn: process.env.SENTRY_DSN,
         environment: (process.env.NODE_ENV as 'development' | 'production') || 'development',
         userId: settings.userId,
-        consent: settings.analyticsConsent || DEFAULT_CONSENT,
+        consent: (settings.analyticsConsent && typeof settings.analyticsConsent === 'object')
+          ? settings.analyticsConsent
+          : DEFAULT_CONSENT,
       });
       logger.info("✅ Sentry initialized in main process");
     } catch (error) {
@@ -300,10 +316,10 @@ const createWindow = () => {
     // backgroundColor: "#00000001",
     // frame: false,
   });
-  
+
   // Make mainWindow available globally for IPC handlers
   global.mainWindow = mainWindow;
-  
+
   // ✅ Handle media permissions for Web Speech API
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     // Allow media permissions for speech recognition
@@ -312,7 +328,7 @@ const createWindow = () => {
       callback(true);
       return;
     }
-    
+
     // Deny other permissions by default for security
     console.log(`🚫 Permission denied: ${permission}`);
     callback(false);
@@ -325,7 +341,7 @@ const createWindow = () => {
       console.log('🎵 Media permission check - allowing for voice input');
       return true;
     }
-    
+
     // Deny other permissions by default
     return false;
   });
@@ -334,26 +350,26 @@ const createWindow = () => {
   // Only apply in production to avoid blob URL issues in development
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
-    
+
     // Add COOP/COEP headers only in production
     if (process.env.NODE_ENV === 'production') {
       responseHeaders['Cross-Origin-Opener-Policy'] = ['same-origin'];
       responseHeaders['Cross-Origin-Embedder-Policy'] = ['require-corp'];
     }
-    
+
     callback({ responseHeaders });
   });
-  
+
   if (process.env.NODE_ENV !== 'production') {
     console.log('🔧 COOP/COEP headers disabled in development to allow blob URLs for WASM');
   }
-  
+
   // Bind terminal window for terminal handlers
   bindTerminalWindow(mainWindow);
-  
+
   // ✅ Set spell checker language to English US
   mainWindow.webContents.session.setSpellCheckerLanguages(['en-US']);
-  
+
   // ✅ Register global keyboard shortcut for voice input (Ctrl+Shift+V)
   const { globalShortcut } = require('electron');
   globalShortcut.register('CommandOrControl+Shift+V', () => {
@@ -362,7 +378,7 @@ const createWindow = () => {
       mainWindow.webContents.send('trigger-voice-input');
     }
   });
-  
+
   // ✅ Handle spell check context menu (per Electron docs)
   mainWindow.webContents.on('context-menu', (event, params) => {
     const { Menu, MenuItem } = require('electron');
@@ -418,7 +434,7 @@ const createWindow = () => {
       menu.popup();
     }
   });
-  
+
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -435,6 +451,8 @@ const createWindow = () => {
   //   // Open the DevTools.
   //   mainWindow.webContents.openDevTools();
   // }
+
+
 };
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -448,7 +466,7 @@ if (!gotTheLock) {
   // We got the lock, so this is the main instance
   logger.info("Got single instance lock, this is the main instance");
   app.whenReady().then(onReady);
-  
+
   // Handle the protocol when the app is already running
   app.on("open-url", (event, url) => {
     event.preventDefault(); // Prevent opening a new window
@@ -459,14 +477,14 @@ if (!gotTheLock) {
   // Handle when someone tries to run a second instance
   app.on("second-instance", (event, commandLine, workingDirectory) => {
     logger.info("Second instance attempted, focusing existing window");
-    
+
     // Focus the existing window
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
       mainWindow.show();
     }
-    
+
     // Check if there's a deep link in the command line
     const deepLink = commandLine.find(arg => arg.startsWith('applaa://'));
     if (deepLink) {
@@ -552,13 +570,29 @@ function handleDeepLinkReturn(url: string) {
     });
     return;
   }
-  
-  // Handle Google OAuth callback: applaa://auth-callback?code=... or applaa://auth-callback#access_token=...
+
+  // Handle Google OAuth callback: applaa://auth-callback#access_token=...&refresh_token=...
   if (parsed.hostname === "auth-callback") {
     logger.info("Handling Google OAuth callback");
     logger.info("Main window exists:", !!mainWindow);
     logger.info("App is in development mode:", process.env.NODE_ENV === "development");
-    
+
+    // Extract tokens from URL fragment (after #)
+    const fragment = parsed.hash.substring(1); // Remove the #
+    const params = new URLSearchParams(fragment);
+
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const expiresIn = params.get('expires_in');
+
+    if (!accessToken || !refreshToken) {
+      dialog.showErrorBox(
+        "OAuth Error",
+        "Missing access token or refresh token in callback URL"
+      );
+      return;
+    }
+
     // Focus the existing window instead of opening a new one
     if (mainWindow) {
       if (mainWindow.isMinimized()) {
@@ -567,59 +601,38 @@ function handleDeepLinkReturn(url: string) {
       mainWindow.focus();
       mainWindow.show();
     }
-    
-    // Check for OAuth code (standard Supabase flow)
-    const code = parsed.searchParams.get('code');
-    if (code) {
-      logger.info("OAuth code received, exchanging for session");
-      // Send the code to the renderer process to exchange for session
-      mainWindow?.webContents.send("oauth-callback", {
-        code,
-      });
-      logger.info("OAuth callback processed successfully (code flow)");
-      return;
-    }
-    
-    // Fallback: Extract tokens from URL fragment (after #) - legacy flow
-    const fragment = parsed.hash.substring(1); // Remove the #
-    if (fragment) {
-      const params = new URLSearchParams(fragment);
-      
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-      const expiresIn = params.get('expires_in');
-      
-      if (accessToken && refreshToken) {
-        // Send the tokens to the renderer process to complete the OAuth flow
-        mainWindow?.webContents.send("oauth-callback", {
-          accessToken,
-          refreshToken,
-          expiresIn: expiresIn ? parseInt(expiresIn) : 3600,
-        });
-        logger.info("OAuth callback processed successfully (token flow)");
-        return;
-      }
-    }
-    
-    // If neither code nor tokens found, show error
-    dialog.showErrorBox(
-      "OAuth Error",
-      "Missing OAuth code or tokens in callback URL"
-    );
+
+    // Send the tokens to the renderer process to complete the OAuth flow
+    mainWindow?.webContents.send("oauth-callback", {
+      accessToken,
+      refreshToken,
+      expiresIn: expiresIn ? parseInt(expiresIn) : 3600,
+    });
+
+    logger.info("OAuth callback processed successfully");
     return;
   }
-  
+
   dialog.showErrorBox("Invalid deep link URL", url);
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
-app.on("window-all-closed", () => {
+app.on("window-all-closed", async () => {
   // ✅ Cleanup global shortcuts
   const { globalShortcut } = require('electron');
   globalShortcut.unregisterAll();
-  
+
+  // 🌐 BROWSER: Close Buddy Browser
+  try {
+    const { getBuddyBrowser } = await import('./services/buddy-browser');
+    await getBuddyBrowser().close();
+    logger.info('✅ Buddy Browser closed');
+  } catch (error) {
+    logger.error('Error closing Buddy Browser:', error);
+  }
+
   if (process.platform !== "darwin") {
     app.quit();
   }
@@ -635,3 +648,4 @@ app.on("activate", () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+

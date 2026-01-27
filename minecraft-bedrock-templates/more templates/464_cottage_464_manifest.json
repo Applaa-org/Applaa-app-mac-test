@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "464_cottage_464",
+    "description": "more templates - 464_cottage_464",
+    "uuid": "cedca62f-aa9a-483c-af29-2b67b2dddb4e",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "56f54d4d-355a-49c0-a46b-b08c20d532cd",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

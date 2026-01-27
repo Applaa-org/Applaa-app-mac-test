@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "wheat_field",
+    "description": "farming - wheat_field",
+    "uuid": "7d47329a-3df5-4408-a5e1-b8e012cd5b82",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "4dadacf1-d73b-4fa4-9592-ac6eca7a2e11",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

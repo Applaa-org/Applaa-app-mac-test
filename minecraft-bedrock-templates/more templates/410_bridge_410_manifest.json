@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "410_bridge_410",
+    "description": "more templates - 410_bridge_410",
+    "uuid": "58f94ed2-7e6b-4688-94a7-34839336f0b1",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "ba4e2148-7f73-4457-97a7-03c62730fc17",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

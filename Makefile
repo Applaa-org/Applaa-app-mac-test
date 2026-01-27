@@ -1,4 +1,4 @@
-.PHONY: help make sign check-env
+.PHONY: help make build-unsigned do-build sign check-env
 
 # Default target
 .DEFAULT_GOAL := make
@@ -40,16 +40,31 @@ check-env:
 # Verify code signing identity is available
 check-signing-identity:
 	@echo "🔐 Checking code signing identity..."
-	@if ! security find-identity -v -p codesigning | grep -q "Developer ID Application: Applaa Ltd (P7VCYRVVPQ)"; then \
+	@identities=$$(security find-identity -v -p codesigning 2>&1); \
+	if ! echo "$$identities" | grep -q "Developer ID Application: Applaa Ltd (P7VCYRVVPQ)"; then \
 		echo "❌ Error: Code signing identity not found"; \
 		echo "   Expected: Developer ID Application: Applaa Ltd (P7VCYRVVPQ)"; \
-		echo "   Please install the certificate in Keychain Access"; \
+		echo ""; \
+		echo "   Identities currently valid for code signing:"; \
+		echo "$$identities" | sed 's/^/   /'; \
+		echo ""; \
+		echo "   Note: 'Apple Development' is not the same as 'Developer ID Application'."; \
+		echo "   Developer ID is for distribution outside the Mac App Store."; \
+		echo "   Run 'make build-unsigned' to skip this check (build may fail at signing)."; \
 		exit 1; \
 	fi
 	@echo "✅ Code signing identity found"
 
 # Main make target - builds, signs, and notarizes
 make: check-env check-signing-identity
+	@$(MAKE) do-build
+
+# Build without signing identity check (use if you hit check-signing-identity errors)
+build-unsigned: check-env
+	@echo "⚠️  Skipping code signing identity check..."
+	@$(MAKE) do-build
+
+do-build:
 	@echo "🚀 Starting build with signing and notarization..."
 	@echo "📦 This may take several minutes..."
 	@bash -c '\
@@ -69,9 +84,10 @@ help:
 	@echo "Applaa Build Makefile"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make          - Build, sign, and notarize the app"
-	@echo "  make check-env - Check if required environment variables are set"
-	@echo "  make help     - Show this help message"
+	@echo "  make              - Build, sign, and notarize the app"
+	@echo "  make build-unsigned - Build without signing identity check"
+	@echo "  make check-env    - Check if required environment variables are set"
+	@echo "  make help         - Show this help message"
 	@echo ""
 	@echo "Required Environment Variables:"
 	@echo "  APPLE_ID                    - Your Apple ID email"

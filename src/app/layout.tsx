@@ -1,4 +1,5 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { useLocation } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { DeepLinkProvider } from "../contexts/DeepLinkContext";
@@ -20,57 +21,77 @@ import { useRandomGame } from "@/hooks/useRandomGame";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
 import type { GameOption } from "@/hooks/useRandomGame";
 import { useSettings } from "@/hooks/useSettings";
- 
+
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { refreshAppIframe } = useRunApp();
-  
+  const location = useLocation();
+  const isFullscreenMode = location.pathname.startsWith('/blockly') || location.pathname.startsWith('/arcade') || location.pathname.startsWith('/browser-agent') || location.pathname.startsWith('/chat');
+
+  // SAFETY NET: Ensure Browser Agent view is hidden when navigation away
+  useEffect(() => {
+    if (location.pathname !== '/browser-agent') {
+      window.electron.ipcRenderer.invoke('chromium:hide-view').catch(() => {
+        // Ignore errors if ipc isn't ready or fails
+      });
+    }
+  }, [location.pathname]);
+
+  const { refreshAppIframe, app } = useRunApp();
+
   // 🚀 OPTIMIZATION: Background dependency installation for opened apps
   useBackgroundDependencyInstaller();
   const previewMode = useAtomValue(previewModeAtom);
   const { settings } = useSettings();
-  
+
   // Game popup state - moved to main layout to be independent of preview refreshes
   const [isGamePopupOpen, setIsGamePopupOpen] = useAtom(isGamePopupOpenAtom);
   const isStreaming = useAtomValue(isStreamingAtom);
   const { currentGame } = useRandomGame();
   const [selectedGame, setSelectedGame] = useState<GameOption>(() => currentGame);
-  
+
   // YouTube setup popup removed per request
-  
+
   // Track if popup was opened for current streaming session to prevent multiple opens
   const popupOpenedForCurrentStream = useRef(false);
-  
+
   // Update selectedGame only when currentGame actually changes
   useEffect(() => {
     setSelectedGame(currentGame);
   }, [currentGame]);
-  
+
   // Show game popup immediately when streaming starts (only once per session)
-  // Only show if the setting is enabled
   useEffect(() => {
-    const shouldShowGameWindow = settings?.enableGameWindowDuringStream !== false; // default to true if not set
+    // Hide game popup for Minecraft apps as requested by user
+    const isMinecraftApp = app?.appType === 'minecraft' || (app?.appType as string) === 'minecraft-mod';
     
-    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current && shouldShowGameWindow) {
+    // Check if game window is enabled in settings (defaults to true if not set)
+    const isGameWindowEnabled = settings?.enableGameWindowDuringStream !== false;
+
+    if (isStreaming && !isGamePopupOpen && !popupOpenedForCurrentStream.current && !isMinecraftApp && isGameWindowEnabled) {
       setIsGamePopupOpen(true);
       popupOpenedForCurrentStream.current = true;
     }
-    
+
+    // Close game window if setting is disabled while streaming
+    if (isStreaming && isGamePopupOpen && !isGameWindowEnabled) {
+      setIsGamePopupOpen(false);
+    }
+
     // Reset the flag when streaming stops
     if (!isStreaming) {
       popupOpenedForCurrentStream.current = false;
     }
-  }, [isStreaming, isGamePopupOpen, setIsGamePopupOpen, settings?.enableGameWindowDuringStream]);
-  
+  }, [isStreaming, isGamePopupOpen, setIsGamePopupOpen, settings?.enableGameWindowDuringStream, app?.appType]);
+
   // 🚀 PERFORMANCE: Delay non-essential features to improve startup time
   // Semantic context removed for MVP
-  
+
   // Semantic context initialization removed for MVP
-  
+
   // Global keyboard listener for refresh events
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -118,13 +139,16 @@ export default function RootLayout({
               <ErrorBoundary>
                 <BackgroundTaskCompletionHandler />
               </ErrorBoundary>
-              <div className="flex h-screenish w-full overflow-x-hidden mt-12 mb-4 mr-4 border-t border-l border-border rounded-lg bg-background">
+              <div className={isFullscreenMode
+                ? "flex h-screenish w-full overflow-hidden bg-background mt-12"
+                : "flex h-screenish w-full overflow-x-hidden mt-12 mb-4 mr-4 border-t border-l border-border rounded-lg bg-background"
+              }>
                 <ErrorBoundary>
                   {children}
                 </ErrorBoundary>
               </div>
               <Toaster richColors />
-              
+
               {/* Game Popup Window - Independent of preview refreshes */}
               <GamePopupWindow
                 isOpen={isGamePopupOpen}
@@ -132,7 +156,7 @@ export default function RootLayout({
                 game={selectedGame}
                 onGameChange={setSelectedGame}
               />
-              
+
               {/* YouTube Setup Popup removed */}
             </TooltipProvider>
           </SidebarProvider>

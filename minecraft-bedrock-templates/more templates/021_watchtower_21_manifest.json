@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "021_watchtower_21",
+    "description": "more templates - 021_watchtower_21",
+    "uuid": "11038266-a06c-4725-a2ab-49dedfb4994a",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "6c63c53d-9f8f-4ed4-8c15-85b01c756734",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}
