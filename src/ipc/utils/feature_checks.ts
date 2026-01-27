@@ -246,6 +246,30 @@ export function canDeployApp(): { allowed: boolean; reason?: string } {
 }
 
 /**
+ * Check if user can deploy apps (async version - always fetches latest tier)
+ * Free tier: no deployments
+ * Pro tier: allowed
+ */
+export async function canDeployAppAsync(): Promise<{ allowed: boolean; reason?: string }> {
+  console.log('🔍 [canDeployAppAsync] Checking if user can deploy...');
+  
+  // Use async version to get latest tier (bypasses cache)
+  const isPro = await isProUserAsync();
+  console.log('🔍 [canDeployAppAsync] isProUserAsync() result:', isPro);
+  
+  if (isPro) {
+    console.log('✅ [canDeployAppAsync] User is Pro, deployment allowed');
+    return { allowed: true };
+  }
+
+  console.log('❌ [canDeployAppAsync] User is free tier, deployment not allowed');
+  return {
+    allowed: false,
+    reason: "FREE_TIER_NO_DEPLOYMENT",
+  };
+}
+
+/**
  * Check if user can use premium AI models
  * Free tier: no premium models
  * Pro tier: allowed

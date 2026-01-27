@@ -253,8 +253,8 @@ export function registerEASHandlers() {
   ipcMain.handle("eas:deploy", async (event, { appId }: { appId: number }) => {
     try {
       // Check if user can deploy (Pro tier only)
-      const { canDeployApp } = await import("../utils/feature_checks");
-      const deployCheck = canDeployApp();
+      const { canDeployAppAsync } = await import("../utils/feature_checks");
+      const deployCheck = await canDeployAppAsync();
       if (!deployCheck.allowed) {
         throw new Error(deployCheck.reason || "DEPLOYMENT_NOT_ALLOWED");
       }
