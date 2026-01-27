@@ -248,8 +248,8 @@ async function handleCreateProject(
   { name, appId }: CreateVercelProjectParams,
 ): Promise<void> {
   // Check if user can deploy (Pro tier only)
-  const { canDeployApp } = await import("../utils/feature_checks");
-  const deployCheck = canDeployApp();
+  const { canDeployAppAsync } = await import("../utils/feature_checks");
+  const deployCheck = await canDeployAppAsync();
   if (!deployCheck.allowed) {
     throw new Error(deployCheck.reason || "DEPLOYMENT_NOT_ALLOWED");
   }
@@ -499,8 +499,8 @@ async function handleDeployToVercel(
 ): Promise<{ success: boolean; url?: string; deploymentId?: string; error?: string }> {
   try {
     // Check if user can deploy (Pro tier only)
-    const { canDeployApp } = await import("../utils/feature_checks");
-    const deployCheck = canDeployApp();
+    const { canDeployAppAsync } = await import("../utils/feature_checks");
+    const deployCheck = await canDeployAppAsync();
     if (!deployCheck.allowed) {
       throw new Error(deployCheck.reason || "DEPLOYMENT_NOT_ALLOWED");
     }
