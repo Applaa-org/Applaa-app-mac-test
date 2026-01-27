@@ -5,6 +5,13 @@ export interface SampleProject {
     category: 'Tutorials' | 'Games' | 'Art' | 'Math' | 'Logic' | 'Music' | 'Science';
     difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
     workspace: any; // Blockly JSON serialization
+    guide?: {
+        overview: string;
+        steps: {
+            title: string;
+            explanation: string;
+        }[];
+    };
 }
 
 // Helper to create simple workspaces
@@ -16,7 +23,7 @@ const createWorkspace = (blocks: any[]) => ({
 });
 
 export const SAMPLE_PROJECTS: SampleProject[] = [
-    // --- 📚 TUTORIALS (Quick Start) ---
+    // --- 📚 TUTORIALS ---
     {
         id: 'tutorial_level_1',
         title: 'Level 1: The First Step',
@@ -25,21 +32,23 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
         difficulty: 'Beginner',
         workspace: createWorkspace([
             {
-                "type": "game_start",
-                "x": 50, "y": 50,
+                "type": "game_start", "x": 50, "y": 50,
                 "next": {
                     "block": {
                         "type": "applaa_log",
                         "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "💡 Instruction: Snap a 'Move Forward' block below me!" } } } },
-                        "next": {
-                            "block": {
-                                "type": "maze_move_forward"
-                            }
-                        }
+                        "next": { "block": { "type": "maze_move_forward" } }
                     }
                 }
             }
-        ])
+        ]),
+        guide: {
+            overview: "Welcome to coding! Your first mission is simple: Move the robot.",
+            steps: [
+                { title: "Start Block 🏁", explanation: "The 'Game Start' block runs when you click Play." },
+                { title: "Move Block ⬆️", explanation: "The 'Move Forward' block makes the robot take one step." }
+            ]
+        }
     },
     {
         id: 'tutorial_level_2',
@@ -49,20 +58,117 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
         difficulty: 'Beginner',
         workspace: createWorkspace([
             {
-                "type": "game_start",
-                "x": 50, "y": 50,
+                "type": "game_start", "x": 50, "y": 50,
                 "next": {
                     "block": {
-                        "type": "applaa_log",
-                        "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "💡 Instruction: Put the Move block INSIDE the Loop!" } } } },
+                        "type": "controls_repeat_ext",
+                        "inputs": {
+                            "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 4 } } },
+                            "DO": { "block": { "type": "maze_move_forward" } }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Tired of dragging blocks? Use a Loop to repeat actions!",
+            steps: [
+                { title: "Repeat Block 🔄", explanation: "This block repeats whatever is inside it 4 times." },
+                { title: "Efficiency ⚡", explanation: "Loops save time and make your code shorter." }
+            ]
+        }
+    },
+
+    // --- 🕹️ ARCADE GAMES ---
+    {
+        id: 'arcade_snake_starter',
+        title: '🐍 Snake: Starter',
+        description: 'Create a snake that follows your commands.',
+        category: 'Games',
+        difficulty: 'Intermediate',
+        workspace: createWorkspace([
+            {
+                "type": "game_start", "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "k9_create_sprite", "fields": { "NAME": "Snake", "IMG": "HERO" }
+                    }
+                }
+            },
+            {
+                "type": "k9_on_key_press", "x": 50, "y": 200, "fields": { "KEY": "UP" },
+                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -5 } } } } } } }
+            }
+        ]),
+        guide: {
+            overview: "Build the classic Snake game! Start by making the hero move.",
+            steps: [
+                { title: "Create Snake 🐍", explanation: "Use 'Create Sprite' to make your hero." },
+                { title: "Controls 🎮", explanation: "Use 'When Key Pressed' to change direction." }
+            ]
+        }
+    },
+    {
+        id: 'arcade_pong',
+        title: '🏓 Pong: 2 Player',
+        description: 'A bouncing ball game for two players.',
+        category: 'Games',
+        difficulty: 'Advanced',
+        workspace: createWorkspace([
+            {
+                "type": "game_start", "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "k9_create_sprite", "fields": { "NAME": "Paddle1", "IMG": "PLATFORM" },
                         "next": {
                             "block": {
-                                "type": "controls_repeat_ext",
-                                "inputs": {
-                                    "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 4 } } },
-                                    "DO": {
+                                "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" },
+                                "next": {
+                                    "block": {
+                                        "type": "k9_set_bounciness", "inputs": { "BOUNCE": { "shadow": { "type": "math_number", "fields": { "NUM": 100 } } } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Create a bouncing ball physics game!",
+            steps: [
+                { title: "Paddles 🧱", explanation: "Create sprites for paddles." },
+                { title: "Physics ⚛️", explanation: "Set 'Bounciness' to 100% so the ball never stops!" }
+            ]
+        }
+    },
+
+    // --- 🎨 GENERATIVE ART ---
+    {
+        id: 'art_spiral_color',
+        title: '🌈 Rainbow Spiral',
+        description: 'Draw a colorful spiral that changes size.',
+        category: 'Art',
+        difficulty: 'Intermediate',
+        workspace: createWorkspace([
+            {
+                "type": "game_start", "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "controls_repeat_ext",
+                        "inputs": {
+                            "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 50 } } },
+                            "DO": {
+                                "block": {
+                                    "type": "turtle_move",
+                                    "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } } },
+                                    "next": {
                                         "block": {
-                                            "type": "maze_move_forward"
+                                            "type": "turtle_turn",
+                                            "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 15 } } } },
+                                            "next": {
+                                                "block": { "type": "k7_add_sparkle" }
+                                            }
                                         }
                                     }
                                 }
@@ -71,151 +177,197 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                     }
                 }
             }
-        ])
+        ]),
+        guide: {
+            overview: "Create trippy art with math!",
+            steps: [
+                { title: "Loop It 🔄", explanation: "Repeat 50 times to make a long path." },
+                { title: "Turn Slightly 📐", explanation: "Turning 15 degrees creates a smooth curve." }
+            ]
+        }
     },
     {
-        id: 'tutorial_level_3',
-        title: 'Level 3: Smart Choices',
-        description: 'Use Logic to check a condition.',
-        category: 'Tutorials',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "game_start",
-                "x": 50, "y": 50,
-                "next": {
-                    "block": {
-                        "type": "controls_if",
-                        "inputs": {
-                            "IF0": {
-                                "block": {
-                                    "type": "logic_boolean",
-                                    "fields": { "BOOL": "TRUE" }
-                                }
-                            },
-                            "DO0": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "It is True! I will run!" } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- 🎮 GAMES ---
-    {
-        id: 'demo_speaking_calc',
-        title: '🔊 Speaking Calculator',
-        description: 'The computer speaks the answer to 5 + 10!',
-        category: 'Math',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "applaa_speak",
-                "x": 50, "y": 50,
-                "inputs": {
-                    "MESSAGE": {
-                        "block": {
-                            "type": "math_arithmetic",
-                            "fields": { "OP": "ADD" },
-                            "inputs": {
-                                "A": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
-                                "B": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'game_maze_1',
-        title: 'Maze Runner: Level 1',
-        description: 'Navigate the character through a simple path.',
-        category: 'Games',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "game_start",
-                "x": 50, "y": 50,
-                "next": {
-                    "block": {
-                        "type": "maze_move_forward",
-                        "next": {
-                            "block": { "type": "maze_move_forward" }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'game_maze_2',
-        title: 'Maze Runner: The Turn',
-        description: 'Learn to turn corners to solve the maze.',
-        category: 'Games',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "game_start",
-                "x": 50, "y": 50,
-                "next": {
-                    "block": {
-                        "type": "maze_move_forward",
-                        "next": {
-                            "block": {
-                                "type": "maze_turn",
-                                "fields": { "DIR": "LEFT" },
-                                "next": { "block": { "type": "maze_move_forward" } }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'game_clicker',
-        title: 'Simple Clicker Game',
-        description: 'Count how many times you click! (Simulation logic)',
-        category: 'Games',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "score_var", "name": "score", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } },
-                "next": {
-                    "block": {
-                        "type": "game_start",
-                        "next": {
-                            "block": {
-                                "type": "applaa_log",
-                                "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Game Started! Score: 0" } } } }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- 🎨 ART ---
-    {
-        id: 'art_square',
-        title: 'Turtle Square',
-        description: 'Draw a perfect square using the Turtle.',
+        id: 'art_random_walk',
+        title: '🎲 Random Walk',
+        description: 'Let the turtle wander randomly.',
         category: 'Art',
         difficulty: 'Beginner',
         workspace: createWorkspace([
             {
-                "type": "game_start",
-                "x": 50, "y": 50,
+                "type": "game_start", "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "controls_repeat_ext",
+                        "inputs": {
+                            "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 100 } } },
+                            "DO": {
+                                "block": {
+                                    "type": "turtle_turn",
+                                    "inputs": { "VALUE": { "block": { "type": "math_random_int", "inputs": { "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }, "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 360 } } } } } } },
+                                    "next": {
+                                        "block": { "type": "turtle_move", "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 20 } } } } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Art created by chance!",
+            steps: [
+                { title: "Random Turn 🎲", explanation: "Pick a random angle between 0 and 360." },
+                { title: "Chaos Pattern 🕸️", explanation: "The turtle draws a chaotic, unique path every time." }
+            ]
+        }
+    },
+
+    // --- 🧮 MATH MAGIC ---
+    {
+        id: 'math_prime_check',
+        title: '🔍 Prime Checker',
+        description: 'Check if a number is Prime.',
+        category: 'Math',
+        difficulty: 'Advanced',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "num", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 13 } } } },
+                "next": {
+                    "block": {
+                        "type": "applaa_log",
+                        "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Checking..." } } } }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Is 13 a prime number? Let's write code to find out.",
+            steps: [
+                { title: "Input 🔢", explanation: "Set a variable 'num' to test." },
+                { title: "Logic 🧠", explanation: "Loop from 2 to num-1 to see if it divides evenly." }
+            ]
+        }
+    },
+    {
+        id: 'math_factorial',
+        title: '❗️ Factorial',
+        description: 'Calculate 5! (5*4*3*2*1)',
+        category: 'Math',
+        difficulty: 'Intermediate',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "result", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } } },
+                "next": {
+                    "block": {
+                        "type": "controls_for",
+                        "fields": { "VAR": { "name": "i", "type": "" } },
+                        "inputs": {
+                            "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                            "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
+                            "DO": {
+                                "block": {
+                                    "type": "math_change",
+                                    "fields": { "VAR": { "name": "result", "type": "" } },
+                                    "inputs": { "DELTA": { "block": { "type": "math_arithmetic", "fields": { "OP": "MULTIPLY" }, "inputs": { "B": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "i", "type": "" } } } } } } } }
+                                }
+                            }
+                        },
+                        "next": {
+                            "block": {
+                                "type": "applaa_log",
+                                "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "result", "type": "" } } } } }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Big numbers! Calculate factorials using a loop.",
+            steps: [
+                { title: "Start at 1 1️⃣", explanation: "Initialize result to 1." },
+                { title: "Multiply Loop ✖️", explanation: "Multiply result by each number from 1 to 5." }
+            ]
+        }
+    },
+
+    // --- 🧪 SCIENCE LAB ---
+    {
+        id: 'sci_orbit',
+        title: '🪐 Orbit Sim',
+        description: 'Simulate a planet orbiting a star.',
+        category: 'Science',
+        difficulty: 'Advanced',
+        workspace: createWorkspace([
+            {
+                "type": "game_start", "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "k9_create_sprite", "fields": { "NAME": "Sun", "IMG": "BALL" },
+                        "next": {
+                            "block": {
+                                "type": "k9_create_sprite", "fields": { "NAME": "Earth", "IMG": "HERO" },
+                                "next": {
+                                    "block": {
+                                        "type": "k9_add_gravity", "fields": { "NAME": "Earth", "STR": 1 }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Physics in action! Make a gravity simulation.",
+            steps: [
+                { title: "Gravity 🍎", explanation: "Apply gravity pulling the Earth towards the Sun." },
+                { title: "Velocity 🚀", explanation: "Give Earth sideways speed to start orbiting." }
+            ]
+        }
+    },
+    {
+        id: 'sci_color_mixer',
+        title: '🎨 Color Mixer',
+        description: 'Mix Red, Green, and Blue light.',
+        category: 'Science',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "k5_change_background", "fields": { "COLOR": "#FF0000" }, "x": 50, "y": 50,
+                "next": {
+                    "block": {
+                        "type": "k5_wait_seconds", "fields": { "SECONDS": 1 },
+                        "next": {
+                            "block": { "type": "k5_change_background", "fields": { "COLOR": "#00FF00" } }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "See how computers make colors!",
+            steps: [
+                { title: "RGB 🔴🟢🔵", explanation: "Computers mix Red, Green, and Blue to make all colors." }
+            ]
+        }
+    },
+
+    // --- 🎹 MUSIC STUDIO ---
+    {
+        id: 'music_drum_machine',
+        title: '🥁 Drum Machine',
+        description: 'Create a beat loop.',
+        category: 'Music',
+        difficulty: 'Intermediate',
+        workspace: createWorkspace([
+            {
+                "type": "game_start", "x": 50, "y": 50,
                 "next": {
                     "block": {
                         "type": "controls_repeat_ext",
@@ -223,81 +375,12 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                             "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 4 } } },
                             "DO": {
                                 "block": {
-                                    "type": "turtle_move",
-                                    "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 100 } } } },
+                                    "type": "k7_play_drum", "fields": { "DRUM": "KICK" },
                                     "next": {
                                         "block": {
-                                            "type": "turtle_turn",
-                                            "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 90 } } } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'art_circle',
-        title: 'Turtle Circle',
-        description: 'Draw a circle by moving and turning slightly many times.',
-        category: 'Art',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "controls_repeat_ext",
-                "x": 50, "y": 50,
-                "inputs": {
-                    "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 36 } } },
-                    "DO": {
-                        "block": {
-                            "type": "turtle_move",
-                            "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } } },
-                            "next": {
-                                "block": {
-                                    "type": "turtle_turn",
-                                    "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'art_spiral',
-        title: 'Hypnotic Spiral',
-        description: 'A spiral pattern that grows with every step.',
-        category: 'Art',
-        difficulty: 'Advanced',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "len_var", "name": "length", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } } },
-                "next": {
-                    "block": {
-                        "type": "controls_repeat_ext",
-                        "inputs": {
-                            "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 20 } } },
-                            "DO": {
-                                "block": {
-                                    "type": "turtle_move",
-                                    "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "len_var", "name": "length", "type": "" } } } } },
-                                    "next": {
-                                        "block": {
-                                            "type": "turtle_turn",
-                                            "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 90 } } } },
+                                            "type": "k5_wait_seconds", "fields": { "SECONDS": 0.5 },
                                             "next": {
-                                                "block": {
-                                                    "type": "math_change",
-                                                    "fields": { "VAR": { "id": "len_var", "name": "length", "type": "" } },
-                                                    "inputs": { "DELTA": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } } }
-                                                }
+                                                "block": { "type": "k7_play_drum", "fields": { "DRUM": "SNARE" } }
                                             }
                                         }
                                     }
@@ -307,335 +390,33 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                     }
                 }
             }
-        ])
+        ]),
+        guide: {
+            overview: "Boots and Cats! Make a drum beat.",
+            steps: [
+                { title: "Kick & Snare 🥁", explanation: "Alternate between Kick and Snare drums." },
+                { title: "Timing ⏱️", explanation: "Use 'Wait' blocks to set the tempo." }
+            ]
+        }
     },
-
-    // --- 🔢 MATH ---
     {
-        id: 'math_calculator',
-        title: 'Simple Calculator',
-        description: 'Perform basic addition and logging.',
-        category: 'Math',
+        id: 'music_melody',
+        title: '🎵 Melody Maker',
+        description: 'Compose a simple song.',
+        category: 'Music',
         difficulty: 'Beginner',
         workspace: createWorkspace([
             {
-                "type": "applaa_log",
-                "x": 50, "y": 50,
-                "inputs": {
-                    "MESSAGE": {
-                        "block": {
-                            "type": "math_arithmetic",
-                            "fields": { "OP": "ADD" },
-                            "inputs": {
-                                "A": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
-                                "B": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'math_evens',
-        title: 'Even Number Generator',
-        description: 'Print all even numbers from 0 to 20.',
-        category: 'Math',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "controls_for",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "i_var", "name": "i", "type": "" } },
-                "inputs": {
-                    "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } },
-                    "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 20 } } },
-                    "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 2 } } },
-                    "DO": {
-                        "block": {
-                            "type": "applaa_log",
-                            "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "i_var", "name": "i", "type": "" } } } } }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- 🧩 LOGIC ---
-    {
-        id: 'logic_voting',
-        title: 'Voting Age Checker',
-        description: 'Check if a person is old enough to vote.',
-        category: 'Logic',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "age_var", "name": "age", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 18 } } } },
+                "type": "game_start", "x": 50, "y": 50,
                 "next": {
                     "block": {
-                        "type": "controls_if",
-                        "extraState": { "hasElse": true },
-                        "inputs": {
-                            "IF0": {
-                                "block": {
-                                    "type": "logic_compare",
-                                    "fields": { "OP": "GTE" },
-                                    "inputs": {
-                                        "A": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "age_var", "name": "age", "type": "" } } } },
-                                        "B": { "shadow": { "type": "math_number", "fields": { "NUM": 18 } } }
-                                    }
-                                }
-                            },
-                            "DO0": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "You can vote!" } } } }
-                                }
-                            },
-                            "ELSE": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Too young to vote." } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- 🧪 SCIENCE ---
-    {
-        id: 'sci_temp',
-        title: 'C to F Converter',
-        description: 'Convert Celsius temperature to Fahrenheit.',
-        category: 'Science',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "c_var", "name": "celsius", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 25 } } } },
-                "next": {
-                    "block": {
-                        "type": "applaa_log",
-                        "inputs": {
-                            "MESSAGE": {
-                                "block": {
-                                    "type": "math_arithmetic",
-                                    "fields": { "OP": "ADD" },
-                                    "inputs": {
-                                        "A": {
-                                            "block": {
-                                                "type": "math_arithmetic",
-                                                "fields": { "OP": "MULTIPLY" },
-                                                "inputs": {
-                                                    "A": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "c_var", "name": "celsius", "type": "" } } } },
-                                                    "B": { "shadow": { "type": "math_number", "fields": { "NUM": 1.8 } } }
-                                                }
-                                            }
-                                        },
-                                        "B": { "shadow": { "type": "math_number", "fields": { "NUM": 32 } } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- More GAMES ---
-    {
-        id: 'game_maze_3',
-        title: 'Maze: Complex Path',
-        description: 'Navigate through multiple turns and paths.',
-        category: 'Games',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "game_start",
-                "x": 50, "y": 50,
-                "next": {
-                    "block": {
-                        "type": "controls_repeat_ext",
-                        "inputs": {
-                            "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 3 } } },
-                            "DO": {
-                                "block": {
-                                    "type": "maze_move_forward",
-                                    "next": {
-                                        "block": {
-                                            "type": "maze_turn",
-                                            "fields": { "DIR": "RIGHT" }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'game_counter',
-        title: 'Score Counter',
-        description: 'Track and display a game score.',
-        category: 'Games',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "score", "name": "score", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } },
-                "next": {
-                    "block": {
-                        "type": "controls_repeat_ext",
-                        "inputs": {
-                            "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
-                            "DO": {
-                                "block": {
-                                    "type": "math_change",
-                                    "fields": { "VAR": { "id": "score", "name": "score", "type": "" } },
-                                    "inputs": { "DELTA": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } } },
-                                    "next": {
-                                        "block": {
-                                            "type": "applaa_log",
-                                            "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "score", "name": "score", "type": "" } } } } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- More ART ---
-    {
-        id: 'art_triangle',
-        title: 'Turtle Triangle',
-        description: 'Draw an equilateral triangle.',
-        category: 'Art',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "controls_repeat_ext",
-                "x": 50, "y": 50,
-                "inputs": {
-                    "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 3 } } },
-                    "DO": {
-                        "block": {
-                            "type": "turtle_move",
-                            "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 100 } } } },
-                            "next": {
-                                "block": {
-                                    "type": "turtle_turn",
-                                    "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 120 } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'art_hexagon',
-        title: 'Turtle Hexagon',
-        description: 'Draw a six-sided polygon.',
-        category: 'Art',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "controls_repeat_ext",
-                "x": 50, "y": 50,
-                "inputs": {
-                    "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 6 } } },
-                    "DO": {
-                        "block": {
-                            "type": "turtle_move",
-                            "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 80 } } } },
-                            "next": {
-                                "block": {
-                                    "type": "turtle_turn",
-                                    "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'art_star',
-        title: 'Five-Point Star',
-        description: 'Draw a classic star shape.',
-        category: 'Art',
-        difficulty: 'Advanced',
-        workspace: createWorkspace([
-            {
-                "type": "controls_repeat_ext",
-                "x": 50, "y": 50,
-                "inputs": {
-                    "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
-                    "DO": {
-                        "block": {
-                            "type": "turtle_move",
-                            "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 100 } } } },
-                            "next": {
-                                "block": {
-                                    "type": "turtle_turn",
-                                    "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 144 } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- More MATH ---
-    {
-        id: 'math_multiply',
-        title: 'Multiplication Table',
-        description: 'Print the 5 times table.',
-        category: 'Math',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "controls_for",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "i", "name": "i", "type": "" } },
-                "inputs": {
-                    "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
-                    "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } },
-                    "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
-                    "DO": {
-                        "block": {
-                            "type": "applaa_log",
-                            "inputs": {
-                                "MESSAGE": {
+                        "type": "k7_play_note", "fields": { "NOTE": "C4" },
+                        "next": {
+                            "block": {
+                                "type": "k7_play_note", "fields": { "NOTE": "E4" },
+                                "next": {
                                     "block": {
-                                        "type": "math_arithmetic",
-                                        "fields": { "OP": "MULTIPLY" },
-                                        "inputs": {
-                                            "A": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
-                                            "B": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "i", "name": "i", "type": "" } } } }
-                                        }
+                                        "type": "k7_play_note", "fields": { "NOTE": "G4" }
                                     }
                                 }
                             }
@@ -643,252 +424,80 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                     }
                 }
             }
-        ])
+        ]),
+        guide: {
+            overview: "Write your first song code!",
+            steps: [
+                { title: "Notes 🎼", explanation: "Stack Note blocks to play a melody." },
+                { title: "Chords 🎹", explanation: "Remove 'Wait' blocks to play notes at the same time." }
+            ]
+        }
     },
     {
-        id: 'math_fibonacci',
-        title: 'Fibonacci Sequence',
-        description: 'Generate the first 10 Fibonacci numbers.',
-        category: 'Math',
+        id: 'arcade_breakout',
+        title: '🧱 Breakout',
+        description: 'Smash bricks with a paddle and ball.',
+        category: 'Games',
         difficulty: 'Advanced',
         workspace: createWorkspace([
             {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "a", "name": "a", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } },
+                "type": "game_start", "x": 50, "y": 50,
                 "next": {
                     "block": {
-                        "type": "variables_set",
-                        "fields": { "VAR": { "id": "b", "name": "b", "type": "" } },
-                        "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } } },
+                        "type": "k9_create_sprite", "fields": { "NAME": "Paddle", "IMG": "PLATFORM" },
                         "next": {
                             "block": {
-                                "type": "controls_repeat_ext",
-                                "inputs": {
-                                    "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } },
-                                    "DO": {
-                                        "block": {
-                                            "type": "applaa_log",
-                                            "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "a", "name": "a", "type": "" } } } } }
-                                        }
+                                "type": "k9_set_position", "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 350 } } } },
+                                "next": {
+                                    "block": {
+                                        "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" }
                                     }
                                 }
                             }
                         }
                     }
                 }
+            },
+            {
+                "type": "k9_on_key_press", "x": 50, "y": 300, "fields": { "KEY": "LEFT" },
+                "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "LEFT", "STEPS": 20 } } } }
+            },
+            {
+                "type": "k9_on_key_press", "x": 300, "y": 300, "fields": { "KEY": "RIGHT" },
+                "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "RIGHT", "STEPS": 20 } } } }
             }
-        ])
+        ]),
+        guide: {
+            overview: "Classic arcade action! Break the bricks.",
+            steps: [
+                { title: "Paddle Control ↔️", explanation: "Use Left/Right keys to move the paddle." },
+                { title: "Physics 💥", explanation: "The ball bounces off the paddle and bricks automatically." }
+            ]
+        }
     },
     {
-        id: 'math_sum',
-        title: 'Sum of Numbers',
-        description: 'Calculate the sum of numbers 1 to 100.',
-        category: 'Math',
+        id: 'art_mandala',
+        title: '🌺 Mandala Maker',
+        description: 'Draw complex geometric patterns.',
+        category: 'Art',
         difficulty: 'Intermediate',
         workspace: createWorkspace([
             {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "sum", "name": "sum", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } },
+                "type": "game_start", "x": 50, "y": 50,
                 "next": {
                     "block": {
-                        "type": "controls_for",
-                        "fields": { "VAR": { "id": "i", "name": "i", "type": "" } },
+                        "type": "controls_repeat_ext",
                         "inputs": {
-                            "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
-                            "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 100 } } },
-                            "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                            "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 12 } } },
                             "DO": {
                                 "block": {
-                                    "type": "math_change",
-                                    "fields": { "VAR": { "id": "sum", "name": "sum", "type": "" } },
-                                    "inputs": { "DELTA": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "i", "name": "i", "type": "" } } } } }
-                                }
-                            }
-                        },
-                        "next": {
-                            "block": {
-                                "type": "applaa_log",
-                                "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "sum", "name": "sum", "type": "" } } } } }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- More LOGIC ---
-    {
-        id: 'logic_password',
-        title: 'Password Checker',
-        description: 'Check if a password is correct.',
-        category: 'Logic',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "pwd", "name": "password", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "text", "fields": { "TEXT": "secret123" } } } },
-                "next": {
-                    "block": {
-                        "type": "controls_if",
-                        "extraState": { "hasElse": true },
-                        "inputs": {
-                            "IF0": {
-                                "block": {
-                                    "type": "logic_compare",
-                                    "fields": { "OP": "EQ" },
-                                    "inputs": {
-                                        "A": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "pwd", "name": "password", "type": "" } } } },
-                                        "B": { "shadow": { "type": "text", "fields": { "TEXT": "secret123" } } }
-                                    }
-                                }
-                            },
-                            "DO0": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Access Granted!" } } } }
-                                }
-                            },
-                            "ELSE": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Access Denied!" } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'logic_grade',
-        title: 'Grade Calculator',
-        description: 'Convert a score to a letter grade.',
-        category: 'Logic',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "score", "name": "score", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 85 } } } },
-                "next": {
-                    "block": {
-                        "type": "controls_if",
-                        "extraState": { "elseIfCount": 2, "hasElse": true },
-                        "inputs": {
-                            "IF0": {
-                                "block": {
-                                    "type": "logic_compare",
-                                    "fields": { "OP": "GTE" },
-                                    "inputs": {
-                                        "A": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "score", "name": "score", "type": "" } } } },
-                                        "B": { "shadow": { "type": "math_number", "fields": { "NUM": 90 } } }
-                                    }
-                                }
-                            },
-                            "DO0": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Grade: A" } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'logic_leap_year',
-        title: 'Leap Year Checker',
-        description: 'Determine if a year is a leap year.',
-        category: 'Logic',
-        difficulty: 'Advanced',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "year", "name": "year", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 2024 } } } },
-                "next": {
-                    "block": {
-                        "type": "controls_if",
-                        "extraState": { "hasElse": true },
-                        "inputs": {
-                            "IF0": {
-                                "block": {
-                                    "type": "logic_compare",
-                                    "fields": { "OP": "EQ" },
-                                    "inputs": {
-                                        "A": {
-                                            "block": {
-                                                "type": "math_modulo",
-                                                "inputs": {
-                                                    "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "year", "name": "year", "type": "" } } } },
-                                                    "DIVISOR": { "shadow": { "type": "math_number", "fields": { "NUM": 4 } } }
-                                                }
-                                            }
-                                        },
-                                        "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
-                                    }
-                                }
-                            },
-                            "DO0": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Leap Year!" } } } }
-                                }
-                            },
-                            "ELSE": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Not a Leap Year" } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- SCIENCE ---
-    {
-        id: 'sci_distance',
-        title: 'Distance Calculator',
-        description: 'Calculate distance using speed and time.',
-        category: 'Science',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "speed", "name": "speed", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } },
-                "next": {
-                    "block": {
-                        "type": "variables_set",
-                        "fields": { "VAR": { "id": "time", "name": "time", "type": "" } },
-                        "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 2 } } } },
-                        "next": {
-                            "block": {
-                                "type": "applaa_log",
-                                "inputs": {
-                                    "MESSAGE": {
+                                    "type": "k7_draw_shape", "fields": { "SHAPE": "CIRCLE" },
+                                    "next": {
                                         "block": {
-                                            "type": "math_arithmetic",
-                                            "fields": { "OP": "MULTIPLY" },
-                                            "inputs": {
-                                                "A": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "speed", "name": "speed", "type": "" } } } },
-                                                "B": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "time", "name": "time", "type": "" } } } }
+                                            "type": "turtle_turn",
+                                            "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 30 } } } },
+                                            "next": {
+                                                "block": { "type": "k7_add_sparkle" }
                                             }
                                         }
                                     }
@@ -898,84 +507,13 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                     }
                 }
             }
-        ])
-    },
-    {
-        id: 'sci_bmi',
-        title: 'BMI Calculator',
-        description: 'Calculate Body Mass Index.',
-        category: 'Science',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "variables_set",
-                "x": 50, "y": 50,
-                "fields": { "VAR": { "id": "weight", "name": "weight_kg", "type": "" } },
-                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 70 } } } },
-                "next": {
-                    "block": {
-                        "type": "variables_set",
-                        "fields": { "VAR": { "id": "height", "name": "height_m", "type": "" } },
-                        "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 1.75 } } } }
-                    }
-                }
-            }
-        ])
-    },
-
-    // --- MUSIC (Conceptual - using logs to simulate notes) ---
-    {
-        id: 'music_scale',
-        title: 'Musical Scale',
-        description: 'Play a C major scale (simulated).',
-        category: 'Music',
-        difficulty: 'Beginner',
-        workspace: createWorkspace([
-            {
-                "type": "applaa_log",
-                "x": 50, "y": 50,
-                "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "♪ C" } } } },
-                "next": {
-                    "block": {
-                        "type": "applaa_log",
-                        "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "♪ D" } } } },
-                        "next": {
-                            "block": {
-                                "type": "applaa_log",
-                                "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "♪ E" } } } }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
-    },
-    {
-        id: 'music_rhythm',
-        title: 'Rhythm Pattern',
-        description: 'Create a simple beat pattern.',
-        category: 'Music',
-        difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "controls_repeat_ext",
-                "x": 50, "y": 50,
-                "inputs": {
-                    "TIMES": { "shadow": { "type": "math_number", "fields": { "NUM": 4 } } },
-                    "DO": {
-                        "block": {
-                            "type": "applaa_log",
-                            "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "🥁 BOOM" } } } },
-                            "next": {
-                                "block": {
-                                    "type": "applaa_log",
-                                    "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "👏 CLAP" } } } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ])
+        ]),
+        guide: {
+            overview: "Relax and create beautiful symmetry.",
+            steps: [
+                { title: "Symmetry ❄️", explanation: "Repeating a shape while turning creates a Mandala." },
+                { title: "Sparkles ✨", explanation: "Add magic effects to make it shine!" }
+            ]
+        }
     }
 ];
