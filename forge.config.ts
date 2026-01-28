@@ -236,27 +236,23 @@ const config: ForgeConfig = {
       },
     },
     // macOS DMG maker (only include on macOS)
-    // Temporarily disabled due to macOS permission issues with DMG creation
-    // The ZIP file is sufficient for distribution. To re-enable DMG creation:
-    // 1. Ensure Terminal/Node has Full Disk Access in System Settings
-    // 2. Uncomment the DMG maker configuration below
-    // ...(process.platform === 'darwin' ? [
-    //   {
-    //     name: "@electron-forge/maker-dmg",
-    //     config: {
-    //       name: "Applaa",
-    //       format: "UDZO",
-    //       icon: "./assets/icon/logo.icns",
-    //       iconSize: 100,
-    //       contents: (opts) => {
-    //         return [
-    //           { x: 380, y: 280, type: "link", path: "/Applications" },
-    //           { x: 110, y: 280, type: "file", path: opts.appPath },
-    //         ];
-    //       },
-    //     },
-    //   },
-    // ] : []),
+    ...(process.platform === 'darwin' ? [
+      {
+        name: "@electron-forge/maker-dmg",
+        config: {
+          name: "Applaa",
+          format: "UDZO",
+          icon: "./assets/icon/logo.icns",
+          iconSize: 100,
+          contents: (opts) => {
+            return [
+              { x: 380, y: 280, type: "link", path: "/Applications" },
+              { x: 110, y: 280, type: "file", path: opts.appPath },
+            ];
+          },
+        },
+      },
+    ] : []),
   ],
   publishers: [
     {

@@ -25,7 +25,7 @@ jobs:
       matrix:
         os: [
             { name: "windows", image: "windows-latest" },
-            # Only building Windows EXE - macOS and Linux skipped
+            { name: "macos", image: "macos-latest" },
           ]
     runs-on: ${{ matrix.os.image }}
     steps:
@@ -102,7 +102,7 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
-          # GitHub token for OTA updates (embedded into .exe)
+          # GitHub token for OTA updates (embedded into .exe/.app)
           APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
           # Supabase config is hardcoded in src/config/supabase.config.ts
           # No secrets needed - app uses fallback values
