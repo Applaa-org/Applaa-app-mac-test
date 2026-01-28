@@ -1118,7 +1118,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                         }}
                         title="Lesson Guide"
                     >
-                        <span>🎓</span> <span>School</span>
+                        <span>🎓</span> <span>Learn</span>
                     </button>
                     <button
                         onClick={() => setIsHubOpen(true)}
