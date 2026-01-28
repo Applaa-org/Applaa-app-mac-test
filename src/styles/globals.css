@@ -577,3 +577,18 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Blockly Toolbox Highlighting */
+@keyframes toolbox-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(15, 189, 140, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(15, 189, 140, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(15, 189, 140, 0); }
+}
+
+.toolbox-highlight {
+  animation: toolbox-pulse 2s infinite;
+  border-left: 4px solid #0FBD8C !important; /* Teal Highlight */
+  background-color: #E6F7F2 !important;
+  z-index: 100;
+  position: relative;
+}

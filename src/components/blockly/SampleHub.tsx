@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { SAMPLE_PROJECTS, SampleProject } from '../../data/sampleProjects';
 
 interface SampleHubProps {
-    onLoadSample: (workspace: any) => void;
+    onLoadSample: (project: SampleProject) => void;
     isOpen: boolean;
     onClose: () => void;
     initialCategory?: string;
@@ -143,7 +143,7 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                         key={project.id}
                         onClick={() => {
                             if (confirm(`Load "${project.title}"? This will discard current changes.`)) {
-                                onLoadSample(project.workspace);
+                                onLoadSample(project);
                                 onClose();
                             }
                         }}
