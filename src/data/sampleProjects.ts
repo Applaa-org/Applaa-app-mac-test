@@ -238,7 +238,76 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                 "next": {
                     "block": {
                         "type": "applaa_log",
-                        "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Checking..." } } } }
+                        "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Checking..." } } } },
+                        "next": {
+                            "block": {
+                                "type": "variables_set",
+                                "fields": { "VAR": { "name": "isPrime", "type": "" } },
+                                "inputs": { "VALUE": { "shadow": { "type": "logic_boolean", "fields": { "BOOL": "TRUE" } } } },
+                                "next": {
+                                    "block": {
+                                        "type": "controls_for",
+                                        "fields": { "VAR": { "name": "i", "type": "" } },
+                                        "inputs": {
+                                            "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 2 } } },
+                                            "TO": {
+                                                "block": {
+                                                    "type": "math_arithmetic",
+                                                    "fields": { "OP": "MINUS" },
+                                                    "inputs": {
+                                                        "A": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "num", "type": "" } } } },
+                                                        "B": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } }
+                                                    }
+                                                }
+                                            },
+                                            "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                                            "DO": {
+                                                "block": {
+                                                    "type": "controls_if",
+                                                    "inputs": {
+                                                        "IF0": {
+                                                            "block": {
+                                                                "type": "logic_compare",
+                                                                "fields": { "OP": "EQ" },
+                                                                "inputs": {
+                                                                    "A": {
+                                                                        "block": {
+                                                                            "type": "math_modulo",
+                                                                            "inputs": {
+                                                                                "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "num", "type": "" } } } },
+                                                                                "DIVISOR": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "i", "type": "" } } } }
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
+                                                                }
+                                                            }
+                                                        },
+                                                        "DO0": {
+                                                            "block": {
+                                                                "type": "variables_set",
+                                                                "fields": { "VAR": { "name": "isPrime", "type": "" } },
+                                                                "inputs": { "VALUE": { "shadow": { "type": "logic_boolean", "fields": { "BOOL": "FALSE" } } } }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "next": {
+                                            "block": {
+                                                "type": "controls_ifelse",
+                                                "inputs": {
+                                                    "IF0": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "isPrime", "type": "" } } } },
+                                                    "DO0": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Prime!" } } } } } },
+                                                    "ELSE": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Not prime!" } } } } } }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -247,7 +316,8 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
             overview: "Is 13 a prime number? Let's write code to find out.",
             steps: [
                 { title: "Input 🔢", explanation: "Set a variable 'num' to test." },
-                { title: "Logic 🧠", explanation: "Loop from 2 to num-1 to see if it divides evenly." }
+                { title: "Logic 🧠", explanation: "Loop from 2 to num-1; if num % i equals 0, it's not prime." },
+                { title: "Output 📢", explanation: "Say 'Prime!' or 'Not prime!' based on the result." }
             ]
         }
     },
