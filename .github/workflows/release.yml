@@ -15,6 +15,7 @@ on:
       - autoreleasebranch
       - release/ota-update-auto-trigger
       - release/**
+      - applaa-org
 jobs:
   build:
     environment: release
