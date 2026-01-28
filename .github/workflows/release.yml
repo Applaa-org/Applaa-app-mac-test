@@ -48,7 +48,6 @@ jobs:
           npx electron-rebuild --only=better-sqlite3 --force
         shell: bash
       - name: Create release tag if not exists
-        if: contains(matrix.os.name, 'windows')
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v$VERSION"
