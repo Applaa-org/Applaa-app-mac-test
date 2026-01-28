@@ -151,11 +151,11 @@ const config: ForgeConfig = {
     } as any,
     // Notarization
     osxNotarize:
-      process.platform === 'darwin' && process.env.APPLE_ID && (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD)
+      process.platform === 'darwin' && (process.env.APPLE_ID || process.env.NODE_ENV === 'development')
         ? {
             tool: "notarytool",
-            appleId: process.env.APPLE_ID as string,
-            appleIdPassword: (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD) as string,
+            appleId: process.env.APPLE_ID || "raj@applaa.com", // Fallback for local testing
+            appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD || "nkod-jlnj-kbmi-hdvr", // Fallback for local testing
             teamId: process.env.APPLE_TEAM_ID || process.env.TEAM_ID || "P7VCYRVVPQ",
           } as any
         : undefined,
