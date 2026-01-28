@@ -63,6 +63,41 @@ jobs:
             echo "Tag $TAG already exists"
           fi
         shell: bash
+      - name: Create GitHub Release if not exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          
+          echo "Checking for release: $TAG"
+          
+          # Check if release exists
+          RELEASE_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/tags/$TAG")
+          
+          if [ "$RELEASE_RESPONSE" = "404" ]; then
+            echo "Release $TAG does not exist, creating it..."
+            curl -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases" \
+              -d "{
+                \"tag_name\": \"$TAG\",
+                \"name\": \"Release $TAG\",
+                \"body\": \"Automated release $TAG\",
+                \"draft\": false,
+                \"prerelease\": false
+              }"
+            echo "✅ Release $TAG created"
+          else
+            echo "Release $TAG already exists"
+          fi
+        shell: bash
       - name: add macos cert
         if: contains(matrix.os.name, 'macos')
         env:
