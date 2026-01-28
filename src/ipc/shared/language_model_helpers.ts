@@ -151,6 +151,7 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     },
   ],
   google: [
+    // Google Gemini models - limited to the three options shown in the UI
     // https://ai.google.dev/gemini-api/docs/models#gemini-2.5-pro-preview-03-25
     {
       name: "gemini-2.5-pro",
@@ -173,72 +174,12 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 1_048_576,
       temperature: 0,
     },
-    {
-      name: "gemini-3-pro",
-      displayName: "Gemini 3 Pro",
-      description: "Google's next-generation high-performance model (Future)",
-      maxOutputTokens: 8192,
-      contextWindow: 2_000_000,
-      temperature: 0,
-      tag: "Experimental",
-    },
-    {
-      name: "gemini-3-flash",
-      displayName: "Gemini 3 Flash",
-      description: "Google's next-generation fast model (Future)",
-      maxOutputTokens: 8192,
-      contextWindow: 1_048_576,
-      temperature: 0,
-      tag: "Flash",
-    },
-    {
-      name: "gemini-2.0-flash-exp",
-      displayName: "Gemini 2.0 Flash (Exp)",
-      description: "Google's next-generation fast model (Experimental)",
-      maxOutputTokens: 8192,
-      contextWindow: 1_048_576,
-      temperature: 0,
-      tag: "Experimental",
-    },
-    {
-      name: "gemini-1.5-pro-latest",
-      displayName: "Gemini 1.5 Pro (Latest)",
-      description: "Google's stable high-performance model",
-      maxOutputTokens: 8192,
-      contextWindow: 1_048_576,
-      temperature: 0,
-    },
-    {
-      name: "gemini-1.5-flash-latest",
-      displayName: "Gemini 1.5 Flash (Latest)",
-      description: "Google's stable fast model",
-      maxOutputTokens: 8192,
-      contextWindow: 1_048_576,
-      temperature: 0,
-      tag: "Recommended",
-    },
-    {
-      name: "gemini-1.5-pro",
-      displayName: "Gemini 1.5 Pro",
-      description: "Google's stable high-performance model",
-      maxOutputTokens: 8192,
-      contextWindow: 1_048_576,
-      temperature: 0,
-    },
-    {
-      name: "gemini-1.5-flash",
-      displayName: "Gemini 1.5 Flash",
-      description: "Google's stable fast model",
-      maxOutputTokens: 8192,
-      contextWindow: 1_048_576,
-      temperature: 0,
-      tag: "Stable",
-    },
     // https://ai.google.dev/gemini-api/docs/models/gemini
     {
       name: "gemini-3-flash-preview",
       displayName: "Gemini 3 Flash",
-      description: "Google's Gemini 3 Flash model (Preview) - faster, lower-cost iterations",
+      description:
+        "Google's Gemini 3 Flash model (Preview) - faster, lower-cost iterations",
       maxOutputTokens: 65_536 - 1,
       // Gemini context window = input token + output token
       contextWindow: 1_048_576,
