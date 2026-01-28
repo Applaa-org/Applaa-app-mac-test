@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - feature-ota-mukesh
+      - feature-enable-mac-release
       - autoreleasebranch
       - release/ota-update-auto-trigger
       - release/**
