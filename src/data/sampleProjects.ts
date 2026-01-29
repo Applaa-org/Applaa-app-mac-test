@@ -339,11 +339,23 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                         "inputs": {
                             "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
                             "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
+                            "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
                             "DO": {
                                 "block": {
-                                    "type": "math_change",
+                                    "type": "variables_set",
                                     "fields": { "VAR": { "name": "result", "type": "" } },
-                                    "inputs": { "DELTA": { "block": { "type": "math_arithmetic", "fields": { "OP": "MULTIPLY" }, "inputs": { "B": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "i", "type": "" } } } } } } } }
+                                    "inputs": {
+                                        "VALUE": {
+                                            "block": {
+                                                "type": "math_arithmetic",
+                                                "fields": { "OP": "MULTIPLY" },
+                                                "inputs": {
+                                                    "A": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "result", "type": "" } } } },
+                                                    "B": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "i", "type": "" } } } }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -360,8 +372,8 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
         guide: {
             overview: "Big numbers! Calculate factorials using a loop.",
             steps: [
-                { title: "Start at 1 1️⃣", explanation: "Initialize result to 1." },
-                { title: "Multiply Loop ✖️", explanation: "Multiply result by each number from 1 to 5." }
+                { title: "Start at 1", explanation: "Initialize result to 1." },
+                { title: "Multiply in the loop", explanation: "Multiply result by each number from 1 to 5." }
             ]
         }
     },

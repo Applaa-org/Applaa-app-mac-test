@@ -900,38 +900,8 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
             // Load the sample
             Blockly.serialization.workspaces.load(project.workspace, workspaceRef.current);
 
-            // Load Guide if available
+            // Load Guide if available — right panel shows "Guide: [title]" and steps (instruction + description)
             if (project.guide) {
-                setCustomLesson({
-                    id: project.id,
-                    title: project.title,
-                    steps: project.guide.steps.map((s: any) => ({
-                        title: s.title,
-                        instruction: s.explanation,
-                        // Add defaults for missing props to satisfy LessonStep type
-                        blockImage: '',
-                        toolboxCategory: project.category
-                    }))
-                });
-                setIsLearnPanelOpen(true);
-            } else {
-                setCustomLesson(null);
-            }
-
-            // Ensure workspace is editable (not read-only)
-            if (workspaceRef.current.options) {
-                workspaceRef.current.options.readOnly = false;
-            }
-
-            // Regenerate code after load
-            setTimeout(() => {
-                generateAllCode();
-            }, 100); // Small delay to ensure blocks are fully rendered
-
-            // 🚀 HUB GUIDES: If the project has a guide, launch it in Learn Mode!
-            if (project.guide) {
-                // Convert Guide to Lesson-like structure for LearnPanel
-                // We use a special ID to indicate it's a dynamic guide
                 const guideLesson = {
                     id: `guide_${project.id}`,
                     title: `Guide: ${project.title}`,
@@ -940,32 +910,25 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                     steps: project.guide.steps.map((s: any) => ({
                         instruction: s.title,
                         description: s.explanation,
-                        toolboxHighlight: null, // Guides explain what's ON the canvas, usually
+                        toolboxHighlight: null,
                         checkBlock: null
                     }))
                 };
-
-                // We need to trigger opening the LearnPanel with this lesson
-                // Since LearnPanel consumes from LessonManager, we might need a way to inject ad-hoc lessons
-                // OR we can just pass this lesson to LearnPanel via a new prop or state
-                // For now, let's assume we can set it via a ref or state
-                // Since LearnPanel logic is inside LearnPanel, we might need to expose a method or lift state.
-
-                // HACK: Since LearnPanel is independent, we can set a "currentDynamicLesson" state
-                // But wait, LearnPanel reads from LessonManager.
-                // Let's add a `setCustomLesson` to LearnPanel? Or simply lift `activeLesson` to Editor?
-                // This seems complicated.
-
-                // SIMPLER: Add a method to LessonManager to register temporary lessons!
-                // This keeps UI simple.
-
-                // LessonManager.registerTemporaryLesson(guideLesson as any);
                 setCustomLesson(guideLesson);
                 setIsLearnPanelOpen(true);
-
-                // For now, let's just log it. We need to implement registerTemporaryLesson.
-                console.log("Loading guide...", guideLesson);
+            } else {
+                setCustomLesson(null);
             }
+
+            // Keep all blocks editable: ensure workspace is not read-only
+            if (workspaceRef.current.options) {
+                workspaceRef.current.options.readOnly = false;
+            }
+
+            // Regenerate code after load
+            setTimeout(() => {
+                generateAllCode();
+            }, 100); // Small delay to ensure blocks are fully rendered
 
         } catch (e) {
             console.error("Failed to load hub sample", e);
