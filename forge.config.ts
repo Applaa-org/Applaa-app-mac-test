@@ -258,10 +258,15 @@ const config: ForgeConfig = {
     {
       name: "@electron-forge/publisher-github",
       config: {
-        repository: {
-          owner: "Applaa-Builder",
-          name: "Applaa-Builder-v1",
-        },
+        // Use GITHUB_REPOSITORY in CI (e.g. Applaa-org/Applaa-app-mac-test) so publish targets the repo where the workflow runs
+        repository: (() => {
+          const repo = process.env.GITHUB_REPOSITORY;
+          if (repo) {
+            const [owner, name] = repo.split("/");
+            return { owner, name };
+          }
+          return { owner: "Applaa-Builder", name: "Applaa-Builder-v1" };
+        })(),
         prerelease: false, // Set to true for beta releases
         draft: false,
         tagPrefix: "v", // Ensure tag prefix matches

@@ -16,9 +16,11 @@ async function verifyReleaseAssets() {
 
     console.log(`🔍 Verifying release assets for version ${version}...`);
 
-    // GitHub API configuration
-    const owner = "Applaa-Builder";
-    const repo = "Applaa-Builder-v1";
+    // GitHub API configuration - use GITHUB_REPOSITORY in CI (e.g. Applaa-org/Applaa-app-mac-test)
+    const repoEnv = process.env.GITHUB_REPOSITORY;
+    const [owner, repo] = repoEnv
+      ? repoEnv.split("/")
+      : ["Applaa-Builder", "Applaa-Builder-v1"];
     const token = process.env.GITHUB_TOKEN;
 
     if (!token) {
