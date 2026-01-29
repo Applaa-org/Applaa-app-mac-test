@@ -89,13 +89,15 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                 </button>
             </div>
 
-            {/* Category Filter */}
+            {/* Category Filter - flexShrink: 0 so "Tutorials" / "Games" don't clip */}
             <div style={{
                 padding: '16px',
                 display: 'flex',
                 gap: '12px',
                 overflowX: 'auto',
-                borderBottom: '1px solid #eee'
+                borderBottom: '1px solid #eee',
+                alignItems: 'center',
+                minHeight: '52px'
             }}>
                 {categories.map(cat => (
                     <button
@@ -104,7 +106,7 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                         style={{
                             padding: '12px 20px',
                             borderRadius: '20px',
-                            border: '2px solid #ddd',
+                            border: '2px solid ' + (selectedCategory === cat ? '#4CAF50' : '#ddd'),
                             backgroundColor: selectedCategory === cat ? '#4CAF50' : 'white',
                             color: selectedCategory === cat ? 'white' : '#333',
                             fontSize: '14px',
@@ -112,7 +114,8 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                             cursor: 'pointer',
                             whiteSpace: 'nowrap',
                             transition: 'all 0.2s',
-                            minWidth: '80px'
+                            minWidth: '80px',
+                            flexShrink: 0
                         }}
                         onMouseEnter={(e) => {
                             if (selectedCategory !== cat) {
