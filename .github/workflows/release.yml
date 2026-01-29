@@ -26,8 +26,7 @@ jobs:
       # max-parallel: 1
       matrix:
         os: [
-            # Windows build disabled for testing to save GitHub Actions minutes
-            # { name: "windows", image: "windows-latest" },
+            { name: "windows", image: "windows-latest" },
             { name: "macos", image: "macos-latest" },
           ]
     runs-on: ${{ matrix.os.image }}
