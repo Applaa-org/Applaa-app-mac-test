@@ -122,16 +122,15 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                         "type": "k9_create_sprite", "fields": { "NAME": "Paddle1", "IMG": "PLATFORM" },
                         "next": {
                             "block": {
-                                "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" },
-                                "next": {
-                                    "block": {
-                                        "type": "k9_set_bounciness", "inputs": { "BOUNCE": { "shadow": { "type": "math_number", "fields": { "NUM": 100 } } } }
-                                    }
-                                }
+                                "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" }
                             }
                         }
                     }
                 }
+            },
+            {
+                "type": "k9_set_bounciness", "x": 50, "y": 220,
+                "fields": { "NAME": "Ball", "BOUNCE": 100 }
             }
         ]),
         guide: {
