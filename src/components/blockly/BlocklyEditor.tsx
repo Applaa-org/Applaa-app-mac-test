@@ -145,6 +145,7 @@ const KIDS_TOOLBOX = {
             contents: [
                 { kind: 'block', type: 'k9_create_sprite' },
                 { kind: 'block', type: 'k9_set_position' },
+                { kind: 'block', type: 'k9_move_sprite' },
                 { kind: 'block', type: 'k9_update_score' },
                 { kind: 'block', type: 'k9_on_key_press' },
                 { kind: 'block', type: 'k9_add_gravity' },

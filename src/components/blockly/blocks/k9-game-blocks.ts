@@ -124,6 +124,45 @@ export function initK9Blocks() {
         return `// When Key ${key}:\n${branch}`;
     };
 
+    // 4b. Move Sprite (used inside On Key Press etc.)
+    if (!Blockly.Blocks['k9_move_sprite']) {
+        Blockly.Blocks['k9_move_sprite'] = {
+            init: function () {
+                this.appendDummyInput()
+                    .appendField("🔄 Move")
+                    .appendField(new Blockly.FieldTextInput("Player"), "NAME")
+                    .appendField(new Blockly.FieldDropdown([
+                        ["Left", "LEFT"],
+                        ["Right", "RIGHT"],
+                        ["Up", "UP"],
+                        ["Down", "DOWN"]
+                    ]), "DIR")
+                    .appendField("by")
+                    .appendField(new Blockly.FieldNumber(10, 1, 500), "STEPS")
+                    .appendField("steps");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(GAME_COLOR);
+                this.setTooltip("Moves a sprite in a direction by a number of steps");
+            }
+        };
+    }
+    javascriptGenerator.forBlock['k9_move_sprite'] = function (block) {
+        const name = block.getFieldValue('NAME');
+        const dir = block.getFieldValue('DIR');
+        const steps = block.getFieldValue('STEPS');
+        // StageManager.moveSprite(name, dx, dy) expects pixel deltas
+        const dx = dir === 'LEFT' ? -steps : dir === 'RIGHT' ? steps : 0;
+        const dy = dir === 'UP' ? -steps : dir === 'DOWN' ? steps : 0;
+        return `
+        if (window.StageManager) {
+            window.StageManager.moveSprite('${name}', ${dx}, ${dy});
+        } else {
+            console.log("GAME: Move '${name}' ${dir} ${steps} steps");
+        }
+        \n`;
+    };
+
     // 🔵 CATEGORY: Physics
     const PHYSICS_COLOR = "#4C97FF"; // Blue
 
