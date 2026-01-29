@@ -405,6 +405,12 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
 
             if (event.data.type === 'sandbox_log') {
                 setConsoleLogs(prev => [...prev, `> ${event.data.message}`]);
+                // Show all output in Appy's speech bubble (popup) like the learn section — including
+                // tutorial output (Game Started!, Maze: Moved Forward, etc.) so Levels 1, 2 show pop-up output.
+                const msg = event.data.message || '';
+                if (msg && appyRef.current?.speak) {
+                    appyRef.current.speak(msg);
+                }
             } else if (event.data.type === 'sandbox_error') {
                 setConsoleLogs(prev => [...prev, `❌ ${event.data.message}`]);
 
@@ -864,31 +870,34 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
         setIsRunning(true);
         setConsoleLogs([]); // Clear logs
         setShowTerminal(true); // Open terminal
+        setIsStageOpen(true); // Open Stage so visual output shows (same as Learn section)
 
         // Resume AudioContext on user gesture so Play Sound / notes / drums can play
         void AudioManager.resumeAudioContext();
 
-        // Run code in a safe sandbox (iframe)
         const sandboxWindow = document.getElementById('blockly-sandbox') as HTMLIFrameElement;
-        if (sandboxWindow && sandboxWindow.contentWindow) {
-            try {
-                // Clear previous output
-                sandboxWindow.contentWindow.postMessage({ type: 'clear' }, '*');
-                StageManager.clearStage(); // Clear visuals 🎨
+        if (!sandboxWindow?.contentWindow) return;
 
-                // Run the generated code
-                sandboxWindow.contentWindow.postMessage({
+        // Clear previous output and stage immediately
+        sandboxWindow.contentWindow.postMessage({ type: 'clear' }, '*');
+        StageManager.clearStage();
+
+        // Defer run so Stage panel mounts and canvas is set before STAGE messages (addSprite/moveSprite) arrive.
+        // This ensures the robot appears and moves on the Stage for Hub/Tutorial projects.
+        const runCode = () => {
+            try {
+                sandboxWindow.contentWindow!.postMessage({
                     type: 'run',
                     code: generatedCode
                 }, '*');
-
                 setTimeout(() => setIsRunning(false), 500);
             } catch (error) {
                 console.error('Failed to run code:', error);
                 alert('Failed to run code. Check the console for details.');
                 setIsRunning(false);
             }
-        }
+        };
+        requestAnimationFrame(() => requestAnimationFrame(runCode));
     };
 
     const handleLoadHubSample = (project: any) => {

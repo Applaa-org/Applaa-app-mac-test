@@ -140,13 +140,20 @@ export function initCustomBlocks() {
 })();\n`;
     };
 
-    javascriptGenerator.forBlock['game_start'] = function (block) { return `// Game Started\nconsole.log("Game Started!");\n`; };
+    javascriptGenerator.forBlock['game_start'] = function (block) {
+        return `// Game Started
+console.log("Game Started!");
+if (window.StageManager) { window.StageManager.addSprite('MazeRunner', '🤖'); }
+\n`;
+    };
     javascriptGenerator.forBlock['game_move_sprite'] = function (block) {
         const direction = block.getFieldValue('DIRECTION');
         const steps = block.getFieldValue('STEPS');
         return `console.log("Moving ${direction} by ${steps}");\n`;
     };
-    javascriptGenerator.forBlock['maze_move_forward'] = () => `console.log("🚶 Maze: Moved Forward");\n`;
+    javascriptGenerator.forBlock['maze_move_forward'] = () => `console.log("🚶 Maze: Moved Forward");
+if (window.StageManager) { window.StageManager.moveSprite('MazeRunner', 40, 0); }
+\n`;
     javascriptGenerator.forBlock['maze_turn'] = (block) => `console.log("🔄 Maze: Turned ${block.getFieldValue('DIR')}");\n`;
     javascriptGenerator.forBlock['turtle_move'] = (block) => `console.log("🐢 Turtle: Moved Forward by " + (${javascriptGenerator.valueToCode(block, 'VALUE', JSOrder.ATOMIC) || '0'}));\n`;
     javascriptGenerator.forBlock['turtle_turn'] = (block) => `console.log("🐢 Turtle: Turned Right by " + (${javascriptGenerator.valueToCode(block, 'VALUE', JSOrder.ATOMIC) || '0'}));\n`;
