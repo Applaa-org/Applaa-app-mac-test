@@ -16,7 +16,6 @@ function getMainWindow(): BrowserWindow | null {
 }
 
 export function registerChromiumHandlers() {
-    logger.info('Registering Chromium Browser Handlers');
 
     // Initialize BrowserView for displaying Chromium content
     ipcMain.handle('chromium:init-view', async () => {
@@ -277,7 +276,6 @@ export function registerChromiumHandlers() {
         }
     });
 
-    logger.info('✅ Chromium handlers registered');
 }
 
 // Export function to get the active WebContentsView for automation

@@ -43,7 +43,6 @@ class WorkspaceDependencyManager {
     // Ensure shared directory exists
     await fs.promises.mkdir(this.config.sharedNodeModules, { recursive: true });
     
-    logger.log(`🚀 Workspace dependency manager initialized at: ${workspaceRoot}`);
   }
 
   /**
@@ -291,7 +290,6 @@ class WorkspaceDependencyManager {
     try {
       await fs.promises.rm(this.config.sharedNodeModules, { recursive: true, force: true });
       await fs.promises.rm(this.config.packageJsonPath, { force: true });
-      logger.log(`🧹 Cleaned up workspace dependencies`);
     } catch (error) {
       logger.warn(`⚠️ Failed to cleanup workspace dependencies:`, error);
     }

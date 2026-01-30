@@ -51,7 +51,6 @@ interface UnifiedPreviewStatus {
 const previewStatus = new Map<number, UnifiedPreviewStatus>();
 
 export function registerUnifiedExpoPreview() {
-  logger.info("🚀 Registering Unified Expo Preview System");
 
   // Start preview for an app
   ipcMain.handle("unified-expo:start-preview", async (_, params: { appId: number; useTunnel?: boolean }) => {

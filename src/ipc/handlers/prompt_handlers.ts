@@ -150,5 +150,4 @@ ipcMain.handle("prompts:reseed", async (): Promise<{ success: boolean; message: 
 
 export function registerPromptHandlers() {
   // Prompts feature temporarily disabled for MVP
-  console.log("Prompt handlers disabled for MVP");
 }

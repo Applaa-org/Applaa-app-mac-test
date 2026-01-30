@@ -326,7 +326,6 @@ app.post('/api/browser/close', async (req, res) => {
 export function startLocalServer() {
     try {
         app.listen(PORT, '127.0.0.1', () => {
-            logger.info(`🚀 Local Buddy API Server running on http://127.0.0.1:${PORT}`);
         });
     } catch (error) {
         logger.error('Failed to start local API server', error);

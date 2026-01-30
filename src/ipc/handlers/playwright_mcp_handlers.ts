@@ -234,6 +234,5 @@ export function registerPlaywrightMCPHandlers() {
   handle("playwright-mcp:run-test", handleRunAppTest);
   handle("playwright-mcp:status", handleGetMCPStatus);
   
-  logger.info("Playwright MCP handlers registered");
 }
 

@@ -1593,7 +1593,6 @@ renderer/rendering_method="forward_plus"
     },
   );
 
-  logger.info("App handlers registered successfully, including generate-app-names");
 
   // Get app files for categorization (lightweight version)
   handle("get-app-files", async (_, appId: number): Promise<string[]> => {
@@ -3004,8 +3003,6 @@ renderer/rendering_method="forward_plus"
         };
       }
 
-      logger.info(`Query returned ${allApps?.length || 0} apps from user_apps table`);
-
       // Get all apps with show_in_hub = true (public apps with consent)
       let publicApps = [];
       const { data: publicAppsData, error: publicError } = await adminClient
@@ -3017,7 +3014,6 @@ renderer/rendering_method="forward_plus"
 
       if (!publicError && publicAppsData) {
         publicApps = publicAppsData;
-        logger.info(`Found ${publicApps.length} public apps (show_in_hub = true)`);
       } else if (publicError) {
         logger.warn(`Error querying public apps:`, publicError);
       }
@@ -3035,7 +3031,6 @@ renderer/rendering_method="forward_plus"
 
         if (!userError && userAppsData) {
           userApps = userAppsData;
-          logger.info(`Found ${userApps.length} apps for current user: ${userDisplayName}`);
         } else if (userError) {
           logger.warn(`Error querying by user_display_name:`, userError);
         }
@@ -3053,61 +3048,7 @@ renderer/rendering_method="forward_plus"
 
           if (!userErrorEmail && userAppsDataEmail) {
             userApps = userAppsDataEmail;
-            logger.info(`Found ${userApps.length} apps with user_email: ${wpUser.email}`);
           }
-        }
-      }
-
-      // If still no apps, check what user_display_name values actually exist
-      if (userApps.length === 0 && allApps && allApps.length > 0) {
-        const uniqueDisplayNames = [...new Set(allApps.map((app: any) => app.user_display_name).filter(Boolean))];
-        const uniqueEmails = [...new Set(allApps.map((app: any) => app.user_email).filter(Boolean))];
-        logger.warn(`No apps found for display_name "${userDisplayName}"`);
-        logger.warn(`Available user_display_name values:`, uniqueDisplayNames);
-        logger.warn(`Available user_email values:`, uniqueEmails);
-        logger.warn(`Your display_name: ${userDisplayName}`);
-
-        // Show sample app to see what's actually stored
-        if (allApps.length > 0) {
-          logger.warn(`Sample app user_display_name: "${allApps[0]?.user_display_name}"`);
-          logger.warn(`Sample app user_email: "${allApps[0]?.user_email}"`);
-        }
-      }
-
-      // Also try to get all apps and show sample
-      logger.info(`Total apps in Supabase: ${allApps?.length || 0}`);
-      logger.info(`Apps for user ${userDisplayName}: ${userApps.length}`);
-      if (allApps && allApps.length > 0) {
-        logger.info('Sample app:', JSON.stringify(allApps[0], null, 2));
-      }
-
-      logger.info(`Found ${allApps?.length || 0} total apps in Supabase`);
-      logger.info(`Found ${userApps.length} apps for user: ${userDisplayName || 'N/A'}`);
-
-      // Debug: Check what user_display_name values exist
-      if (allApps && allApps.length > 0) {
-        const uniqueDisplayNames = [...new Set(allApps.map((app: any) => app.user_display_name).filter(Boolean))];
-        const uniqueEmails = [...new Set(allApps.map((app: any) => app.user_email).filter(Boolean))];
-        logger.info(`Unique user_display_name values in Supabase:`, uniqueDisplayNames);
-        logger.info(`Unique user_email values in Supabase:`, uniqueEmails);
-        logger.info(`Your display_name: ${userDisplayName}`);
-        logger.info(`Sample app user_display_name:`, allApps[0]?.user_display_name);
-        logger.info(`Sample app user_email:`, allApps[0]?.user_email);
-      } else {
-        logger.warn(`⚠️ No apps found in Supabase. This could mean:`);
-        logger.warn(`   1. Table is empty`);
-        logger.warn(`   2. Table name is wrong`);
-        logger.warn(`   3. RLS is blocking even service role (unlikely)`);
-        logger.warn(`   4. Data is in a different table`);
-
-        // Try a simple count query
-        try {
-          const { count, error: countError } = await adminClient
-            .from('user_apps')
-            .select('*', { count: 'exact', head: true });
-          logger.info(`Table count query result:`, { count, error: countError });
-        } catch (countErr) {
-          logger.error('Count query failed:', countErr);
         }
       }
 

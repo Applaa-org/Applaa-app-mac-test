@@ -39,7 +39,6 @@ interface EASStatus {
 }
 
 export function registerEASHandlers() {
-  logger.info("🚀 Registering EAS handlers...");
 
   // Check EAS CLI status
   ipcMain.handle("eas:status", async () => {
@@ -564,7 +563,6 @@ export function registerEASHandlers() {
   });
 
 
-  logger.info("✅ EAS handlers registered successfully");
 }
 
 // Helper functions

@@ -158,6 +158,5 @@ export function registerVaultHandlers() {
     }
   });
 
-  logger.info("✅ Vault handlers registered");
 }
 

@@ -78,7 +78,6 @@ export function initializeAnalytics(config: AnalyticsConfig): void {
     }
     
     isInitialized = true;
-    log.info('Analytics initialized successfully');
   } catch (error) {
     log.error('Failed to initialize analytics:', error);
   }

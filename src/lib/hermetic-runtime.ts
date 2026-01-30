@@ -25,13 +25,13 @@ interface Logger {
   log: (message: string) => void;
 }
 
-// Create a simple logger if none is provided
+// Create a simple logger if none is provided (info/log no-op to reduce console noise)
 const logger: Logger = {
-  info: (msg) => console.log(`[hermetic-runtime] ${msg}`),
+  info: () => {},
   warn: (msg) => console.warn(`[hermetic-runtime] ${msg}`),
   error: (msg, err) => console.error(`[hermetic-runtime] ${msg}`, err || ''),
-  debug: (msg) => console.debug(`[hermetic-runtime] ${msg}`),
-  log: (msg) => console.log(`[hermetic-runtime] ${msg}`)
+  debug: () => {},
+  log: () => {}
 };
 
 /**

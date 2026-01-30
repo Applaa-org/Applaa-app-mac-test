@@ -32,7 +32,6 @@ export class ChromeDevToolsMCPService {
   private consoleCallbacks: ((message: DevToolsMessage) => void)[] = [];
 
   constructor() {
-    logger.info('🔧 Chrome DevTools MCP Service initialized');
   }
 
   /**

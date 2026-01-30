@@ -129,7 +129,6 @@ export function registerIpcHandlers() {
   // WordPress authentication - ENABLED
   try {
     registerWordPressAuthHandlers();
-    console.log('✅ WordPress authentication handlers enabled');
   } catch (err) {
     console.error('❌ Failed to register WordPress handlers:', err);
   }
@@ -176,12 +175,10 @@ export function registerIpcHandlers() {
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
   // registerSnackHandlers(); // DISABLED - old snack-sdk not included in EXE package
   registerSnackPreviewHandlers(); // ✅ NEW: Snack-powered preview with hot reload
-  console.log('🚀 Snack preview handlers enabled');
   registerCodeValidationHandlers(); // ✅ NEW: Code validation and auto-fix
   registerChromeDevToolsHandlers();
   registerAppRepairHandlers(); // ✅ NEW: Chrome DevTools MCP integration
   registerRuntimeProblemHandlers(); // ✅ NEW: Runtime error integration with Problems Tab
-  console.log('✅ Code validation handlers enabled');
   registerPromptOptimizationHandlers();
   registerPromptHandlers();
   registerFlutterMobileHandlers();
@@ -207,128 +204,95 @@ export function registerIpcHandlers() {
   registerLocalBuildHandlers();
 
   // 🔍 Android Dependency Checker
-  console.log('🔍 Registering Android dependency handlers...');
   registerAndroidDependencyHandlers();
 
   // 🔧 Auto-Installer
-  console.log('🔧 Registering auto-installer handlers...');
   registerAutoInstallerHandlers();
 
   // 🚀 Prerequisite Installer
-  console.log('🚀 Registering prerequisite installer handlers...');
   registerPrerequisiteInstallerHandlers();
 
   // 🎮 Godot Engine Integration
-  console.log('🎮 Registering Godot handlers...');
   registerGodotHandlers();
 
   // 🎮 Custom Games Management
-  console.log('🎮 Registering games handlers...');
   registerGamesHandlers();
 
   // 🎮 Game Templates Management
-  console.log('🎮 Registering game templates handlers...');
   registerGameTemplatesHandlers();
 
   // ⛏️ Minecraft Mod Builder
-  console.log('⛏️ Registering Minecraft handlers...');
   registerMinecraftHandlers();
 
   // ⛏️ Minecraft Sandbox (PrismarineJS)
-  console.log('⛏️ Registering Minecraft sandbox handlers...');
   registerMinecraftSandboxHandlers();
 
   // 🎨 AI Asset Generation (Textures, Models, Sounds)
-  console.log('🎨 Registering asset generation handlers...');
   registerAssetGenerationHandlers();
 
   // 🤖 AI Creator Handlers
-  console.log('🤖 Registering creator handlers...');
   registerCreatorHandlers();
 
   // 🌐 Professional Chromium Browser
-  console.log('🌐 Registering Chromium browser handlers...');
   registerChromiumHandlers();
 
-  // 🌐 Browser Agent (OLD - Disabled in favor of Chromium handlers)
-  // console.log('🌐 Registering browser agent handlers...');
-  // registerBrowserAgentHandlers();
-
   // 📑 Browser Tabs
-  console.log('📑 Registering tab handlers...');
   registerTabHandlers();
 
   // 🤖 Gemini AI Browser Automation
-  console.log('🤖 Registering Gemini Automation handlers...');
   registerAutomationHandlers();
 
   // 🤖 Applaa Buddy - AI Assistant Browser
-  console.log('🤖 Registering Applaa Buddy handlers...');
   registerBuddyHandlers();
 
   // 🧠 Applaa Local Brain - Transformers.js + Vector Search
-  console.log('🧠 Registering Local Brain handlers...');
   registerLocalBrainHandlers();
 
   // 🧠 Skill Executor
-  console.log('🧠 Registering Skill Executor handlers...');
   registerSkillHandlers();
 
   // 🌐 Browser Automation (Planning + Execution)
-  console.log('🌐 Registering Browser Automation handlers...');
   registerBrowserAutomationHandlers();
 
   // 🌐 Web Apps Templates Management
-  console.log('🌐 Registering web apps handlers...');
   registerWebAppsHandlers();
 
   // 🚀 Backend Auto-Deployment
-  console.log('🚀 Registering backend deployment handlers...');
   registerBackendDeployHandlers();
 
   // 🗄️ Database Operations (Export, Credentials)
-  console.log('🗄️ Registering database handlers...');
   registerDatabaseHandlers();
 
   // 🔐 Supabase Vault for Environment Variables
-  console.log('🔐 Registering Vault handlers...');
   registerVaultHandlers();
 
   // 🤖 Applaa Automation handlers
-  console.log('🤖 Registering Applaa automation handlers...');
   registerApplaaAutomationHandlers();
 
   // 🔒 Security Review handlers
-  console.log('🔒 Registering Security review handlers...');
   registerSecurityHandlers();
 
   // 🎨 Visual Editing handlers
-  console.log('🎨 Registering Visual Editing handlers...');
   registerVisualEditingHandlers();
 
   // 📸 Preview Image handlers
-  console.log('📸 Registering Preview Image handlers...');
   registerPreviewImageHandlers();
 
   // 🌐 Website Cloning handlers
-  console.log('🌐 Registering Website Cloning handlers...');
   registerWebCloneHandlers();
 
   // 💳 Subscription handlers (Stripe integration - optional)
   try {
     registerSubscriptionHandlers();
-    console.log('💳 Subscription handlers registered');
   } catch (error: any) {
     console.warn('⚠️ Subscription handlers not available (Stripe may not be installed):', error.message);
   }
 
   // 👤 Profile handlers
   registerProfileHandlers();
-  console.log('👤 Profile handlers registered');
 
   // 💎 Credit handlers
   registerCreditHandlers();
-  console.log('💎 Credit handlers registered');
 
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

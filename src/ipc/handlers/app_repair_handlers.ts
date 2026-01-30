@@ -5,7 +5,6 @@ import { ExpoAppRepairer } from '../../lib/expo/ExpoAppRepairer';
 const logger = log.scope("app_repair_handlers");
 
 export function registerAppRepairHandlers() {
-  logger.info('🔧 Registering app repair handlers');
 
   // Repair any broken Expo app
   ipcMain.handle("app:repair", async (
@@ -83,5 +82,4 @@ export function registerAppRepairHandlers() {
     }
   });
 
-  logger.info('✅ App repair handlers registered');
 }

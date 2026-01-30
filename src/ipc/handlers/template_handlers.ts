@@ -74,5 +74,4 @@ export function registerTemplateHandlers() {
     }
   });
 
-  logger.info("✅ Template handlers registered (including file operations)");
 }

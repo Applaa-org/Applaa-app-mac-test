@@ -38,13 +38,9 @@ let expoStatus: SimpleExpoStatus = {
 let currentStartOptions: { useTunnel: boolean } = { useTunnel: true };
 
 export function registerSimpleExpoHandlers() {
-  log.log("🎯 Registering Expo handlers with guaranteed port allocation");
   
-  // Check Node.js tools availability for diagnostics (outside try-catch to not block registration)
   try {
     const toolsAvailability = checkNodeToolsAvailability();
-    log.log("🔧 Node.js tools availability:", toolsAvailability);
-    
     if (!toolsAvailability.node || !toolsAvailability.npm || !toolsAvailability.npx) {
       log.warn("⚠️ Some Node.js tools are not available. Expo functionality may be limited.");
       log.warn("Tool paths:", toolsAvailability.paths);
@@ -1700,5 +1696,4 @@ export function registerSimpleExpoHandlers() {
     }
   });
   
-  log.log("✅ All Expo IPC handlers registered successfully (simple-expo:start, simple-expo:stop, simple-expo:status, simple-expo:send-input, simple-expo:check-tools)");
 }

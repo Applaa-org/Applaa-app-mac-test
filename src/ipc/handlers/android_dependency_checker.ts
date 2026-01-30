@@ -949,7 +949,6 @@ export function getInstallationInstructions(): {
  * Register IPC handlers for Android dependency checking
  */
 export function registerAndroidDependencyHandlers() {
-  logger.info('🔍 Registering Android dependency check handlers...');
 
   // Check Android build dependencies
   ipcMain.handle('android:check-dependencies', async () => {
@@ -1003,6 +1002,4 @@ export function registerAndroidDependencyHandlers() {
     }
   });
 
-  logger.info('✅ Android and iOS dependency check handlers registered');
-  logger.info('📋 Registered channels: android:check-dependencies, android:get-installation-instructions, ios:check-dependencies, build:check-all-dependencies');
 }

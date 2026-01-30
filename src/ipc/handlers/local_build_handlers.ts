@@ -22,7 +22,6 @@ interface LocalBuildResult {
 let currentBuildProcess: ChildProcess | null = null;
 
 export function registerLocalBuildHandlers() {
-  logger.info("🔨 Registering Local Build handlers...");
 
   // Build Android APK locally
   ipcMain.handle("local-build:android-apk", async (event, { appId }: { appId: number }) => {
@@ -192,7 +191,6 @@ export function registerLocalBuildHandlers() {
     return { success: false, error: "No build in progress" };
   });
 
-  logger.info("✅ Local Build handlers registered successfully");
 }
 
 /**

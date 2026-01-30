@@ -367,7 +367,6 @@ function ensureCoreTables(sqlite: Database.Database): void {
     logger.log("Successfully created automation_plans table");
   }
 
-  logger.log("✅ All core tables verified/created successfully");
 }
 
 /**
@@ -601,7 +600,6 @@ export function initializeDatabase(): BetterSQLite3Database<typeof schema> & {
   if (_db) return _db as any;
 
   const dbPath = getDatabasePath();
-  logger.log("Initializing database at:", dbPath);
 
   // Check if the database file exists and remove it if it has issues
   try {
@@ -630,9 +628,7 @@ export function initializeDatabase(): BetterSQLite3Database<typeof schema> & {
     if (!fs.existsSync(migrationsFolder)) {
       logger.warn("Migrations folder not found:", migrationsFolder, "- continuing without migrations");
     } else {
-      logger.log("Running migrations from:", migrationsFolder);
       migrate(_db, { migrationsFolder });
-      logger.log("Database migrations completed successfully");
     }
   } catch (error) {
     logger.warn("Migration failed, but continuing app startup:", error.message);

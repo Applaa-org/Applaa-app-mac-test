@@ -111,10 +111,8 @@ ipcMain.handle('prerequisites:progress', async (): Promise<{
  * Register all prerequisite installer handlers
  */
 export function registerPrerequisiteInstallerHandlers(): void {
-  logger.info('🚀 Registering prerequisite installer handlers...');
   
   // Handlers are already registered above with ipcMain.handle
   // This function is for consistency with other handler modules
   
-  logger.info('✅ Prerequisite installer handlers registered');
 }

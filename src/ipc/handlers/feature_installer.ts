@@ -21,7 +21,6 @@ const logger = log.scope("feature-installer");
  * This saves space and improves performance by only adding what's needed.
  */
 export function registerFeatureInstaller() {
-  logger.info("🔧 Registering on-demand feature installer");
 
   // List available features
   ipcMain.handle("feature:list", async () => {

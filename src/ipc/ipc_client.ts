@@ -242,9 +242,6 @@ export class IpcClient {
     if (this.isElectron) {
       this.ipcRenderer = (window as any).electron.ipcRenderer as IpcRenderer;
     } else {
-      console.warn(
-        "[IPC] Running in browser mode - IPC functionality will be mocked",
-      );
       this.ipcRenderer = new MockIpcRenderer();
     }
 

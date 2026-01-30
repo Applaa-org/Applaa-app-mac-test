@@ -19,9 +19,7 @@ class BackendAPI {
   
   constructor() {
     // Log the configured URL on initialization
-    console.log(`[BackendAPI] Initialized with baseUrl: ${this.config.baseUrl}`);
     if (!process.env.BACKEND_API_URL) {
-      console.warn(`[BackendAPI] WARNING: BACKEND_API_URL not set, using default: ${this.config.baseUrl}`);
     }
   }
 

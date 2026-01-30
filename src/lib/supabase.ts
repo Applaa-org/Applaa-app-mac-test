@@ -471,7 +471,6 @@ export function initializeSupabase(config: SupabaseConfig): SupabaseClient<any> 
       },
     });
 
-    log.info('Supabase client initialized successfully');
     return supabaseClient;
   } catch (error) {
     log.error('Failed to initialize Supabase client:', error);
@@ -584,8 +583,7 @@ export class SupabaseAuth {
       const { data: { user }, error } = await this.client.auth.getUser();
       if (error) throw error;
       return user;
-    } catch (error) {
-      log.error('Get current user error:', error);
+    } catch {
       return null;
     }
   }
@@ -887,13 +885,6 @@ export class SupabaseAuth {
         .maybeSingle();
 
       if (profileByEmail && !emailError) {
-        console.log('✅ [getProfileByEmailOrUsername] Found profile by email:', {
-          identifier: emailOrUsername,
-          profileId: profileByEmail.id,
-          profileEmail: profileByEmail.email,
-          profileFullName: profileByEmail.full_name,
-          wordpressUsername: profileByEmail.wordpress_username,
-        });
         return profileByEmail;
       }
 
@@ -923,13 +914,6 @@ export class SupabaseAuth {
         .maybeSingle();
 
       if (profileByDisplayName && !displayNameError) {
-        console.log('✅ [getProfileByEmailOrUsername] Found profile by full_name (display_name):', {
-          identifier: emailOrUsername,
-          profileId: profileByDisplayName.id,
-          profileEmail: profileByDisplayName.email,
-          profileFullName: profileByDisplayName.full_name,
-          wordpressUsername: profileByDisplayName.wordpress_username,
-        });
         return profileByDisplayName;
       }
 

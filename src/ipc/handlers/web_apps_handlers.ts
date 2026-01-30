@@ -39,7 +39,6 @@ function getSupabaseAdminClient() {
 }
 
 export function registerWebAppsHandlers() {
-  logger.info("Registering web apps IPC handlers...");
 
   // List web app templates by category or app type
   handle(

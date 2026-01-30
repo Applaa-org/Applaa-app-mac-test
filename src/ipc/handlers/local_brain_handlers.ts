@@ -5,7 +5,6 @@ import log from "electron-log";
 const logger = log.scope("local-brain-handlers");
 
 export function registerLocalBrainHandlers() {
-    logger.info("🧠 Registering Local Brain IPC handlers...");
 
     /**
      * Get semantic similarity search results

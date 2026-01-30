@@ -489,5 +489,4 @@ export function registerAutoInstallerHandlers() {
     }
   });
 
-  logger.info('✅ Auto-installer handlers registered');
 }

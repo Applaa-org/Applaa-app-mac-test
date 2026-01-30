@@ -54,8 +54,6 @@ export class AssetGenerationService {
             this.enabled = true;
             logger.info('ElevenLabs sound provider initialized');
         }
-
-        logger.info(`Asset generation service initialized with ${this.providers.size} providers`);
     }
 
     isEnabled(): boolean {

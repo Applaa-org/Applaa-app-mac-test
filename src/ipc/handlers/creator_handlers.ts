@@ -5,7 +5,6 @@ import { generateStarterProject, StarterProjectRequest } from "../../lib/llm-orc
 const logger = log.scope("creator_handlers");
 
 export function registerCreatorHandlers() {
-    logger.info("Registering creator IPC handlers...");
 
     ipcMain.handle("creator:generate-starter-project", async (_, request: StarterProjectRequest) => {
         try {
@@ -18,5 +17,4 @@ export function registerCreatorHandlers() {
         }
     });
 
-    logger.info("✅ Creator IPC handlers registered successfully");
 }

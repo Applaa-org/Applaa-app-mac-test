@@ -31,7 +31,6 @@ export function registerWordPressAuthHandlers() {
   ipcMain.handle('wordpress:check-configuration', async () => {
     try {
       // Always return configured since we're using API-based authentication
-      console.log('🔍 WordPress configuration: Using API-based authentication with Applaa.com');
       
       return {
         isConfigured: true,

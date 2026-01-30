@@ -10,13 +10,6 @@ const logger = log.scope("node_handlers");
 
 export function registerNodeHandlers() {
   ipcMain.handle("nodejs-status", async (): Promise<NodeSystemInfo> => {
-    logger.log(
-      "handling ipc: nodejs-status for platform:",
-      platform(),
-      "and arch:",
-      arch(),
-    );
-    
     // 🚀 ENHANCED NODE.JS DETECTION with better error messages
     let nodeVersion = "";
     let nodeVersionResult;
@@ -27,7 +20,7 @@ export function registerNodeHandlers() {
       nodeVersionResult = await execAsync("node --version");
       nodeVersion = (nodeVersionResult.stdout || "").trim();
       detectionMethod = "PATH";
-      logger.info(`✅ Node.js detected via PATH: ${nodeVersion}`);
+      // Node.js detected via PATH
     } catch (err) {
       logger.warn("node --version failed (likely PATH issue)", err);
     }
@@ -42,7 +35,6 @@ export function registerNodeHandlers() {
           const verRes = await execAsync(`"${nodePath}" --version`);
           nodeVersion = (verRes.stdout || "").trim();
           detectionMethod = `absolute path (${nodePath})`;
-          logger.info(`✅ Node.js detected via absolute path: ${nodeVersion} at ${nodePath}`);
         }
       } catch (e) {
         logger.warn("Fallback node path resolution failed", e);

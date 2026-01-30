@@ -177,7 +177,6 @@ export function registerTerminalHandlers() {
   ipcMain.handle("terminal:resize", handleTerminalResize);
   ipcMain.handle("terminal:kill", handleTerminalKill);
   
-  safeLogger.info("Terminal handlers registered (basic child_process mode)");
 }
 
 /**

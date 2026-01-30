@@ -66,5 +66,4 @@ export function registerAssetGenerationHandlers() {
         }
     });
 
-    logger.info('Asset generation handlers registered');
 }

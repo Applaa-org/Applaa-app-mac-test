@@ -38,7 +38,6 @@ export function registerSupabaseAuthHandlers() {
 
       // Set up auth state listener
       auth.onAuthStateChange(async (event, session) => {
-        log.info(`Auth state changed: ${event}`);
         
         if (session) {
           currentSession = session;
@@ -310,14 +309,12 @@ export function registerSupabaseAuthHandlers() {
         serviceRoleKey: envServiceRoleKey,
       };
       
-      log.info('Using Supabase credentials from environment variables');
 
       const client = initializeSupabase(config);
       const auth = getSupabaseAuth();
 
       // Set up auth state listener
       auth.onAuthStateChange(async (event, session) => {
-        log.info(`Auth state changed: ${event}`);
         
         if (session) {
           currentSession = session;
@@ -340,7 +337,6 @@ export function registerSupabaseAuthHandlers() {
       });
 
       isInitialized = true;
-      log.info('Supabase authentication initialized from settings');
       return { success: true, message: 'Initialized successfully from settings' };
     } catch (error) {
       log.error('Failed to initialize from settings:', error);
@@ -395,16 +391,6 @@ export function registerSupabaseAuthHandlers() {
       const envUrl = process.env.AUTH_SUPABASE_URL;
       const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY;
       const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY;
-      
-      console.log('🔍 Checking Supabase configuration:');
-      console.log('SUPABASE_URL:', envUrl ? 'SET' : 'NOT SET');
-      console.log('SUPABASE_ANON_KEY:', envAnonKey ? 'SET' : 'NOT SET');
-      console.log('SUPABASE_SERVICE_ROLE_KEY:', envServiceRoleKey ? 'SET' : 'NOT SET');
-      
-      log.info('Checking Supabase configuration:');
-      log.info('SUPABASE_URL:', envUrl ? 'SET' : 'NOT SET');
-      log.info('SUPABASE_ANON_KEY:', envAnonKey ? 'SET' : 'NOT SET');
-      log.info('SUPABASE_SERVICE_ROLE_KEY:', envServiceRoleKey ? 'SET' : 'NOT SET');
       
       if (envUrl && envAnonKey) {
         return {

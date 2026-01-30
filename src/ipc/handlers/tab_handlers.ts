@@ -147,5 +147,4 @@ export function registerTabHandlers() {
         }
     });
 
-    log.info('[TabHandlers] Tab management handlers registered');
 }

@@ -321,7 +321,6 @@ export function registerDebugHandlers() {
     }
   });
 
-  console.log("Registered debug IPC handlers");
 }
 
 function serializeModelForDebug(model: LargeLanguageModel): string {

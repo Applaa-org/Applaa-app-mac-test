@@ -32,7 +32,6 @@ export interface MinecraftModSpec {
  * Register all Minecraft-related IPC handlers
  */
 export function registerMinecraftHandlers() {
-  logger.info("Registering Minecraft IPC handlers...");
 
   // Check if Java JDK and Gradle are installed
   ipcMain.handle("check-minecraft-tools", async () => {
@@ -497,7 +496,6 @@ export function registerMinecraftHandlers() {
     },
   );
 
-  logger.info("✅ Minecraft IPC handlers registered");
 }
 
 /**

@@ -35,13 +35,6 @@ export function registerProfileHandlers() {
       const auth = getSupabaseAuth();
       const supabaseUser = await auth.getCurrentUser();
 
-      console.log('🔍 [Profile Handler] Supabase user check:', {
-        hasSupabaseUser: !!supabaseUser,
-        supabaseUserId: supabaseUser?.id,
-        supabaseUserEmail: supabaseUser?.email,
-        supabaseUserMetadata: supabaseUser?.user_metadata,
-      });
-
       if (supabaseUser) {
         // User is authenticated via Supabase
         const adminClient = getSupabaseAdminClient();
@@ -128,35 +121,11 @@ export function registerProfileHandlers() {
           profile.email = supabaseUser.email;
         }
 
-        logger.info('Profile retrieved successfully:', {
-          id: profile.id,
-          email: profile.email,
-          hasEmail: !!profile.email,
-        });
-
-        console.log('✅ [Profile Handler] Profile from Supabase auth:', {
-          profileId: profile.id,
-          profileEmail: profile.email,
-          profileFullName: profile.full_name,
-          profileSubscriptionTier: profile.subscription_tier,
-          wordpressUsername: profile.wordpress_username,
-          source: 'Supabase Authentication',
-        });
-
         return { success: true, profile };
       } else {
         // Check WordPress authentication (fallback)
         const settings = readSettings();
         const wordpressAuth = settings.wordpressAuth;
-
-        console.log('🔍 [Profile Handler] WordPress auth check:', {
-          hasWordPressAuth: !!wordpressAuth,
-          isAuthenticated: wordpressAuth?.isAuthenticated,
-          wordpressUserEmail: wordpressAuth?.user?.email,
-          wordpressUsername: wordpressAuth?.user?.username,
-          wordpressDisplayName: wordpressAuth?.user?.display_name,
-          wordpressUserId: wordpressAuth?.user?.id,
-        });
 
         if (!wordpressAuth?.isAuthenticated || !wordpressAuth?.user) {
           throw new Error('User not authenticated. Please sign in to view profile.');
@@ -204,13 +173,6 @@ export function registerProfileHandlers() {
           }
         }
         
-        console.log('🔍 [Profile Handler] WordPress user data:', {
-          email: userEmail,
-          username: wordpressUsername,
-          displayName: wordpressDisplayName,
-          userId: wordpressAuth.user.id,
-        });
-        
         // Look up existing profile in Supabase by email or username
         // Since all WordPress users are already in Supabase, profile should exist
         // Try multiple lookup strategies to find the correct profile
@@ -218,26 +180,21 @@ export function registerProfileHandlers() {
         
         // Strategy 1: Try by email
         if (userEmail && userEmail !== 'unknown@example.com') {
-          console.log('🔍 [Profile Handler] Strategy 1: Looking up profile by WordPress email:', userEmail);
           profile = await auth.getProfileByEmailOrUsername(userEmail);
         }
         
         // Strategy 2: Try by display name (often matches the actual username in database)
         if (!profile && wordpressDisplayName) {
-          console.log('🔍 [Profile Handler] Strategy 2: Looking up profile by WordPress display_name:', wordpressDisplayName);
           profile = await auth.getProfileByEmailOrUsername(wordpressDisplayName);
         }
         
         // Strategy 3: Try by username
         if (!profile && wordpressUsername) {
-          logger.info('Profile not found by email/display_name, trying WordPress username:', wordpressUsername);
-          console.log('🔍 [Profile Handler] Strategy 3: Looking up profile by WordPress username:', wordpressUsername);
           profile = await auth.getProfileByEmailOrUsername(wordpressUsername);
         }
         
         // Strategy 4: Try direct lookup by wordpress_user_id if we have it
         if (!profile && wordpressAuth.user.id) {
-          console.log('🔍 [Profile Handler] Strategy 4: Looking up profile by wordpress_user_id:', wordpressAuth.user.id);
           const adminClient = getSupabaseAdminClient();
           const { data: profileById, error: idError } = await adminClient
             .from('profiles')
@@ -246,30 +203,12 @@ export function registerProfileHandlers() {
             .maybeSingle();
           
           if (profileById && !idError) {
-            console.log('✅ [Profile Handler] Found profile by wordpress_user_id:', {
-              profileId: profileById.id,
-              profileEmail: profileById.email,
-              wordpressUserId: profileById.wordpress_user_id,
-            });
             profile = profileById;
           }
         }
         
         // ✅ AUTO-CREATE: If profile still not found, create a new one for this WordPress user
         if (!profile) {
-          logger.info('WordPress user profile not found in Supabase, creating new profile:', {
-            email: userEmail,
-            username: wordpressUsername,
-            displayName: wordpressDisplayName,
-            wordpressUserId: wordpressAuth.user.id,
-          });
-          console.log('🔧 [Profile Handler] Auto-creating profile for WordPress user:', {
-            email: userEmail,
-            username: wordpressUsername,
-            displayName: wordpressDisplayName,
-            wordpressUserId: wordpressAuth.user.id,
-          });
-          
           try {
             const adminClient = getSupabaseAdminClient();
             
@@ -320,31 +259,12 @@ export function registerProfileHandlers() {
               throw new Error(`Failed to create user profile: ${createError.message}`);
             }
             
-            logger.info('✅ Profile auto-created successfully:', {
-              profileId: newProfile.id,
-              email: newProfile.email,
-              wordpressUserId: newProfile.wordpress_user_id,
-            });
-            console.log('✅ [Profile Handler] Profile auto-created successfully:', {
-              profileId: newProfile.id,
-              email: newProfile.email,
-              wordpressUserId: newProfile.wordpress_user_id,
-            });
-            
             profile = newProfile;
           } catch (createError) {
             logger.error('Failed to auto-create profile for WordPress user:', createError);
             throw new Error('Failed to create user profile. Please contact support.');
           }
         }
-
-        // Log what we found
-        console.log('📧 [Profile Handler] Email comparison:', {
-          supabaseProfileEmail: profile.email,
-          wordpressEmail: userEmail,
-          emailsMatch: profile.email === userEmail,
-          isUnknownEmail: profile.email === 'unknown@example.com' || userEmail === 'unknown@example.com',
-        });
 
         // ✅ FIX: Prioritize valid email from WordPress if Supabase profile has invalid email
         // Strategy: Use Supabase profile email if it's valid (not 'unknown@example.com')
@@ -398,26 +318,7 @@ export function registerProfileHandlers() {
             supabaseEmail: profile.email,
             wordpressEmail: userEmail,
           });
-          console.warn('⚠️ [Profile Handler] Email issue: Both sources have unknown@example.com. Please update email in Supabase profiles table.');
-          // Keep the Supabase one (don't change to WordPress if it's also invalid)
         }
-
-        logger.info('Profile retrieved successfully for WordPress user:', {
-          id: profile.id,
-          email: profile.email,
-          source: profile.email === userEmail ? 'WordPress (fallback)' : 'Supabase profile',
-        });
-
-        console.log('✅ [Profile Handler] Profile from WordPress auth:', {
-          profileId: profile.id,
-          profileEmail: profile.email,
-          profileFullName: profile.full_name,
-          profileSubscriptionTier: profile.subscription_tier,
-          wordpressUsername: profile.wordpress_username,
-          wordpressUserId: profile.wordpress_user_id,
-          source: 'WordPress Authentication -> Supabase Profile',
-          emailSource: profile.email === userEmail ? 'WordPress (fallback)' : 'Supabase profile',
-        });
 
         return { success: true, profile };
       }

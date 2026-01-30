@@ -316,5 +316,4 @@ export function registerURLHandlers() {
     }
   });
 
-  logger.info("✅ URL handlers registered successfully");
 }

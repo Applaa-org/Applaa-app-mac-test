@@ -49,29 +49,17 @@ export class BackupManager {
    * Initialize backup system - call this on app ready
    */
   async initialize(): Promise<void> {
-    logger.info("Initializing backup system...");
-
-    // Set paths after app is ready
     this.userDataPath = app.getPath("userData");
     this.backupBasePath = path.join(this.userDataPath, "backups");
 
-    logger.info(
-      `Backup system paths - UserData: ${this.userDataPath}, Backups: ${this.backupBasePath}`,
-    );
-
-    // Check if this is a version upgrade
     const currentVersion = app.getVersion();
     const lastVersion = await this.getLastRunVersion();
 
     if (lastVersion === null) {
-      logger.info("No previous version found, skipping backup");
       return;
     }
 
     if (lastVersion === currentVersion) {
-      logger.info(
-        `No version upgrade detected. Current version: ${currentVersion}`,
-      );
       return;
     }
 
@@ -79,7 +67,7 @@ export class BackupManager {
     await fs.mkdir(this.backupBasePath, { recursive: true });
     logger.debug("Backup directory created/verified");
 
-    logger.info(`Version upgrade detected: ${lastVersion} → ${currentVersion}`);
+    logger.debug(`Version upgrade detected: ${lastVersion} → ${currentVersion}`);
     await this.createBackup(`upgrade_from_${lastVersion}`);
 
     // Save current version

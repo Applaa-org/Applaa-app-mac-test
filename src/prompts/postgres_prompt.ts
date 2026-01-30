@@ -17,9 +17,6 @@ export function getPostgresAvailablePrompt(): string {
   const apiUrl = `${backendUrl}/api`;
   
   // Debug logging to verify env var is loaded
-  console.log('[Postgres Prompt] BACKEND_API_URL env:', process.env.BACKEND_API_URL);
-  console.log('[Postgres Prompt] Backend URL:', backendUrl);
-  console.log('[Postgres Prompt] API URL:', apiUrl);
   
   return `
 # Postgres Database Integration

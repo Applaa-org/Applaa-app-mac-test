@@ -5,7 +5,6 @@ import { jarvisAutomation } from '../../lib/automation/jarvis-automation';
 const logger = log.scope('automation-handlers');
 
 export function registerAutomationHandlers() {
-    logger.info('Registering Jarvis Automation Handlers');
 
     // Initialize Jarvis automation
     ipcMain.handle('automation:init', async () => {
@@ -73,5 +72,4 @@ export function registerAutomationHandlers() {
         }
     });
 
-    logger.info('✅ Jarvis Automation handlers registered');
 }

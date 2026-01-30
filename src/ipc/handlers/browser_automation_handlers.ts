@@ -7,7 +7,6 @@ import { BrowserLifecycle } from '../../services/browser-lifecycle';
 const logger = log.scope('browser-automation-handlers');
 
 export function registerBrowserAutomationHandlers() {
-    logger.info('🌐 Registering Browser Automation IPC handlers...');
 
     /**
      * Create a browser automation plan
@@ -66,5 +65,4 @@ export function registerBrowserAutomationHandlers() {
         }
     });
 
-    logger.info('✅ Browser Automation handlers registered');
 }

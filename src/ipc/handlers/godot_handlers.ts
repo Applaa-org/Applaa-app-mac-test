@@ -500,7 +500,6 @@ export interface GameSpecification {
 }
 
 export function registerGodotHandlers() {
-  logger.info("Registering Godot IPC handlers...");
   
   // Generate Game Specification JSON from user prompt
   handle(
@@ -1196,6 +1195,5 @@ renderer/rendering_method="forward_plus"
     }
   );
   
-  logger.info("✅ Godot IPC handlers registered successfully");
 }
 

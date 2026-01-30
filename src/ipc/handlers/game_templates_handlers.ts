@@ -60,7 +60,6 @@ function getSupabaseAdminClient() {
 }
 
 export function registerGameTemplatesHandlers() {
-  logger.info("Registering game templates IPC handlers...");
 
   // List game templates by app type
   handle(

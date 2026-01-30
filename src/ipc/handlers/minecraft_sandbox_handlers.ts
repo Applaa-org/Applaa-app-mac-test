@@ -82,5 +82,4 @@ export function registerMinecraftSandboxHandlers() {
         }
     });
 
-    logger.info('Minecraft sandbox handlers registered');
 }

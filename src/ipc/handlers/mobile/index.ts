@@ -152,7 +152,6 @@ export function registerMobileHandlers() {
     }
   });
 
-  console.log('[IPC] Mobile handlers registered successfully');
 }
 
 // Export handler functions for testing

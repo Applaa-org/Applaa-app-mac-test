@@ -35,17 +35,11 @@ export function getUserDataPath(): string {
 
   // When running in Electron (packaged app or development)
   if (electron && electron.app) {
-    // Always use Electron's userData path when available
-    const userDataPath = electron.app.getPath("userData");
-    console.log(`[getUserDataPath] Using Electron userData path: ${userDataPath}`);
-    console.log(`[getUserDataPath] Environment: NODE_ENV=${process.env.NODE_ENV}, resourcesPath=${process.resourcesPath}, defaultApp=${process.defaultApp}`);
-    return userDataPath;
+    return electron.app.getPath("userData");
   }
 
   // Fallback for non-Electron environments (tests, etc.)
-  const fallbackPath = path.resolve("./userData");
-  console.log(`[getUserDataPath] Using fallback path: ${fallbackPath}`);
-  return fallbackPath;
+  return path.resolve("./userData");
 }
 
 /**

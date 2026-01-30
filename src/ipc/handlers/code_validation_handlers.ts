@@ -153,5 +153,4 @@ export function registerCodeValidationHandlers() {
     }
   });
 
-  console.log('✅ Code validation handlers registered');
 }

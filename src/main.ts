@@ -68,40 +68,23 @@ for (const envPath of possibleEnvPaths) {
   try {
     if (fs.existsSync(envPath)) {
       dotenv.config({ path: envPath });
-      console.log('✅ Loaded .env from:', envPath);
       envLoaded = true;
       break;
     }
-  } catch (error) {
-    console.log('❌ Failed to load .env from:', envPath, error);
+  } catch {
+    // ignore
   }
 }
 
-if (!envLoaded) {
-  console.log('⚠️ No .env file found in any of the expected locations');
-}
-
-console.log('🚀 App startup - Environment variables status:');
-console.log('SUPABASE_URL loaded:', !!process.env.SUPABASE_URL);
-console.log('SUPABASE_ANON_KEY loaded:', !!process.env.SUPABASE_ANON_KEY);
-console.log('SUPABASE_SERVICE_ROLE_KEY loaded:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-if (process.env.SUPABASE_URL) {
-  console.log('SUPABASE_URL value:', process.env.SUPABASE_URL);
-
-  // Initialize Supabase Client
-  if (process.env.SUPABASE_ANON_KEY) {
-    try {
-      initializeSupabase({
-        url: process.env.SUPABASE_URL,
-        anonKey: process.env.SUPABASE_ANON_KEY,
-        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-      });
-      console.log('✅ Supabase initialized in main process');
-    } catch (error) {
-      console.error('❌ Failed to initialize Supabase:', error);
-    }
-  } else {
-    console.warn('⚠️ SUPABASE_ANON_KEY missing, skipping Supabase initialization');
+if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+  try {
+    initializeSupabase({
+      url: process.env.SUPABASE_URL,
+      anonKey: process.env.SUPABASE_ANON_KEY,
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY
+    });
+  } catch (error) {
+    console.error('Failed to initialize Supabase:', error);
   }
 }
 
@@ -151,7 +134,6 @@ export async function onReady() {
 
   try {
     initializeDatabase();
-    logger.info("✅ Database initialized successfully");
   } catch (e) {
     logger.error("❌ Failed to initialize database:", e);
     // Re-throw to prevent app from starting with broken database
@@ -163,19 +145,12 @@ export async function onReady() {
     const userDataPath = app.getPath("userData");
     const workspaceRoot = path.join(userDataPath, "applaa-workspace");
     await workspaceDependencyManager.initialize(workspaceRoot);
-    logger.info("🚀 Workspace dependency manager initialized successfully");
-
-    // 🔧 INTEGRATION: Validate container strategy integration
+    // Validate container strategy integration (non-blocking)
     try {
       const { validateCoreFunctionality } = await import("./ipc/utils/container_strategy_integration_test");
-      const validationResults = await validateCoreFunctionality();
-      logger.info("🧪 Container strategy integration validation:", validationResults);
-
-      if (!validationResults.containerStrategy) {
-        logger.warn("⚠️ Container strategy integration validation failed - performance optimizations may not work optimally");
-      }
-    } catch (validationError) {
-      logger.warn("⚠️ Container strategy integration validation failed (non-critical):", validationError);
+      await validateCoreFunctionality();
+    } catch {
+      // non-critical
     }
 
   } catch (error) {
@@ -185,8 +160,6 @@ export async function onReady() {
 
 
   // 🌐 BROWSER: Buddy Browser will launch on-demand when user requests browsing tasks
-  // No longer auto-launching at startup to improve performance
-  logger.info('✅ Buddy Browser configured for on-demand launch');
 
   // 🔄 Auto-migrate settings encryption for seamless updates
   try {
@@ -216,28 +189,25 @@ export async function onReady() {
           ? settings.analyticsConsent
           : DEFAULT_CONSENT,
       });
-      logger.info("✅ Sentry initialized in main process");
     } catch (error) {
       logger.error("❌ Failed to initialize Sentry in main process:", error);
     }
   }
 
-  logger.info("Auto-update enabled=", settings.enableAutoUpdate);
   if (settings.enableAutoUpdate) {
-    // Technically we could just pass the releaseChannel directly to the host,
-    // but this is more explicit and falls back to stable if there's an unknown
-    // release channel.
     const postfix = settings.releaseChannel === "beta" ? "beta" : "stable";
     const host = `https://api.applaa.dev/v1/update/${postfix}`;
-    logger.info("Auto-update release channel=", postfix);
+    const updateLogger = process.env.NODE_ENV === "development"
+      ? { ...logger, info: () => {}, log: () => {} }
+      : logger;
     updateElectronApp({
-      logger,
+      logger: updateLogger,
       updateSource: {
         type: UpdateSourceType.ElectronPublicUpdateService,
         repo: "dyad-sh/dyad",
         host,
       },
-    }); // additional configuration options available
+    });
   }
 }
 
@@ -321,29 +291,16 @@ const createWindow = () => {
   global.mainWindow = mainWindow;
 
   // ✅ Handle media permissions for Web Speech API
-  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
-    // Allow media permissions for speech recognition
+  mainWindow.webContents.session.setPermissionRequestHandler((_webContents, permission, callback) => {
     if (permission === 'media') {
-      console.log('🎵 Media permission requested - granting access for voice input');
       callback(true);
       return;
     }
-
-    // Deny other permissions by default for security
-    console.log(`🚫 Permission denied: ${permission}`);
     callback(false);
   });
 
-  // ✅ Handle permission checks for Web Speech API
-  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
-    // Allow media permissions for speech recognition
-    if (permission === 'media') {
-      console.log('🎵 Media permission check - allowing for voice input');
-      return true;
-    }
-
-    // Deny other permissions by default
-    return false;
+  mainWindow.webContents.session.setPermissionCheckHandler((_webContents, permission) => {
+    return permission === 'media';
   });
 
   // 🚀 COOP/COEP headers for WASM threads/WebGPU support (Whisper optimization)
@@ -359,10 +316,6 @@ const createWindow = () => {
 
     callback({ responseHeaders });
   });
-
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('🔧 COOP/COEP headers disabled in development to allow blob URLs for WASM');
-  }
 
   // Bind terminal window for terminal handlers
   bindTerminalWindow(mainWindow);
@@ -464,7 +417,6 @@ if (!gotTheLock) {
   app.quit();
 } else {
   // We got the lock, so this is the main instance
-  logger.info("Got single instance lock, this is the main instance");
   app.whenReady().then(onReady);
 
   // Handle the protocol when the app is already running

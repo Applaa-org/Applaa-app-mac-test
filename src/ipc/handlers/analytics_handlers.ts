@@ -46,7 +46,6 @@ export function registerAnalyticsHandlers() {
       // Only initialize if we have at least one service configured
       if (config.ga4MeasurementId || config.sentryDsn) {
         initializeAnalytics(config);
-        log.info('Analytics initialized from settings');
         return { success: true, message: 'Analytics initialized from settings' };
       } else {
         log.info('Analytics not configured - skipping initialization');

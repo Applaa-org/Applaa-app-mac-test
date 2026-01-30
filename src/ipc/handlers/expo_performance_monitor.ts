@@ -220,7 +220,6 @@ class ExpoPerformanceMonitor {
 export const expoPerformanceMonitor = new ExpoPerformanceMonitor();
 
 export function registerExpoPerformanceMonitor() {
-  logger.info("📊 Registering Expo Performance Monitor");
 
   // Get performance statistics
   ipcMain.handle("expo-perf:get-stats", async () => {

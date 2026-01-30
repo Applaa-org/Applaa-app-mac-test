@@ -29,7 +29,6 @@ const installationStatus = new Map<number, {
  * with other app loading operations.
  */
 export function registerBackgroundDependencyInstaller() {
-  logger.info("🔧 Registering background dependency installer");
 
   // IPC handler for checking if dependencies need installation
   ipcMain.handle("check-dependencies-needed", async (_, params: { appId: number }) => {

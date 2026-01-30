@@ -270,7 +270,6 @@ class BackgroundTaskManager extends EventEmitter {
       return this.getRunningTasks().length;
     });
 
-    logger.info("Background task manager IPC handlers registered");
   }
 }
 
@@ -287,5 +286,4 @@ export function getBackgroundTaskManager(): BackgroundTaskManager {
 // Register handlers when this module is imported
 export function registerBackgroundTaskHandlers() {
   getBackgroundTaskManager();
-  logger.info("Background task manager initialized");
 }

@@ -57,7 +57,6 @@ function getSupabaseAdminClient() {
 }
 
 export function registerGamesHandlers() {
-  logger.info("Registering games IPC handlers...");
 
   // List all games (shared for all users)
   handle(

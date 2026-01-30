@@ -5,8 +5,6 @@ import { chromeDevToolsMCP, DevToolsMessage, NetworkRequest } from '../../servic
 const logger = log.scope("chrome_devtools_handlers");
 
 export function registerChromeDevToolsHandlers() {
-  console.log('🔧 REGISTERING Chrome DevTools MCP handlers - FUNCTION CALLED');
-  logger.info('🔧 Registering Chrome DevTools MCP handlers');
 
   // Start Chrome DevTools MCP server
   ipcMain.handle("chrome-devtools:start", async (): Promise<{ success: boolean; error?: string }> => {
@@ -97,5 +95,4 @@ export function registerChromeDevToolsHandlers() {
     return { connected: chromeDevToolsMCP.getConnected() };
   });
 
-  logger.info('✅ Chrome DevTools MCP handlers registered');
 }

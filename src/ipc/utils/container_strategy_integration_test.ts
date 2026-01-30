@@ -17,8 +17,6 @@ export async function testContainerStrategyIntegration(): Promise<{
     fallbackChain: string[];
   };
 }> {
-  logger.info("🧪 Starting container strategy integration test...");
-  
   const results = {
     hermeticStatus: null as any,
     workspaceManagerStatus: null as any,
@@ -27,48 +25,32 @@ export async function testContainerStrategyIntegration(): Promise<{
   };
 
   try {
-    // 1. Test hermetic runtime status
-    logger.info("📋 Testing hermetic runtime status...");
     results.hermeticStatus = await getHermeticStatus();
-    logger.info(`✅ Hermetic runtime status:`, results.hermeticStatus);
 
-    // 2. Test workspace dependency manager initialization
-    logger.info("📋 Testing workspace dependency manager...");
     const testWorkspaceRoot = "/tmp/applaa-test-workspace";
     try {
       await workspaceDependencyManager.initialize(testWorkspaceRoot);
       results.workspaceManagerStatus = { initialized: true, workspaceRoot: testWorkspaceRoot };
-      logger.info(`✅ Workspace dependency manager initialized successfully`);
     } catch (error) {
       results.workspaceManagerStatus = { initialized: false, error: error.message };
-      logger.warn(`⚠️ Workspace dependency manager initialization failed:`, error);
     }
 
-    // 3. Test package manager consistency
-    logger.info("📋 Testing package manager consistency...");
     const testAppPath = "/tmp/test-app";
-    const hermeticPackageManager = await getBestPackageManager(testAppPath);
-    logger.info(`✅ Hermetic runtime detected package manager: ${hermeticPackageManager}`);
-    
-    // 4. Test fallback chain
-    logger.info("📋 Testing fallback chain...");
+    await getBestPackageManager(testAppPath);
+
     results.fallbackChain = [
       "1. Workspace dependency manager (shared node_modules)",
       "2. Hermetic runtime (consistent package manager)",
       "3. Traditional install (npm install --legacy-peer-deps)"
     ];
-    
-    results.packageManagerConsistency = true; // If we got here, it's consistent
-    
-    // 5. Cleanup test workspace
+    results.packageManagerConsistency = true;
+
     try {
       await workspaceDependencyManager.cleanup();
-      logger.info("🧹 Cleaned up test workspace");
-    } catch (cleanupError) {
-      logger.warn("⚠️ Cleanup failed (non-critical):", cleanupError);
+    } catch {
+      // non-critical
     }
 
-    logger.info("✅ Container strategy integration test completed successfully");
     return { success: true, results };
 
   } catch (error) {
@@ -86,8 +68,6 @@ export async function validateCoreFunctionality(): Promise<{
   preview: boolean;
   containerStrategy: boolean;
 }> {
-  logger.info("🚀 Validating core functionality...");
-  
   const results = {
     webappCreation: false,
     autofix: false,
@@ -118,10 +98,7 @@ export async function validateCoreFunctionality(): Promise<{
       logger.warn("⚠️ Hermetic runtime validation failed:", error);
     }
 
-    // Preview functionality is validated by the preview integration system
-    results.preview = true; // We've already integrated preview preparation
-
-    logger.info("✅ Core functionality validation completed:", results);
+    results.preview = true;
     return results;
 
   } catch (error) {

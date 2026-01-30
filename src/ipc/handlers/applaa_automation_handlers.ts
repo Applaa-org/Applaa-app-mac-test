@@ -5,7 +5,6 @@ import log from 'electron-log/main';
 const logger = log.scope("applaa-automation-handlers");
 
 export function registerApplaaAutomationHandlers() {
-  logger.info('🔧 Registering Applaa automation handlers');
 
   /**
    * Execute an automation task in the Applaa app
@@ -61,6 +60,5 @@ export function registerApplaaAutomationHandlers() {
     };
   });
 
-  logger.info('✅ Applaa automation handlers registered');
 }
 

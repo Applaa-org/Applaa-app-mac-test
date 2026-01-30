@@ -78,8 +78,6 @@ const SETTINGS_FILE = (process.resourcesPath && !process.defaultApp) ? "user-set
 
 export function getSettingsFilePath(): string {
   const filePath = path.join(getUserDataPath(), SETTINGS_FILE);
-  console.log(`[getSettingsFilePath] Using settings file: ${SETTINGS_FILE}`);
-  console.log(`[getSettingsFilePath] Full path: ${filePath}`);
   return filePath;
 }
 
@@ -88,7 +86,6 @@ export function readSettings(): UserSettings {
 
   // CRITICAL: Prevent recursive calls that cause infinite loops
   if (_isReadingSettings) {
-    console.warn('[readSettings] Recursive call detected, returning cached or default settings');
     return _settingsCache || DEFAULT_SETTINGS;
   }
 
@@ -96,25 +93,13 @@ export function readSettings(): UserSettings {
   const now = Date.now();
   if (_settingsCache && (now - _cacheTimestamp) < CACHE_DURATION_MS) {
     _cacheHits++;
-    if (_readCount % 50 === 0) { // Log every 50th call to avoid spam
-      console.log(`[PERF] Settings cache hit ${_cacheHits}/${_readCount} (${Math.round(_cacheHits / _readCount * 100)}% hit rate)`);
-    }
-    console.log('🔧 [readSettings] Cache hit, model:', {
-      provider: _settingsCache.selectedModel?.provider,
-      name: _settingsCache.selectedModel?.name
-    });
     return _settingsCache;
   }
-
-  console.log('🔧 [readSettings] Cache miss, reading from file...');
 
   try {
     _isReadingSettings = true;
     const filePath = getSettingsFilePath();
-    console.log(`[readSettings] Reading settings from: ${filePath}`);
-    console.log(`[readSettings] Environment: NODE_ENV=${process.env.NODE_ENV}, resourcesPath=${process.resourcesPath}, defaultApp=${process.defaultApp}`);
     if (!fs.existsSync(filePath)) {
-      console.log(`[readSettings] Settings file doesn't exist, creating default settings`);
       fs.writeFileSync(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
       return DEFAULT_SETTINGS;
     }
@@ -202,7 +187,6 @@ export function readSettings(): UserSettings {
     }
     for (const provider in combinedSettings.providerSettings) {
       if (combinedSettings.providerSettings[provider].apiKey) {
-        console.log(`[readSettings] Found API key for provider: ${provider}`);
         const encryptionType =
           combinedSettings.providerSettings[provider].apiKey.encryptionType;
         combinedSettings.providerSettings[provider].apiKey = {
@@ -211,23 +195,16 @@ export function readSettings(): UserSettings {
         };
       }
       if (combinedSettings.providerSettings[provider].resourceName) {
-        console.log(`[readSettings] Found resource name for provider: ${provider} = ${combinedSettings.providerSettings[provider].resourceName.value}`);
+        // no-op
       }
     }
 
     // Validate and merge with defaults
     const validatedSettings = UserSettingsSchema.parse(combinedSettings);
 
-    console.log('🔧 [readSettings] Settings read from file, model:', {
-      provider: validatedSettings.selectedModel?.provider,
-      name: validatedSettings.selectedModel?.name
-    });
-
     // Cache the settings to prevent recursive calls AND improve performance
     _settingsCache = validatedSettings;
     _cacheTimestamp = Date.now(); // Update cache timestamp
-
-    console.log(`[PERF] Settings loaded from disk (read #${_readCount})`);
 
     return validatedSettings;
   } catch (error) {
@@ -257,21 +234,13 @@ let _cacheHits = 0;
 export function invalidateSettingsCache() {
   _settingsCache = null;
   _cacheTimestamp = 0;
-  logger.info("🔄 Settings cache invalidated - will read fresh from disk on next access");
 }
 
 export function writeSettings(settings: Partial<UserSettings>): void {
   // CRITICAL: Prevent recursive calls that cause infinite loops
   if (_isWritingSettings) {
-    console.warn('[writeSettings] Recursive call detected, using cached settings');
     return;
   }
-
-  console.log('🔧 [writeSettings] START - Incoming settings:', {
-    hasSelectedModel: !!settings.selectedModel,
-    modelProvider: settings.selectedModel?.provider,
-    modelName: settings.selectedModel?.name
-  });
 
   try {
     _isWritingSettings = true;
@@ -279,18 +248,8 @@ export function writeSettings(settings: Partial<UserSettings>): void {
 
     // Use cache if available to prevent recursive readSettings calls
     const currentSettings = _settingsCache || readSettings();
-    console.log('🔧 [writeSettings] Current settings model:', {
-      hasSelectedModel: !!currentSettings.selectedModel,
-      modelProvider: currentSettings.selectedModel?.provider,
-      modelName: currentSettings.selectedModel?.name
-    });
 
     const newSettings = { ...currentSettings, ...settings };
-    console.log('🔧 [writeSettings] Merged settings model:', {
-      hasSelectedModel: !!newSettings.selectedModel,
-      modelProvider: newSettings.selectedModel?.provider,
-      modelName: newSettings.selectedModel?.name
-    });
     if (newSettings.githubAccessToken) {
       newSettings.githubAccessToken = encrypt(
         newSettings.githubAccessToken.value,
@@ -339,36 +298,22 @@ export function writeSettings(settings: Partial<UserSettings>): void {
     }
     for (const provider in newSettings.providerSettings) {
       if (newSettings.providerSettings[provider].apiKey) {
-        console.log(`[writeSettings] Encrypting API key for provider: ${provider}`);
         newSettings.providerSettings[provider].apiKey = encrypt(
           newSettings.providerSettings[provider].apiKey.value,
         );
       }
-      if (newSettings.providerSettings[provider].resourceName) {
-        console.log(`[writeSettings] Saving resource name for provider: ${provider}`);
-      }
     }
     const validatedSettings = UserSettingsSchema.parse(newSettings);
-    console.log('🔧 [writeSettings] Validated settings model:', {
-      hasSelectedModel: !!validatedSettings.selectedModel,
-      modelProvider: validatedSettings.selectedModel?.provider,
-      modelName: validatedSettings.selectedModel?.name
-    });
 
     fs.writeFileSync(filePath, JSON.stringify(validatedSettings, null, 2));
 
-    console.log('🔧 [writeSettings] File written successfully');
-
     // 🚀 SMART CACHE: Invalidate cache after writing to ensure fresh reads
     invalidateSettingsCache();
-    console.log('🔧 [writeSettings] Cache invalidated');
   } catch (error) {
-    logger.error("🔧 [writeSettings] ERROR:", error);
-    console.error("🔧 [writeSettings] ERROR:", error);
+    logger.error("writeSettings error:", error);
   } finally {
     // CRITICAL: Always reset the flag to prevent permanent lock
     _isWritingSettings = false;
-    console.log('🔧 [writeSettings] END');
   }
 }
 

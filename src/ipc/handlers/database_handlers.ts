@@ -9,7 +9,6 @@ const logger = log.scope("database-handlers");
  * Register IPC handlers for database operations (export, credentials)
  */
 export function registerDatabaseHandlers() {
-  logger.info("Registering database handlers...");
 
   // Get database credentials for an app
   ipcMain.handle(

@@ -15,7 +15,6 @@ import log from 'electron-log';
 const hotReloadBridge = SnackHotReloadBridge.getInstance();
 
 export function registerSnackPreviewHandlers() {
-  log.info('🚀 Registering Snack Preview handlers');
   
   /**
    * Start hot reload watching for an app
@@ -198,7 +197,6 @@ export function registerSnackPreviewHandlers() {
     });
   });
   
-  log.info('✅ Snack Preview handlers registered successfully');
 }
 
 // Cleanup on app quit

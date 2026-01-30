@@ -5,7 +5,6 @@ import log from "electron-log";
 const logger = log.scope("skill-handlers");
 
 export function registerSkillHandlers() {
-    logger.info("🧠 Registering Skill Executor IPC handlers...");
 
     /**
      * Execute a skill by ID
