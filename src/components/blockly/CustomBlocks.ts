@@ -141,6 +141,13 @@ export function initCustomBlocks() {
     };
 
     javascriptGenerator.forBlock['game_start'] = function (block) {
+        const nextBlock = block.getNextBlock();
+        const hasCreateSprite = nextBlock?.type === 'k9_create_sprite';
+        if (hasCreateSprite) {
+            return `// Game Started
+console.log("Game Started!");
+\n`;
+        }
         return `// Game Started
 console.log("Game Started!");
 if (window.StageManager) { window.StageManager.addSprite('MazeRunner', '🤖'); }

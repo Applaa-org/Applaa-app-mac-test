@@ -4,6 +4,8 @@ export interface Sprite {
     type: string; // 'HERO', 'ENEMY', 'COIN', etc.
     x: number;
     y: number;
+    vx: number;
+    vy: number;
     rotation: number;
     scale: number;
     visible: boolean;
@@ -76,6 +78,8 @@ export class StageManager {
             type,
             x: 200, // Center-ish
             y: 200,
+            vx: 0,
+            vy: 0,
             rotation: 0,
             scale: 1,
             visible: true
@@ -119,6 +123,16 @@ export class StageManager {
         }
     }
 
+    /** Set velocity (pixels per frame). Applied every frame in the render loop so the sprite keeps moving. */
+    static setSpriteVelocity(name: string, vx: number, vy: number) {
+        const sprite = this.sprites.find(s => s.name === name);
+        if (sprite) {
+            sprite.vx = vx;
+            sprite.vy = vy;
+            this.notifyListeners();
+        }
+    }
+
     static addShape(type: 'SQUARE' | 'CIRCLE' | 'TRIANGLE' | 'STAR', color: string = '#FF66CC') {
         const shape: Shape = {
             id: Math.random().toString(36).substr(2, 9),
@@ -146,9 +160,28 @@ export class StageManager {
     }
 
     private static render(ctx: CanvasRenderingContext2D) {
+        const w = ctx.canvas.width;
+        const h = ctx.canvas.height;
+
+        // Apply velocity each frame so sprites keep moving
+        let moved = false;
+        this.sprites.forEach(sprite => {
+            if (sprite.vx !== 0 || sprite.vy !== 0) {
+                sprite.x += sprite.vx;
+                sprite.y += sprite.vy;
+                // Wrap around stage edges (snake-style continuous play)
+                if (sprite.x < -32) sprite.x = w + 32;
+                if (sprite.x > w + 32) sprite.x = -32;
+                if (sprite.y < -32) sprite.y = h + 32;
+                if (sprite.y > h + 32) sprite.y = -32;
+                moved = true;
+            }
+        });
+        if (moved) this.notifyListeners();
+
         // Clear
         ctx.fillStyle = this.background;
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillRect(0, 0, w, h);
 
         // Grid (Optional help)
         this.drawGrid(ctx);

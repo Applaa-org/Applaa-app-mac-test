@@ -431,6 +431,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 if (action === 'addSprite') StageManager.addSprite(event.data.name, event.data.spriteType);
                 else if (action === 'setPosition') StageManager.setSpritePosition(event.data.name, event.data.x, event.data.y);
                 else if (action === 'moveSprite') StageManager.moveSprite(event.data.name, event.data.dx, event.data.dy);
+                else if (action === 'setVelocity') StageManager.setSpriteVelocity(event.data.name, event.data.vx, event.data.vy);
                 else if (action === 'setBackground') StageManager.setBackground(event.data.color);
                 else if (action === 'addShape') StageManager.addShape(event.data.shapeType, event.data.color);
                 else if (action === 'showOutput') StageManager.showOutput(event.data.text);
@@ -505,6 +506,22 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
         });
         return unsubscribe;
     }, [isStageOpen]); // Re-bind if isStageOpen changes to ensure we have fresh state
+
+    // Forward keydown to sandbox when stage is open (so Snake / arcade key handlers run)
+    useEffect(() => {
+        if (!isStageOpen) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            const sandbox = document.getElementById('blockly-sandbox') as HTMLIFrameElement | null;
+            if (sandbox?.contentWindow) {
+                sandbox.contentWindow.postMessage({ type: 'keydown', key: e.key }, '*');
+            }
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [isStageOpen]);
 
 
     useEffect(() => {
@@ -1726,6 +1743,9 @@ const SANDBOX_HTML = `
       moveSprite: function(name, dx, dy) {
         window.parent.postMessage({ type: 'STAGE', action: 'moveSprite', name, dx, dy }, '*');
       },
+      setSpriteVelocity: function(name, vx, vy) {
+        window.parent.postMessage({ type: 'STAGE', action: 'setVelocity', name, vx, vy }, '*');
+      },
       setBackground: function(color) {
          window.parent.postMessage({ type: 'STAGE', action: 'setBackground', color }, '*');
       },
@@ -1766,10 +1786,12 @@ const SANDBOX_HTML = `
       }
     };
     
-    // Listen for messages from parent
+    // Key handlers registered by k9_on_key_press blocks (parent forwards keydown when stage is open)
+    window.__keyHandlers = [];
     window.addEventListener('message', function(event) {
       if (event.data.type === 'run') {
         outputDiv.textContent = '';
+        window.__keyHandlers = [];
         // Wrap code in async IIFE to support await statements (needed for wait blocks)
         (async function() {
           try {
@@ -1784,6 +1806,11 @@ const SANDBOX_HTML = `
         })();
       } else if (event.data.type === 'clear') {
         outputDiv.textContent = '';
+        window.__keyHandlers = [];
+      } else if (event.data.type === 'keydown') {
+        (window.__keyHandlers || []).filter(function(h) { return h.key === event.data.key; }).forEach(function(h) {
+          try { h.fn(); } catch (e) { console.error(e); }
+        });
       }
     });
   </script>

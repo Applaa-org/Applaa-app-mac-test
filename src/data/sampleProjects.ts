@@ -107,20 +107,38 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                 "type": "game_start", "x": 50, "y": 50,
                 "next": {
                     "block": {
-                        "type": "k9_create_sprite", "fields": { "NAME": "Snake", "IMG": "HERO" }
+                        "type": "k9_create_sprite", "fields": { "NAME": "Snake", "IMG": "HERO" },
+                        "next": {
+                            "block": {
+                                "type": "k9_set_velocity", "fields": { "NAME": "Snake" },
+                                "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } }
+                            }
+                        }
                     }
                 }
             },
             {
                 "type": "k9_on_key_press", "x": 50, "y": 200, "fields": { "KEY": "UP" },
-                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -5 } } } } } } }
+                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "fields": { "NAME": "Snake" }, "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -5 } } } } } } }
+            },
+            {
+                "type": "k9_on_key_press", "x": 50, "y": 280, "fields": { "KEY": "DOWN" },
+                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "fields": { "NAME": "Snake" }, "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } } } } } }
+            },
+            {
+                "type": "k9_on_key_press", "x": 50, "y": 360, "fields": { "KEY": "LEFT" },
+                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "fields": { "NAME": "Snake" }, "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": -5 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } } } } }
+            },
+            {
+                "type": "k9_on_key_press", "x": 50, "y": 440, "fields": { "KEY": "RIGHT" },
+                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "fields": { "NAME": "Snake" }, "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } } } } }
             }
         ]),
         guide: {
-            overview: "Build the classic Snake game! Start by making the hero move.",
+            overview: "Build the classic Snake game! The snake moves automatically—use the arrow keys to change direction.",
             steps: [
                 { title: "Create Snake 🐍", explanation: "Use 'Create Sprite' to make your hero." },
-                { title: "Controls 🎮", explanation: "Use 'When Key Pressed' to change direction." }
+                { title: "Controls 🎮", explanation: "Use 'When Key Pressed' (Up/Down/Left/Right) to steer the snake." }
             ]
         }
     },

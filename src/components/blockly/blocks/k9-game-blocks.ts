@@ -121,7 +121,18 @@ export function initK9Blocks() {
     javascriptGenerator.forBlock['k9_on_key_press'] = function (block) {
         const key = block.getFieldValue('KEY');
         const branch = javascriptGenerator.statementToCode(block, 'DO');
-        return `// When Key ${key}:\n${branch}`;
+        const keyMap: Record<string, string> = {
+            UP: "'ArrowUp'", DOWN: "'ArrowDown'", LEFT: "'ArrowLeft'", RIGHT: "'ArrowRight'",
+            SPACE: "' '", ENTER: "'Enter'"
+        };
+        const keyCode = keyMap[key] || "'" + key + "'";
+        // Register with parent so keydown (when stage is open) can trigger this handler
+        return `
+        (function() {
+            window.__keyHandlers = window.__keyHandlers || [];
+            window.__keyHandlers.push({ key: ${keyCode}, fn: function() { ${branch} } });
+        })();
+        \n`;
     };
 
     // 4b. Move Sprite (used inside On Key Press etc.)
@@ -211,7 +222,12 @@ export function initK9Blocks() {
         const name = block.getFieldValue('NAME');
         const vx = javascriptGenerator.valueToCode(block, 'VX', Order.ATOMIC) || '0';
         const vy = javascriptGenerator.valueToCode(block, 'VY', Order.ATOMIC) || '0';
-        return `console.log("PHYSICS: '${name}' velocity = (${vx}, ${vy})");\n`;
+        return `
+        if (window.StageManager) {
+            window.StageManager.setSpriteVelocity('${name}', ${vx}, ${vy});
+        }
+        console.log("PHYSICS: '${name}' velocity = (${vx}, ${vy})");
+        \n`;
     };
 
     // 7. On Collision (Event)
