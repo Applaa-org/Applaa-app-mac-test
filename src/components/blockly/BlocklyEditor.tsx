@@ -151,7 +151,8 @@ const KIDS_TOOLBOX = {
                 { kind: 'block', type: 'k9_add_gravity' },
                 { kind: 'block', type: 'k9_set_velocity' },
                 { kind: 'block', type: 'k9_on_collision' },
-                { kind: 'block', type: 'k9_set_bounciness' }
+                { kind: 'block', type: 'k9_set_bounciness' },
+                { kind: 'block', type: 'k9_hide_sprite' }
             ]
         },
         {
@@ -432,6 +433,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 else if (action === 'setPosition') StageManager.setSpritePosition(event.data.name, event.data.x, event.data.y);
                 else if (action === 'moveSprite') StageManager.moveSprite(event.data.name, event.data.dx, event.data.dy);
                 else if (action === 'setVelocity') StageManager.setSpriteVelocity(event.data.name, event.data.vx, event.data.vy);
+                else if (action === 'setVisible') StageManager.setSpriteVisible(event.data.name, event.data.visible);
                 else if (action === 'setBackground') StageManager.setBackground(event.data.color);
                 else if (action === 'addShape') StageManager.addShape(event.data.shapeType, event.data.color);
                 else if (action === 'showOutput') StageManager.showOutput(event.data.text);
@@ -515,7 +517,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
             if (sandbox?.contentWindow) {
                 sandbox.contentWindow.postMessage({ type: 'keydown', key: e.key }, '*');
             }
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'W', 's', 'S'].includes(e.key)) {
                 e.preventDefault();
             }
         };
@@ -1760,6 +1762,9 @@ const SANDBOX_HTML = `
       },
       setSpriteVelocity: function(name, vx, vy) {
         window.parent.postMessage({ type: 'STAGE', action: 'setVelocity', name, vx, vy }, '*');
+      },
+      setSpriteVisible: function(name, visible) {
+        window.parent.postMessage({ type: 'STAGE', action: 'setVisible', name, visible }, '*');
       },
       setBackground: function(color) {
          window.parent.postMessage({ type: 'STAGE', action: 'setBackground', color }, '*');

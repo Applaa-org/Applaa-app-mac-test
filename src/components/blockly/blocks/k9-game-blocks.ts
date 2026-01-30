@@ -110,6 +110,8 @@ export function initK9Blocks() {
                         ["Down Arrow", "DOWN"],
                         ["Left Arrow", "LEFT"],
                         ["Right Arrow", "RIGHT"],
+                        ["W", "W"],
+                        ["S", "S"],
                         ["Enter", "ENTER"]
                     ]), "KEY")
                     .appendField("pressed");
@@ -125,7 +127,7 @@ export function initK9Blocks() {
         const branch = javascriptGenerator.statementToCode(block, 'DO');
         const keyMap: Record<string, string> = {
             UP: "'ArrowUp'", DOWN: "'ArrowDown'", LEFT: "'ArrowLeft'", RIGHT: "'ArrowRight'",
-            SPACE: "' '", ENTER: "'Enter'"
+            SPACE: "' '", ENTER: "'Enter'", W: "'w'", S: "'s'"
         };
         const keyCode = keyMap[key] || "'" + key + "'";
         // Register with parent so keydown (when stage is open) can trigger this handler
@@ -257,6 +259,29 @@ export function initK9Blocks() {
             window.__collisionHandlers = window.__collisionHandlers || [];
             window.__collisionHandlers.push({ a: '${a}', b: '${b}', fn: function() { ${branch} } });
         })();
+        \n`;
+    };
+
+    // 7b. Hide Sprite (e.g. Breakout brick when hit)
+    if (!Blockly.Blocks['k9_hide_sprite']) {
+        Blockly.Blocks['k9_hide_sprite'] = {
+            init: function () {
+                this.appendDummyInput()
+                    .appendField("🙈 Hide")
+                    .appendField(new Blockly.FieldTextInput("Brick1"), "NAME");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(PHYSICS_COLOR);
+                this.setTooltip("Hides a sprite (e.g. when a brick is hit)");
+            }
+        };
+    }
+    javascriptGenerator.forBlock['k9_hide_sprite'] = function (block) {
+        const name = block.getFieldValue('NAME');
+        return `
+        if (window.StageManager) {
+            window.StageManager.setSpriteVisible('${name}', false);
+        }
         \n`;
     };
 

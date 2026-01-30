@@ -143,6 +143,15 @@ export class StageManager {
         }
     }
 
+    /** Show or hide a sprite (e.g. for Breakout when a brick is hit). */
+    static setSpriteVisible(name: string, visible: boolean) {
+        const sprite = this.sprites.find(s => s.name === name);
+        if (sprite) {
+            sprite.visible = visible;
+            this.notifyListeners();
+        }
+    }
+
     static addShape(type: 'SQUARE' | 'CIRCLE' | 'TRIANGLE' | 'STAR', color: string = '#FF66CC') {
         const shape: Shape = {
             id: Math.random().toString(36).substr(2, 9),
@@ -179,12 +188,42 @@ export class StageManager {
             if (sprite.vx !== 0 || sprite.vy !== 0) {
                 sprite.x += sprite.vx;
                 sprite.y += sprite.vy;
-                // Wrap around stage edges (snake-style continuous play)
-                if (sprite.x < -32) sprite.x = w + 32;
-                if (sprite.x > w + 32) sprite.x = -32;
-                if (sprite.y < -32) sprite.y = h + 32;
-                if (sprite.y > h + 32) sprite.y = -32;
+                // Ball type: bounce off stage edges (Pong/Breakout)
+                if (sprite.type === 'BALL') {
+                    const half = 32;
+                    if (sprite.x < half) { sprite.x = half; sprite.vx = Math.abs(sprite.vx); }
+                    if (sprite.x > w - half) { sprite.x = w - half; sprite.vx = -Math.abs(sprite.vx); }
+                    if (sprite.y < half) { sprite.y = half; sprite.vy = Math.abs(sprite.vy); }
+                    if (sprite.y > h - half) { sprite.y = h - half; sprite.vy = -Math.abs(sprite.vy); }
+                } else {
+                    // Other sprites: wrap around (snake-style)
+                    if (sprite.x < -32) sprite.x = w + 32;
+                    if (sprite.x > w + 32) sprite.x = -32;
+                    if (sprite.y < -32) sprite.y = h + 32;
+                    if (sprite.y > h + 32) sprite.y = -32;
+                }
                 moved = true;
+            }
+        });
+        // Ball bounces off PLATFORM sprites (paddles in Pong, paddle/bricks in Breakout)
+        this.sprites.forEach(sprite => {
+            if (sprite.type === 'BALL' && (sprite.vx !== 0 || sprite.vy !== 0)) {
+                const hit = 40;
+                this.sprites.forEach(other => {
+                    if (other.name === sprite.name || !other.visible) return;
+                    if (other.type !== 'PLATFORM') return;
+                    const dx = sprite.x - other.x;
+                    const dy = sprite.y - other.y;
+                    if (dx * dx + dy * dy < hit * hit) {
+                        // Top half (bricks): bounce vertically. Bottom/sides (paddles): bounce horizontally
+                        if (other.y < h / 2) {
+                            sprite.vy = -sprite.vy;
+                        } else {
+                            if (other.x < w / 2) sprite.vx = Math.abs(sprite.vx);
+                            else sprite.vx = -Math.abs(sprite.vx);
+                        }
+                    }
+                });
             }
         });
         if (moved) this.notifyListeners();

@@ -269,22 +269,59 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                         "type": "k9_create_sprite", "fields": { "NAME": "Paddle1", "IMG": "PLATFORM" },
                         "next": {
                             "block": {
-                                "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" }
+                                "type": "k9_set_position", "fields": { "NAME": "Paddle1" },
+                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 50 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 150 } } } },
+                                "next": {
+                                    "block": {
+                                        "type": "k9_create_sprite", "fields": { "NAME": "Paddle2", "IMG": "PLATFORM" },
+                                        "next": {
+                                            "block": {
+                                                "type": "k9_set_position", "fields": { "NAME": "Paddle2" },
+                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 350 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 150 } } } },
+                                                "next": {
+                                                    "block": {
+                                                        "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" },
+                                                        "next": {
+                                                            "block": {
+                                                                "type": "k9_set_position", "fields": { "NAME": "Ball" },
+                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 150 } } } },
+                                                                "next": {
+                                                                    "block": {
+                                                                        "type": "k9_set_bounciness", "fields": { "NAME": "Ball", "BOUNCE": 100 },
+                                                                        "next": {
+                                                                            "block": {
+                                                                                "type": "k9_set_velocity", "fields": { "NAME": "Ball" },
+                                                                                "inputs": {
+                                                                                    "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
+                                                                                    "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -2 } } }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             },
-            {
-                "type": "k9_set_bounciness", "x": 50, "y": 220,
-                "fields": { "NAME": "Ball", "BOUNCE": 100 }
-            }
+            { "type": "k9_on_key_press", "x": 50, "y": 320, "fields": { "KEY": "UP" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle1", "DIR": "UP", "STEPS": 15 } } } } },
+            { "type": "k9_on_key_press", "x": 50, "y": 400, "fields": { "KEY": "DOWN" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle1", "DIR": "DOWN", "STEPS": 15 } } } } },
+            { "type": "k9_on_key_press", "x": 300, "y": 320, "fields": { "KEY": "W" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle2", "DIR": "UP", "STEPS": 15 } } } } },
+            { "type": "k9_on_key_press", "x": 300, "y": 400, "fields": { "KEY": "S" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle2", "DIR": "DOWN", "STEPS": 15 } } } } }
         ]),
         guide: {
             overview: "Create a bouncing ball physics game!",
             steps: [
-                { title: "Paddles 🧱", explanation: "Create sprites for paddles." },
-                { title: "Physics ⚛️", explanation: "Set 'Bounciness' to 100% so the ball never stops!" }
+                { title: "Paddles 🧱", explanation: "Two paddles: Player 1 uses Up/Down arrows, Player 2 uses W/S." },
+                { title: "Physics ⚛️", explanation: "The ball bounces off walls and paddles. Set velocity so the ball moves!" }
             ]
         }
     },
@@ -997,10 +1034,72 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                         "type": "k9_create_sprite", "fields": { "NAME": "Paddle", "IMG": "PLATFORM" },
                         "next": {
                             "block": {
-                                "type": "k9_set_position", "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 350 } } } },
+                                "type": "k9_set_position", "fields": { "NAME": "Paddle" },
+                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 270 } } } },
                                 "next": {
                                     "block": {
-                                        "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" }
+                                        "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" },
+                                        "next": {
+                                            "block": {
+                                                "type": "k9_set_position", "fields": { "NAME": "Ball" },
+                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 220 } } } },
+                                                "next": {
+                                                    "block": {
+                                                        "type": "k9_set_bounciness", "fields": { "NAME": "Ball", "BOUNCE": 100 },
+                                                        "next": {
+                                                            "block": {
+                                                                "type": "k9_set_velocity", "fields": { "NAME": "Ball" },
+                                                                "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 4 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -4 } } } },
+                                                                "next": {
+                                                                    "block": {
+                                                                        "type": "k9_create_sprite", "fields": { "NAME": "Brick1", "IMG": "PLATFORM" },
+                                                                        "next": {
+                                                                            "block": {
+                                                                                "type": "k9_set_position", "fields": { "NAME": "Brick1" },
+                                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 80 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } },
+                                                                                "next": {
+                                                                                    "block": {
+                                                                                        "type": "k9_create_sprite", "fields": { "NAME": "Brick2", "IMG": "PLATFORM" },
+                                                                                        "next": {
+                                                                                            "block": {
+                                                                                                "type": "k9_set_position", "fields": { "NAME": "Brick2" },
+                                                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 160 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } },
+                                                                                                "next": {
+                                                                                                    "block": {
+                                                                                                        "type": "k9_create_sprite", "fields": { "NAME": "Brick3", "IMG": "PLATFORM" },
+                                                                                                        "next": {
+                                                                                                            "block": {
+                                                                                                                "type": "k9_set_position", "fields": { "NAME": "Brick3" },
+                                                                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 240 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } },
+                                                                                                                "next": {
+                                                                                                                    "block": {
+                                                                                                                        "type": "k9_create_sprite", "fields": { "NAME": "Brick4", "IMG": "PLATFORM" },
+                                                                                                                        "next": {
+                                                                                                                            "block": {
+                                                                                                                                "type": "k9_set_position", "fields": { "NAME": "Brick4" },
+                                                                                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 320 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } }
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1008,20 +1107,18 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                     }
                 }
             },
-            {
-                "type": "k9_on_key_press", "x": 50, "y": 300, "fields": { "KEY": "LEFT" },
-                "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "LEFT", "STEPS": 20 } } } }
-            },
-            {
-                "type": "k9_on_key_press", "x": 300, "y": 300, "fields": { "KEY": "RIGHT" },
-                "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "RIGHT", "STEPS": 20 } } } }
-            }
+            { "type": "k9_on_key_press", "x": 50, "y": 340, "fields": { "KEY": "LEFT" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "LEFT", "STEPS": 20 } } } } },
+            { "type": "k9_on_key_press", "x": 300, "y": 340, "fields": { "KEY": "RIGHT" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "RIGHT", "STEPS": 20 } } } } },
+            { "type": "k9_on_collision", "x": 50, "y": 420, "fields": { "A": "Ball", "B": "Brick1" }, "inputs": { "DO": { "block": { "type": "k9_hide_sprite", "fields": { "NAME": "Brick1" } } } } },
+            { "type": "k9_on_collision", "x": 50, "y": 500, "fields": { "A": "Ball", "B": "Brick2" }, "inputs": { "DO": { "block": { "type": "k9_hide_sprite", "fields": { "NAME": "Brick2" } } } } },
+            { "type": "k9_on_collision", "x": 300, "y": 420, "fields": { "A": "Ball", "B": "Brick3" }, "inputs": { "DO": { "block": { "type": "k9_hide_sprite", "fields": { "NAME": "Brick3" } } } } },
+            { "type": "k9_on_collision", "x": 300, "y": 500, "fields": { "A": "Ball", "B": "Brick4" }, "inputs": { "DO": { "block": { "type": "k9_hide_sprite", "fields": { "NAME": "Brick4" } } } } }
         ]),
         guide: {
             overview: "Classic arcade action! Break the bricks.",
             steps: [
-                { title: "Paddle Control ↔️", explanation: "Use Left/Right keys to move the paddle." },
-                { title: "Physics 💥", explanation: "The ball bounces off the paddle and bricks automatically." }
+                { title: "Paddle Control ↔️", explanation: "Use Left/Right keys to move the paddle at the bottom." },
+                { title: "Physics 💥", explanation: "The ball bounces off walls and the paddle. When Ball touches a brick, the brick is hidden!" }
             ]
         }
     },
