@@ -376,6 +376,328 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
             ]
         }
     },
+    {
+        id: 'math_even_odd',
+        title: '⚖️ Even or Odd?',
+        description: 'Check if a number is even or odd using modulo.',
+        category: 'Math',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "num", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 7 } } } },
+                "next": {
+                    "block": {
+                        "type": "controls_ifelse",
+                        "inputs": {
+                            "IF0": {
+                                "block": {
+                                    "type": "logic_compare",
+                                    "fields": { "OP": "EQ" },
+                                    "inputs": {
+                                        "A": {
+                                            "block": {
+                                                "type": "math_modulo",
+                                                "inputs": {
+                                                    "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "num", "type": "" } } } },
+                                                    "DIVISOR": { "shadow": { "type": "math_number", "fields": { "NUM": 2 } } }
+                                                }
+                                            }
+                                        },
+                                        "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
+                                    }
+                                }
+                            },
+                            "DO0": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Even!" } } } } } },
+                        "ELSE": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Odd!" } } } } } }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Use modulo (%) to find the remainder when dividing by 2.",
+            steps: [
+                { title: "Set a number 🔢", explanation: "Store the number you want to check in a variable." },
+                { title: "Modulo 2 📐", explanation: "If num % 2 equals 0, the number is even; otherwise it's odd." }
+            ]
+        }
+    },
+    {
+        id: 'math_sum_to_n',
+        title: '➕ Sum 1 to N',
+        description: 'Add up all numbers from 1 to 5.',
+        category: 'Math',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "sum", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } },
+                "next": {
+                    "block": {
+                        "type": "controls_for",
+                        "fields": { "VAR": { "name": "i", "type": "" } },
+                        "inputs": {
+                            "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                            "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
+                            "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                            "DO": {
+                                "block": {
+                                    "type": "variables_set",
+                                    "fields": { "VAR": { "name": "sum", "type": "" } },
+                                    "inputs": {
+                                        "VALUE": {
+                                            "block": {
+                                                "type": "math_arithmetic",
+                                                "fields": { "OP": "ADD" },
+                                                "inputs": {
+                                                    "A": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "sum", "type": "" } } } },
+                                                    "B": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "i", "type": "" } } } }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "next": {
+                            "block": {
+                                "type": "applaa_log",
+                                "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "sum", "type": "" } } } } }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Use a loop to add numbers from 1 to 5 and print the total.",
+            steps: [
+                { title: "Start at 0", explanation: "Initialize sum to 0." },
+                { title: "Add in the loop", explanation: "Each time through the loop, add i to sum." }
+            ]
+        }
+    },
+    {
+        id: 'math_random_dice',
+        title: '🎲 Random Dice',
+        description: 'Roll a 6-sided dice using random numbers.',
+        category: 'Math',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "roll", "type": "" } },
+                "inputs": {
+                    "VALUE": {
+                        "block": {
+                            "type": "math_random_int",
+                            "inputs": {
+                                "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                                "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 6 } } }
+                            }
+                        }
+                    }
+                },
+                "next": {
+                    "block": {
+                        "type": "applaa_log",
+                        "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "roll", "type": "" } } } } }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Use random integer to simulate rolling a dice.",
+            steps: [
+                { title: "Random 1 to 6", explanation: "math_random_int gives a random whole number between 1 and 6." },
+                { title: "Log the result", explanation: "Print the roll so you can see what you got." }
+            ]
+        }
+    },
+    {
+        id: 'math_divisible_by',
+        title: '✂️ Is Divisible By?',
+        description: 'Check if 15 is divisible by 5.',
+        category: 'Math',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "num", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 15 } } } },
+                "next": {
+                    "block": {
+                        "type": "variables_set",
+                        "fields": { "VAR": { "name": "divisor", "type": "" } },
+                        "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } } },
+                        "next": {
+                            "block": {
+                                "type": "controls_ifelse",
+                                "inputs": {
+                                    "IF0": {
+                                        "block": {
+                                            "type": "logic_compare",
+                                            "fields": { "OP": "EQ" },
+                                            "inputs": {
+                                                "A": {
+                                                    "block": {
+                                                        "type": "math_modulo",
+                                                        "inputs": {
+                                                            "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "num", "type": "" } } } },
+                                                            "DIVISOR": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "divisor", "type": "" } } } }
+                                                        }
+                                                    }
+                                                },
+                                                "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
+                                            }
+                                        }
+                                    },
+                                    "DO0": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Divisible!" } } } } } },
+                                    "ELSE": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Not divisible!" } } } } } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "If num % divisor equals 0, then num is divisible by divisor.",
+            steps: [
+                { title: "Two numbers", explanation: "Set num and divisor to check." },
+                { title: "Modulo check", explanation: "When remainder is 0, the division is exact." }
+            ]
+        }
+    },
+    {
+        id: 'math_times_table',
+        title: '📋 Times Table (5×1 to 5×10)',
+        description: 'Print the 5 times table using a loop.',
+        category: 'Math',
+        difficulty: 'Intermediate',
+        workspace: createWorkspace([
+            {
+                "type": "controls_for", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "i", "type": "" } },
+                "inputs": {
+                    "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                    "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } },
+                    "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                    "DO": {
+                        "block": {
+                            "type": "applaa_log",
+                            "inputs": {
+                                "MESSAGE": {
+                                    "block": {
+                                        "type": "math_arithmetic",
+                                        "fields": { "OP": "MULTIPLY" },
+                                        "inputs": {
+                                            "A": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
+                                            "B": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "i", "type": "" } } } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Loop from 1 to 10 and print 5 times each number.",
+            steps: [
+                { title: "Loop i from 1 to 10", explanation: "Each time, i is the next number." },
+                { title: "Print 5 × i", explanation: "Multiply 5 by i and log the result." }
+            ]
+        }
+    },
+    {
+        id: 'math_gcd',
+        title: '🔢 Greatest Common Divisor',
+        description: 'Find GCD of 48 and 18 using the Euclidean algorithm.',
+        category: 'Math',
+        difficulty: 'Advanced',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "a", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 48 } } } },
+                "next": {
+                    "block": {
+                        "type": "variables_set",
+                        "fields": { "VAR": { "name": "b", "type": "" } },
+                        "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 18 } } } },
+                        "next": {
+                            "block": {
+                                "type": "controls_whileUntil",
+                                "fields": { "MODE": "WHILE" },
+                                "inputs": {
+                                    "CONDITION": {
+                                        "block": {
+                                            "type": "logic_compare",
+                                            "fields": { "OP": "NEQ" },
+                                            "inputs": {
+                                                "A": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "b", "type": "" } } } },
+                                                "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
+                                            }
+                                        }
+                                    },
+                                    "DO": {
+                                        "block": {
+                                            "type": "variables_set",
+                                            "fields": { "VAR": { "name": "temp", "type": "" } },
+                                            "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "b", "type": "" } } } } },
+                                            "next": {
+                                                "block": {
+                                                    "type": "variables_set",
+                                                    "fields": { "VAR": { "name": "b", "type": "" } },
+                                                    "inputs": {
+                                                        "VALUE": {
+                                                            "block": {
+                                                                "type": "math_modulo",
+                                                                "inputs": {
+                                                                    "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "a", "type": "" } } } },
+                                                                    "DIVISOR": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "b", "type": "" } } } }
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "next": {
+                                                        "block": {
+                                                            "type": "variables_set",
+                                                            "fields": { "VAR": { "name": "a", "type": "" } },
+                                                            "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "temp", "type": "" } } } } }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "next": {
+                                    "block": {
+                                        "type": "applaa_log",
+                                        "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "a", "type": "" } } } } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Euclidean algorithm: while b ≠ 0, set (a, b) = (b, a % b); then GCD is a.",
+            steps: [
+                { title: "Set a and b", explanation: "Start with the two numbers." },
+                { title: "While b ≠ 0", explanation: "Replace a with b and b with a % b." },
+                { title: "Result", explanation: "When b becomes 0, a is the GCD." }
+            ]
+        }
+    },
 
     // --- 🧪 SCIENCE LAB ---
     {
