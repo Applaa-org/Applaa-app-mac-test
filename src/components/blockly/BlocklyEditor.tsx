@@ -942,8 +942,9 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
             }, 100); // Small delay to ensure blocks are fully rendered
 
         } catch (e) {
-            console.error("Failed to load hub sample", e);
-            alert("Failed to load sample. Please try again.");
+            const err = e instanceof Error ? e : new Error(String(e));
+            console.error("Failed to load hub sample", err.message, err.stack, e);
+            alert(`Failed to load sample. Please try again.${err.message ? ` (${err.message})` : ""}`);
         }
     };
 

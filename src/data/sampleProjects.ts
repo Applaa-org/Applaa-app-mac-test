@@ -22,6 +22,22 @@ const createWorkspace = (blocks: any[]) => ({
     }
 });
 
+// Helper to create workspaces that use variables — variables must be deserialized first by Blockly
+const createWorkspaceWithVariables = (blocks: any[], variableNames: string[]) => {
+    const variables = variableNames.map((name, i) => ({
+        "id": `var_${name}_${i}`,
+        "name": name,
+        "type": ""
+    }));
+    return {
+        "variables": variables,
+        "blocks": {
+            "languageVersion": 0,
+            "blocks": blocks
+        }
+    };
+};
+
 export const SAMPLE_PROJECTS: SampleProject[] = [
     // --- 📚 TUTORIALS ---
     {
@@ -620,27 +636,27 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
         description: 'Find GCD of 48 and 18 using the Euclidean algorithm.',
         category: 'Math',
         difficulty: 'Advanced',
-        workspace: createWorkspace([
+        workspace: createWorkspaceWithVariables([
             {
                 "type": "variables_set", "x": 50, "y": 50,
-                "fields": { "VAR": { "name": "a", "type": "" } },
+                "fields": { "VAR": { "id": "var_a_0", "name": "a", "type": "" } },
                 "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 48 } } } },
                 "next": {
                     "block": {
                         "type": "variables_set",
-                        "fields": { "VAR": { "name": "b", "type": "" } },
+                        "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } },
                         "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 18 } } } },
                         "next": {
                             "block": {
                                 "type": "controls_whileUntil",
                                 "fields": { "MODE": "WHILE" },
                                 "inputs": {
-                                    "CONDITION": {
+                                    "BOOL": {
                                         "block": {
                                             "type": "logic_compare",
                                             "fields": { "OP": "NEQ" },
                                             "inputs": {
-                                                "A": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "b", "type": "" } } } },
+                                                "A": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } } } },
                                                 "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
                                             }
                                         }
@@ -648,19 +664,19 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                                     "DO": {
                                         "block": {
                                             "type": "variables_set",
-                                            "fields": { "VAR": { "name": "temp", "type": "" } },
-                                            "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "b", "type": "" } } } } },
+                                            "fields": { "VAR": { "id": "var_temp_2", "name": "temp", "type": "" } },
+                                            "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } } } } },
                                             "next": {
                                                 "block": {
                                                     "type": "variables_set",
-                                                    "fields": { "VAR": { "name": "b", "type": "" } },
+                                                    "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } },
                                                     "inputs": {
                                                         "VALUE": {
                                                             "block": {
                                                                 "type": "math_modulo",
                                                                 "inputs": {
-                                                                    "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "a", "type": "" } } } },
-                                                                    "DIVISOR": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "b", "type": "" } } } }
+                                                                    "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_a_0", "name": "a", "type": "" } } } },
+                                                                    "DIVISOR": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } } } }
                                                                 }
                                                             }
                                                         }
@@ -668,8 +684,8 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                                                     "next": {
                                                         "block": {
                                                             "type": "variables_set",
-                                                            "fields": { "VAR": { "name": "a", "type": "" } },
-                                                            "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "temp", "type": "" } } } } }
+                                                            "fields": { "VAR": { "id": "var_a_0", "name": "a", "type": "" } },
+                                                            "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_temp_2", "name": "temp", "type": "" } } } } }
                                                         }
                                                     }
                                                 }
@@ -680,7 +696,7 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                                 "next": {
                                     "block": {
                                         "type": "applaa_log",
-                                        "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "a", "type": "" } } } } }
+                                        "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_a_0", "name": "a", "type": "" } } } } }
                                     }
                                 }
                             }
@@ -688,7 +704,7 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                     }
                 }
             }
-        ]),
+        ], ["a", "b", "temp"]),
         guide: {
             overview: "Euclidean algorithm: while b ≠ 0, set (a, b) = (b, a % b); then GCD is a.",
             steps: [
