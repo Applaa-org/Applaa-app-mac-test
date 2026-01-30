@@ -128,7 +128,7 @@ export function initCustomBlocks() {
     // --- JavaScript Generators ---
     javascriptGenerator.forBlock['applaa_log'] = function (block) {
         const message = javascriptGenerator.valueToCode(block, 'MESSAGE', JSOrder.ATOMIC) || "''";
-        return `console.log(${message});\n`;
+        return `console.log(${message});\nif (window.StageManager && window.StageManager.showOutput) window.StageManager.showOutput(String(${message}));\n`;
     };
 
     javascriptGenerator.forBlock['applaa_speak'] = function (block) {

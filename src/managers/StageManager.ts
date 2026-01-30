@@ -29,6 +29,8 @@ export class StageManager {
     private static sprites: Sprite[] = [];
     private static shapes: Shape[] = [];
     private static background: string = '#FFFFFF';
+    /** Latest output from "Say" / math blocks to show on Stage */
+    private static outputLines: string[] = [];
     private static canvas: HTMLCanvasElement | null = null;
     private static ctx: CanvasRenderingContext2D | null = null;
     private static listeners: (() => void)[] = [];
@@ -45,6 +47,17 @@ export class StageManager {
         this.sprites = [];
         this.shapes = [];
         this.background = '#FFFFFF';
+        this.outputLines = [];
+        this.notifyListeners();
+    }
+
+    /** Show output from "Say" block (and math blocks) on the Stage. Keeps last few lines. */
+    static showOutput(text: string) {
+        const str = String(text).trim();
+        if (!str) return;
+        this.outputLines.push(str);
+        // Keep last 5 lines so Stage doesn't get crowded
+        if (this.outputLines.length > 5) this.outputLines = this.outputLines.slice(-5);
         this.notifyListeners();
     }
 
@@ -163,6 +176,31 @@ export class StageManager {
             }
         });
 
+        // Output from "Say" / math blocks (bottom of Stage)
+        if (this.outputLines.length > 0) {
+            const pad = 12;
+            const lineHeight = 20;
+            const totalH = this.outputLines.length * lineHeight + pad * 2;
+            const y0 = ctx.canvas.height - totalH - 8;
+            const w = Math.min(ctx.canvas.width - 24, 320);
+            const x0 = (ctx.canvas.width - w) / 2;
+            ctx.fillStyle = 'rgba(40, 44, 52, 0.95)';
+            ctx.strokeStyle = 'rgba(100, 100, 100, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(x0, y0, w, totalH, 10);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#E6E6E6';
+            ctx.font = '16px system-ui, Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            this.outputLines.forEach((line, i) => {
+                const y = y0 + pad + lineHeight / 2 + i * lineHeight;
+                ctx.fillText(line.length > 40 ? line.slice(0, 37) + '...' : line, x0 + pad, y, w - pad * 2);
+            });
+        }
+
         // Sprites
         this.sprites.forEach(sprite => {
             if (!sprite.visible) return;
@@ -224,6 +262,6 @@ export class StageManager {
     }
 
     static getItemCount(): number {
-        return this.sprites.length + this.shapes.length;
+        return this.sprites.length + this.shapes.length + this.outputLines.length;
     }
 }

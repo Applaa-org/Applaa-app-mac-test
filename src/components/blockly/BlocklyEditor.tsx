@@ -433,6 +433,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 else if (action === 'moveSprite') StageManager.moveSprite(event.data.name, event.data.dx, event.data.dy);
                 else if (action === 'setBackground') StageManager.setBackground(event.data.color);
                 else if (action === 'addShape') StageManager.addShape(event.data.shapeType, event.data.color);
+                else if (action === 'showOutput') StageManager.showOutput(event.data.text);
 
             } else if (event.data.type === 'CELEBRATION') {
                 // Handle Celebration Manager proxy
@@ -1662,22 +1663,33 @@ const SANDBOX_HTML = `
 <body>
   <div id="output"></div>
   <script>
-    // Override console.log to display in the output div AND send to parent
+    // Override console.log so output shows in the app's Execution Output / Terminal panel.
+    // Patch the existing console (don't replace window.console) so it works in Electron/sandboxed iframes
+    // where window.console may be read-only.
     const outputDiv = document.getElementById('output');
-    
-    window.console = {
-      log: function(...args) {
-        const msg = args.join(' ');
-        // Display inside sandbox (optional)
-        outputDiv.textContent += msg + '\\n'; 
-        // Send to parent
-        window.parent.postMessage({ type: 'sandbox_log', message: msg }, '*');
-      },
-      error: function(...args) {
-        const msg = args.join(' ');
-        outputDiv.textContent += 'Error: ' + msg + '\\n';
-        window.parent.postMessage({ type: 'sandbox_error', message: msg }, '*');
-      }
+    function stringifyArg(a) {
+      if (a === null) return 'null';
+      if (a === undefined) return 'undefined';
+      if (typeof a === 'object') return JSON.stringify(a);
+      return String(a);
+    }
+    function sendLog(type, msg) {
+      try {
+        outputDiv.textContent += (type === 'error' ? 'Error: ' : '') + msg + '\\n';
+        window.parent.postMessage({ type: type === 'error' ? 'sandbox_error' : 'sandbox_log', message: msg }, '*');
+      } catch (e) {}
+    }
+    var _log = window.console && window.console.log ? window.console.log.bind(window.console) : function() {};
+    var _error = window.console && window.console.error ? window.console.error.bind(window.console) : function() {};
+    window.console.log = function(...args) {
+      var msg = args.map(stringifyArg).join(' ');
+      sendLog('log', msg);
+      _log.apply(window.console, args);
+    };
+    window.console.error = function(...args) {
+      var msg = args.map(stringifyArg).join(' ');
+      sendLog('error', msg);
+      _error.apply(window.console, args);
     };
     
     // Override alert to use console.log
@@ -1709,7 +1721,6 @@ const SANDBOX_HTML = `
       },
       setSpritePosition: function(name, x, y) {
         window.parent.postMessage({ type: 'STAGE', action: 'setPosition', name, x, y }, '*');
-        // console.log('📍 Move: ' + name);
       },
       moveSprite: function(name, dx, dy) {
         window.parent.postMessage({ type: 'STAGE', action: 'moveSprite', name, dx, dy }, '*');
@@ -1720,6 +1731,9 @@ const SANDBOX_HTML = `
       addShape: function(shapeType, color) {
          window.parent.postMessage({ type: 'STAGE', action: 'addShape', shapeType, color }, '*');
          console.log('🎨 Add Shape: ' + shapeType);
+      },
+      showOutput: function(text) {
+        window.parent.postMessage({ type: 'STAGE', action: 'showOutput', text: String(text) }, '*');
       }
     };
 
