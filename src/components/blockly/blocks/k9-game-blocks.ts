@@ -15,6 +15,8 @@ export function initK9Blocks() {
                     .appendField(new Blockly.FieldTextInput("Player"), "NAME")
                     .appendField("image")
                     .appendField(new Blockly.FieldDropdown([
+                        ["Snake 🐍", "SNAKE"],
+                        ["Apple 🍎", "APPLE"],
                         ["Hero 🦸", "HERO"],
                         ["Enemy 👾", "ENEMY"],
                         ["Coin 🪙", "COIN"],
@@ -250,7 +252,12 @@ export function initK9Blocks() {
         const a = block.getFieldValue('A');
         const b = block.getFieldValue('B');
         const branch = javascriptGenerator.statementToCode(block, 'DO');
-        return `// When ${a} hits ${b}:\n${branch}`;
+        return `
+        (function() {
+            window.__collisionHandlers = window.__collisionHandlers || [];
+            window.__collisionHandlers.push({ a: '${a}', b: '${b}', fn: function() { ${branch} } });
+        })();
+        \n`;
     };
 
     // 8. Set Bounciness

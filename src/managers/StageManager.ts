@@ -36,6 +36,12 @@ export class StageManager {
     private static canvas: HTMLCanvasElement | null = null;
     private static ctx: CanvasRenderingContext2D | null = null;
     private static listeners: (() => void)[] = [];
+    /** Called when two sprites overlap (nameA, nameB). Set by parent to postMessage to sandbox. */
+    private static onCollision: ((nameA: string, nameB: string) => void) | null = null;
+
+    static setOnCollision(cb: ((nameA: string, nameB: string) => void) | null) {
+        this.onCollision = cb;
+    }
 
     // --- State Management ---
 
@@ -50,6 +56,7 @@ export class StageManager {
         this.shapes = [];
         this.background = '#FFFFFF';
         this.outputLines = [];
+        (this as any)._lastCollision = {};
         this.notifyListeners();
     }
 
@@ -89,9 +96,12 @@ export class StageManager {
         // In real app, we'd preload these
         const img = new Image();
         if (type === 'HERO') img.src = 'https://img.icons8.com/color/96/superman.png';
+        else if (type === 'SNAKE') img.src = 'https://img.icons8.com/color/96/snake.png';
+        else if (type === 'APPLE') img.src = 'https://img.icons8.com/color/96/apple.png';
         else if (type === 'ENEMY') img.src = 'https://img.icons8.com/color/96/ghost.png';
         else if (type === 'COIN') img.src = 'https://img.icons8.com/color/96/coin-wallet.png';
         else if (type === 'PLATFORM') img.src = 'https://img.icons8.com/color/96/brick-wall.png';
+        else if (type === 'BALL') img.src = 'https://img.icons8.com/color/96/soccer-ball.png';
         else if (type.includes('http')) img.src = type; // Support custom URLs
         else {
             // Assume it's an emoji or text if not a known type
@@ -178,6 +188,30 @@ export class StageManager {
             }
         });
         if (moved) this.notifyListeners();
+
+        // Collision check: overlapping sprites (hitbox ~40px), debounced per pair
+        if (this.onCollision && this.sprites.length >= 2) {
+            const hit = 40;
+            const now = Date.now();
+            const debounceMs = 400;
+            if (!(this as any)._lastCollision) (this as any)._lastCollision = {} as Record<string, number>;
+            const lastCollision = (this as any)._lastCollision as Record<string, number>;
+            for (let i = 0; i < this.sprites.length; i++) {
+                for (let j = i + 1; j < this.sprites.length; j++) {
+                    const a = this.sprites[i];
+                    const b = this.sprites[j];
+                    const dx = a.x - b.x;
+                    const dy = a.y - b.y;
+                    if (dx * dx + dy * dy < hit * hit) {
+                        const key = [a.name, b.name].sort().join('|');
+                        if (now - (lastCollision[key] || 0) > debounceMs) {
+                            lastCollision[key] = now;
+                            this.onCollision(a.name, b.name);
+                        }
+                    }
+                }
+            }
+        }
 
         // Clear
         ctx.fillStyle = this.background;

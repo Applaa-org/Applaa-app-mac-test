@@ -523,6 +523,21 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
         return () => document.removeEventListener('keydown', onKeyDown);
     }, [isStageOpen]);
 
+    // When stage is open, register collision callback so StageManager can notify sandbox (Snake eats Food)
+    useEffect(() => {
+        if (!isStageOpen) {
+            StageManager.setOnCollision(null);
+            return;
+        }
+        StageManager.setOnCollision((nameA, nameB) => {
+            const sandbox = document.getElementById('blockly-sandbox') as HTMLIFrameElement | null;
+            if (sandbox?.contentWindow) {
+                sandbox.contentWindow.postMessage({ type: 'collision', a: nameA, b: nameB }, '*');
+            }
+        });
+        return () => StageManager.setOnCollision(null);
+    }, [isStageOpen]);
+
 
     useEffect(() => {
         // Inject Custom CSS for Kids Toolbox
@@ -1788,10 +1803,13 @@ const SANDBOX_HTML = `
     
     // Key handlers registered by k9_on_key_press blocks (parent forwards keydown when stage is open)
     window.__keyHandlers = [];
+    // Collision handlers registered by k9_on_collision blocks (parent calls when StageManager detects overlap)
+    window.__collisionHandlers = [];
     window.addEventListener('message', function(event) {
       if (event.data.type === 'run') {
         outputDiv.textContent = '';
         window.__keyHandlers = [];
+        window.__collisionHandlers = [];
         // Wrap code in async IIFE to support await statements (needed for wait blocks)
         (async function() {
           try {
@@ -1807,6 +1825,13 @@ const SANDBOX_HTML = `
       } else if (event.data.type === 'clear') {
         outputDiv.textContent = '';
         window.__keyHandlers = [];
+        window.__collisionHandlers = [];
+      } else if (event.data.type === 'collision') {
+        var a = event.data.a;
+        var b = event.data.b;
+        (window.__collisionHandlers || []).filter(function(h) {
+          return (h.a === a && h.b === b) || (h.a === b && h.b === a);
+        }).forEach(function(h) { try { h.fn(); } catch (e) { console.error(e); } });
       } else if (event.data.type === 'keydown') {
         (window.__keyHandlers || []).filter(function(h) { return h.key === event.data.key; }).forEach(function(h) {
           try { h.fn(); } catch (e) { console.error(e); }

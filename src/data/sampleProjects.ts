@@ -22,6 +22,149 @@ const createWorkspace = (blocks: any[]) => ({
     }
 });
 
+// Snake starter blocks — built in code to avoid nested brace/syntax errors in the array literal
+function snakeStarterBlocks(): any[] {
+    const randomPos = (from: number, to: number) => ({
+        block: {
+            type: "math_random_int",
+            inputs: {
+                FROM: { shadow: { type: "math_number", fields: { NUM: from } } },
+                TO: { shadow: { type: "math_number", fields: { NUM: to } } }
+            }
+        }
+    });
+    const setPositionFoodRandom = {
+        type: "k9_set_position",
+        fields: { NAME: "Food" },
+        inputs: {
+            X: randomPos(50, 350),
+            Y: randomPos(50, 250)
+        }
+    };
+    return [
+        {
+            type: "game_start",
+            x: 50,
+            y: 50,
+            next: {
+                block: {
+                    type: "k9_create_sprite",
+                    fields: { NAME: "Snake", IMG: "SNAKE" },
+                    next: {
+                        block: {
+                            type: "k9_set_velocity",
+                            fields: { NAME: "Snake" },
+                            inputs: {
+                                VX: { shadow: { type: "math_number", fields: { NUM: 5 } } },
+                                VY: { shadow: { type: "math_number", fields: { NUM: 0 } } }
+                            },
+                            next: {
+                                block: {
+                                    type: "k9_create_sprite",
+                                    fields: { NAME: "Food", IMG: "APPLE" },
+                                    next: {
+                                        block: {
+                                            type: "k9_set_position",
+                                            fields: { NAME: "Food" },
+                                            inputs: {
+                                                X: randomPos(50, 350),
+                                                Y: randomPos(50, 250)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_key_press",
+            x: 50,
+            y: 200,
+            fields: { KEY: "UP" },
+            inputs: {
+                DO: {
+                    block: {
+                        type: "k9_set_velocity",
+                        fields: { NAME: "Snake" },
+                        inputs: {
+                            VX: { shadow: { type: "math_number", fields: { NUM: 0 } } },
+                            VY: { shadow: { type: "math_number", fields: { NUM: -5 } } }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_key_press",
+            x: 50,
+            y: 280,
+            fields: { KEY: "DOWN" },
+            inputs: {
+                DO: {
+                    block: {
+                        type: "k9_set_velocity",
+                        fields: { NAME: "Snake" },
+                        inputs: {
+                            VX: { shadow: { type: "math_number", fields: { NUM: 0 } } },
+                            VY: { shadow: { type: "math_number", fields: { NUM: 5 } } }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_key_press",
+            x: 50,
+            y: 360,
+            fields: { KEY: "LEFT" },
+            inputs: {
+                DO: {
+                    block: {
+                        type: "k9_set_velocity",
+                        fields: { NAME: "Snake" },
+                        inputs: {
+                            VX: { shadow: { type: "math_number", fields: { NUM: -5 } } },
+                            VY: { shadow: { type: "math_number", fields: { NUM: 0 } } }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_key_press",
+            x: 50,
+            y: 440,
+            fields: { KEY: "RIGHT" },
+            inputs: {
+                DO: {
+                    block: {
+                        type: "k9_set_velocity",
+                        fields: { NAME: "Snake" },
+                        inputs: {
+                            VX: { shadow: { type: "math_number", fields: { NUM: 5 } } },
+                            VY: { shadow: { type: "math_number", fields: { NUM: 0 } } }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_collision",
+            x: 50,
+            y: 520,
+            fields: { A: "Snake", B: "Food" },
+            inputs: {
+                DO: {
+                    block: setPositionFoodRandom
+                }
+            }
+        }
+    ];
+}
+
 // Helper to create workspaces that use variables — variables must be deserialized first by Blockly
 const createWorkspaceWithVariables = (blocks: any[], variableNames: string[]) => {
     const variables = variableNames.map((name, i) => ({
@@ -102,43 +245,13 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
         description: 'Create a snake that follows your commands.',
         category: 'Games',
         difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "game_start", "x": 50, "y": 50,
-                "next": {
-                    "block": {
-                        "type": "k9_create_sprite", "fields": { "NAME": "Snake", "IMG": "HERO" },
-                        "next": {
-                            "block": {
-                                "type": "k9_set_velocity", "fields": { "NAME": "Snake" },
-                                "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } }
-                            }
-                        }
-                    }
-                }
-            },
-            {
-                "type": "k9_on_key_press", "x": 50, "y": 200, "fields": { "KEY": "UP" },
-                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "fields": { "NAME": "Snake" }, "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -5 } } } } } } }
-            },
-            {
-                "type": "k9_on_key_press", "x": 50, "y": 280, "fields": { "KEY": "DOWN" },
-                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "fields": { "NAME": "Snake" }, "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } } } } } }
-            },
-            {
-                "type": "k9_on_key_press", "x": 50, "y": 360, "fields": { "KEY": "LEFT" },
-                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "fields": { "NAME": "Snake" }, "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": -5 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } } } } }
-            },
-            {
-                "type": "k9_on_key_press", "x": 50, "y": 440, "fields": { "KEY": "RIGHT" },
-                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "fields": { "NAME": "Snake" }, "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } } } } }
-            }
-        ]),
+        workspace: createWorkspace(snakeStarterBlocks()),
         guide: {
-            overview: "Build the classic Snake game! The snake moves automatically—use the arrow keys to change direction.",
+            overview: "Build the classic Snake game! Steer the snake with arrow keys and eat the apple - when you touch it, a new one appears.",
             steps: [
-                { title: "Create Snake 🐍", explanation: "Use 'Create Sprite' to make your hero." },
-                { title: "Controls 🎮", explanation: "Use 'When Key Pressed' (Up/Down/Left/Right) to steer the snake." }
+                { title: "Snake 🐍 & Food 🍎", explanation: "Create Sprite uses Snake and Apple images. Food is placed at a random spot." },
+                { title: "Controls 🎮", explanation: "Use arrow keys to change direction." },
+                { title: "Eat the apple!", explanation: "When Snake touches Food, the 'When Snake touches Food' block moves the food to a new random position." }
             ]
         }
     },
