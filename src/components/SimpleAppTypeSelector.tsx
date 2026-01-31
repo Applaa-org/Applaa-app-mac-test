@@ -134,6 +134,11 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
           onClick={handleBlocklySelect}
           className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
         >
+          {/* Beta Badge */}
+          <div className="absolute top-4 right-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200 dark:border-yellow-700/50 z-20 shadow-sm">
+            Beta
+          </div>
+
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-purple-500 opacity-5 group-hover:opacity-10 transition-opacity duration-300" />
           <div className="relative z-10">
             <div className="mb-4">
