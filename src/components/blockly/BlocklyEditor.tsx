@@ -1370,17 +1370,19 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                         position: 'absolute',
                         top: '80px',
                         right: '20px',
-                        zIndex: 40,
+                        zIndex: 1000,
                         animation: 'slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
                     }}>
                         <StageComponent width={400} height={300} />
 
                         <button
+                            type="button"
                             onClick={() => setIsStageOpen(false)}
                             style={{
                                 position: 'absolute',
                                 top: '-10px',
                                 right: '-10px',
+                                zIndex: 1,
                                 background: '#FF6680',
                                 color: 'white',
                                 border: '3px solid white',
