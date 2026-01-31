@@ -18,6 +18,10 @@ export const StageComponent: React.FC<StageComponentProps> = ({ width = 400, hei
             canvasRef.current.width = width;
             canvasRef.current.height = height;
         }
+        return () => {
+            // Stop render loop and clear canvas when stage is closed
+            StageManager.unsetCanvas();
+        };
     }, []);
 
     // Handle resize if props change

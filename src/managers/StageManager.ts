@@ -35,6 +35,7 @@ export class StageManager {
     private static outputLines: string[] = [];
     private static canvas: HTMLCanvasElement | null = null;
     private static ctx: CanvasRenderingContext2D | null = null;
+    private static rafId: number | null = null;
     private static listeners: (() => void)[] = [];
     /** Called when two sprites overlap (nameA, nameB). Set by parent to postMessage to sandbox. */
     private static onCollision: ((nameA: string, nameB: string) => void) | null = null;
@@ -46,9 +47,24 @@ export class StageManager {
     // --- State Management ---
 
     static setCanvas(canvas: HTMLCanvasElement) {
+        this.stopLoop(); // Stop any existing loop before starting a new one
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.startLoop();
+    }
+
+    /** Stop the render loop and clear canvas reference. Call when stage is closed. */
+    static unsetCanvas() {
+        this.stopLoop();
+        this.canvas = null;
+        this.ctx = null;
+    }
+
+    private static stopLoop() {
+        if (this.rafId != null) {
+            cancelAnimationFrame(this.rafId);
+            this.rafId = null;
+        }
     }
 
     static clearStage() {
@@ -170,12 +186,11 @@ export class StageManager {
 
     private static startLoop() {
         const loop = () => {
-            if (this.canvas && this.ctx) {
-                this.render(this.ctx);
-            }
-            requestAnimationFrame(loop);
+            if (!this.canvas || !this.ctx) return; // Stopped - don't schedule another frame
+            this.render(this.ctx);
+            this.rafId = requestAnimationFrame(loop);
         };
-        requestAnimationFrame(loop);
+        this.rafId = requestAnimationFrame(loop);
     }
 
     private static render(ctx: CanvasRenderingContext2D) {
