@@ -31,12 +31,9 @@ export function ModelPicker() {
   const { settings, updateSettings } = useSettings();
 
   // 🔍 DEBUG: Log when component renders and what model is selected
-  console.log('🔄 ModelPicker render - selectedModel:', settings?.selectedModel);
 
   const onModelSelect = (model: LargeLanguageModel) => {
-    console.log('ModelPicker: Selecting model:', model);
     updateSettings({ selectedModel: model }).then((updatedSettings) => {
-      console.log('ModelPicker: Settings updated successfully, new model:', updatedSettings.selectedModel);
     }).catch((error) => {
       console.error('ModelPicker: Failed to update settings:', error);
     });

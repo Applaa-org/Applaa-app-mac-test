@@ -2992,14 +2992,11 @@ export class IpcClient {
   // Simple Expo methods - RORK-style approach
   public async simpleExpoStart(params: {
     appId: number;
-    useTunnel?: boolean;
   }): Promise<{
     success: boolean;
     isRunning: boolean;
-    webUrl?: string;
-    qrUrl?: string;
-    lanUrl?: string;
-    tunnelUrl?: string;
+    webUrl?: string;      // For iframe preview (required)
+    lanUrl?: string;      // For QR code (optional, for device testing)
     terminalOutput?: string;
   }> {
     return this.ipcRenderer.invoke("simple-expo:start", params);
@@ -3015,6 +3012,45 @@ export class IpcClient {
     message: string;
   }> {
     return this.ipcRenderer.invoke("simple-expo:metro-recovery");
+  }
+
+  // Sandbox Metro methods (True OS-independent preview)
+  public async sandboxMetroStart(params: {
+    appId: number;
+  }): Promise<{
+    success: boolean;
+    isRunning: boolean;
+    webUrl?: string;
+    lanUrl?: string;
+    port?: number;
+    httpPort?: number;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("sandbox-metro:start", params);
+  }
+
+  public async sandboxMetroStop(params: {
+    appId: number;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    return this.ipcRenderer.invoke("sandbox-metro:stop", params);
+  }
+
+  public async sandboxMetroStatus(params: {
+    appId: number;
+  }): Promise<{
+    isRunning: boolean;
+    webUrl?: string;
+    lanUrl?: string;
+    port?: number;
+    httpPort?: number;
+    buildStatus?: 'idle' | 'building' | 'success' | 'error';
+    error?: string;
+    terminalOutput?: string;
+  }> {
+    return this.ipcRenderer.invoke("sandbox-metro:status", params);
   }
 
   public async simpleExpoUpdatePackages(params: {

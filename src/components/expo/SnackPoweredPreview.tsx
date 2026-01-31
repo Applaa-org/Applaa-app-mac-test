@@ -24,10 +24,8 @@ import { useAutoErrorFix } from '@/hooks/useAutoErrorFix';
 
 interface ExpoStatus {
   isRunning: boolean;
-  webUrl?: string;
-  lanUrl?: string;
-  tunnelUrl?: string;
-  qrUrl?: string;
+  webUrl?: string;      // For iframe preview (required)
+  lanUrl?: string;      // For QR code (optional, for device testing)
   buildStatus?: 'idle' | 'building' | 'success' | 'error';
   buildProgress?: string;
   error?: string;
@@ -284,19 +282,16 @@ export function SnackPoweredPreview() {
           setExpoStatus({
             isRunning: currentStatus.isRunning,
             webUrl: currentStatus.webUrl,
-            lanUrl: currentStatus.lanUrl,
-            tunnelUrl: currentStatus.tunnelUrl,
-            qrUrl: currentStatus.qrUrl
+            lanUrl: currentStatus.lanUrl
           });
           setConnectionStatus('connected');
           hasStartedRef.current = true;
           setIsLoading(false);
           startingRef.current = false;
           
-          // Generate QR code if available
-          const qrUrl = currentStatus.tunnelUrl || currentStatus.qrUrl || currentStatus.lanUrl;
-          if (qrUrl) {
-            await generateQRCode(qrUrl);
+          // Generate QR code if available (use lanUrl)
+          if (currentStatus.lanUrl) {
+            await generateQRCode(currentStatus.lanUrl);
           }
           return;
         }
@@ -307,8 +302,7 @@ export function SnackPoweredPreview() {
       
       logToMonitor('Launching Expo server on port 8081...', 'command');
       const result = await ipcClient.simpleExpoStart({
-        appId: selectedAppId,
-        useTunnel: true
+        appId: selectedAppId
       });
       
       console.log('📊 Expo start result:', JSON.stringify(result, null, 2));
@@ -339,21 +333,19 @@ export function SnackPoweredPreview() {
               const previewUrlToUse = status.webUrl || status.lanUrl;
               if (previewUrlToUse) {
                 setPreviewUrl(previewUrlToUse);
-                setExpoStatus({
-                  isRunning: status.isRunning,
-                  webUrl: status.webUrl,
-                  lanUrl: status.lanUrl,
-                  tunnelUrl: status.tunnelUrl,
-                  qrUrl: status.qrUrl
-                });
-                setConnectionStatus('connected');
-                hasStartedRef.current = true;
-                console.log('✅ Preview URL ready (LAN fallback):', previewUrlToUse);
-                
-                const qrUrl = status.qrUrl || status.lanUrl;
-                if (qrUrl) {
-                  await generateQRCode(qrUrl);
-                }
+            setExpoStatus({
+              isRunning: status.isRunning,
+              webUrl: status.webUrl,
+              lanUrl: status.lanUrl
+            });
+            setConnectionStatus('connected');
+            hasStartedRef.current = true;
+            console.log('✅ Preview URL ready (LAN fallback):', previewUrlToUse);
+            
+            // Generate QR code from lanUrl
+            if (status.lanUrl) {
+              await generateQRCode(status.lanUrl);
+            }
                 setStartupProgress('');
                 return true;
               }
@@ -373,45 +365,38 @@ export function SnackPoweredPreview() {
           
           console.log(`🔍 Poll attempt ${attempts}:`, {
             webUrl: status.webUrl || 'empty',
-            tunnelUrl: status.tunnelUrl || 'empty', 
-            qrUrl: status.qrUrl || 'empty',
             lanUrl: status.lanUrl || 'empty'
           });
           
-          // ✅ IMPROVED: Prioritize URLs - webUrl for preview, lanUrl/qrUrl for mobile
-          const availableUrl = status.tunnelUrl || status.webUrl || status.lanUrl || status.qrUrl;
+          // ✅ SANDBOX MODE: Use webUrl for preview, lanUrl for QR code
+          const availableUrl = status.webUrl || status.lanUrl;
           
           if (availableUrl) {
             setStartupProgress('Preview ready! Loading...');
             
-            // ✅ FIX: Use webUrl for iframe preview, tunnelUrl/qrUrl for mobile
-            const previewUrlToUse = status.webUrl || status.tunnelUrl || status.lanUrl || status.qrUrl;
+            // Use webUrl for iframe preview
+            const previewUrlToUse = status.webUrl || status.lanUrl;
             setPreviewUrl(previewUrlToUse);
             
             setExpoStatus({
               isRunning: status.isRunning,
               webUrl: status.webUrl,
-              lanUrl: status.lanUrl,
-              tunnelUrl: status.tunnelUrl,
-              qrUrl: status.qrUrl
+              lanUrl: status.lanUrl
             });
             setConnectionStatus('connected');
             hasStartedRef.current = true;
             console.log('✅ Preview URL ready:', previewUrlToUse);
-            console.log('📊 All URLs:', {
-              tunnel: status.tunnelUrl,
-              qr: status.qrUrl,
-              lan: status.lanUrl,
-              web: status.webUrl
+            console.log('📊 URLs:', {
+              web: status.webUrl,
+              lan: status.lanUrl
             });
             
-            // ✅ FIX: Generate QR code - prefer tunnel, fallback to LAN
-            const qrUrl = status.tunnelUrl || status.qrUrl || status.lanUrl;
-            if (qrUrl) {
-              console.log('📱 Generating QR code for:', qrUrl);
-              await generateQRCode(qrUrl);
+            // Generate QR code from lanUrl
+            if (status.lanUrl) {
+              console.log('📱 Generating QR code for:', status.lanUrl);
+              await generateQRCode(status.lanUrl);
             } else {
-              console.warn('⚠️ No QR URL available for My Device tab');
+              console.warn('⚠️ No LAN URL available for QR code');
             }
             setStartupProgress('');
             return true;
@@ -531,9 +516,7 @@ export function SnackPoweredPreview() {
       setExpoStatus({
         isRunning: status.isRunning,
         webUrl: status.webUrl,
-        lanUrl: status.lanUrl,
-        tunnelUrl: status.tunnelUrl,
-        qrUrl: status.qrUrl
+        lanUrl: status.lanUrl
       });
       
       // Note: simpleExpoStatus doesn't have lastHotReload, so we skip that check
@@ -807,14 +790,13 @@ export function SnackPoweredPreview() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              const qrUrl = expoStatus.tunnelUrl || expoStatus.qrUrl || expoStatus.lanUrl;
-              if (qrUrl) {
-                generateQRCode(qrUrl).then(() => setShowQR(true));
+              if (expoStatus.lanUrl) {
+                generateQRCode(expoStatus.lanUrl).then(() => setShowQR(true));
               } else {
-                console.warn('No QR URL available yet');
+                console.warn('No LAN URL available for QR code');
               }
             }}
-            disabled={!expoStatus.tunnelUrl && !expoStatus.qrUrl && !expoStatus.lanUrl}
+            disabled={!expoStatus.lanUrl}
             className="h-8 px-2"
             title="Show QR Code"
           >
@@ -1124,16 +1106,16 @@ export function SnackPoweredPreview() {
               <img src={qrCodeDataUrl} alt="QR Code" className="w-full h-auto" />
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center break-all">
-              {expoStatus.tunnelUrl || expoStatus.qrUrl || expoStatus.lanUrl}
+              {expoStatus.lanUrl}
             </p>
             <div className="flex gap-2 mt-4">
               <Button variant="outline" onClick={() => setShowQR(false)} className="flex-1">
                 Close
               </Button>
-              {(expoStatus.tunnelUrl || expoStatus.qrUrl) && (
+              {expoStatus.lanUrl && (
                 <Button 
                   variant="default"
-                  onClick={() => window.open(expoStatus.tunnelUrl || expoStatus.qrUrl, '_blank')}
+                  onClick={() => window.open(expoStatus.lanUrl, '_blank')}
                   className="flex-1"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />

@@ -51,6 +51,7 @@ import { registerExpoPerformanceMonitor } from "./handlers/expo_performance_moni
 import { registerTerminalHandlers } from "./handlers/terminal_handlers";
 // import { registerSnackHandlers } from "./handlers/snack_handlers"; // DISABLED - snack-sdk dependency
 import { registerSnackPreviewHandlers } from "./handlers/snack_preview_handlers"; // NEW: Snack-powered preview
+import { registerSandboxMetroHandlers } from "./handlers/sandbox_metro_handlers"; // NEW: True sandbox Metro bundler
 import { registerCodeValidationHandlers } from "./handlers/code_validation_handlers";
 import { registerChromeDevToolsHandlers } from "./handlers/chrome_devtools_handlers";
 import { registerAppRepairHandlers } from "./handlers/app_repair_handlers"; // NEW: Code validation and auto-fix
@@ -175,6 +176,7 @@ export function registerIpcHandlers() {
   // registerTerminalHandlers(); // DISABLED - causing EPIPE errors
   // registerSnackHandlers(); // DISABLED - old snack-sdk not included in EXE package
   registerSnackPreviewHandlers(); // ✅ NEW: Snack-powered preview with hot reload
+  registerSandboxMetroHandlers(); // ✅ NEW: True sandbox Metro bundler (OS-independent)
   registerCodeValidationHandlers(); // ✅ NEW: Code validation and auto-fix
   registerChromeDevToolsHandlers();
   registerAppRepairHandlers(); // ✅ NEW: Chrome DevTools MCP integration
