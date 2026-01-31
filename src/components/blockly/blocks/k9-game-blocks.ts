@@ -15,6 +15,8 @@ export function initK9Blocks() {
                     .appendField(new Blockly.FieldTextInput("Player"), "NAME")
                     .appendField("image")
                     .appendField(new Blockly.FieldDropdown([
+                        ["Snake 🐍", "SNAKE"],
+                        ["Apple 🍎", "APPLE"],
                         ["Hero 🦸", "HERO"],
                         ["Enemy 👾", "ENEMY"],
                         ["Coin 🪙", "COIN"],
@@ -108,6 +110,8 @@ export function initK9Blocks() {
                         ["Down Arrow", "DOWN"],
                         ["Left Arrow", "LEFT"],
                         ["Right Arrow", "RIGHT"],
+                        ["W", "W"],
+                        ["S", "S"],
                         ["Enter", "ENTER"]
                     ]), "KEY")
                     .appendField("pressed");
@@ -121,7 +125,18 @@ export function initK9Blocks() {
     javascriptGenerator.forBlock['k9_on_key_press'] = function (block) {
         const key = block.getFieldValue('KEY');
         const branch = javascriptGenerator.statementToCode(block, 'DO');
-        return `// When Key ${key}:\n${branch}`;
+        const keyMap: Record<string, string> = {
+            UP: "'ArrowUp'", DOWN: "'ArrowDown'", LEFT: "'ArrowLeft'", RIGHT: "'ArrowRight'",
+            SPACE: "' '", ENTER: "'Enter'", W: "'w'", S: "'s'"
+        };
+        const keyCode = keyMap[key] || "'" + key + "'";
+        // Register with parent so keydown (when stage is open) can trigger this handler
+        return `
+        (function() {
+            window.__keyHandlers = window.__keyHandlers || [];
+            window.__keyHandlers.push({ key: ${keyCode}, fn: function() { ${branch} } });
+        })();
+        \n`;
     };
 
     // 4b. Move Sprite (used inside On Key Press etc.)
@@ -211,7 +226,12 @@ export function initK9Blocks() {
         const name = block.getFieldValue('NAME');
         const vx = javascriptGenerator.valueToCode(block, 'VX', Order.ATOMIC) || '0';
         const vy = javascriptGenerator.valueToCode(block, 'VY', Order.ATOMIC) || '0';
-        return `console.log("PHYSICS: '${name}' velocity = (${vx}, ${vy})");\n`;
+        return `
+        if (window.StageManager) {
+            window.StageManager.setSpriteVelocity('${name}', ${vx}, ${vy});
+        }
+        console.log("PHYSICS: '${name}' velocity = (${vx}, ${vy})");
+        \n`;
     };
 
     // 7. On Collision (Event)
@@ -234,7 +254,35 @@ export function initK9Blocks() {
         const a = block.getFieldValue('A');
         const b = block.getFieldValue('B');
         const branch = javascriptGenerator.statementToCode(block, 'DO');
-        return `// When ${a} hits ${b}:\n${branch}`;
+        return `
+        (function() {
+            window.__collisionHandlers = window.__collisionHandlers || [];
+            window.__collisionHandlers.push({ a: '${a}', b: '${b}', fn: function() { ${branch} } });
+        })();
+        \n`;
+    };
+
+    // 7b. Hide Sprite (e.g. Breakout brick when hit)
+    if (!Blockly.Blocks['k9_hide_sprite']) {
+        Blockly.Blocks['k9_hide_sprite'] = {
+            init: function () {
+                this.appendDummyInput()
+                    .appendField("🙈 Hide")
+                    .appendField(new Blockly.FieldTextInput("Brick1"), "NAME");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(PHYSICS_COLOR);
+                this.setTooltip("Hides a sprite (e.g. when a brick is hit)");
+            }
+        };
+    }
+    javascriptGenerator.forBlock['k9_hide_sprite'] = function (block) {
+        const name = block.getFieldValue('NAME');
+        return `
+        if (window.StageManager) {
+            window.StageManager.setSpriteVisible('${name}', false);
+        }
+        \n`;
     };
 
     // 8. Set Bounciness

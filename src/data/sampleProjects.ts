@@ -22,6 +22,165 @@ const createWorkspace = (blocks: any[]) => ({
     }
 });
 
+// Snake starter blocks — built in code to avoid nested brace/syntax errors in the array literal
+function snakeStarterBlocks(): any[] {
+    const randomPos = (from: number, to: number) => ({
+        block: {
+            type: "math_random_int",
+            inputs: {
+                FROM: { shadow: { type: "math_number", fields: { NUM: from } } },
+                TO: { shadow: { type: "math_number", fields: { NUM: to } } }
+            }
+        }
+    });
+    const setPositionFoodRandom = {
+        type: "k9_set_position",
+        fields: { NAME: "Food" },
+        inputs: {
+            X: randomPos(50, 350),
+            Y: randomPos(50, 250)
+        }
+    };
+    return [
+        {
+            type: "game_start",
+            x: 50,
+            y: 50,
+            next: {
+                block: {
+                    type: "k9_create_sprite",
+                    fields: { NAME: "Snake", IMG: "SNAKE" },
+                    next: {
+                        block: {
+                            type: "k9_set_velocity",
+                            fields: { NAME: "Snake" },
+                            inputs: {
+                                VX: { shadow: { type: "math_number", fields: { NUM: 5 } } },
+                                VY: { shadow: { type: "math_number", fields: { NUM: 0 } } }
+                            },
+                            next: {
+                                block: {
+                                    type: "k9_create_sprite",
+                                    fields: { NAME: "Food", IMG: "APPLE" },
+                                    next: {
+                                        block: {
+                                            type: "k9_set_position",
+                                            fields: { NAME: "Food" },
+                                            inputs: {
+                                                X: randomPos(50, 350),
+                                                Y: randomPos(50, 250)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_key_press",
+            x: 50,
+            y: 200,
+            fields: { KEY: "UP" },
+            inputs: {
+                DO: {
+                    block: {
+                        type: "k9_set_velocity",
+                        fields: { NAME: "Snake" },
+                        inputs: {
+                            VX: { shadow: { type: "math_number", fields: { NUM: 0 } } },
+                            VY: { shadow: { type: "math_number", fields: { NUM: -5 } } }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_key_press",
+            x: 50,
+            y: 280,
+            fields: { KEY: "DOWN" },
+            inputs: {
+                DO: {
+                    block: {
+                        type: "k9_set_velocity",
+                        fields: { NAME: "Snake" },
+                        inputs: {
+                            VX: { shadow: { type: "math_number", fields: { NUM: 0 } } },
+                            VY: { shadow: { type: "math_number", fields: { NUM: 5 } } }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_key_press",
+            x: 50,
+            y: 360,
+            fields: { KEY: "LEFT" },
+            inputs: {
+                DO: {
+                    block: {
+                        type: "k9_set_velocity",
+                        fields: { NAME: "Snake" },
+                        inputs: {
+                            VX: { shadow: { type: "math_number", fields: { NUM: -5 } } },
+                            VY: { shadow: { type: "math_number", fields: { NUM: 0 } } }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_key_press",
+            x: 50,
+            y: 440,
+            fields: { KEY: "RIGHT" },
+            inputs: {
+                DO: {
+                    block: {
+                        type: "k9_set_velocity",
+                        fields: { NAME: "Snake" },
+                        inputs: {
+                            VX: { shadow: { type: "math_number", fields: { NUM: 5 } } },
+                            VY: { shadow: { type: "math_number", fields: { NUM: 0 } } }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: "k9_on_collision",
+            x: 50,
+            y: 520,
+            fields: { A: "Snake", B: "Food" },
+            inputs: {
+                DO: {
+                    block: setPositionFoodRandom
+                }
+            }
+        }
+    ];
+}
+
+// Helper to create workspaces that use variables — variables must be deserialized first by Blockly
+const createWorkspaceWithVariables = (blocks: any[], variableNames: string[]) => {
+    const variables = variableNames.map((name, i) => ({
+        "id": `var_${name}_${i}`,
+        "name": name,
+        "type": ""
+    }));
+    return {
+        "variables": variables,
+        "blocks": {
+            "languageVersion": 0,
+            "blocks": blocks
+        }
+    };
+};
+
 export const SAMPLE_PROJECTS: SampleProject[] = [
     // --- 📚 TUTORIALS ---
     {
@@ -86,25 +245,13 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
         description: 'Create a snake that follows your commands.',
         category: 'Games',
         difficulty: 'Intermediate',
-        workspace: createWorkspace([
-            {
-                "type": "game_start", "x": 50, "y": 50,
-                "next": {
-                    "block": {
-                        "type": "k9_create_sprite", "fields": { "NAME": "Snake", "IMG": "HERO" }
-                    }
-                }
-            },
-            {
-                "type": "k9_on_key_press", "x": 50, "y": 200, "fields": { "KEY": "UP" },
-                "inputs": { "DO": { "block": { "type": "k9_set_velocity", "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -5 } } } } } } }
-            }
-        ]),
+        workspace: createWorkspace(snakeStarterBlocks()),
         guide: {
-            overview: "Build the classic Snake game! Start by making the hero move.",
+            overview: "Build the classic Snake game! Steer the snake with arrow keys and eat the apple - when you touch it, a new one appears.",
             steps: [
-                { title: "Create Snake 🐍", explanation: "Use 'Create Sprite' to make your hero." },
-                { title: "Controls 🎮", explanation: "Use 'When Key Pressed' to change direction." }
+                { title: "Snake 🐍 & Food 🍎", explanation: "Create Sprite uses Snake and Apple images. Food is placed at a random spot." },
+                { title: "Controls 🎮", explanation: "Use arrow keys to change direction." },
+                { title: "Eat the apple!", explanation: "When Snake touches Food, the 'When Snake touches Food' block moves the food to a new random position." }
             ]
         }
     },
@@ -122,22 +269,59 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                         "type": "k9_create_sprite", "fields": { "NAME": "Paddle1", "IMG": "PLATFORM" },
                         "next": {
                             "block": {
-                                "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" }
+                                "type": "k9_set_position", "fields": { "NAME": "Paddle1" },
+                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 50 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 150 } } } },
+                                "next": {
+                                    "block": {
+                                        "type": "k9_create_sprite", "fields": { "NAME": "Paddle2", "IMG": "PLATFORM" },
+                                        "next": {
+                                            "block": {
+                                                "type": "k9_set_position", "fields": { "NAME": "Paddle2" },
+                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 350 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 150 } } } },
+                                                "next": {
+                                                    "block": {
+                                                        "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" },
+                                                        "next": {
+                                                            "block": {
+                                                                "type": "k9_set_position", "fields": { "NAME": "Ball" },
+                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 150 } } } },
+                                                                "next": {
+                                                                    "block": {
+                                                                        "type": "k9_set_bounciness", "fields": { "NAME": "Ball", "BOUNCE": 100 },
+                                                                        "next": {
+                                                                            "block": {
+                                                                                "type": "k9_set_velocity", "fields": { "NAME": "Ball" },
+                                                                                "inputs": {
+                                                                                    "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
+                                                                                    "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -2 } } }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             },
-            {
-                "type": "k9_set_bounciness", "x": 50, "y": 220,
-                "fields": { "NAME": "Ball", "BOUNCE": 100 }
-            }
+            { "type": "k9_on_key_press", "x": 50, "y": 320, "fields": { "KEY": "UP" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle1", "DIR": "UP", "STEPS": 15 } } } } },
+            { "type": "k9_on_key_press", "x": 50, "y": 400, "fields": { "KEY": "DOWN" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle1", "DIR": "DOWN", "STEPS": 15 } } } } },
+            { "type": "k9_on_key_press", "x": 300, "y": 320, "fields": { "KEY": "W" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle2", "DIR": "UP", "STEPS": 15 } } } } },
+            { "type": "k9_on_key_press", "x": 300, "y": 400, "fields": { "KEY": "S" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle2", "DIR": "DOWN", "STEPS": 15 } } } } }
         ]),
         guide: {
             overview: "Create a bouncing ball physics game!",
             steps: [
-                { title: "Paddles 🧱", explanation: "Create sprites for paddles." },
-                { title: "Physics ⚛️", explanation: "Set 'Bounciness' to 100% so the ball never stops!" }
+                { title: "Paddles 🧱", explanation: "Two paddles: Player 1 uses Up/Down arrows, Player 2 uses W/S." },
+                { title: "Physics ⚛️", explanation: "The ball bounces off walls and paddles. Set velocity so the ball moves!" }
             ]
         }
     },
@@ -376,6 +560,328 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
             ]
         }
     },
+    {
+        id: 'math_even_odd',
+        title: '⚖️ Even or Odd?',
+        description: 'Check if a number is even or odd using modulo.',
+        category: 'Math',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "num", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 7 } } } },
+                "next": {
+                    "block": {
+                        "type": "controls_ifelse",
+                        "inputs": {
+                            "IF0": {
+                                "block": {
+                                    "type": "logic_compare",
+                                    "fields": { "OP": "EQ" },
+                                    "inputs": {
+                                        "A": {
+                                            "block": {
+                                                "type": "math_modulo",
+                                                "inputs": {
+                                                    "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "num", "type": "" } } } },
+                                                    "DIVISOR": { "shadow": { "type": "math_number", "fields": { "NUM": 2 } } }
+                                                }
+                                            }
+                                        },
+                                        "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
+                                    }
+                                }
+                            },
+                            "DO0": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Even!" } } } } } },
+                        "ELSE": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Odd!" } } } } } }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Use modulo (%) to find the remainder when dividing by 2.",
+            steps: [
+                { title: "Set a number 🔢", explanation: "Store the number you want to check in a variable." },
+                { title: "Modulo 2 📐", explanation: "If num % 2 equals 0, the number is even; otherwise it's odd." }
+            ]
+        }
+    },
+    {
+        id: 'math_sum_to_n',
+        title: '➕ Sum 1 to N',
+        description: 'Add up all numbers from 1 to 5.',
+        category: 'Math',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "sum", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } } },
+                "next": {
+                    "block": {
+                        "type": "controls_for",
+                        "fields": { "VAR": { "name": "i", "type": "" } },
+                        "inputs": {
+                            "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                            "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
+                            "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                            "DO": {
+                                "block": {
+                                    "type": "variables_set",
+                                    "fields": { "VAR": { "name": "sum", "type": "" } },
+                                    "inputs": {
+                                        "VALUE": {
+                                            "block": {
+                                                "type": "math_arithmetic",
+                                                "fields": { "OP": "ADD" },
+                                                "inputs": {
+                                                    "A": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "sum", "type": "" } } } },
+                                                    "B": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "i", "type": "" } } } }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "next": {
+                            "block": {
+                                "type": "applaa_log",
+                                "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "sum", "type": "" } } } } }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Use a loop to add numbers from 1 to 5 and print the total.",
+            steps: [
+                { title: "Start at 0", explanation: "Initialize sum to 0." },
+                { title: "Add in the loop", explanation: "Each time through the loop, add i to sum." }
+            ]
+        }
+    },
+    {
+        id: 'math_random_dice',
+        title: '🎲 Random Dice',
+        description: 'Roll a 6-sided dice using random numbers.',
+        category: 'Math',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "roll", "type": "" } },
+                "inputs": {
+                    "VALUE": {
+                        "block": {
+                            "type": "math_random_int",
+                            "inputs": {
+                                "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                                "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 6 } } }
+                            }
+                        }
+                    }
+                },
+                "next": {
+                    "block": {
+                        "type": "applaa_log",
+                        "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "roll", "type": "" } } } } }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Use random integer to simulate rolling a dice.",
+            steps: [
+                { title: "Random 1 to 6", explanation: "math_random_int gives a random whole number between 1 and 6." },
+                { title: "Log the result", explanation: "Print the roll so you can see what you got." }
+            ]
+        }
+    },
+    {
+        id: 'math_divisible_by',
+        title: '✂️ Is Divisible By?',
+        description: 'Check if 15 is divisible by 5.',
+        category: 'Math',
+        difficulty: 'Beginner',
+        workspace: createWorkspace([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "num", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 15 } } } },
+                "next": {
+                    "block": {
+                        "type": "variables_set",
+                        "fields": { "VAR": { "name": "divisor", "type": "" } },
+                        "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } } },
+                        "next": {
+                            "block": {
+                                "type": "controls_ifelse",
+                                "inputs": {
+                                    "IF0": {
+                                        "block": {
+                                            "type": "logic_compare",
+                                            "fields": { "OP": "EQ" },
+                                            "inputs": {
+                                                "A": {
+                                                    "block": {
+                                                        "type": "math_modulo",
+                                                        "inputs": {
+                                                            "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "num", "type": "" } } } },
+                                                            "DIVISOR": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "divisor", "type": "" } } } }
+                                                        }
+                                                    }
+                                                },
+                                                "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
+                                            }
+                                        }
+                                    },
+                                    "DO0": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Divisible!" } } } } } },
+                                    "ELSE": { "block": { "type": "applaa_log", "inputs": { "MESSAGE": { "shadow": { "type": "text", "fields": { "TEXT": "Not divisible!" } } } } } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "If num % divisor equals 0, then num is divisible by divisor.",
+            steps: [
+                { title: "Two numbers", explanation: "Set num and divisor to check." },
+                { title: "Modulo check", explanation: "When remainder is 0, the division is exact." }
+            ]
+        }
+    },
+    {
+        id: 'math_times_table',
+        title: '📋 Times Table (5×1 to 5×10)',
+        description: 'Print the 5 times table using a loop.',
+        category: 'Math',
+        difficulty: 'Intermediate',
+        workspace: createWorkspace([
+            {
+                "type": "controls_for", "x": 50, "y": 50,
+                "fields": { "VAR": { "name": "i", "type": "" } },
+                "inputs": {
+                    "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                    "TO": { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } },
+                    "BY": { "shadow": { "type": "math_number", "fields": { "NUM": 1 } } },
+                    "DO": {
+                        "block": {
+                            "type": "applaa_log",
+                            "inputs": {
+                                "MESSAGE": {
+                                    "block": {
+                                        "type": "math_arithmetic",
+                                        "fields": { "OP": "MULTIPLY" },
+                                        "inputs": {
+                                            "A": { "shadow": { "type": "math_number", "fields": { "NUM": 5 } } },
+                                            "B": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "i", "type": "" } } } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]),
+        guide: {
+            overview: "Loop from 1 to 10 and print 5 times each number.",
+            steps: [
+                { title: "Loop i from 1 to 10", explanation: "Each time, i is the next number." },
+                { title: "Print 5 × i", explanation: "Multiply 5 by i and log the result." }
+            ]
+        }
+    },
+    {
+        id: 'math_gcd',
+        title: '🔢 Greatest Common Divisor',
+        description: 'Find GCD of 48 and 18 using the Euclidean algorithm.',
+        category: 'Math',
+        difficulty: 'Advanced',
+        workspace: createWorkspaceWithVariables([
+            {
+                "type": "variables_set", "x": 50, "y": 50,
+                "fields": { "VAR": { "id": "var_a_0", "name": "a", "type": "" } },
+                "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 48 } } } },
+                "next": {
+                    "block": {
+                        "type": "variables_set",
+                        "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } },
+                        "inputs": { "VALUE": { "shadow": { "type": "math_number", "fields": { "NUM": 18 } } } },
+                        "next": {
+                            "block": {
+                                "type": "controls_whileUntil",
+                                "fields": { "MODE": "WHILE" },
+                                "inputs": {
+                                    "BOOL": {
+                                        "block": {
+                                            "type": "logic_compare",
+                                            "fields": { "OP": "NEQ" },
+                                            "inputs": {
+                                                "A": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } } } },
+                                                "B": { "shadow": { "type": "math_number", "fields": { "NUM": 0 } } }
+                                            }
+                                        }
+                                    },
+                                    "DO": {
+                                        "block": {
+                                            "type": "variables_set",
+                                            "fields": { "VAR": { "id": "var_temp_2", "name": "temp", "type": "" } },
+                                            "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } } } } },
+                                            "next": {
+                                                "block": {
+                                                    "type": "variables_set",
+                                                    "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } },
+                                                    "inputs": {
+                                                        "VALUE": {
+                                                            "block": {
+                                                                "type": "math_modulo",
+                                                                "inputs": {
+                                                                    "DIVIDEND": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_a_0", "name": "a", "type": "" } } } },
+                                                                    "DIVISOR": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_b_1", "name": "b", "type": "" } } } }
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "next": {
+                                                        "block": {
+                                                            "type": "variables_set",
+                                                            "fields": { "VAR": { "id": "var_a_0", "name": "a", "type": "" } },
+                                                            "inputs": { "VALUE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_temp_2", "name": "temp", "type": "" } } } } }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "next": {
+                                    "block": {
+                                        "type": "applaa_log",
+                                        "inputs": { "MESSAGE": { "block": { "type": "variables_get", "fields": { "VAR": { "id": "var_a_0", "name": "a", "type": "" } } } } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ], ["a", "b", "temp"]),
+        guide: {
+            overview: "Euclidean algorithm: while b ≠ 0, set (a, b) = (b, a % b); then GCD is a.",
+            steps: [
+                { title: "Set a and b", explanation: "Start with the two numbers." },
+                { title: "While b ≠ 0", explanation: "Replace a with b and b with a % b." },
+                { title: "Result", explanation: "When b becomes 0, a is the GCD." }
+            ]
+        }
+    },
 
     // --- 🧪 SCIENCE LAB ---
     {
@@ -528,10 +1034,72 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                         "type": "k9_create_sprite", "fields": { "NAME": "Paddle", "IMG": "PLATFORM" },
                         "next": {
                             "block": {
-                                "type": "k9_set_position", "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 350 } } } },
+                                "type": "k9_set_position", "fields": { "NAME": "Paddle" },
+                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 270 } } } },
                                 "next": {
                                     "block": {
-                                        "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" }
+                                        "type": "k9_create_sprite", "fields": { "NAME": "Ball", "IMG": "BALL" },
+                                        "next": {
+                                            "block": {
+                                                "type": "k9_set_position", "fields": { "NAME": "Ball" },
+                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 200 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 220 } } } },
+                                                "next": {
+                                                    "block": {
+                                                        "type": "k9_set_bounciness", "fields": { "NAME": "Ball", "BOUNCE": 100 },
+                                                        "next": {
+                                                            "block": {
+                                                                "type": "k9_set_velocity", "fields": { "NAME": "Ball" },
+                                                                "inputs": { "VX": { "shadow": { "type": "math_number", "fields": { "NUM": 4 } } }, "VY": { "shadow": { "type": "math_number", "fields": { "NUM": -4 } } } },
+                                                                "next": {
+                                                                    "block": {
+                                                                        "type": "k9_create_sprite", "fields": { "NAME": "Brick1", "IMG": "PLATFORM" },
+                                                                        "next": {
+                                                                            "block": {
+                                                                                "type": "k9_set_position", "fields": { "NAME": "Brick1" },
+                                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 80 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } },
+                                                                                "next": {
+                                                                                    "block": {
+                                                                                        "type": "k9_create_sprite", "fields": { "NAME": "Brick2", "IMG": "PLATFORM" },
+                                                                                        "next": {
+                                                                                            "block": {
+                                                                                                "type": "k9_set_position", "fields": { "NAME": "Brick2" },
+                                                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 160 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } },
+                                                                                                "next": {
+                                                                                                    "block": {
+                                                                                                        "type": "k9_create_sprite", "fields": { "NAME": "Brick3", "IMG": "PLATFORM" },
+                                                                                                        "next": {
+                                                                                                            "block": {
+                                                                                                                "type": "k9_set_position", "fields": { "NAME": "Brick3" },
+                                                                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 240 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } },
+                                                                                                                "next": {
+                                                                                                                    "block": {
+                                                                                                                        "type": "k9_create_sprite", "fields": { "NAME": "Brick4", "IMG": "PLATFORM" },
+                                                                                                                        "next": {
+                                                                                                                            "block": {
+                                                                                                                                "type": "k9_set_position", "fields": { "NAME": "Brick4" },
+                                                                                                                                "inputs": { "X": { "shadow": { "type": "math_number", "fields": { "NUM": 320 } } }, "Y": { "shadow": { "type": "math_number", "fields": { "NUM": 60 } } } }
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -539,20 +1107,18 @@ export const SAMPLE_PROJECTS: SampleProject[] = [
                     }
                 }
             },
-            {
-                "type": "k9_on_key_press", "x": 50, "y": 300, "fields": { "KEY": "LEFT" },
-                "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "LEFT", "STEPS": 20 } } } }
-            },
-            {
-                "type": "k9_on_key_press", "x": 300, "y": 300, "fields": { "KEY": "RIGHT" },
-                "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "RIGHT", "STEPS": 20 } } } }
-            }
+            { "type": "k9_on_key_press", "x": 50, "y": 340, "fields": { "KEY": "LEFT" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "LEFT", "STEPS": 20 } } } } },
+            { "type": "k9_on_key_press", "x": 300, "y": 340, "fields": { "KEY": "RIGHT" }, "inputs": { "DO": { "block": { "type": "k9_move_sprite", "fields": { "NAME": "Paddle", "DIR": "RIGHT", "STEPS": 20 } } } } },
+            { "type": "k9_on_collision", "x": 50, "y": 420, "fields": { "A": "Ball", "B": "Brick1" }, "inputs": { "DO": { "block": { "type": "k9_hide_sprite", "fields": { "NAME": "Brick1" } } } } },
+            { "type": "k9_on_collision", "x": 50, "y": 500, "fields": { "A": "Ball", "B": "Brick2" }, "inputs": { "DO": { "block": { "type": "k9_hide_sprite", "fields": { "NAME": "Brick2" } } } } },
+            { "type": "k9_on_collision", "x": 300, "y": 420, "fields": { "A": "Ball", "B": "Brick3" }, "inputs": { "DO": { "block": { "type": "k9_hide_sprite", "fields": { "NAME": "Brick3" } } } } },
+            { "type": "k9_on_collision", "x": 300, "y": 500, "fields": { "A": "Ball", "B": "Brick4" }, "inputs": { "DO": { "block": { "type": "k9_hide_sprite", "fields": { "NAME": "Brick4" } } } } }
         ]),
         guide: {
             overview: "Classic arcade action! Break the bricks.",
             steps: [
-                { title: "Paddle Control ↔️", explanation: "Use Left/Right keys to move the paddle." },
-                { title: "Physics 💥", explanation: "The ball bounces off the paddle and bricks automatically." }
+                { title: "Paddle Control ↔️", explanation: "Use Left/Right keys to move the paddle at the bottom." },
+                { title: "Physics 💥", explanation: "The ball bounces off walls and the paddle. When Ball touches a brick, the brick is hidden!" }
             ]
         }
     },

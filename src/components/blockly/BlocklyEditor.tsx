@@ -151,7 +151,8 @@ const KIDS_TOOLBOX = {
                 { kind: 'block', type: 'k9_add_gravity' },
                 { kind: 'block', type: 'k9_set_velocity' },
                 { kind: 'block', type: 'k9_on_collision' },
-                { kind: 'block', type: 'k9_set_bounciness' }
+                { kind: 'block', type: 'k9_set_bounciness' },
+                { kind: 'block', type: 'k9_hide_sprite' }
             ]
         },
         {
@@ -431,8 +432,11 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 if (action === 'addSprite') StageManager.addSprite(event.data.name, event.data.spriteType);
                 else if (action === 'setPosition') StageManager.setSpritePosition(event.data.name, event.data.x, event.data.y);
                 else if (action === 'moveSprite') StageManager.moveSprite(event.data.name, event.data.dx, event.data.dy);
+                else if (action === 'setVelocity') StageManager.setSpriteVelocity(event.data.name, event.data.vx, event.data.vy);
+                else if (action === 'setVisible') StageManager.setSpriteVisible(event.data.name, event.data.visible);
                 else if (action === 'setBackground') StageManager.setBackground(event.data.color);
                 else if (action === 'addShape') StageManager.addShape(event.data.shapeType, event.data.color);
+                else if (action === 'showOutput') StageManager.showOutput(event.data.text);
 
             } else if (event.data.type === 'CELEBRATION') {
                 // Handle Celebration Manager proxy
@@ -504,6 +508,37 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
         });
         return unsubscribe;
     }, [isStageOpen]); // Re-bind if isStageOpen changes to ensure we have fresh state
+
+    // Forward keydown to sandbox when stage is open (so Snake / arcade key handlers run)
+    useEffect(() => {
+        if (!isStageOpen) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            const sandbox = document.getElementById('blockly-sandbox') as HTMLIFrameElement | null;
+            if (sandbox?.contentWindow) {
+                sandbox.contentWindow.postMessage({ type: 'keydown', key: e.key }, '*');
+            }
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'W', 's', 'S'].includes(e.key)) {
+                e.preventDefault();
+            }
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [isStageOpen]);
+
+    // When stage is open, register collision callback so StageManager can notify sandbox (Snake eats Food)
+    useEffect(() => {
+        if (!isStageOpen) {
+            StageManager.setOnCollision(null);
+            return;
+        }
+        StageManager.setOnCollision((nameA, nameB) => {
+            const sandbox = document.getElementById('blockly-sandbox') as HTMLIFrameElement | null;
+            if (sandbox?.contentWindow) {
+                sandbox.contentWindow.postMessage({ type: 'collision', a: nameA, b: nameB }, '*');
+            }
+        });
+        return () => StageManager.setOnCollision(null);
+    }, [isStageOpen]);
 
 
     useEffect(() => {
@@ -941,8 +976,9 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
             }, 100); // Small delay to ensure blocks are fully rendered
 
         } catch (e) {
-            console.error("Failed to load hub sample", e);
-            alert("Failed to load sample. Please try again.");
+            const err = e instanceof Error ? e : new Error(String(e));
+            console.error("Failed to load hub sample", err.message, err.stack, e);
+            alert(`Failed to load sample. Please try again.${err.message ? ` (${err.message})` : ""}`);
         }
     };
 
@@ -1662,22 +1698,33 @@ const SANDBOX_HTML = `
 <body>
   <div id="output"></div>
   <script>
-    // Override console.log to display in the output div AND send to parent
+    // Override console.log so output shows in the app's Execution Output / Terminal panel.
+    // Patch the existing console (don't replace window.console) so it works in Electron/sandboxed iframes
+    // where window.console may be read-only.
     const outputDiv = document.getElementById('output');
-    
-    window.console = {
-      log: function(...args) {
-        const msg = args.join(' ');
-        // Display inside sandbox (optional)
-        outputDiv.textContent += msg + '\\n'; 
-        // Send to parent
-        window.parent.postMessage({ type: 'sandbox_log', message: msg }, '*');
-      },
-      error: function(...args) {
-        const msg = args.join(' ');
-        outputDiv.textContent += 'Error: ' + msg + '\\n';
-        window.parent.postMessage({ type: 'sandbox_error', message: msg }, '*');
-      }
+    function stringifyArg(a) {
+      if (a === null) return 'null';
+      if (a === undefined) return 'undefined';
+      if (typeof a === 'object') return JSON.stringify(a);
+      return String(a);
+    }
+    function sendLog(type, msg) {
+      try {
+        outputDiv.textContent += (type === 'error' ? 'Error: ' : '') + msg + '\\n';
+        window.parent.postMessage({ type: type === 'error' ? 'sandbox_error' : 'sandbox_log', message: msg }, '*');
+      } catch (e) {}
+    }
+    var _log = window.console && window.console.log ? window.console.log.bind(window.console) : function() {};
+    var _error = window.console && window.console.error ? window.console.error.bind(window.console) : function() {};
+    window.console.log = function(...args) {
+      var msg = args.map(stringifyArg).join(' ');
+      sendLog('log', msg);
+      _log.apply(window.console, args);
+    };
+    window.console.error = function(...args) {
+      var msg = args.map(stringifyArg).join(' ');
+      sendLog('error', msg);
+      _error.apply(window.console, args);
     };
     
     // Override alert to use console.log
@@ -1709,10 +1756,15 @@ const SANDBOX_HTML = `
       },
       setSpritePosition: function(name, x, y) {
         window.parent.postMessage({ type: 'STAGE', action: 'setPosition', name, x, y }, '*');
-        // console.log('📍 Move: ' + name);
       },
       moveSprite: function(name, dx, dy) {
         window.parent.postMessage({ type: 'STAGE', action: 'moveSprite', name, dx, dy }, '*');
+      },
+      setSpriteVelocity: function(name, vx, vy) {
+        window.parent.postMessage({ type: 'STAGE', action: 'setVelocity', name, vx, vy }, '*');
+      },
+      setSpriteVisible: function(name, visible) {
+        window.parent.postMessage({ type: 'STAGE', action: 'setVisible', name, visible }, '*');
       },
       setBackground: function(color) {
          window.parent.postMessage({ type: 'STAGE', action: 'setBackground', color }, '*');
@@ -1720,6 +1772,9 @@ const SANDBOX_HTML = `
       addShape: function(shapeType, color) {
          window.parent.postMessage({ type: 'STAGE', action: 'addShape', shapeType, color }, '*');
          console.log('🎨 Add Shape: ' + shapeType);
+      },
+      showOutput: function(text) {
+        window.parent.postMessage({ type: 'STAGE', action: 'showOutput', text: String(text) }, '*');
       }
     };
 
@@ -1751,10 +1806,15 @@ const SANDBOX_HTML = `
       }
     };
     
-    // Listen for messages from parent
+    // Key handlers registered by k9_on_key_press blocks (parent forwards keydown when stage is open)
+    window.__keyHandlers = [];
+    // Collision handlers registered by k9_on_collision blocks (parent calls when StageManager detects overlap)
+    window.__collisionHandlers = [];
     window.addEventListener('message', function(event) {
       if (event.data.type === 'run') {
         outputDiv.textContent = '';
+        window.__keyHandlers = [];
+        window.__collisionHandlers = [];
         // Wrap code in async IIFE to support await statements (needed for wait blocks)
         (async function() {
           try {
@@ -1769,6 +1829,18 @@ const SANDBOX_HTML = `
         })();
       } else if (event.data.type === 'clear') {
         outputDiv.textContent = '';
+        window.__keyHandlers = [];
+        window.__collisionHandlers = [];
+      } else if (event.data.type === 'collision') {
+        var a = event.data.a;
+        var b = event.data.b;
+        (window.__collisionHandlers || []).filter(function(h) {
+          return (h.a === a && h.b === b) || (h.a === b && h.b === a);
+        }).forEach(function(h) { try { h.fn(); } catch (e) { console.error(e); } });
+      } else if (event.data.type === 'keydown') {
+        (window.__keyHandlers || []).filter(function(h) { return h.key === event.data.key; }).forEach(function(h) {
+          try { h.fn(); } catch (e) { console.error(e); }
+        });
       }
     });
   </script>
