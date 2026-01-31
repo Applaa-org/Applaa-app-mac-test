@@ -1254,7 +1254,7 @@ renderer/rendering_method="forward_plus"
             templateId: 'minecraft-basic',
           });
         } else if (isGameFramework) {
-          // For other game frameworks (blockly, arcade, microbit), just initialize an empty project with Git
+          // For other game frameworks (blockly, arcade, microbit), initialize project with Git and initial commit
           await fsPromises.mkdir(fullAppPath, { recursive: true });
 
           await git.init({
@@ -1267,6 +1267,10 @@ renderer/rendering_method="forward_plus"
             path.join(fullAppPath, "README.md"),
             `# ${params.name}\n\nCreated with Applaa.`
           );
+
+          // Create initial commit so refs/heads/main exists and git.log() works
+          await git.add({ fs, dir: fullAppPath, filepath: "." });
+          await gitCommit({ path: fullAppPath, message: "Initial commit - Applaa app created" });
         } else {
           const templateId = params.framework === 'expo' ? 'expo-base-master' : undefined;
           await createFromTemplate({
@@ -1279,11 +1283,12 @@ renderer/rendering_method="forward_plus"
       // 🚀 PERFORMANCE: Get commit hash from template creation (no duplicate Git ops)
       let commitHash: string;
       try {
-        // Get the commit hash that was created by initializeGitRepository in createFromTemplate
+        // Use HEAD so we work with any default branch (main or master)
         const commits = await git.log({
           fs: fs,
           dir: fullAppPath,
           depth: 1,
+          ref: "HEAD",
         });
         commitHash = commits.length > 0 ? commits[0].oid : "initial";
       } catch (error) {
@@ -2230,8 +2235,7 @@ renderer/rendering_method="forward_plus"
 
           // Kill processes on ports that might be used by this specific app
           // Use flexible port detection instead of hardcoded 8081
-          const { getPortUtils } = await import("./port_utils");
-          const portUtils = getPortUtils();
+          const { isPortFree } = await import("./port_utils");
 
           try {
             // Only kill ports if they're specifically associated with this app
@@ -2243,7 +2247,7 @@ renderer/rendering_method="forward_plus"
               for (const port of portsToCheck) {
                 try {
                   // Only kill if the port is actually in use and we can confirm it's from this app
-                  const isInUse = !(await portUtils.isPortFree(port));
+                  const isInUse = !(await isPortFree(port));
                   if (isInUse) {
                     // Be more conservative - only kill if we're sure it's this app's process
                     logger.log(`🔍 Port ${port} is in use, checking if it belongs to app ${appId}`);

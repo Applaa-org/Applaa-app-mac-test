@@ -1370,17 +1370,31 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                         position: 'absolute',
                         top: '80px',
                         right: '20px',
-                        zIndex: 40,
-                        animation: 'slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                        zIndex: 1000,
+                        animation: 'slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        isolation: 'isolate' // Create stacking context so close button stays on top
                     }}>
                         <StageComponent width={400} height={300} />
 
                         <button
-                            onClick={() => setIsStageOpen(false)}
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                // Stop game: clear sandbox and stage, then close
+                                const sandbox = document.getElementById('blockly-sandbox') as HTMLIFrameElement | null;
+                                if (sandbox?.contentWindow) {
+                                    sandbox.contentWindow.postMessage({ type: 'clear' }, '*');
+                                }
+                                StageManager.clearStage();
+                                setIsStageOpen(false);
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
                             style={{
                                 position: 'absolute',
                                 top: '-10px',
                                 right: '-10px',
+                                zIndex: 10001,
                                 background: '#FF6680',
                                 color: 'white',
                                 border: '3px solid white',
@@ -1389,8 +1403,10 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                                 height: '32px',
                                 cursor: 'pointer',
                                 fontWeight: 'bold',
-                                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                                pointerEvents: 'auto'
                             }}
+                            aria-label="Close stage"
                         >
                             ✕
                         </button>
@@ -1405,7 +1421,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
 
 
 
-                {/* Visual Editor */}
+                {/* Visual Editor - z-index below stage (1000) so stage close button receives clicks */}
                 <div
                     ref={blocklyDivRef}
                     className="w-full h-full"
@@ -1415,7 +1431,8 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        display: currentTab === 'blocks' ? 'block' : 'none'
+                        display: currentTab === 'blocks' ? 'block' : 'none',
+                        zIndex: 1
                     }}
                 />
 

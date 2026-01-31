@@ -387,7 +387,12 @@ export async function runPackageManagerCommand(
       finalArgs = ["--prefer-offline", ...finalArgs];
     } else if (command === "install") {
       finalCommand = "install";
-      finalArgs = ["--prefer-offline", "--frozen-lockfile", ...finalArgs];
+      const lockPath = path.join(cwd, "pnpm-lock.yaml");
+      const hasLockfile = fs.existsSync(lockPath);
+      // Only use --frozen-lockfile when lockfile exists (fresh workspace has none)
+      finalArgs = hasLockfile
+        ? ["--prefer-offline", "--frozen-lockfile", ...finalArgs]
+        : ["--prefer-offline", ...finalArgs];
     }
   } else if (packageManager === "npm") {
     // npm optimization flags
@@ -929,56 +934,70 @@ export async function getHermeticStatus(): Promise<{
 
 /**
  * Install all common dependencies at workspace level
- * This prevents per-app installations and resolves bundling issues
+ * This prevents per-app installations and resolves bundling issues.
+ * Tries pnpm first; if it fails, falls back to npm so workspace init still succeeds.
  */
 async function installWorkspaceDependencies(root: string): Promise<void> {
+  let usedPnpm = false;
   try {
     logger.info("🚀 Installing workspace dependencies for optimal performance...");
 
-    // Use the best available package manager
     const packageManager = await getBestPackageManager(root);
+    usedPnpm = packageManager === "pnpm";
     logger.info(`📦 Using ${packageManager} for workspace dependency installation`);
 
-    // Install all dependencies at workspace root
     const installProcess = await runPackageManagerCommand("install", [], root, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 300000 // 5 minutes for comprehensive install
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 300000,
     });
 
-    await new Promise<void>((resolve, reject) => {
-      let output = '';
+    const { code, stdout, stderr } = await new Promise<{ code: number; stdout: string; stderr: string }>(
+      (resolve, reject) => {
+        let out = "";
+        let err = "";
+        installProcess.stdout?.on("data", (data) => { out += data.toString(); });
+        installProcess.stderr?.on("data", (data) => { err += data.toString(); });
+        installProcess.on("close", (code) => {
+          resolve({ code: code ?? 1, stdout: out, stderr: err });
+        });
+        installProcess.on("error", (e) => reject(e));
+      }
+    );
 
-      installProcess.stdout?.on('data', (data) => {
-        output += data.toString();
-        // Log progress for large installs
-        if (output.includes('Progress:') || output.includes('Downloading')) {
-          logger.info(`📥 ${data.toString().trim()}`);
-        }
+    if (code === 0) {
+      logger.info("✅ Workspace dependencies installed successfully");
+      logger.info("🎯 All apps will now share optimized dependencies (70%+ space savings!)");
+      return;
+    }
+
+    const combined = [stdout, stderr].join("\n").split(/\r?\n/).filter(Boolean);
+    const snippet = combined.slice(-25).join("\n");
+
+    if (usedPnpm) {
+      logger.warn("⚠️ pnpm install failed, trying npm as fallback...");
+      const npmChild = spawn("npm", ["install", "--prefer-offline", "--no-audit", "--no-fund"], {
+        cwd: root,
+        shell: true,
+        stdio: ["pipe", "pipe", "pipe"],
       });
-
-      installProcess.stderr?.on('data', (data) => {
-        const errorMsg = data.toString();
-        if (!errorMsg.includes('WARN') && !errorMsg.includes('deprecated')) {
-          logger.warn(`⚠️ ${errorMsg.trim()}`);
-        }
+      const npmResult = await new Promise<{ code: number; stderr: string }>((resolve) => {
+        let err = "";
+        npmChild.stderr?.on("data", (d) => { err += d.toString(); });
+        npmChild.on("close", (c) => resolve({ code: c ?? 1, stderr: err }));
+        npmChild.on("error", () => resolve({ code: 1, stderr: "" }));
       });
+      if (npmResult.code === 0) {
+        logger.info("✅ Workspace dependencies installed with npm (pnpm had failed)");
+        return;
+      }
+    }
 
-      installProcess.on('close', (code) => {
-        if (code === 0) {
-          logger.info("✅ Workspace dependencies installed successfully");
-          logger.info("🎯 All apps will now share optimized dependencies (70%+ space savings!)");
-          resolve();
-        } else {
-          reject(new Error(`Workspace dependency installation failed with code ${code}`));
-        }
-      });
-
-      installProcess.on('error', reject);
-    });
-
+    logger.error(
+      `❌ Workspace dependency installation failed with code ${code}. Last output:\n${snippet || "(no output)"}`
+    );
   } catch (error) {
     logger.error("❌ Failed to install workspace dependencies:", error);
-    // Don't fail workspace initialization if dependency install fails
+  } finally {
     logger.warn("⚠️ Continuing without pre-installed dependencies (apps will install individually)");
   }
 }
