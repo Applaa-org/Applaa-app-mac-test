@@ -13,30 +13,30 @@ export interface GlobalRegion {
   timezone: string;
   currency: string;
   language: string;
-  
+
   // Technical specifications
   nodeVersion: '18' | '20' | '22';
   architecture: 'amd64' | 'arm64' | 'multi-arch';
-  
+
   // Network optimization
   cdnEndpoint: string;
   apiEndpoint: string;
   websocketEndpoint: string;
-  
+
   // Compliance and regulations
   gdprCompliant: boolean;
   ccpaCompliant: boolean;
   dataResidency: boolean;
-  
+
   // AI/ML capabilities
   transformersSupported: boolean;
   buddyEnabled: boolean;
   localProcessing: boolean;
-  
+
   // Performance optimization
   cacheStrategy: 'aggressive' | 'balanced' | 'minimal';
   compressionLevel: number;
-  
+
   // Resource allocation
   defaultMemory: string;
   defaultCpu: string;
@@ -47,22 +47,22 @@ export interface GlobalConfig {
   regions: GlobalRegion[];
   fallbackRegion: string;
   autoRegionDetection: boolean;
-  
+
   // Global features
   multiLanguageSupport: boolean;
   rtlSupport: boolean;
   accessibilityCompliance: boolean;
-  
+
   // Security
   encryptionAtRest: boolean;
   encryptionInTransit: boolean;
   zeroTrustNetwork: boolean;
-  
+
   // Monitoring and observability
   globalLogging: boolean;
   performanceTracking: boolean;
   errorReporting: boolean;
-  
+
   // Business continuity
   disasterRecovery: boolean;
   backupStrategy: 'realtime' | 'daily' | 'weekly';
@@ -110,7 +110,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: true,
           dataResidency: false,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'aggressive',
           compressionLevel: 9,
@@ -135,7 +135,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: true,
           dataResidency: false,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'aggressive',
           compressionLevel: 9,
@@ -143,7 +143,7 @@ export class ApplaaGlobalManager {
           defaultCpu: '2',
           maxConcurrency: 1000,
         },
-        
+
         // 🇪🇺 Europe
         {
           id: 'eu-west-1',
@@ -162,7 +162,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: false,
           dataResidency: true,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'balanced',
           compressionLevel: 8,
@@ -187,7 +187,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: false,
           dataResidency: true,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'balanced',
           compressionLevel: 8,
@@ -195,7 +195,7 @@ export class ApplaaGlobalManager {
           defaultCpu: '2',
           maxConcurrency: 800,
         },
-        
+
         // 🇬🇧 United Kingdom
         {
           id: 'eu-west-2',
@@ -214,7 +214,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: false,
           dataResidency: true,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'balanced',
           compressionLevel: 8,
@@ -222,7 +222,7 @@ export class ApplaaGlobalManager {
           defaultCpu: '2',
           maxConcurrency: 800,
         },
-        
+
         // 🇯🇵 Asia Pacific
         {
           id: 'ap-northeast-1',
@@ -241,7 +241,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: false,
           dataResidency: true,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'balanced',
           compressionLevel: 7,
@@ -266,7 +266,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: false,
           dataResidency: true,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'balanced',
           compressionLevel: 7,
@@ -291,7 +291,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: false,
           dataResidency: true,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'balanced',
           compressionLevel: 6,
@@ -299,7 +299,7 @@ export class ApplaaGlobalManager {
           defaultCpu: '1',
           maxConcurrency: 400,
         },
-        
+
         // 🇦🇺 Oceania
         {
           id: 'ap-southeast-2',
@@ -318,7 +318,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: false,
           dataResidency: false,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'balanced',
           compressionLevel: 7,
@@ -326,7 +326,7 @@ export class ApplaaGlobalManager {
           defaultCpu: '2',
           maxConcurrency: 500,
         },
-        
+
         // 🇧🇷 South America
         {
           id: 'sa-east-1',
@@ -345,7 +345,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: false,
           dataResidency: true,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'balanced',
           compressionLevel: 6,
@@ -353,7 +353,7 @@ export class ApplaaGlobalManager {
           defaultCpu: '1',
           maxConcurrency: 300,
         },
-        
+
         // 🇨🇦 Canada
         {
           id: 'ca-central-1',
@@ -372,7 +372,7 @@ export class ApplaaGlobalManager {
           ccpaCompliant: true,
           dataResidency: true,
           transformersSupported: true,
-          buddyEnabled: true,
+          buddyEnabled: false,
           localProcessing: true,
           cacheStrategy: 'aggressive',
           compressionLevel: 8,
@@ -403,10 +403,10 @@ export class ApplaaGlobalManager {
    */
   private detectCurrentRegion(): GlobalRegion {
     // Try to detect region from various sources
-    const detectedRegion = this.detectRegionFromTimezone() || 
-                          this.detectRegionFromLanguage() || 
-                          this.getFallbackRegion();
-    
+    const detectedRegion = this.detectRegionFromTimezone() ||
+      this.detectRegionFromLanguage() ||
+      this.getFallbackRegion();
+
     console.log(`🌍 Detected region: ${detectedRegion.name} (${detectedRegion.code})`);
     return detectedRegion;
   }
@@ -467,7 +467,7 @@ export class ApplaaGlobalManager {
    */
   public getOptimalConfig() {
     const region = this.currentRegion;
-    
+
     return {
       // Container configuration
       containerConfig: {
@@ -487,7 +487,7 @@ export class ApplaaGlobalManager {
         geminiIntegration: true,
         superDesignEnabled: true,
       },
-      
+
       // Network configuration
       networkConfig: {
         cdnEndpoint: region.cdnEndpoint,
@@ -497,7 +497,7 @@ export class ApplaaGlobalManager {
         cacheStrategy: region.cacheStrategy,
         maxConcurrency: region.maxConcurrency,
       },
-      
+
       // Compliance configuration
       complianceConfig: {
         gdprCompliant: region.gdprCompliant,
@@ -506,7 +506,7 @@ export class ApplaaGlobalManager {
         encryptionAtRest: this.config.encryptionAtRest,
         encryptionInTransit: this.config.encryptionInTransit,
       },
-      
+
       // Localization configuration
       localizationConfig: {
         timezone: region.timezone,
@@ -515,7 +515,7 @@ export class ApplaaGlobalManager {
         rtlSupport: this.config.rtlSupport,
         accessibilityCompliance: this.config.accessibilityCompliance,
       },
-      
+
       // AI/ML configuration
       aiConfig: {
         transformersSupported: region.transformersSupported,
@@ -550,7 +550,7 @@ export class ApplaaGlobalManager {
             method: 'GET',
             timeout: 5000,
           } as any);
-          
+
           return {
             regionId: region.id,
             regionName: region.name,
@@ -579,16 +579,16 @@ export class ApplaaGlobalManager {
    */
   public async deployGlobally(appId: string, appType: 'web' | 'mobile' | 'flutter') {
     console.log(`🌍 Starting global deployment for app: ${appId}`);
-    
+
     const deploymentResults = await Promise.allSettled(
       this.config.regions.map(async (region) => {
         try {
           // Switch to region-specific configuration
           const originalRegion = this.currentRegion;
           this.currentRegion = region;
-          
+
           const config = this.getOptimalConfig();
-          
+
           // Deploy to this region
           // Container system removed for MVP - using direct approach
           const containerId = await applaaContainer.createContainer(
@@ -596,10 +596,10 @@ export class ApplaaGlobalManager {
             appType,
             config.containerConfig
           );
-          
+
           // Restore original region
           this.currentRegion = originalRegion;
-          
+
           return {
             regionId: region.id,
             regionName: region.name,

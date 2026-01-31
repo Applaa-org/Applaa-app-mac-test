@@ -50,11 +50,7 @@ const items = [
     to: "/",
     icon: Sparkles, // AI magic for app creation
   },
-  {
-    title: "Buddy",
-    to: "/browser-agent",
-    icon: Bot, // Applaa Buddy - AI browser automation
-  },
+
   // 🚀 MVP: Chat tab removed - chat is integrated within each app context
   // {
   //   title: "Chat",
@@ -144,7 +140,7 @@ export function AppSidebar() {
   const isProfileRoute = routerState.location.pathname.startsWith("/profile");
   const isHubRoute = routerState.location.pathname.startsWith("/hub");
   const isDocsRoute = routerState.location.pathname.startsWith("/docs");
-  const isBrowserAgentRoute = routerState.location.pathname.startsWith("/browser-agent");
+
 
   let selectedItem: string | null = null;
   if (hoverState === "start-hover:app") {
@@ -166,8 +162,7 @@ export function AppSidebar() {
       selectedItem = "Hub";
     } else if (isDocsRoute) {
       selectedItem = "Docs";
-    } else if (isBrowserAgentRoute) {
-      selectedItem = "Agent";
+
     }
   }
 

@@ -10,7 +10,7 @@ import { appDetailsRoute } from "./routes/app-details";
 import { hubRoute } from "./routes/hub";
 import { promptToProjectRoute } from "./routes/create-with-prompt";
 import { blocklyRoute } from "./routes/blockly";
-import { browserAgentRoute } from "./routes/browser-agent";
+
 import { minecraftHubRoute } from "./routes/minecraft-hub";
 import { automationRoute } from "./routes/automation";
 import { profileRoute } from "./routes/profile";
@@ -23,7 +23,7 @@ const routeTree = rootRoute.addChildren([
   chatRoute,
   blocklyRoute,
   promptToProjectRoute,
-  browserAgentRoute,
+
   // libraryRoute, // Disabled for MVP
   appDetailsRoute,
   settingsRoute.addChildren([providerSettingsRoute]),

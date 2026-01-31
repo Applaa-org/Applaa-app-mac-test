@@ -102,8 +102,7 @@ const config: ForgeConfig = {
         : undefined,
     asarUnpack: [
       "node_modules/@google/gemini-cli/**",
-      "node_modules/onnxruntime-react-native/**",
-      "node_modules/react-native-transformers/**",
+
       "node_modules/better-sqlite3/**",
       "node_modules/.pnpm/better-sqlite3@*/**",
       "node_modules/bindings/**",
@@ -124,8 +123,7 @@ const config: ForgeConfig = {
     // Use onlyModules to explicitly control which modules to rebuild
     // This prevents auto-detection of better-sqlite3 which requires Windows SDK
     onlyModules: [
-      "onnxruntime-react-native",
-      "react-native-transformers",
+
       "@react-native-async-storage/async-storage",
       "expo-sqlite",
       "react-native-svg",
@@ -187,9 +185,9 @@ const config: ForgeConfig = {
       const fs = require('fs');
       const path = require('path');
       const { execSync } = require('child_process');
-      
+
       const modulesToFix = ['better-sqlite3', 'bindings', 'file-uri-to-path'];
-      
+
       for (const moduleName of modulesToFix) {
         const modulePath = path.join(__dirname, 'node_modules', moduleName);
         try {
@@ -198,14 +196,14 @@ const config: ForgeConfig = {
             if (stats.isSymbolicLink()) {
               console.log(`📦 Fixing ${moduleName} symlink before packaging...`);
               const targetPath = fs.readlinkSync(modulePath);
-              const actualPath = path.isAbsolute(targetPath) 
-                ? targetPath 
+              const actualPath = path.isAbsolute(targetPath)
+                ? targetPath
                 : path.resolve(path.dirname(modulePath), targetPath);
-              
+
               if (fs.existsSync(actualPath)) {
                 // Remove symlink
                 fs.unlinkSync(modulePath);
-                
+
                 // Copy actual directory using cp -R
                 execSync(`cp -R "${actualPath}/." "${modulePath}"`, { stdio: 'pipe' });
                 console.log(`✅ ${moduleName} symlink replaced with actual files`);

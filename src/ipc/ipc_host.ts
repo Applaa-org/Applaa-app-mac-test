@@ -86,10 +86,7 @@ import { registerCreatorHandlers } from "./handlers/creator_handlers";
 import { registerChromiumHandlers } from "./handlers/chromium_handlers";
 import { registerAutomationHandlers } from "./handlers/automation_handlers";
 import "./handlers/blockly_handlers"; // Register Blockly workspace handlers
-import { registerBuddyHandlers } from "./handlers/buddy_handlers";
-import { registerLocalBrainHandlers } from "./handlers/local_brain_handlers";
-import { registerSkillHandlers } from "./handlers/skill_handlers";
-import { registerBrowserAutomationHandlers } from "./handlers/browser_automation_handlers";
+
 import { registerWebAppsHandlers } from "./handlers/web_apps_handlers";
 import { registerBackendDeployHandlers } from "./handlers/backend_deploy_handlers";
 import { registerDatabaseHandlers } from "./handlers/database_handlers";
@@ -242,17 +239,7 @@ export function registerIpcHandlers() {
   // 🤖 Gemini AI Browser Automation
   registerAutomationHandlers();
 
-  // 🤖 Applaa Buddy - AI Assistant Browser
-  registerBuddyHandlers();
 
-  // 🧠 Applaa Local Brain - Transformers.js + Vector Search
-  registerLocalBrainHandlers();
-
-  // 🧠 Skill Executor
-  registerSkillHandlers();
-
-  // 🌐 Browser Automation (Planning + Execution)
-  registerBrowserAutomationHandlers();
 
   // 🌐 Web Apps Templates Management
   registerWebAppsHandlers();

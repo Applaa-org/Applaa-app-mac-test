@@ -159,7 +159,7 @@ export async function onReady() {
 
 
 
-  // 🌐 BROWSER: Buddy Browser will launch on-demand when user requests browsing tasks
+
 
   // 🔄 Auto-migrate settings encryption for seamless updates
   try {
@@ -198,7 +198,7 @@ export async function onReady() {
     const postfix = settings.releaseChannel === "beta" ? "beta" : "stable";
     const host = `https://api.applaa.dev/v1/update/${postfix}`;
     const updateLogger = process.env.NODE_ENV === "development"
-      ? { ...logger, info: () => {}, log: () => {} }
+      ? { ...logger, info: () => { }, log: () => { } }
       : logger;
     updateElectronApp({
       logger: updateLogger,
@@ -576,14 +576,7 @@ app.on("window-all-closed", async () => {
   const { globalShortcut } = require('electron');
   globalShortcut.unregisterAll();
 
-  // 🌐 BROWSER: Close Buddy Browser
-  try {
-    const { getBuddyBrowser } = await import('./services/buddy-browser');
-    await getBuddyBrowser().close();
-    logger.info('✅ Buddy Browser closed');
-  } catch (error) {
-    logger.error('Error closing Buddy Browser:', error);
-  }
+
 
   if (process.platform !== "darwin") {
     app.quit();

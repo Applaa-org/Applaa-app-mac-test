@@ -29,16 +29,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const location = useLocation();
-  const isFullscreenMode = location.pathname.startsWith('/blockly') || location.pathname.startsWith('/arcade') || location.pathname.startsWith('/browser-agent') || location.pathname.startsWith('/chat');
+  const isFullscreenMode = location.pathname.startsWith('/blockly') || location.pathname.startsWith('/arcade') || location.pathname.startsWith('/chat');
 
   // SAFETY NET: Ensure Browser Agent view is hidden when navigation away
-  useEffect(() => {
-    if (location.pathname !== '/browser-agent') {
-      window.electron.ipcRenderer.invoke('chromium:hide-view').catch(() => {
-        // Ignore errors if ipc isn't ready or fails
-      });
-    }
-  }, [location.pathname]);
+
 
   const { refreshAppIframe, app } = useRunApp();
 
@@ -67,7 +61,7 @@ export default function RootLayout({
   useEffect(() => {
     // Hide game popup for Minecraft apps as requested by user
     const isMinecraftApp = app?.appType === 'minecraft' || (app?.appType as string) === 'minecraft-mod';
-    
+
     // Check if game window is enabled in settings (defaults to true if not set)
     const isGameWindowEnabled = settings?.enableGameWindowDuringStream !== false;
 
