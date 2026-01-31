@@ -10,7 +10,9 @@ import * as path from "path";
 // Load environment variables from .env file
 loadDotenv();
 
-// Removed custom codesign helper; rely on packager osxSign/osxNotarize and staple in hooks
+// Configure GitHub Publisher so Forge knows how to package correctly
+// Note: Actual upload is handled by GitHub Actions, but this config helps with metadata
+import { PublisherGithub } from '@electron-forge/publisher-github';
 
 // Based on https://github.com/electron/forge/blob/6b2d547a7216c30fde1e1fddd1118eee5d872945/packages/plugin/vite/src/VitePlugin.ts#L124
 const ignore = (file: string) => {
@@ -455,6 +457,16 @@ const config: ForgeConfig = {
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
     }),
   ],
+  publishers: [
+    new PublisherGithub({
+      repository: {
+        owner: 'Applaa-Builder',
+        name: 'applaa-releases'
+      },
+      prerelease: false,
+      draft: true
+    })
+  ]
 };
 
 export default config;

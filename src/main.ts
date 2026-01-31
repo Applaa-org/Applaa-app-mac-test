@@ -195,18 +195,34 @@ export async function onReady() {
   }
 
   if (settings.enableAutoUpdate) {
-    const postfix = settings.releaseChannel === "beta" ? "beta" : "stable";
-    const host = `https://api.applaa.dev/v1/update/${postfix}`;
     const updateLogger = process.env.NODE_ENV === "development"
       ? { ...logger, info: () => { }, log: () => { } }
       : logger;
+
+    // 🚀 OTA Updates: Check Applaa-Builder/applaa-releases
     updateElectronApp({
       logger: updateLogger,
+      notifyUser: false, // We will show our own UI
       updateSource: {
         type: UpdateSourceType.ElectronPublicUpdateService,
-        repo: "dyad-sh/dyad",
-        host,
+        repo: "Applaa-Builder/applaa-releases",
+        host: "https://update.electronjs.org" // Explicitly use the default host just in case
       },
+    });
+
+    const { autoUpdater } = require("electron");
+
+    // Listen for update downloaded
+    autoUpdater.on("update-downloaded", (event: any, releaseNotes: any, releaseName: any) => {
+      logger.info("Update downloaded, sending message to renderer");
+      mainWindow?.webContents.send("update-available", { releaseName });
+    });
+
+    // Handle install request
+    const { ipcMain } = require("electron");
+    ipcMain.handle("update:install", () => {
+      logger.info("User requested install, quitting and installing...");
+      autoUpdater.quitAndInstall();
     });
   }
 }
