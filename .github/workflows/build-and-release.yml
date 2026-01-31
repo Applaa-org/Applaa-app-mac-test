@@ -1,6 +1,9 @@
 name: Build and Release
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - Rahul-EXE-OTA-Fixes
 
 permissions:
   contents: write
