@@ -14,7 +14,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
-import { Loader2, RefreshCw, ExternalLink, AlertTriangle, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, RefreshCw, ExternalLink, AlertTriangle, Terminal, ChevronDown, ChevronUp, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SandboxMetroStatus {
@@ -268,6 +268,21 @@ export function SandboxMobilePreview() {
             </Button>
           )}
           
+          {/* Stop Preview Button - frees port for other apps */}
+          {(status.isRunning || status.buildStatus === 'error') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={stopSandboxMetro}
+              disabled={isLoading}
+              className="h-8 px-3 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+              title="Stop Preview (frees port)"
+            >
+              <Square className="w-3.5 h-3.5 mr-1.5" />
+              Stop Preview
+            </Button>
+          )}
+          
           {/* Restart Button */}
           <Button
             variant="outline"
@@ -435,10 +450,19 @@ export function SandboxMobilePreview() {
               <pre className="text-sm overflow-auto max-h-96 text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                 {status.error}
               </pre>
-              <Button onClick={() => restartSandboxMetro()} className="mt-4">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Retry
-              </Button>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-4">
+                Stop this preview to clear state, or stop another app&apos;s preview to free a port, then Retry.
+              </p>
+              <div className="flex items-center gap-2 mt-4">
+                <Button variant="outline" onClick={stopSandboxMetro} className="border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <Square className="w-4 h-4 mr-2" />
+                  Stop Preview
+                </Button>
+                <Button onClick={() => restartSandboxMetro()}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+              </div>
             </div>
           </div>
         )}

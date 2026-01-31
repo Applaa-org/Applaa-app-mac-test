@@ -457,6 +457,7 @@ async function startMetroBundler(appId: number, appPath: string, port: number): 
     cwd: appPath,
     shell: true,
     stdio: ['pipe', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
     env: {
       ...process.env,
       NODE_ENV: 'development',
@@ -813,16 +814,24 @@ export function registerSandboxMetroHandlers() {
   
   async function stopSandboxMetro(appId: number): Promise<void> {
     const metroProcess = metroProcesses.get(appId);
-    if (metroProcess) {
-      log.log(`🛑 Stopping Metro bundler for app ${appId}`);
+    if (metroProcess && metroProcess.pid) {
+      const pid = metroProcess.pid;
+      log.log(`🛑 Stopping Metro bundler for app ${appId} (PID ${pid})`);
       try {
         if (process.platform === "win32") {
-          spawn("taskkill", ["/pid", metroProcess.pid!.toString(), "/f", "/t"], { stdio: 'ignore' });
+          spawn("taskkill", ["/pid", pid.toString(), "/f", "/t"], { stdio: 'ignore' });
         } else {
-          metroProcess.kill("SIGTERM");
+          try {
+            process.kill(-pid, 'SIGKILL');
+          } catch {
+            process.kill(pid, 'SIGKILL');
+          }
         }
       } catch (e) {
         log.warn("Error stopping Metro process:", e);
+        try {
+          metroProcess.kill("SIGKILL");
+        } catch (_) {}
       }
       metroProcesses.delete(appId);
     }
