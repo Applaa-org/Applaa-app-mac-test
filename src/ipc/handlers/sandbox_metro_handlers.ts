@@ -43,6 +43,10 @@ const metroProcesses = new Map<number, ChildProcess>();
 const httpServers = new Map<number, http.Server>();
 const metroStatus = new Map<number, SandboxMetroStatus>();
 
+// Track running previews in order (FIFO queue)
+const runningAppsQueue: number[] = [];
+const MAX_CONCURRENT_PREVIEWS = 5;
+
 /**
  * Find available port
  */
@@ -678,7 +682,16 @@ export function registerSandboxMetroHandlers() {
     try {
       const { appId } = params;
       
+      // Stop if already running
       await stopSandboxMetro(appId);
+      
+      // Check if we've reached the max concurrent previews limit
+      if (runningAppsQueue.length >= MAX_CONCURRENT_PREVIEWS) {
+        const oldestAppId = runningAppsQueue[0];
+        log.log(`⚠️ Max ${MAX_CONCURRENT_PREVIEWS} previews reached. Stopping oldest preview (app ${oldestAppId})`);
+        await stopSandboxMetro(oldestAppId);
+        runningAppsQueue.shift(); // Remove oldest from queue
+      }
       
       const appData = await db.select().from(apps).where(eq(apps.id, appId)).limit(1);
       if (!appData[0]) {
@@ -744,6 +757,12 @@ export function registerSandboxMetroHandlers() {
         finalStatus.httpPort = metroPort; // No separate HTTP server
         metroStatus.set(appId, finalStatus);
         
+        // Add to running queue
+        if (!runningAppsQueue.includes(appId)) {
+          runningAppsQueue.push(appId);
+          log.log(`📊 Added app ${appId} to queue. Running: ${runningAppsQueue.length}/${MAX_CONCURRENT_PREVIEWS}`);
+        }
+        
         log.log(`✅ Sandbox Metro (Expo Router) started: webUrl=${finalStatus.webUrl}`);
         
         return {
@@ -764,6 +783,12 @@ export function registerSandboxMetroHandlers() {
         finalStatus.lanUrl = `http://${getLocalIP()}:${httpPort}`;
         finalStatus.httpPort = httpPort;
         metroStatus.set(appId, finalStatus);
+        
+        // Add to running queue
+        if (!runningAppsQueue.includes(appId)) {
+          runningAppsQueue.push(appId);
+          log.log(`📊 Added app ${appId} to queue. Running: ${runningAppsQueue.length}/${MAX_CONCURRENT_PREVIEWS}`);
+        }
         
         log.log(`✅ Sandbox Metro started: webUrl=${finalStatus.webUrl}`);
         
@@ -814,6 +839,13 @@ export function registerSandboxMetroHandlers() {
     }
     
     metroStatus.delete(appId);
+    
+    // Remove from running queue
+    const queueIndex = runningAppsQueue.indexOf(appId);
+    if (queueIndex > -1) {
+      runningAppsQueue.splice(queueIndex, 1);
+      log.log(`📊 Removed app ${appId} from queue. Running: ${runningAppsQueue.length}/${MAX_CONCURRENT_PREVIEWS}`);
+    }
   }
   
   ipcMain.handle("sandbox-metro:stop", async (_, params: { appId: number }) => {
