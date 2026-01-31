@@ -22,6 +22,7 @@ import { useRunApp } from "@/hooks/useRunApp";
 import { PublishPanel } from "./PublishPanel";
 import { TestingPanel } from "./TestingPanel";
 import { SnackPoweredPreview } from "../expo/SnackPoweredPreview";
+import { SandboxMobilePreview } from "../expo/SandboxMobilePreview";
 import { useMemo } from "react";
 import { IpcClient } from "@/ipc/ipc_client";
 import { useWebPreviewTimeout } from "@/hooks/useWebPreviewTimeout";
@@ -312,7 +313,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
             <Panel id="preview-panel" defaultSize={50} minSize={30}>
               <div className="h-full overflow-y-auto">
                 {isExpoApp ? (
-                  <SnackPoweredPreview />
+                  <SandboxMobilePreview />
                 ) : (
                   <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
                 )}
@@ -469,7 +470,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                       </div>
                     </div>
                   ) : isExpoApp ? (
-                    <SnackPoweredPreview />
+                    <SandboxMobilePreview />
                   ) : isBlocklyApp ? (
                     <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
                       <BlocklyEditor

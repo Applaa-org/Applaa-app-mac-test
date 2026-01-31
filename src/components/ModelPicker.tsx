@@ -24,19 +24,23 @@ import { useLanguageModelsByProviders } from "@/hooks/useLanguageModelsByProvide
 import { LocalModel } from "@/ipc/ipc_types";
 import { useLanguageModelProviders } from "@/hooks/useLanguageModelProviders";
 import { useSettings } from "@/hooks/useSettings";
-import { ChevronDown, Brain } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useProfile } from "@/hooks/useProfile";
+import {
+  isProviderDisabledForTier,
+  getProviderDisabledMessage,
+  type SubscriptionTier,
+} from "@/lib/ai-provider-tiers";
+import { ChevronDown, Brain, Zap } from "lucide-react";
 
 
 export function ModelPicker() {
   const { settings, updateSettings } = useSettings();
 
   // 🔍 DEBUG: Log when component renders and what model is selected
-  console.log('🔄 ModelPicker render - selectedModel:', settings?.selectedModel);
 
   const onModelSelect = (model: LargeLanguageModel) => {
-    console.log('ModelPicker: Selecting model:', model);
     updateSettings({ selectedModel: model }).then((updatedSettings) => {
-      console.log('ModelPicker: Settings updated successfully, new model:', updatedSettings.selectedModel);
     }).catch((error) => {
       console.error('ModelPicker: Failed to update settings:', error);
     });
@@ -50,6 +54,10 @@ export function ModelPicker() {
 
   const { data: providers, isLoading: providersLoading } =
     useLanguageModelProviders();
+
+  const { data: subscription } = useSubscription();
+  const { profile } = useProfile();
+  const tier = (subscription?.tier ?? profile?.subscription_tier ?? "free") as SubscriptionTier;
 
   const loading = modelsByProvidersLoading || providersLoading;
   // Ollama Models Hook
@@ -168,7 +176,12 @@ export function ModelPicker() {
         align="start"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <DropdownMenuLabel>AI Models</DropdownMenuLabel>
+        <DropdownMenuLabel className="flex items-center justify-between">
+          AI Models
+          <span className="text-[10px] font-normal text-muted-foreground uppercase tracking-wide">
+            {tier}
+          </span>
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         {/* Cloud models - loading state */}
@@ -247,37 +260,65 @@ export function ModelPicker() {
               </>
             )}
 
-            {/* Group "Other AI providers" into a single submenu like Dyad */}
+            {/* Top-level cloud providers: order Azure OpenAI, Anthropic, OpenRouter, OpenAI, Google; exclude google-vertex, bedrock, groq, cerebras, xai */}
             {(() => {
-              // Define which providers should be in "Other AI providers" group
-              const otherProviders = ["azure-openai", "google-vertex", "amazon-bedrock", "groq", "cerebras", "xai"];
-              const otherProvidersWithModels = Object.entries(modelsByProviders).filter(([providerId]) => 
-                otherProviders.includes(providerId)
-              );
+              const excludedProviders = ["google-vertex", "amazon-bedrock", "groq", "cerebras", "xai"];
+              const providerOrder = ["azure-openai", "anthropic", "openrouter", "openai", "google"];
 
-              // Group remaining providers individually
-              const individualProviders = Object.entries(modelsByProviders).filter(([providerId]) => 
-                providerId !== "auto" && !otherProviders.includes(providerId)
-              );
+              const individualProviders = Object.entries(modelsByProviders)
+                .filter(
+                  ([providerId]) =>
+                    providerId !== "auto" && !excludedProviders.includes(providerId)
+                )
+                .sort(([idA], [idB]) => {
+                  const iA = providerOrder.indexOf(idA);
+                  const iB = providerOrder.indexOf(idB);
+                  return (iA === -1 ? 999 : iA) - (iB === -1 ? 999 : iB);
+                });
 
               return (
                 <>
-                  {/* Individual providers (like OpenRouter, etc.) - shown first */}
+                  {/* Individual providers (Google, OpenRouter, OpenAI, Anthropic, Azure OpenAI, custom) - grey out by tier */}
                   {individualProviders.map(([providerId, models]) => {
-                    // Skip auto provider as it's already handled
                     if (providerId === "auto") return null;
 
                     const provider = providers?.find((p) => p.id === providerId);
                     if (!provider) return null;
 
+                    const providerDisabled = isProviderDisabledForTier(providerId, tier);
+                    const disabledMessage = providerDisabled
+                      ? getProviderDisabledMessage(providerId, tier)
+                      : "";
+
+                    const orderIndex = providerOrder.indexOf(providerId);
+                    const speedLevel = orderIndex === 0 ? 3 : orderIndex <= 2 ? 2 : orderIndex <= 4 ? 1 : null;
+
                     return (
                       <DropdownMenuSub key={providerId}>
-                        <DropdownMenuSubTrigger className="w-full font-normal">
-                          <div className="flex flex-col items-start">
-                            <span>{provider?.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {models.length} models
-                            </span>
+                        <DropdownMenuSubTrigger
+                          disabled={providerDisabled}
+                          title={providerDisabled ? disabledMessage : undefined}
+                          className={`w-full font-normal ${providerDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                        >
+                          <div className="flex flex-col items-start w-full min-w-0">
+                            <div className="flex items-center w-full gap-2 min-w-0">
+                              <div className="flex flex-col items-start min-w-0 flex-1">
+                                <span className="truncate">{provider?.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {models.length} models
+                                </span>
+                              </div>
+                              {speedLevel != null && (
+                                <span
+                                  className="flex items-center justify-end gap-0.5 text-amber-500 shrink-0 w-10"
+                                  title="Speed"
+                                >
+                                  {Array.from({ length: speedLevel }, (_, i) => (
+                                    <Zap key={i} className="h-3 w-3 shrink-0" />
+                                  ))}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="w-56">
@@ -287,306 +328,55 @@ export function ModelPicker() {
                           <DropdownMenuSeparator />
                           {models.map((model) => {
                             return (
-                            <Tooltip key={`${providerId}-${model.apiName}`}>
-                              <TooltipTrigger asChild>
-                                <DropdownMenuItem
-                                  className={
-                                    selectedModel.provider === providerId &&
-                                    selectedModel.name === model.apiName
-                                      ? "bg-secondary"
-                                      : ""
-                                  }
-                                  onClick={() => {
-                                    const customModelId =
-                                      model.type === "custom" ? model.id : undefined;
-                                    onModelSelect({
-                                      name: model.apiName,
-                                      provider: providerId,
-                                      customModelId,
-                                    });
-                                    setOpen(false);
-                                  }}
-                                >
-                                  <div className="flex justify-between items-start w-full">
-                                    <span>{model.displayName}</span>
-                                    {model.tag && (
-                                      <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                                        {model.tag}
-                                      </span>
-                                    )}
-                                  </div>
-                                </DropdownMenuItem>
-                              </TooltipTrigger>
-                              <TooltipContent side="right">
-                                {model.description}
-                              </TooltipContent>
-                            </Tooltip>
-                          );
+                              <Tooltip key={`${providerId}-${model.apiName}`}>
+                                <TooltipTrigger asChild>
+                                  <DropdownMenuItem
+                                    disabled={providerDisabled}
+                                    className={
+                                      selectedModel.provider === providerId &&
+                                      selectedModel.name === model.apiName
+                                        ? "bg-secondary"
+                                        : providerDisabled
+                                          ? "opacity-60 cursor-not-allowed"
+                                          : ""
+                                    }
+                                    onClick={() => {
+                                      if (providerDisabled) return;
+                                      const customModelId =
+                                        model.type === "custom" ? model.id : undefined;
+                                      onModelSelect({
+                                        name: model.apiName,
+                                        provider: providerId,
+                                        customModelId,
+                                      });
+                                      setOpen(false);
+                                    }}
+                                  >
+                                    <div className="flex justify-between items-start w-full">
+                                      <span>{model.displayName}</span>
+                                      {model.tag && (
+                                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                                          {model.tag}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </DropdownMenuItem>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  {model.description}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
                           })}
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                     );
                   })}
-
-                  {/* Other AI providers grouped submenu - shown after individual providers */}
-                  {otherProvidersWithModels.length > 0 && (
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger className="w-full font-normal">
-                        <div className="flex flex-col items-start">
-                          <span>Other AI providers</span>
-                          <span className="text-xs text-muted-foreground">
-                            {otherProvidersWithModels.length} providers
-                          </span>
-                        </div>
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="w-56">
-                        <DropdownMenuLabel>Other AI providers</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {otherProvidersWithModels.map(([providerId, models]) => {
-                          const provider = providers?.find((p) => p.id === providerId);
-                          if (!provider) return null;
-
-                          return (
-                            <DropdownMenuSub key={providerId}>
-                              <DropdownMenuSubTrigger className="w-full font-normal">
-                                <div className="flex flex-col items-start">
-                                  <span>{provider.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {models.length} models
-                                  </span>
-                                </div>
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-56">
-                                <DropdownMenuLabel>{provider.name} Models</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                {models.map((model) => {
-                                  return (
-                                  <Tooltip key={`${providerId}-${model.apiName}`}>
-                                    <TooltipTrigger asChild>
-                                      <DropdownMenuItem
-                                        className={
-                                          selectedModel.provider === providerId &&
-                                          selectedModel.name === model.apiName
-                                            ? "bg-secondary"
-                                            : ""
-                                        }
-                                        onClick={() => {
-                                          const customModelId =
-                                            model.type === "custom" ? model.id : undefined;
-                                          onModelSelect({
-                                            name: model.apiName,
-                                            provider: providerId,
-                                            customModelId,
-                                          });
-                                          setOpen(false);
-                                        }}
-                                      >
-                                        <div className="flex justify-between items-start w-full">
-                                          <span>{model.displayName}</span>
-                                          {model.tag && (
-                                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                                              {model.tag}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </DropdownMenuItem>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="right">
-                                      {model.description}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                );
-                                })}
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                          );
-                        })}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  )}
                 </>
               );
             })()}
           </>
         )}
-
-        <DropdownMenuSeparator />
-        {/* Local Models Parent SubMenu */}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="w-full font-normal">
-            <div className="flex flex-col items-start">
-              <span>Local models</span>
-              <span className="text-xs text-muted-foreground">
-                LM Studio, Ollama
-              </span>
-            </div>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-56">
-            {/* Ollama Models SubMenu */}
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger
-                disabled={ollamaLoading && !hasOllamaModels} // Disable if loading and no models yet
-                className="w-full font-normal"
-              >
-                <div className="flex flex-col items-start">
-                  <span>Ollama</span>
-                  {ollamaLoading ? (
-                    <span className="text-xs text-muted-foreground">
-                      Loading...
-                    </span>
-                  ) : ollamaError ? (
-                    <span className="text-xs text-red-500">Error loading</span>
-                  ) : !hasOllamaModels ? (
-                    <span className="text-xs text-muted-foreground">
-                      None available
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      {ollamaModels.length} models
-                    </span>
-                  )}
-                </div>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56">
-                <DropdownMenuLabel>Ollama Models</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-
-                {ollamaLoading && ollamaModels.length === 0 ? ( // Show loading only if no models are loaded yet
-                  <div className="text-xs text-center py-2 text-muted-foreground">
-                    Loading models...
-                  </div>
-                ) : ollamaError ? (
-                  <div className="px-2 py-1.5 text-sm text-red-600">
-                    <div className="flex flex-col">
-                      <span>Error loading models</span>
-                      <span className="text-xs text-muted-foreground">
-                        Is Ollama running?
-                      </span>
-                    </div>
-                  </div>
-                ) : !hasOllamaModels ? (
-                  <div className="px-2 py-1.5 text-sm">
-                    <div className="flex flex-col">
-                      <span>No local models found</span>
-                      <span className="text-xs text-muted-foreground">
-                        Ensure Ollama is running and models are pulled.
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  ollamaModels.map((model: LocalModel) => (
-                    <DropdownMenuItem
-                      key={`ollama-${model.modelName}`}
-                      className={
-                        selectedModel.provider === "ollama" &&
-                        selectedModel.name === model.modelName
-                          ? "bg-secondary"
-                          : ""
-                      }
-                      onClick={() => {
-                        onModelSelect({
-                          name: model.modelName,
-                          provider: "ollama",
-                        });
-                        setOpen(false);
-                      }}
-                    >
-                      <div className="flex flex-col">
-                        <span>{model.displayName}</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {model.modelName}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            {/* LM Studio Models SubMenu */}
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger
-                disabled={lmStudioLoading && !hasLMStudioModels} // Disable if loading and no models yet
-                className="w-full font-normal"
-              >
-                <div className="flex flex-col items-start">
-                  <span>LM Studio</span>
-                  {lmStudioLoading ? (
-                    <span className="text-xs text-muted-foreground">
-                      Loading...
-                    </span>
-                  ) : lmStudioError ? (
-                    <span className="text-xs text-red-500">Error loading</span>
-                  ) : !hasLMStudioModels ? (
-                    <span className="text-xs text-muted-foreground">
-                      None available
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      {lmStudioModels.length} models
-                    </span>
-                  )}
-                </div>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56">
-                <DropdownMenuLabel>LM Studio Models</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-
-                {lmStudioLoading && lmStudioModels.length === 0 ? ( // Show loading only if no models are loaded yet
-                  <div className="text-xs text-center py-2 text-muted-foreground">
-                    Loading models...
-                  </div>
-                ) : lmStudioError ? (
-                  <div className="px-2 py-1.5 text-sm text-red-600">
-                    <div className="flex flex-col">
-                      <span>Error loading models</span>
-                      <span className="text-xs text-muted-foreground">
-                        {lmStudioError.message} {/* Display specific error */}
-                      </span>
-                    </div>
-                  </div>
-                ) : !hasLMStudioModels ? (
-                  <div className="px-2 py-1.5 text-sm">
-                    <div className="flex flex-col">
-                      <span>No loaded models found</span>
-                      <span className="text-xs text-muted-foreground">
-                        Ensure LM Studio is running and models are loaded.
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  lmStudioModels.map((model: LocalModel) => (
-                    <DropdownMenuItem
-                      key={`lmstudio-${model.modelName}`}
-                      className={
-                        selectedModel.provider === "lmstudio" &&
-                        selectedModel.name === model.modelName
-                          ? "bg-secondary"
-                          : ""
-                      }
-                      onClick={() => {
-                        onModelSelect({
-                          name: model.modelName,
-                          provider: "lmstudio",
-                        });
-                        setOpen(false);
-                      }}
-                    >
-                      <div className="flex flex-col">
-                        {/* Display the user-friendly name */}
-                        <span>{model.displayName}</span>
-                        {/* Show the path as secondary info */}
-                        <span className="text-xs text-muted-foreground truncate">
-                          {model.modelName}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
       </DropdownMenuContent>
     </DropdownMenu>
   );
