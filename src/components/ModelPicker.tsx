@@ -31,7 +31,7 @@ import {
   getProviderDisabledMessage,
   type SubscriptionTier,
 } from "@/lib/ai-provider-tiers";
-import { ChevronDown, Brain } from "lucide-react";
+import { ChevronDown, Brain, Zap } from "lucide-react";
 
 
 export function ModelPicker() {
@@ -290,6 +290,9 @@ export function ModelPicker() {
                       ? getProviderDisabledMessage(providerId, tier)
                       : "";
 
+                    const orderIndex = providerOrder.indexOf(providerId);
+                    const speedLevel = orderIndex === 0 ? 3 : orderIndex <= 2 ? 2 : orderIndex <= 4 ? 1 : null;
+
                     return (
                       <DropdownMenuSub key={providerId}>
                         <DropdownMenuSubTrigger
@@ -297,11 +300,25 @@ export function ModelPicker() {
                           title={providerDisabled ? disabledMessage : undefined}
                           className={`w-full font-normal ${providerDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
-                          <div className="flex flex-col items-start">
-                            <span>{provider?.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {models.length} models
-                            </span>
+                          <div className="flex flex-col items-start w-full min-w-0">
+                            <div className="flex items-center w-full gap-2 min-w-0">
+                              <div className="flex flex-col items-start min-w-0 flex-1">
+                                <span className="truncate">{provider?.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {models.length} models
+                                </span>
+                              </div>
+                              {speedLevel != null && (
+                                <span
+                                  className="flex items-center justify-end gap-0.5 text-amber-500 shrink-0 w-10"
+                                  title="Speed"
+                                >
+                                  {Array.from({ length: speedLevel }, (_, i) => (
+                                    <Zap key={i} className="h-3 w-3 shrink-0" />
+                                  ))}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="w-56">
