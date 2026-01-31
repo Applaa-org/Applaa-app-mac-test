@@ -16,10 +16,8 @@ import { findMissingDependencies } from "./dependency_validator";
 
 interface SimpleExpoStatus {
   isRunning: boolean;
-  webUrl: string;
-  qrUrl: string;
-  lanUrl: string;
-  tunnelUrl: string;
+  webUrl: string;      // For iframe preview (required)
+  lanUrl: string;      // For QR code (optional, for device testing)
   terminalOutput: string;
 }
 
@@ -28,14 +26,9 @@ let expoProcess: any = null;
 let expoStatus: SimpleExpoStatus = {
   isRunning: false,
   webUrl: "",
-  qrUrl: "",
   lanUrl: "",
-  tunnelUrl: "",
   terminalOutput: ""
 };
-
-// Keep track of the most recent start options so parsing logic can respect them
-let currentStartOptions: { useTunnel: boolean } = { useTunnel: true };
 
 export function registerSimpleExpoHandlers() {
   
@@ -460,16 +453,15 @@ export function registerSimpleExpoHandlers() {
     }
   });
 
-  // Simple Expo start - just run npx expo start and parse output
+  // Simple Expo start - web-only sandbox mode
   ipcMain.handle("simple-expo:start", async (
     _,
-    params: { appId: number; useTunnel?: boolean }
+    params: { appId: number }
   ) => {
     try {
-      const { appId, useTunnel = true } = params;
-  currentStartOptions.useTunnel = !!useTunnel;
+      const { appId } = params;
       
-      log.log(`🚀 Simple Expo Start - App ID: ${appId}, Tunnel: ${useTunnel}`);
+      log.log(`🚀 Simple Expo Start - App ID: ${appId} (web-only sandbox mode)`);
       
       // AGGRESSIVE CLEANUP: Stop any existing process AND kill port 8081
       if (expoProcess) {
@@ -505,44 +497,16 @@ export function registerSimpleExpoHandlers() {
       expoStatus = {
         isRunning: false,
         webUrl: "",
-        qrUrl: "",
         lanUrl: "",
-        tunnelUrl: "",
         terminalOutput: ""
       };
 
-      // Ensure expo module AND @expo/ngrok are installed first (if tunnel mode)
+      // Ensure expo module is installed (no tunnel dependencies needed)
       log.log("📦 Checking expo module installation...");
       const packageJsonPath = path.join(appPath, 'package.json');
       const nodeModulesPath = path.join(appPath, 'node_modules');
       const expoModulePath = path.join(nodeModulesPath, 'expo');
-      const ngrokModulePath = path.join(nodeModulesPath, '@expo', 'ngrok');
       let needsExpoInstall = false;
-      
-      // ✅ FIX: Check both node_modules AND package.json for @expo/ngrok
-      let needsNgrokInstall = false;
-      if (useTunnel) {
-        const ngrokInNodeModules = fs.existsSync(ngrokModulePath);
-        let ngrokInPackageJson = false;
-        
-        // Check if @expo/ngrok is in package.json
-        if (fs.existsSync(packageJsonPath)) {
-          try {
-            const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
-            const packageJson = JSON.parse(packageContent);
-            ngrokInPackageJson = !!(packageJson.dependencies && packageJson.dependencies['@expo/ngrok']);
-          } catch (e) {
-            log.warn("⚠️ Could not read package.json to check for @expo/ngrok:", e);
-          }
-        }
-        
-        // Need to install if missing from either location
-        needsNgrokInstall = !ngrokInNodeModules || !ngrokInPackageJson;
-        
-        if (needsNgrokInstall) {
-          log.log(`🔍 @expo/ngrok check: node_modules=${ngrokInNodeModules}, package.json=${ngrokInPackageJson}`);
-        }
-      }
       
       // Check if node_modules exists and expo is actually installed
       if (!fs.existsSync(nodeModulesPath)) {
@@ -898,71 +862,7 @@ export function registerSimpleExpoHandlers() {
         log.log("✅ expo module already present");
       }
 
-      // Install @expo/ngrok if tunnel mode is enabled and it's not installed
-      if (needsNgrokInstall) {
-        log.log("🚇 Installing @expo/ngrok for tunnel mode...");
-        expoStatus.terminalOutput += "🚇 Installing tunnel dependencies...\n";
-        
-        // ✅ FIX: Ensure @expo/ngrok is in package.json before installing
-        try {
-          if (fs.existsSync(packageJsonPath)) {
-            const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
-            const packageJson = JSON.parse(packageContent);
-            
-            // Add @expo/ngrok to dependencies if missing
-            if (!packageJson.dependencies) {
-              packageJson.dependencies = {};
-            }
-            
-            if (!packageJson.dependencies['@expo/ngrok']) {
-              packageJson.dependencies['@expo/ngrok'] = "^4.1.3";
-              fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8');
-              log.log("✅ Added @expo/ngrok to package.json");
-            }
-          }
-        } catch (packageError) {
-          log.warn("⚠️ Could not update package.json for @expo/ngrok:", packageError);
-        }
-        
-        try {
-          await execAsync("npm install @expo/ngrok@^4.1.3 --save", {
-            cwd: appPath,
-            timeout: 120000 // 2 minutes
-          });
-          
-          // ✅ FIX: Verify it was added to package.json after installation
-          let verifiedInPackageJson = false;
-          if (fs.existsSync(packageJsonPath)) {
-            try {
-              const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
-              const packageJson = JSON.parse(packageContent);
-              verifiedInPackageJson = !!(packageJson.dependencies && packageJson.dependencies['@expo/ngrok']);
-            } catch (e) {
-              log.warn("⚠️ Could not verify package.json after install:", e);
-            }
-          }
-          
-          if (fs.existsSync(ngrokModulePath)) {
-            log.log("✅ @expo/ngrok successfully installed in node_modules");
-            if (verifiedInPackageJson) {
-              log.log("✅ @expo/ngrok verified in package.json");
-              expoStatus.terminalOutput += "✅ Tunnel module installed and saved to package.json\n";
-            } else {
-              log.warn("⚠️ @expo/ngrok installed but not found in package.json");
-              expoStatus.terminalOutput += "✅ Tunnel module installed (package.json verification failed)\n";
-            }
-          } else {
-            log.warn("⚠️ @expo/ngrok installation verification failed, but continuing...");
-            expoStatus.terminalOutput += "⚠️ Tunnel module may not be available\n";
-          }
-        } catch (ngrokError) {
-          log.error("❌ @expo/ngrok installation error:", ngrokError);
-          expoStatus.terminalOutput += `⚠️ Tunnel setup failed, continuing without tunnel\n`;
-          // Don't throw - continue without tunnel support
-        }
-      } else if (useTunnel) {
-        log.log("✅ @expo/ngrok already present in both node_modules and package.json");
-      }
+      // Ngrok installation removed - using web-only sandbox approach
 
       // NON-INTERACTIVE PORT SELECTION: pick the first free port starting at 8081
       // ✅ FIX: More aggressive port cleanup before selection
@@ -1032,30 +932,20 @@ export function registerSimpleExpoHandlers() {
         expoStatus.terminalOutput += "⚠️ Dependency scan skipped\n";
       }
 
-      // Skip ngrok installation - Expo CLI will handle it if needed
-      if (useTunnel) {
-        log.log("🚇 Tunnel mode requested - Expo CLI will handle @expo/ngrok installation if needed");
-        expoStatus.terminalOutput += "🚇 Tunnel mode enabled\n";
-      }
+      // 🚀 SANDBOX MODE: Web-only preview with LAN support for QR codes
+      log.log("🌐 Using web-only sandbox mode (OS-independent)");
+      expoStatus.terminalOutput += "🌐 Web-only sandbox mode\n";
 
-      // Build command with SUPPORTED anti-interactive flags only
+      // Build command with web-only sandbox approach
       const args = [
         "expo", "start", 
         "--clear",
-        "--web"
+        "--web",   // Web preview for iframe
+        "--lan"    // LAN mode for QR code generation (optional device testing)
         // 🚨 CRITICAL: Do NOT specify --port in CLI args!
         // Expo CLI will prompt if port is busy when specified in args
         // Instead, use PORT env var which allows auto-selection
       ];
-      
-      // Use tunnel mode for public access through Expo Go
-      if (useTunnel) {
-        args.push("--tunnel");
-        log.log("🚇 Using tunnel mode for public access");
-      } else {
-        args.push("--lan");  // Changed from --localhost to --lan for LAN access
-        log.log("🌐 Using LAN mode for network access");
-      }
 
       log.log(`🚀 Starting Expo: npx ${args.join(" ")}`);
 
@@ -1273,92 +1163,28 @@ export function registerSimpleExpoHandlers() {
           if (newLanUrl !== expoStatus.lanUrl) {
             expoStatus.lanUrl = newLanUrl;
             log.log(`📱 LAN URL: ${newLanUrl}`);
-            // Use LAN URL for QR only if no tunnel is available
-            if (!expoStatus.tunnelUrl && !hasFoundQR) {
-              expoStatus.qrUrl = toExpUrl(newLanUrl);
+            // Use LAN URL for QR code generation
+            if (!hasFoundQR) {
+              expoStatus.lanUrl = newLanUrl; // Ensure lanUrl is set
               hasFoundQR = true;
-              log.log(`📱 Using LAN URL for QR (no tunnel available): ${expoStatus.qrUrl}`);
+              log.log(`📱 LAN URL set for QR code: ${expoStatus.lanUrl}`);
             }
           }
         }
 
-        // 🎯 STEP 4: Enhanced QR Code Detection - Multiple patterns with tunnel priority
-        const qrPatterns = [
-          // Priority 1: Tunnel URLs (most important for Expo Go on physical devices)
-          output.match(/tunnel\s+ready[\s\S]*?(exp:\/\/[^\s\n\r]+)/i),     // After "Tunnel ready"
-          output.match(/tunnel[\s\S]*?(exp:\/\/[^\s\n\r]+)/i),             // Near "tunnel" text
-          output.match(/(exp:\/\/[^\s\n\r]+\.ngrok\.io[^\s]*)/i),          // ngrok tunnel URLs
-          output.match(/(exp:\/\/[^\s\n\r]+\.loca\.lt[^\s]*)/i),           // localtunnel URLs
-          // Priority 2: Standard patterns
-          output.match(/(exp:\/\/[^\s\n\r]+)/i),                           // exp:// protocol
-          output.match(/(https?:\/\/[^\s]+\.expo\.dev[^\s]*)/i),           // .expo.dev domains
-          output.match(/(https?:\/\/[^\s]+\.exp\.direct[^\s]*)/i),         // .exp.direct domains
-          output.match(/QR.*?(https?:\/\/[^\s]+)/i),                       // Any URL after "QR"
-          output.match(/scan.*?(https?:\/\/[^\s]+)/i),                     // Any URL after "scan"
-          output.match(/(expo:\/\/[^\s]+)/i)                               // expo:// protocol
-        ].filter(Boolean);
-        
-  if (qrPatterns.length > 0 && qrPatterns[0] && !expoStatus.tunnelUrl) {
-          const newQrUrl = qrPatterns[0][1];
-          if (newQrUrl !== expoStatus.qrUrl) {
-            expoStatus.qrUrl = newQrUrl;
-            hasFoundQR = true;
-            log.log(`📱 Enhanced QR code detection: ${newQrUrl}`);
-            
-            // If it's a tunnel URL, also set it as tunnelUrl for reference
-            if (newQrUrl.includes('exp://') && (newQrUrl.includes('ngrok') || newQrUrl.includes('loca.lt') || output.includes('tunnel'))) {
-              expoStatus.tunnelUrl = newQrUrl;
-              log.log(`🌐 Tunnel URL detected: ${newQrUrl}`);
-            }
-          }
+        // 🎯 STEP 4: QR Code Detection - Use LAN URL for QR code generation
+        // Look for exp:// URLs for QR code
+        const expMatch = output.match(/(exp:\/\/[^\s\n\r]+)/i);
+        if (expMatch && !hasFoundQR) {
+          expoStatus.lanUrl = expMatch[1];
+          hasFoundQR = true;
+          log.log(`📱 QR code URL (exp://): ${expoStatus.lanUrl}`);
         }
 
-        // 🎯 STEP 4.5: Wait for tunnel URL in subsequent output if tunnel is ready but no URL yet
-  if (output.includes('Tunnel ready') && !expoStatus.qrUrl && !expoStatus.tunnelUrl) {
-          log.log(`⏳ Tunnel ready detected, waiting for tunnel URL in next output...`);
-          tunnelReadyButNoUrl = true;
-        }
-        
-        // If tunnel was ready but we didn't find URL, try harder to detect exp:// URLs
-        if (tunnelReadyButNoUrl || output.includes('exp://')) {
-          const expMatch = output.match(/(exp:\/\/[^\s\n\r)]+)/i);
-          if (expMatch) {
-            const tunnelUrl = expMatch[1];
-            expoStatus.qrUrl = tunnelUrl;
-            expoStatus.tunnelUrl = tunnelUrl;
-            hasFoundQR = true;
-            tunnelReadyButNoUrl = false;
-            if (lanFallbackTimer) { clearTimeout(lanFallbackTimer); lanFallbackTimer = null; }
-            log.log(`🎯 Found tunnel URL after ready: ${tunnelUrl}`);
-          }
-        }
-
-        // 🎯 STEP 5: Fallback QR generation - Use LAN URL if no specific QR found
-  // Do not immediate-fallback to LAN here; a delayed timer above handles this to give tunnel time.
-
-  // 🎯 STEP 6: Emergency QR generation
-        // IMPORTANT: Never fall back to localhost for QR when tunnel mode is requested.
-        if (!hasFoundQR && !expoStatus.qrUrl) {
-          if (currentStartOptions.useTunnel) {
-            // In tunnel mode, prefer LAN over localhost as a last resort, but as exp:// deep link
-            if (expoStatus.lanUrl) {
-              expoStatus.qrUrl = toExpUrl(expoStatus.lanUrl);
-              hasFoundQR = true;
-              log.log(`📱 Emergency QR (tunnel mode): Using Expo deep link ${expoStatus.qrUrl}`);
-            } else {
-              log.log("⏳ Waiting for tunnel URL; not falling back to localhost for QR.");
-            }
-          } else if (expoStatus.webUrl) {
-            // Only in non-tunnel mode allow localhost as QR
-            expoStatus.qrUrl = expoStatus.webUrl;
-            hasFoundQR = true;
-            log.log(`📱 Emergency QR (local mode): Using Web URL ${expoStatus.webUrl}`);
-          }
-        }
-
-        // Log current status for debugging
-        if (expoStatus.tunnelUrl) {
-          log.log(`🎯 Tunnel mode active: Using tunnel ${expoStatus.tunnelUrl} for all access`);
+        // 🎯 STEP 5: Fallback QR generation - Use LAN URL if available
+        if (!hasFoundQR && expoStatus.lanUrl) {
+          hasFoundQR = true;
+          log.log(`📱 Using LAN URL for QR code: ${expoStatus.lanUrl}`);
         }
       });
 
@@ -1642,9 +1468,7 @@ export function registerSimpleExpoHandlers() {
       expoStatus = {
         isRunning: false,
         webUrl: "",
-        qrUrl: "",
         lanUrl: "",
-        tunnelUrl: "",
         terminalOutput: ""
       };
       

@@ -196,6 +196,11 @@ const validInvokeChannels = [
   "simple-expo:metro-recovery",
   "simple-expo:update-packages",
 
+  // Sandbox Metro channels (True OS-independent preview)
+  "sandbox-metro:start",
+  "sandbox-metro:stop",
+  "sandbox-metro:status",
+
   // Snack Preview channels (Hot Reload & File Watching)
   "snack:start-hot-reload",
   "snack:stop-hot-reload",

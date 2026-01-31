@@ -26,19 +26,12 @@ const lanUrlPatterns = [
   /(?:LAN|Network):\s+(exp:\/\/[\d.]+:\d+)/i
 ];
 
-const tunnelUrlPatterns = [
-  /(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev)/i,
-  /(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct)/i,
-  /(exp:\/\/[a-zA-Z0-9.-]+\.exp\.direct)/i,
-  /(exp:\/\/[a-zA-Z0-9.-]+\.tunnels\.expo\.dev)/i
-];
+// Tunnel URL patterns removed - using web-only sandbox approach
 
 interface ExpoStatus {
   isRunning: boolean;
-  webUrl: string;
-  lanUrl: string;
-  tunnelUrl: string;
-  qrUrl: string;
+  webUrl: string;      // For iframe preview (required)
+  lanUrl: string;     // For QR code (optional, for device testing)
   terminalOutput?: string;
   lastHotReload?: number; // Timestamp of last hot reload
   buildStatus?: 'idle' | 'building' | 'success' | 'error' | 'ready';
@@ -50,8 +43,6 @@ let expoStatus: ExpoStatus = {
   isRunning: false,
   webUrl: "",
   lanUrl: "",
-  tunnelUrl: "",
-  qrUrl: "",
   terminalOutput: "",
   buildStatus: 'idle'
 };
@@ -85,7 +76,7 @@ export async function triggerExpoHotReload(): Promise<{ success: boolean; reason
 export function registerExpoHandlers() {
   ipcMain.handle("expo:start", async (
     _,
-    params: { appId: number; useTunnel?: boolean; native?: boolean },
+    params: { appId: number; native?: boolean },
   ) => {
     try {
       // Prevent multiple simultaneous starts
@@ -95,8 +86,8 @@ export function registerExpoHandlers() {
       }
       
       isStarting = true;
-      const { appId, useTunnel = true, native = true } = params;
-      log.log(`🚀 Starting Expo for app ID: ${appId}, useTunnel: ${useTunnel}, native: ${native}`);
+      const { appId, native = false } = params;
+      log.log(`🚀 Starting Expo for app ID: ${appId} (web-only sandbox mode)`);
 
       // Always stop any existing processes first to ensure clean start
       if (expoProcess || expoStatus.isRunning) {
@@ -122,8 +113,6 @@ export function registerExpoHandlers() {
           isRunning: false,
           webUrl: "",
           lanUrl: "",
-          tunnelUrl: "",
-          qrUrl: "",
           terminalOutput: "",
           buildStatus: 'idle'
         };
@@ -175,8 +164,6 @@ export function registerExpoHandlers() {
         isRunning: true,
         webUrl: "",
         lanUrl: "",
-        tunnelUrl: "",
-        qrUrl: "",
         terminalOutput: "",
         buildStatus: 'idle'
       };
@@ -461,78 +448,14 @@ module.exports = config;
 
       log.log(`✅ Auto-detected available port: ${availablePort} for Expo dev server (scanned ${availablePort - portRange.start + 1} ports)`);
       
-      // 🚀 CRITICAL FIX: Verify @expo/ngrok is installed for tunnel support
-      if (useTunnel) {
-        try {
-          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-          const hasNgrok = packageJson.dependencies?.["@expo/ngrok"] || packageJson.devDependencies?.["@expo/ngrok"];
-          
-          if (!hasNgrok) {
-            log.warn("⚠️ @expo/ngrok not found, installing to prevent interactive prompts...");
-            
-            // Install @expo/ngrok non-interactively
-            const ngrokInstallProcess = spawn("npm", ["install", "@expo/ngrok", "--silent"], {
-              cwd: appPath,
-              shell: true,
-              stdio: ["ignore", "pipe", "pipe"],
-              env: {
-                ...process.env,
-                CI: "1", // Prevent interactive prompts
-                EXPO_NO_DOCTOR: "1",
-                EXPO_NO_UPDATE_CHECK: "1",
-              },
-            });
-            
-            await new Promise<void>((resolve, reject) => {
-              // Add timeout to prevent hanging
-              const timeout = setTimeout(() => {
-                ngrokInstallProcess.kill();
-                log.warn("⚠️ @expo/ngrok installation timeout (30s), continuing without tunnel support");
-                resolve(); // Don't reject, just continue without tunnel
-              }, 30000);
-              
-              ngrokInstallProcess.stdout?.on("data", (data) => {
-                logger.debug(`[npm install @expo/ngrok] ${data.toString()}`);
-              });
-              ngrokInstallProcess.stderr?.on("data", (data) => {
-                logger.warn(`[npm install @expo/ngrok:err] ${data.toString()}`);
-              });
-              ngrokInstallProcess.on("error", (error) => {
-                clearTimeout(timeout);
-                log.warn("⚠️ @expo/ngrok installation failed, continuing without tunnel support:", error);
-                resolve(); // Don't reject, just continue without tunnel
-              });
-              ngrokInstallProcess.on("close", (code) => {
-                clearTimeout(timeout);
-                if (code === 0) {
-                  resolve();
-                } else {
-                  log.warn(`⚠️ @expo/ngrok installation failed with code ${code}, continuing without tunnel support`);
-                  resolve(); // Don't reject, just continue without tunnel
-                }
-              });
-            });
-            
-            log.log("✅ Successfully installed @expo/ngrok for tunnel support");
-          } else {
-            log.log("✅ @expo/ngrok already available for tunnel support");
-          }
-        } catch (err) {
-          log.warn("⚠️ Could not verify/install @expo/ngrok:", err);
-        }
-      }
-
-      // Build args to allow both web preview and tunnel concurrently (RORK sequence)
-      // Expo supports starting the dev server once; the web UI and tunnel coexist.
-      // We avoid forcing web-only so native/tunnel URLs are emitted, while web still serves at localhost.
-      // Run web preview alongside native/tunnel (matches RORK sequence)
-      // 🚀 CRITICAL FIX: Specify detected port to prevent conflicts and prompts
+      // 🚀 SANDBOX MODE: Web-only preview with LAN support for QR codes
+      // No tunnel mode - OS-independent operation
       const expoArgs: string[] = [
         "start",
-        "--clear", // --reset-cache is not supported in new Expo CLI, --clear is sufficient
-        "--port", availablePort.toString(), // Use our auto-detected available port
-        "--web", // 🚀 CRITICAL: Always start with web mode enabled
-        ...(useTunnel ? ["--tunnel"] : [])
+        "--clear",
+        "--port", availablePort.toString(),
+        "--web",  // Web preview for iframe
+        "--lan"   // LAN mode for QR code generation (optional device testing)
       ];
 
       let expoStarted = false;
@@ -613,14 +536,14 @@ module.exports = config;
         if (!expoStatus.terminalOutput) expoStatus.terminalOutput = "";
         expoStatus.terminalOutput += output;
 
-        // 🎯 STEP 1: Look for QR code URL first (this is what mobile devices need)
+        // 🎯 STEP 1: Look for LAN URL for QR code generation (optional device testing)
         if (!hasFoundQR) {
           // Look for exp:// URLs (native QR codes)
           const expMatch = output.match(/(exp:\/\/[^\s\n\r]+)/i);
           if (expMatch) {
-            expoStatus.qrUrl = expMatch[1];
+            expoStatus.lanUrl = expMatch[1];
             hasFoundQR = true;
-            log.log(`📱 QR Code URL found: ${expMatch[1]}`);
+            log.log(`📱 LAN URL found for QR code: ${expMatch[1]}`);
             
             // 🎯 STEP 2: Auto-press 'w' to start web server after QR is found
             if (!hasStartedWeb && expoProcess && expoProcess.stdin) {
@@ -634,11 +557,10 @@ module.exports = config;
           
           // Fallback: Look for LAN URLs if no exp:// found
           const lanMatch = output.match(/(?:LAN|Network):\s+(https?:\/\/[\d.]+:\d+)/i);
-          if (lanMatch && !expoStatus.qrUrl) {
-            expoStatus.qrUrl = lanMatch[1];
+          if (lanMatch && !expoStatus.lanUrl) {
             expoStatus.lanUrl = lanMatch[1];
             hasFoundQR = true;
-            log.log(`📱 QR Code URL (LAN fallback): ${lanMatch[1]}`);
+            log.log(`📱 LAN URL found: ${lanMatch[1]}`);
           }
         }
 
@@ -696,46 +618,7 @@ module.exports = config;
           }
         }
 
-        // 🎯 STEP 4: Also capture tunnel URLs if tunnel mode is enabled - ENHANCED
-        if (useTunnel && !expoStatus.tunnelUrl) {
-          const tunnelPatterns = [
-            /(https?:\/\/[a-zA-Z0-9-]+\.tunnels\.expo\.dev)/i,
-            /(https?:\/\/[a-zA-Z0-9-]+\.exp\.direct)/i,
-            /(exp:\/\/[a-zA-Z0-9.-]+\.exp\.direct)/i,
-            /(https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io)/i,
-            /(https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app)/i,
-            /(?:Tunnel|ngrok):\s*(https?:\/\/[^\s\n\r]+)/i
-          ];
-          
-          for (const pattern of tunnelPatterns) {
-            const tunnelMatch = output.match(pattern);
-            if (tunnelMatch) {
-              expoStatus.tunnelUrl = tunnelMatch[1];
-              // Prefer tunnel URL for QR code if tunnel is enabled
-              expoStatus.qrUrl = tunnelMatch[1];
-              log.log(`🚇 Tunnel URL found: ${tunnelMatch[1]}`);
-              break;
-            }
-          }
-          
-          // 🚀 FALLBACK: If no tunnel URL found but tunnel is enabled, try to generate one
-          if (!expoStatus.tunnelUrl && output.includes('Tunnel') && output.includes('ngrok')) {
-            log.log(`🚇 Tunnel detected in output but URL not captured, attempting manual generation...`);
-            // Try to extract ngrok URL manually
-            const ngrokMatch = output.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok[^\s\n\r]*/i);
-            if (ngrokMatch) {
-              expoStatus.tunnelUrl = ngrokMatch[0];
-              expoStatus.qrUrl = ngrokMatch[0];
-              log.log(`🚇 Manual tunnel URL extraction: ${ngrokMatch[0]}`);
-            }
-          }
-          
-          // 🚀 AGGRESSIVE FALLBACK: If still no tunnel URL, try to generate one using LAN URL
-          if (!expoStatus.tunnelUrl && useTunnel && expoStatus.lanUrl) {
-            log.log(`🚇 No tunnel URL found, using LAN URL as fallback for QR code: ${expoStatus.lanUrl}`);
-            expoStatus.qrUrl = expoStatus.lanUrl;
-          }
-        }
+        // Tunnel URL detection removed - using web-only sandbox approach
 
         // Store detected web URL but don't expose it until Metro is ready
         let detectedWebUrl: string | null = null;
@@ -793,7 +676,7 @@ module.exports = config;
           }
         }
 
-        // LAN URL for device testing (QR)
+        // LAN URL for QR code generation (optional device testing)
         for (const pattern of lanUrlPatterns) {
           const match = output.match(pattern);
           if (match && match[1] && !expoStatus.lanUrl) {
@@ -803,50 +686,9 @@ module.exports = config;
               lan = lan.replace(/^http:\/\//i, "exp://");
             }
             expoStatus.lanUrl = lan;
-            // Default QR prefers LAN unless tunnel is explicitly requested
-            if (!params.useTunnel) {
-              expoStatus.qrUrl = lan;
-            }
             log.log(`Found LAN URL: ${expoStatus.lanUrl}`);
             break;
           }
-        }
-
-        // Tunnel URL (when enabled) — only set once Metro is waiting/ready
-        for (const pattern of tunnelUrlPatterns) {
-          const match = output.match(pattern);
-          if (match && match[1] && !expoStatus.tunnelUrl) {
-            const candidate = match[1];
-            const metroReady = output.includes('Metro waiting') || output.includes('Waiting on') || output.includes('Logs for your project');
-            if (metroReady) {
-              expoStatus.tunnelUrl = candidate;
-              if (params.useTunnel) {
-                expoStatus.qrUrl = candidate;
-              }
-              log.log(`Found tunnel URL (metro ready): ${expoStatus.tunnelUrl}`);
-              break;
-            } else {
-              log.log(`Detected tunnel URL but metro not ready yet: ${candidate}`);
-            }
-          }
-        }
-
-        // Debug: Log all output when tunnel is enabled to help identify URL patterns
-        if (params.useTunnel && (output.includes('tunnel') || output.includes('Tunnel') || output.includes('QR'))) {
-          log.log(`Tunnel debug - output: ${output.trim()}`);
-        }
-
-        // If tunnel is ready but we haven't found a tunnel URL yet, 
-        // and we have a LAN URL, use it as fallback for QR
-        if (params.useTunnel && output.includes('Tunnel ready') && !expoStatus.qrUrl && expoStatus.lanUrl) {
-          expoStatus.qrUrl = expoStatus.lanUrl;
-          log.log(`Using LAN URL as QR fallback: ${expoStatus.qrUrl}`);
-        }
-
-        // Ensure we always have a QR URL if we have any URL available
-        if (!expoStatus.qrUrl && (expoStatus.tunnelUrl || expoStatus.lanUrl)) {
-          expoStatus.qrUrl = expoStatus.tunnelUrl || expoStatus.lanUrl;
-          log.log(`Set QR URL to available URL: ${expoStatus.qrUrl}`);
         }
 
         // Store detected port for fallback
@@ -859,9 +701,6 @@ module.exports = config;
             const ip = getLocalIP();
             if (ip && ip !== "localhost") {
               expoStatus.lanUrl = native ? `exp://${ip}:${detectedPort}` : `http://${ip}:${detectedPort}`;
-              if (!params.useTunnel) {
-                expoStatus.qrUrl = expoStatus.lanUrl;
-              }
               log.log(`Synthesized LAN URL: ${expoStatus.lanUrl}`);
             }
           }
@@ -927,23 +766,7 @@ module.exports = config;
         const output = data.toString();
         log.warn("Expo stderr:", output);
         
-        // Check for tunnel-related errors and failures
-        if (output.includes('tunnel') || output.includes('ngrok') || output.includes('exp.direct')) {
-          log.error("Tunnel error detected:", output);
-          
-          // If tunnel fails, we can still use LAN URL for QR
-          if (output.includes('failed') || output.includes('error') || output.includes('timeout') || output.includes('took too long')) {
-            log.warn("Tunnel failed, will use LAN URL for QR code");
-            expoStatus.buildStatus = 'error';
-            expoStatus.buildProgress = 'Tunnel failed - using local network';
-            
-            // Kill the process to trigger restart without tunnel
-            if (expoProcess && !expoProcess.killed) {
-              log.log("Killing Expo process due to tunnel failure");
-              expoProcess.kill('SIGTERM');
-            }
-          }
-        }
+        // Tunnel-related error handling removed - using web-only sandbox approach
 
         // 🚀 METRO BUNDLER ERROR DETECTION: Look for Metro-specific errors
         if (output.includes('Metro') || output.includes('bundler') || output.includes('bundling')) {
@@ -978,8 +801,6 @@ module.exports = config;
           isRunning: false,
           webUrl: "",
           lanUrl: "",
-          tunnelUrl: "",
-          qrUrl: "",
           terminalOutput: "",
           buildStatus: code === 0 ? 'idle' : 'error',
           buildProgress: exitReason
@@ -1008,13 +829,12 @@ module.exports = config;
             expoStatus.webUrl = `http://localhost:${fallbackPort}`;
             log.log(`Using fallback web URL: ${expoStatus.webUrl} (detected port: ${detectedPort})`);
           }
-          // Also ensure a QR URL fallback if none present
-          if (!expoStatus.qrUrl) {
+          // Ensure LAN URL fallback for QR code generation
+          if (!expoStatus.lanUrl) {
             const ip = getLocalIP();
             if (ip && ip !== "localhost") {
               expoStatus.lanUrl = native ? `exp://${ip}:${fallbackPort}` : `http://${ip}:${fallbackPort}`;
-              expoStatus.qrUrl = expoStatus.lanUrl;
-              log.log(`Using fallback LAN/QR URL: ${expoStatus.qrUrl}`);
+              log.log(`Using fallback LAN URL: ${expoStatus.lanUrl}`);
             }
           }
           // PROXY DISABLED to prevent EPIPE errors
@@ -1067,8 +887,6 @@ module.exports = config;
         isRunning: false,
         webUrl: "",
         lanUrl: "",
-        tunnelUrl: "",
-        qrUrl: "",
         terminalOutput: "",
         buildStatus: 'idle'
       };
@@ -1163,8 +981,6 @@ module.exports = config;
         isRunning: false,
         webUrl: "",
         lanUrl: "",
-        tunnelUrl: "",
-        qrUrl: "",
         terminalOutput: "",
         buildStatus: 'idle'
       };
