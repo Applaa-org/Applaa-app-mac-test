@@ -14,9 +14,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { selectedAppIdAtom } from '@/atoms/appAtoms';
 import { IpcClient } from '@/ipc/ipc_client';
-import { Loader2, QrCode, RefreshCw, ExternalLink, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Loader2, RefreshCw, ExternalLink, AlertTriangle, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import QRCode from 'qrcode';
 
 interface SandboxMetroStatus {
   isRunning: boolean;
@@ -60,12 +59,12 @@ export function SandboxMobilePreview() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<SandboxMetroStatus>({ isRunning: false });
   const [isLoading, setIsLoading] = useState(false);
-  const [showQR, setShowQR] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [iframeKey, setIframeKey] = useState(0);
+  const [showTerminal, setShowTerminal] = useState(true);
   
   const hasStartedRef = useRef<boolean>(false);
   const startingRef = useRef<boolean>(false);
+  const terminalRef = useRef<HTMLDivElement>(null);
   
   /**
    * Start sandbox Metro bundler
@@ -99,10 +98,6 @@ export function SandboxMobilePreview() {
         hasStartedRef.current = true;
         setIsLoading(false);
         startingRef.current = false;
-        
-        if (currentStatus.lanUrl) {
-          await generateQRCode(currentStatus.lanUrl);
-        }
         return;
       }
       
@@ -121,10 +116,6 @@ export function SandboxMobilePreview() {
           buildStatus: 'success'
         });
         hasStartedRef.current = true;
-        
-        if (result.lanUrl) {
-          await generateQRCode(result.lanUrl);
-        }
       } else {
         console.error('❌ Failed to start sandbox Metro:', result.error);
         setStatus({
@@ -175,20 +166,13 @@ export function SandboxMobilePreview() {
   }, [stopSandboxMetro, startSandboxMetro]);
   
   /**
-   * Generate QR code
+   * Auto-scroll terminal to bottom
    */
-  const generateQRCode = async (url: string) => {
-    try {
-      const qrDataUrl = await QRCode.toDataURL(url, {
-        width: 300,
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' }
-      });
-      setQrCodeDataUrl(qrDataUrl);
-    } catch (error) {
-      console.error('Failed to generate QR:', error);
+  useEffect(() => {
+    if (terminalRef.current && status.terminalOutput) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  };
+  }, [status.terminalOutput]);
   
   /**
    * Check status periodically
@@ -244,42 +228,7 @@ export function SandboxMobilePreview() {
   
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${
-            status.isRunning ? 'bg-green-500' : 'bg-red-500'
-          }`} />
-          <span className="text-sm font-medium">
-            {status.isRunning ? 'Sandbox Metro Running' : 'Sandbox Metro Stopped'}
-          </span>
-          {status.buildStatus === 'building' && (
-            <div className="flex items-center gap-2 text-xs text-blue-600">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Building...</span>
-            </div>
-          )}
-          {status.buildStatus === 'error' && (
-            <div className="flex items-center gap-2 text-xs text-red-600">
-              <AlertTriangle className="w-3 h-3" />
-              <span>Error</span>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => setIframeKey(prev => prev + 1)}
-            className="h-8 px-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-      
-      {/* Tabs */}
+      {/* Top Bar - Platform Tabs and Controls */}
       <div className="flex items-center justify-between gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex items-center gap-1">
           <button
@@ -305,32 +254,32 @@ export function SandboxMobilePreview() {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* QR Code Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (status.lanUrl) {
-                generateQRCode(status.lanUrl).then(() => setShowQR(true));
-              }
-            }}
-            disabled={!status.lanUrl}
-            className="h-8 px-2"
-            title="Show QR Code"
-          >
-            <QrCode className="w-4 h-4" />
-          </Button>
+          {/* Open in Browser Link */}
+          {status.webUrl && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open(status.webUrl, '_blank')}
+              className="h-8 px-3 text-xs"
+              title="Open in Browser"
+            >
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+              Open in Browser
+            </Button>
+          )}
           
           {/* Restart Button */}
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={restartSandboxMetro}
             disabled={isLoading}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-8 px-3"
             title="Restart & Rebuild"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
             {isLoading ? 'Building...' : 'Restart'}
-          </button>
+          </Button>
         </div>
       </div>
       
@@ -409,43 +358,71 @@ export function SandboxMobilePreview() {
             </div>
             
             {/* Device Frame */}
-            <div 
-              className="relative bg-black rounded-3xl shadow-2xl overflow-hidden"
-              style={{
-                width: Math.min(selectedDevice.width * 0.8, window.innerWidth * 0.6),
-                height: Math.min(selectedDevice.height * 0.8, window.innerHeight * 0.7),
-                border: '12px solid #1a1a1a'
-              }}
-            >
-              {/* Notch (for iOS) */}
-              {activeTab === 'ios' && selectedDevice.width < 450 && (
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-black rounded-b-2xl z-10" />
-              )}
+            {(() => {
+              // Calculate scale to fit in viewport while showing actual device resolution
+              const maxWidth = window.innerWidth * 0.5;
+              const maxHeight = window.innerHeight * 0.65;
+              const scaleX = maxWidth / selectedDevice.width;
+              const scaleY = maxHeight / selectedDevice.height;
+              const scale = Math.min(scaleX, scaleY, 0.9); // Cap at 0.9 to not be too large
               
-              {/* Screen */}
-              {previewUrl ? (
-                <iframe
-                  key={iframeKey}
-                  src={previewUrl}
-                  className="w-full h-full border-0 bg-white"
-                  title="Device Preview"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-                  allow="camera; microphone; geolocation"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full bg-gray-900 text-white">
-                  <div className="text-center p-8">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-                    <p>Loading preview...</p>
+              return (
+                <div 
+                  className="relative bg-black rounded-3xl shadow-2xl overflow-hidden"
+                  style={{
+                    width: selectedDevice.width * scale,
+                    height: selectedDevice.height * scale,
+                    border: '8px solid #1a1a1a'
+                  }}
+                >
+                  {/* Notch (for iOS) */}
+                  {activeTab === 'ios' && selectedDevice.width < 450 && (
+                    <div 
+                      className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-black rounded-b-2xl z-10"
+                      style={{ width: 100 * scale, height: 20 * scale }}
+                    />
+                  )}
+                  
+                  {/* Screen - Render at actual device resolution, then scale */}
+                  <div 
+                    style={{
+                      width: selectedDevice.width,
+                      height: selectedDevice.height,
+                      transform: `scale(${scale})`,
+                      transformOrigin: 'top left',
+                    }}
+                  >
+                    {previewUrl ? (
+                      <iframe
+                        key={iframeKey}
+                        src={previewUrl}
+                        style={{
+                          width: selectedDevice.width,
+                          height: selectedDevice.height,
+                          border: 'none',
+                          backgroundColor: 'white',
+                        }}
+                        title="Device Preview"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                        allow="camera; microphone; geolocation"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full bg-gray-900 text-white">
+                        <div className="text-center p-8">
+                          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+                          <p>Loading preview...</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-              
-              {/* Powered by Badge */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-400 flex flex-col items-center">
-                <span>Powered by</span>
-                <span className="font-semibold text-white">Sandbox Metro</span>
-              </div>
+              );
+            })()}
+            
+            {/* Powered by Badge - Outside device frame */}
+            <div className="mt-3 text-xs text-gray-400 dark:text-gray-500 flex items-center justify-center gap-1">
+              <span>Powered by</span>
+              <span className="font-semibold text-gray-600 dark:text-gray-400">Applaa</span>
             </div>
           </div>
         )}
@@ -467,39 +444,91 @@ export function SandboxMobilePreview() {
         )}
       </div>
       
-      {/* QR Code Modal */}
-      {showQR && qrCodeDataUrl && (
-        <div 
-          className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
-          onClick={() => setShowQR(false)}
-        >
+      {/* Terminal Output Panel */}
+      {(status.isRunning || status.terminalOutput) && (
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-[#1e1e1e]">
+          {/* Terminal Header */}
           <div 
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl max-w-md"
-            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-[#2d2d2d] transition-colors"
+            onClick={() => setShowTerminal(!showTerminal)}
           >
-            <h3 className="text-xl font-semibold mb-4 text-center">Scan to Test on Device</h3>
-            <div className="bg-white p-4 rounded-lg">
-              <img src={qrCodeDataUrl} alt="QR Code" className="w-full h-auto" />
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-gray-400" />
+              <span className="text-sm font-medium text-gray-300">Metro Bundler</span>
+              
+              {/* Status Indicator */}
+              <div className="flex items-center gap-1.5 ml-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  status.isRunning ? 'bg-green-500' : 'bg-red-500'
+                }`} />
+                <span className="text-xs text-gray-400">
+                  {status.isRunning ? 'Running' : 'Stopped'}
+                </span>
+              </div>
+              
+              {/* Building indicator */}
+              {isLoading && (
+                <div className="flex items-center gap-1.5 ml-2">
+                  <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                  <span className="text-xs text-blue-400">Building...</span>
+                </div>
+              )}
+              
+              {/* URL display */}
+              {status.webUrl && (
+                <span className="text-xs text-gray-500 ml-2 font-mono">
+                  {status.webUrl}
+                </span>
+              )}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center break-all">
-              {status.lanUrl}
-            </p>
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={() => setShowQR(false)} className="flex-1">
-                Close
-              </Button>
-              {status.lanUrl && (
-                <Button 
-                  variant="default"
-                  onClick={() => window.open(status.lanUrl, '_blank')}
-                  className="flex-1"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Open
-                </Button>
+            
+            <div className="flex items-center gap-2">
+              {showTerminal ? (
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-gray-400" />
               )}
             </div>
           </div>
+          
+          {/* Terminal Content */}
+          {showTerminal && (
+            <div 
+              ref={terminalRef}
+              className="h-32 overflow-y-auto font-mono text-xs p-3 bg-[#1e1e1e] text-gray-300"
+            >
+              {status.terminalOutput ? (
+                <pre className="whitespace-pre-wrap leading-relaxed">
+                  {status.terminalOutput
+                    .split('\n')
+                    .map((line, i) => {
+                      // Color code different types of output
+                      let className = '';
+                      if (line.includes('error') || line.includes('Error') || line.includes('Failed')) {
+                        className = 'text-red-400';
+                      } else if (line.includes('warning') || line.includes('Warning')) {
+                        className = 'text-yellow-400';
+                      } else if (line.includes('✅') || line.includes('success') || line.includes('Bundled')) {
+                        className = 'text-green-400';
+                      } else if (line.includes('Starting') || line.includes('Waiting')) {
+                        className = 'text-blue-400';
+                      } else if (line.includes('%') || line.includes('▓') || line.includes('░')) {
+                        className = 'text-cyan-400';
+                      }
+                      return (
+                        <div key={i} className={className}>
+                          {line}
+                        </div>
+                      );
+                    })}
+                </pre>
+              ) : (
+                <div className="text-gray-500 italic">
+                  Waiting for Metro output...
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
