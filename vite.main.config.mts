@@ -28,6 +28,9 @@ export default defineConfig({
         "sharp",
         // Sharp: external so native addons load from node_modules (Mac darwin-*, Windows win32-*, Linux)
         /^@img\/sharp/,
+        // sqlite-vec: external so native extension loads from node_modules (sqlite-vec-darwin-arm64 etc.)
+        "sqlite-vec",
+        /^sqlite-vec-/,
         ...builtinModules,
         ...builtinModules.map((m) => `node:${m}`),
         // Handle subpath imports like stream/promises
