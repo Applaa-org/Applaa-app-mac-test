@@ -1,0 +1,66 @@
+---
+description: Instructions for using Applaa skills to fix errors efficiently
+globs: 
+alwaysApply: true
+---
+
+# Applaa Skills System
+
+You have access to pre-built skills in the `applaa_skills/` folder that contain proven fixes for common errors.
+
+## CRITICAL: When ANY Error Occurs
+
+**BEFORE searching the codebase or trying fixes:**
+
+1. **READ** `applaa_skills/troubleshooting/SKILL.md` first
+2. **SEARCH** for the error pattern in that file
+3. **FOLLOW** the linked skill for the exact fix
+4. **APPLY** only the documented fix - don't create new files or make assumptions
+
+## Why This Matters
+
+- **Saves tokens**: Direct fix vs. exploring codebase
+- **Prevents wrong fixes**: No assumptions, no random new files
+- **Proven solutions**: These fixes have worked before
+
+## Example Workflow
+
+**Error:** `Loadable extension for sqlite-vec not found`
+
+**DO THIS:**
+1. Read `applaa_skills/troubleshooting/SKILL.md`
+2. Find: "Native Module Errors → native-module-externals"
+3. Read `applaa_skills/native-module-externals/SKILL.md`
+4. Apply: Add `"sqlite-vec"` to `vite.main.config.mts` externals
+
+**DON'T DO THIS:**
+- ❌ Search entire codebase for "sqlite-vec"
+- ❌ Try installing packages
+- ❌ Create new config files
+- ❌ Guess at solutions
+
+## Available Skills
+
+| Skill | Use For |
+|-------|---------|
+| `troubleshooting/` | **START HERE** - Error lookup |
+| `native-module-externals/` | Native module loading errors |
+| `ipc-handler-creation/` | IPC communication issues |
+| `database-schema/` | Database table/column errors |
+| `electron-packaging/` | Build and packaging errors |
+| `react-hook-patterns/` | React/hook errors |
+| `expo-mobile-apps/` | Expo/mobile preview errors |
+| `webapp-apps/` | Webapp preview errors |
+| `minecraft-apps/` | Minecraft pack errors |
+| `godot-games/` | Godot game errors |
+| `blocklaa-apps/` | Blocklaa block errors |
+
+## When Building New Features
+
+Before implementing, check if a skill exists:
+- Adding native module? → Read `native-module-externals/`
+- Adding IPC channel? → Read `ipc-handler-creation/`
+- Adding database table? → Read `database-schema/`
+- Adding React hook? → Read `react-hook-patterns/`
+
+This prevents errors before they happen.
