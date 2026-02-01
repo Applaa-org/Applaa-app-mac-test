@@ -112,13 +112,12 @@ const config: ForgeConfig = {
       "node_modules/expo/**",
       "node_modules/@expo/**",
       "node_modules/.bin/**",
-      "node_modules/sharp/**",
-      "node_modules/@img/**",
+      "node_modules/.bin/**",
       "drizzle/**"
     ],
-    // extraResource: [
-    //   "vendor/node20"
-    // ],
+    extraResource: [
+      ".env"
+    ],
     ignore,
   } as any,
   rebuildConfig: {
@@ -188,7 +187,7 @@ const config: ForgeConfig = {
       const path = require('path');
       const { execSync } = require('child_process');
 
-      const modulesToFix = ['better-sqlite3', 'bindings', 'file-uri-to-path'];
+      const modulesToFix = ['better-sqlite3', 'bindings', 'file-uri-to-path', 'sqlite-vec'];
 
       for (const moduleName of modulesToFix) {
         const modulePath = path.join(__dirname, 'node_modules', moduleName);

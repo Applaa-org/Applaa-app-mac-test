@@ -1,5 +1,3 @@
-import { ipcMain, BrowserWindow } from "electron";
-import { registerBrowserAgentHandlers } from "./handlers/browser_agent_handlers";
 import { registerTabHandlers } from "./handlers/tab_handlers";
 import { registerAppHandlers } from "./handlers/app_handlers";
 import { registerChatHandlers } from "./handlers/chat_handlers";
@@ -84,8 +82,6 @@ import { registerMinecraftHandlers } from "./handlers/minecraft_handlers";
 import { registerMinecraftSandboxHandlers } from "./handlers/minecraft_sandbox_handlers";
 import { registerAssetGenerationHandlers } from "./handlers/asset_generation_handlers";
 import { registerCreatorHandlers } from "./handlers/creator_handlers";
-import { registerChromiumHandlers } from "./handlers/chromium_handlers";
-import { registerAutomationHandlers } from "./handlers/automation_handlers";
 import "./handlers/blockly_handlers"; // Register Blockly workspace handlers
 
 import { registerWebAppsHandlers } from "./handlers/web_apps_handlers";
@@ -232,14 +228,8 @@ export function registerIpcHandlers() {
   // 🤖 AI Creator Handlers
   registerCreatorHandlers();
 
-  // 🌐 Professional Chromium Browser
-  registerChromiumHandlers();
-
   // 📑 Browser Tabs
   registerTabHandlers();
-
-  // 🤖 Gemini AI Browser Automation
-  registerAutomationHandlers();
 
 
 

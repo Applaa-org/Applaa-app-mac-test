@@ -4,8 +4,7 @@ import * as fs from "node:fs";
 import { registerIpcHandlers } from "./ipc/ipc_host";
 import dotenv from "dotenv";
 // @ts-ignore
-import started from "electron-squirrel-startup";
-import { updateElectronApp, UpdateSourceType } from "update-electron-app";
+import { initAutoUpdater } from "./main/updater";
 import log from "electron-log";
 import {
   getSettingsFilePath,
@@ -92,8 +91,12 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
 registerIpcHandlers();
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (started) {
-  app.quit();
+try {
+  if (require('electron-squirrel-startup')) {
+    app.quit();
+  }
+} catch (e) {
+  // electron-squirrel-startup not available in ZIP builds, that's OK
 }
 
 // https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app#main-process-mainjs
@@ -195,20 +198,8 @@ export async function onReady() {
   }
 
   if (settings.enableAutoUpdate) {
-    const updateLogger = process.env.NODE_ENV === "development"
-      ? { ...logger, info: () => { }, log: () => { } }
-      : logger;
-
     // 🚀 OTA Updates: Check Applaa-Builder/applaa-releases
-    updateElectronApp({
-      logger: updateLogger,
-      notifyUser: false, // We will show our own UI
-      updateSource: {
-        type: UpdateSourceType.ElectronPublicUpdateService,
-        repo: "Applaa-Builder/applaa-releases",
-        host: "https://update.electronjs.org" // Explicitly use the default host just in case
-      },
-    });
+    initAutoUpdater();
 
     const { autoUpdater } = require("electron");
 
@@ -281,8 +272,11 @@ const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: process.env.NODE_ENV === "development" ? 1280 : 960,
     height: 700,
+    show: true,
+    center: true,
+    // Remove native title bar - app has custom controls
+    frame: false,
     titleBarStyle: "hidden",
-    titleBarOverlay: false,
     trafficLightPosition: {
       x: 10,
       y: 8,
@@ -299,12 +293,92 @@ const createWindow = () => {
       // experimentalFeatures: true, // Not needed for voice input
       // transparent: true,
     },
-    // backgroundColor: "#00000001",
-    // frame: false,
+    backgroundColor: "#ffffff",
   });
 
   // Make mainWindow available globally for IPC handlers
   global.mainWindow = mainWindow;
+
+  // 🍎 Set up custom application menu
+  const { Menu, shell } = require('electron');
+  const menuTemplate = [
+    {
+      label: 'File',
+      submenu: [
+        { role: 'quit', label: 'Quit Applaa' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload', label: 'Reload' },
+        { role: 'toggleDevTools', label: 'Developer Tools' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: 'Fullscreen' },
+        { role: 'resetZoom', label: 'Reset Zoom' },
+        { role: 'zoomIn', label: 'Zoom In' },
+        { role: 'zoomOut', label: 'Zoom Out' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize', label: 'Minimize' },
+        { role: 'close', label: 'Close' },
+        { type: 'separator' },
+        { role: 'reload', label: 'Reload Window' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About Applaa',
+          click: () => {
+            dialog.showMessageBox(mainWindow!, {
+              type: 'info',
+              title: 'About Applaa',
+              message: 'Applaa',
+              detail: 'Your local AI app builder with beautiful orange and green design\n\nVersion: 1.0.8'
+            });
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Applaa Website',
+          click: () => shell.openExternal('https://app.applaa.com/')
+        },
+        {
+          label: 'Academy',
+          click: () => shell.openExternal('https://applaa.com/academy')
+        },
+        {
+          label: 'Applaa Academy App',
+          click: () => shell.openExternal('https://app.applaa.com/applaa-academy/')
+        },
+        {
+          label: 'Community',
+          click: () => shell.openExternal('https://app.applaa.com/groups/')
+        },
+        {
+          label: 'Game Hub',
+          click: () => shell.openExternal('https://app.applaa.com/games-hub/')
+        },
+        { type: 'separator' },
+        {
+          label: 'Documentation',
+          click: () => shell.openExternal('https://docs.applaa.com/')
+        },
+        {
+          label: 'Report Issue',
+          click: () => shell.openExternal('https://github.com/Applaa-Builder/applaa/issues')
+        }
+      ]
+    }
+  ];
+  
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
 
   // ✅ Handle media permissions for Web Speech API
   mainWindow.webContents.session.setPermissionRequestHandler((_webContents, permission, callback) => {
@@ -412,9 +486,25 @@ const createWindow = () => {
     // Use app.getAppPath() to get the correct base path (works with asar)
     const appPath = app.getAppPath();
     const indexPath = path.join(appPath, ".vite", "renderer", "main_window", "index.html");
-    console.log(`Loading renderer from: ${indexPath}`);
     mainWindow.loadFile(indexPath);
   }
+
+  // Ensure window is shown when ready
+  mainWindow.once("ready-to-show", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  // Ensure window is shown after loading
+  mainWindow.webContents.on("did-finish-load", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
   // Developer tools can be opened manually with Ctrl+Shift+I or F12
   // if (process.env.NODE_ENV === "development") {
   //   // Open the DevTools.

@@ -19,7 +19,7 @@
     "staging:engine": "DYAD_ENGINE_URL=https://staging---dyad-llm-engine-kq7pivehnq-uc.a.run.app/v1 npm start",
     "staging:gateway": "DYAD_GATEWAY_URL=https://staging---litellm-gcp-cloud-run-kq7pivehnq-uc.a.run.app/v1 npm start",
     "package": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npm run clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" electron-forge package",
-    "make": "NODE_OPTIONS=\"--max-old-space-size=8192\" npm run clean && NODE_OPTIONS=\"--max-old-space-size=8192\" electron-forge make",
+    "make": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npm run clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" electron-forge make",
     "make:release": "node scripts/increment-version.js && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npm run clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" electron-forge make",
     "publish": "npm run clean && electron-forge publish",
     "verify-release": "node scripts/verify-release-assets.js",
