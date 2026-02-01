@@ -25,6 +25,9 @@ export default defineConfig({
         "bufferutil",
         "utf-8-validate",
         "electron-squirrel-startup",
+        "sharp",
+        // Sharp: external so native addons load from node_modules (Mac darwin-*, Windows win32-*, Linux)
+        /^@img\/sharp/,
         ...builtinModules,
         ...builtinModules.map((m) => `node:${m}`),
         // Handle subpath imports like stream/promises
