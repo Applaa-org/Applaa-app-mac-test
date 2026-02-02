@@ -260,10 +260,10 @@ export function ModelPicker() {
               </>
             )}
 
-            {/* Top-level cloud providers: order Azure OpenAI, Anthropic, OpenRouter, OpenAI, Google; exclude google-vertex, bedrock, groq, cerebras, xai */}
+            {/* Top-level cloud providers: order Anthropic (3 speed), Azure OpenAI, OpenRouter, OpenAI, Google; exclude google-vertex, bedrock, groq, cerebras, xai */}
             {(() => {
               const excludedProviders = ["google-vertex", "amazon-bedrock", "groq", "cerebras", "xai"];
-              const providerOrder = ["azure-openai", "anthropic", "openrouter", "openai", "google"];
+              const providerOrder = ["anthropic", "azure-openai", "openrouter", "openai", "google"];
 
               const individualProviders = Object.entries(modelsByProviders)
                 .filter(
