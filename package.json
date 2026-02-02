@@ -122,7 +122,7 @@
     "png-to-ico": "^3.0.1",
     "png2icons": "^2.0.1",
     "prettier": "3.5.3",
-    "sharp": "^0.34.5",
+    "jimp": "^1.6.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "vite": "^5.4.17",

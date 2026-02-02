@@ -25,9 +25,6 @@ export default defineConfig({
         "bufferutil",
         "utf-8-validate",
         "electron-squirrel-startup",
-        "sharp",
-        // Sharp: external so native addons load from node_modules (Mac darwin-*, Windows win32-*, Linux)
-        /^@img\/sharp/,
         // sqlite-vec: external so native extension loads from node_modules (sqlite-vec-darwin-arm64 etc.)
         "sqlite-vec",
         /^sqlite-vec-/,

@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
 import path from 'path';
-import sharp from 'sharp';
+import { Jimp, ResizeStrategy } from 'jimp';
 import log from 'electron-log';
 import type { AssetProvider, AssetGenerationRequest, AssetGenerationResult } from '../types';
 
@@ -65,14 +65,10 @@ export class DalleTextureProvider implements AssetProvider {
             const imageResponse = await fetch(imageUrl);
             const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
-            // Resize to 16x16 (Minecraft standard) using nearest-neighbor for pixel art
-            const resized = await sharp(imageBuffer)
-                .resize(16, 16, {
-                    kernel: 'nearest',
-                    fit: 'fill'
-                })
-                .png()
-                .toBuffer();
+            // Resize to 16x16 (Minecraft standard) using nearest-neighbor for pixel art (Jimp: no native deps)
+            const image = await Jimp.read(imageBuffer);
+            image.resize({ w: 16, h: 16, mode: ResizeStrategy.NEAREST_NEIGHBOR });
+            const resized = await image.getBuffer('image/png');
 
             // Save to mod assets folder
             const fileName = `${request.metadata?.itemName || 'texture'}.png`;

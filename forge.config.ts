@@ -63,6 +63,10 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/file-uri-to-path")) {
     return false;
   }
+  // sqlite-vec: native SQLite extension (main package + platform packages e.g. sqlite-vec-darwin-arm64)
+  if (file.startsWith("/node_modules/sqlite-vec")) {
+    return false;
+  }
   if (file.startsWith("/.vite")) {
     return false;
   }
@@ -104,14 +108,14 @@ const config: ForgeConfig = {
         : undefined,
     asarUnpack: [
       "node_modules/@google/gemini-cli/**",
-
       "node_modules/better-sqlite3/**",
       "node_modules/.pnpm/better-sqlite3@*/**",
       "node_modules/bindings/**",
       "node_modules/file-uri-to-path/**",
+      "node_modules/sqlite-vec/**",
+      "node_modules/sqlite-vec-*/**",
       "node_modules/expo/**",
       "node_modules/@expo/**",
-      "node_modules/.bin/**",
       "node_modules/.bin/**",
       "drizzle/**"
     ],
@@ -119,6 +123,39 @@ const config: ForgeConfig = {
       ".env"
     ],
     ignore,
+    // Explicitly copy native modules into packaged app so require('sqlite-vec') resolves
+    // Note: Forge/Vite pass buildPath = the app directory (the one packed into asar), not the .app bundle path
+    afterCopy: [
+      (buildPath: string, _electronVersion: string, _platform: string, _arch: string, done: (err?: Error | null) => void) => {
+        const fs = require('fs');
+        const path = require('path');
+        const appDir = buildPath;
+        const destNodeModules = path.join(appDir, 'node_modules');
+        const srcRoot = path.join(__dirname, 'node_modules');
+        if (!fs.existsSync(appDir)) {
+          done();
+          return;
+        }
+        try {
+          if (!fs.existsSync(destNodeModules)) fs.mkdirSync(destNodeModules, { recursive: true });
+          // sqlite-vec and platform packages (sqlite-vec-darwin-arm64, sqlite-vec-windows-x64, etc.)
+          const sqliteVecPackages = fs.readdirSync(srcRoot, { withFileTypes: true })
+            .filter((d: { isDirectory: () => boolean; name: string }) => d.isDirectory() && (d.name === 'sqlite-vec' || d.name.startsWith('sqlite-vec-')))
+            .map((d: { name: string }) => d.name);
+          for (const mod of sqliteVecPackages) {
+            const src = path.join(srcRoot, mod);
+            const dest = path.join(destNodeModules, mod);
+            if (fs.existsSync(src)) {
+              fs.cpSync(src, dest, { recursive: true });
+              console.log(`✅ afterCopy: copied ${mod}`);
+            }
+          }
+          done();
+        } catch (e) {
+          done(e instanceof Error ? e : new Error(String(e)));
+        }
+      },
+    ],
   } as any,
   rebuildConfig: {
     // Use onlyModules to explicitly control which modules to rebuild
@@ -205,8 +242,14 @@ const config: ForgeConfig = {
                 // Remove symlink
                 fs.unlinkSync(modulePath);
 
-                // Copy actual directory using cp -R
-                execSync(`cp -R "${actualPath}/." "${modulePath}"`, { stdio: 'pipe' });
+                // Copy actual directory (cross-platform)
+                if (process.platform === 'win32') {
+                  // Windows: use xcopy or robocopy
+                  execSync(`xcopy "${actualPath}" "${modulePath}" /E /I /H /Y`, { stdio: 'pipe' });
+                } else {
+                  // macOS/Linux: use cp -R
+                  execSync(`cp -R "${actualPath}/." "${modulePath}"`, { stdio: 'pipe' });
+                }
                 console.log(`✅ ${moduleName} symlink replaced with actual files`);
               }
             }

@@ -1,4 +1,4 @@
-const sharp = require('sharp');
+const { Jimp } = require('jimp');
 const pngToIco = require('png-to-ico').default || require('png-to-ico');
 const fs = require('fs');
 const path = require('path');
@@ -13,24 +13,12 @@ async function convertLogoToIco() {
   console.log('Converting new logo to ICO format...');
 
   try {
-    // Step 1: Convert JPEG to PNG at 256x256 (ICO standard size)
-    console.log('Step 1: Converting JPEG to PNG...');
-    await sharp(inputJpeg)
-      .resize(256, 256, {
-        fit: 'contain',
-        background: { r: 255, g: 255, b: 255, alpha: 0 }
-      })
-      .png()
-      .toFile(tempPng);
-
-    // Also save as logo.png for other uses
-    await sharp(inputJpeg)
-      .resize(256, 256, {
-        fit: 'contain',
-        background: { r: 255, g: 255, b: 255, alpha: 0 }
-      })
-      .png()
-      .toFile(outputPng);
+    // Step 1: Resize to 256x256 (ICO standard size), contain to fit
+    console.log('Step 1: Converting to PNG at 256x256...');
+    const image = await Jimp.read(inputJpeg);
+    image.contain({ w: 256, h: 256 });
+    await image.write(tempPng);
+    await image.write(outputPng);
 
     console.log('Step 2: Converting PNG to ICO...');
     // Step 2: Convert PNG to ICO

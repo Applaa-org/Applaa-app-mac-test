@@ -618,7 +618,13 @@ export function initializeDatabase(): BetterSQLite3Database<typeof schema> & {
   fs.mkdirSync(getDyadAppPath("."), { recursive: true });
 
   const sqlite = new Database(dbPath, { timeout: 10000 });
-  sqliteVec.load(sqlite);
+  try {
+    sqliteVec.load(sqlite);
+    logger.log("sqlite-vec extension loaded");
+  } catch (err: any) {
+    logger.warn("sqlite-vec extension not available, continuing without vector search:", err?.message ?? err);
+    // DB still works for chats, apps, etc.; only vector/semantic search features are disabled
+  }
   sqlite.pragma("foreign_keys = ON");
 
   _db = drizzle(sqlite, { schema });
