@@ -129,6 +129,7 @@ const validInvokeChannels = [
   "credit:check",
   "credit:deduct",
   "credit:get-balance",
+  "credit:get-token-usage-summary",
   "credit:get-usage",
   "credit:reset",
   "credit:check-reset",

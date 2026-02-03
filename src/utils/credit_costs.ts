@@ -3,6 +3,30 @@
  * These costs are deducted from user's remaining_credits when operations are performed
  */
 
+/**
+ * Credit–token relationship: 100 credits = 1,000,000 tokens; 1000 credits = 10,000,000 tokens.
+ * 1 credit = 10,000 tokens.
+ */
+export const TOKENS_PER_CREDIT = 10_000;
+
+/** Maximum credits to reserve per chat message (pre-check before stream). 50 credits = 500k tokens. */
+export const MAX_CREDITS_PER_MESSAGE = 50;
+
+/**
+ * Convert token count to credits (ceil). Minimum 1 credit if tokens > 0.
+ */
+export function creditsFromTokens(tokens: number): number {
+  if (tokens <= 0) return 0;
+  return Math.max(1, Math.ceil(tokens / TOKENS_PER_CREDIT));
+}
+
+/**
+ * Convert credits to approximate token capacity (for display).
+ */
+export function tokensFromCredits(credits: number): number {
+  return credits * TOKENS_PER_CREDIT;
+}
+
 export const CREDIT_COSTS = {
   // Chat operations
   CHAT_BASIC: 1,              // Basic chat message (Gemini Flash, Gemini Pro)

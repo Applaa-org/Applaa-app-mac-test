@@ -65,6 +65,26 @@ export function useCredits() {
     },
   });
 
+  // Get token usage summary (total + per-app) for current user
+  const {
+    data: tokenUsageSummary,
+    isLoading: isLoadingTokenSummary,
+    refetch: refetchTokenSummary,
+  } = useQuery({
+    queryKey: ['credits', 'token-usage-summary'],
+    queryFn: async () => {
+      const result = await IpcClient.getInstance().getTokenUsageSummary();
+      if (!result.success) {
+        throw new Error('Failed to fetch token usage summary');
+      }
+      return { totalTokens: result.totalTokens, byApp: result.byApp };
+    },
+    retry: 1,
+    meta: {
+      showErrorToast: false,
+    },
+  });
+
   // Check credits mutation (for checking before operations)
   const checkMutation = useMutation({
     mutationFn: async (params: { operationType: string; cost?: number }) => {
@@ -100,12 +120,15 @@ export function useCredits() {
   return {
     balance,
     usageHistory,
+    tokenUsageSummary,
     isLoading,
     isLoadingHistory,
+    isLoadingTokenSummary,
     error,
     usageError,
     refetch,
     refetchUsage,
+    refetchTokenSummary,
     checkCredits: checkMutation.mutateAsync,
     isChecking: checkMutation.isPending,
     resetCredits: resetMutation.mutateAsync,

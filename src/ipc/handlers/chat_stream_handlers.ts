@@ -59,8 +59,8 @@ import { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { getExtraProviderOptions } from "../utils/thinking_utils";
 import { checkCredits, deductCredits } from "../../services/credit_service";
 import { trackTokenUsage } from "../../services/token_tracking_service";
-import { getChatCreditCost } from "../../utils/credit_costs";
-import { getSupabaseAuth } from "../../lib/supabase";
+import { MAX_CREDITS_PER_MESSAGE, creditsFromTokens } from "../../utils/credit_costs";
+import { getUserId } from "./credit_handlers";
 
 import { safeSend } from "../utils/safe_sender";
 import { cleanFullResponse } from "../utils/cleanFullResponse";
@@ -445,9 +445,8 @@ export function registerChatStreamHandlers() {
       const abortController = new AbortController();
       activeStreams.set(req.chatId, abortController);
 
-      // Declare userId, creditCost, and tokensUsed at the top level so they're accessible throughout the handler
+      // Declare userId and tokensUsed at the top level so they're accessible throughout the handler
       let userId: string | null = null;
-      let creditCost = 0;
       let tokensUsed = 0;
 
       // Get the chat to check for existing messages FIRST
@@ -1214,29 +1213,14 @@ This conversation includes one or more image attachments. When the user uploads 
           return fullResponse;
         };
 
-        // 💎 CREDIT CHECK: Verify user has enough credits before streaming
+        // 💎 CREDIT CHECK: Use same getUserId() as profile/credit UI so deduction and usage match displayed balance
         try {
-          const auth = getSupabaseAuth();
-          const supabaseUser = await auth.getCurrentUser();
-          if (supabaseUser) {
-            userId = supabaseUser.id;
-          } else {
-            // Try WordPress auth as fallback
-            const settings = readSettings();
-            const wordpressAuth = settings.wordpressAuth;
-            if (wordpressAuth?.isAuthenticated && wordpressAuth?.user) {
-              const profile = await auth.getProfileByEmailOrUsername(wordpressAuth.user.email || wordpressAuth.user.username || wordpressAuth.user.display_name || '');
-              if (profile) {
-                userId = profile.id;
-              }
-            }
-          }
-
+          userId = await getUserId();
           if (userId) {
-            creditCost = getChatCreditCost(settings.selectedModel?.name, settings.selectedModel?.provider);
-            const creditCheck = await checkCredits(userId, 'chat_message', creditCost);
+            // Pre-check: reserve max credits per message (actual cost = creditsFromTokens(tokensUsed) after stream)
+            const creditCheck = await checkCredits(userId, 'chat_message', MAX_CREDITS_PER_MESSAGE);
             if (!creditCheck.hasCredits) {
-              throw new Error(`Insufficient credits. You need ${creditCheck.required} credits for this chat message but only have ${creditCheck.remaining} remaining.`);
+              throw new Error(`Insufficient credits. You need at least ${creditCheck.required} credits for a chat message but only have ${creditCheck.remaining} remaining.`);
             }
           }
         } catch (creditError: any) {
@@ -1269,7 +1253,8 @@ This conversation includes one or more image attachments. When the user uploads 
           });
           fullResponse = result.fullResponse;
 
-          // Get usage information from stream result (available after stream completes)
+          // Get usage information from stream result (available after stream completes).
+          // Provider-reported usage is authoritative when present; fallback is char-based estimate.
           try {
             // In Vercel AI SDK, usage is available after stream is consumed
             // Wait for usage to be available (it's a Promise that resolves after stream completion)
@@ -1692,12 +1677,14 @@ ${problemReport.problems
             );
           }
 
-          // 💎 CREDIT DEDUCTION: Deduct credits after successful completion
-          if (userId && creditCost > 0) {
+          // 💎 CREDIT DEDUCTION: Deduct credits from actual token usage (100 credits = 1M tokens)
+          const creditCostFromTokens = creditsFromTokens(tokensUsed);
+          if (userId && creditCostFromTokens > 0) {
             try {
-              await deductCredits(userId, 'chat_message', creditCost, {
+              await deductCredits(userId, 'chat_message', creditCostFromTokens, {
                 chatId: req.chatId,
                 appId: updatedChat.app.id,
+                appName: updatedChat.app.name ?? undefined,
                 model: settings.selectedModel?.name,
                 provider: settings.selectedModel?.provider,
                 tokensUsed: tokensUsed, // Include token usage in metadata
@@ -1708,7 +1695,7 @@ ${problemReport.problems
             }
           }
 
-          // 📊 TOKEN TRACKING: Track token usage after successful completion
+          // 📊 TOKEN TRACKING: Track token usage after successful completion (provider usage when available)
           if (!userId) {
             logger.warn(`Token tracking skipped: No userId found for chat ${req.chatId}`);
           } else if (tokensUsed <= 0) {
@@ -1719,6 +1706,7 @@ ${problemReport.problems
               await trackTokenUsage(userId, tokensUsed, 'chat_message', {
                 chatId: req.chatId,
                 appId: updatedChat.app.id,
+                appName: updatedChat.app.name ?? undefined,
                 model: settings.selectedModel?.name,
                 provider: settings.selectedModel?.provider,
               });
@@ -1751,14 +1739,17 @@ ${problemReport.problems
             logger.warn(`⚠️ Failed to notify preview completion:`, error);
           }
         } else {
-          // 💎 CREDIT DEDUCTION: Deduct credits for simple completion (ask mode)
-          if (userId && creditCost > 0) {
+          // 💎 CREDIT DEDUCTION: Deduct credits from actual token usage (100 credits = 1M tokens)
+          const creditCostFromTokens = creditsFromTokens(tokensUsed);
+          if (userId && creditCostFromTokens > 0) {
             try {
-              await deductCredits(userId, 'chat_message', creditCost, {
+              await deductCredits(userId, 'chat_message', creditCostFromTokens, {
                 chatId: req.chatId,
+                appId: updatedChat.app.id,
+                appName: updatedChat.app.name ?? undefined,
                 model: settings.selectedModel?.name,
                 provider: settings.selectedModel?.provider,
-                tokensUsed: tokensUsed, // Include token usage in metadata
+                tokensUsed: tokensUsed,
               });
             } catch (creditError: any) {
               // Log but don't throw - the chat was successful
@@ -1776,6 +1767,8 @@ ${problemReport.problems
               logger.info(`Tracking token usage (ask mode): ${tokensUsed} tokens for user ${userId}, chat ${req.chatId}`);
               await trackTokenUsage(userId, tokensUsed, 'chat_message', {
                 chatId: req.chatId,
+                appId: updatedChat.app.id,
+                appName: updatedChat.app.name ?? undefined,
                 model: settings.selectedModel?.name,
                 provider: settings.selectedModel?.provider,
               });

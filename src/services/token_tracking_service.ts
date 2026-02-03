@@ -162,3 +162,75 @@ export async function getTotalTokenUsage(userId: string): Promise<number> {
     throw error;
   }
 }
+
+export interface TokenUsageByApp {
+  appId: string | null;
+  tokens: number;
+  appName?: string;
+}
+
+/**
+ * Get token usage summary for a user: total tokens and per-app breakdown.
+ * totalTokens comes from profiles.total_tokens_used; byApp is aggregated from credit_usage.
+ */
+export async function getTokenUsageSummary(userId: string): Promise<{
+  totalTokens: number;
+  byApp: TokenUsageByApp[];
+}> {
+  try {
+    const adminClient = getSupabaseAdminClient();
+
+    const { data: profile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('total_tokens_used')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      logger.error('Failed to get profile for token summary:', profileError);
+      throw new Error(`Failed to get user profile: ${profileError?.message || 'Profile not found'}`);
+    }
+
+    const totalTokens = profile.total_tokens_used || 0;
+
+    // Aggregate from credit_usage: rows with tokens_used set, grouped by app_id
+    const { data: usageRows, error: usageError } = await adminClient
+      .from('credit_usage')
+      .select('app_id, tokens_used, metadata')
+      .eq('user_id', userId)
+      .gt('tokens_used', 0);
+
+    if (usageError) {
+      logger.warn('Failed to get credit_usage for by-app aggregation:', usageError);
+      return { totalTokens, byApp: [] };
+    }
+
+    const tokensByApp = new Map<string | null, number>();
+    const appNames = new Map<string | null, string>();
+
+    for (const row of usageRows || []) {
+      const tokens = (row as { tokens_used?: number }).tokens_used ?? 0;
+      if (tokens <= 0) continue;
+      const appId = (row as { app_id?: string | null }).app_id ?? null;
+      const current = tokensByApp.get(appId) ?? 0;
+      tokensByApp.set(appId, current + tokens);
+      const meta = (row as { metadata?: { appName?: string } }).metadata;
+      if (appId && meta?.appName && !appNames.has(appId)) {
+        appNames.set(appId, meta.appName);
+      }
+    }
+
+    const byApp: TokenUsageByApp[] = Array.from(tokensByApp.entries())
+      .map(([appId, tokens]) => ({
+        appId,
+        tokens,
+        appName: appId ? appNames.get(appId) : undefined,
+      }))
+      .sort((a, b) => b.tokens - a.tokens);
+
+    return { totalTokens, byApp };
+  } catch (error: any) {
+    logger.error('Error getting token usage summary:', error);
+    throw error;
+  }
+}

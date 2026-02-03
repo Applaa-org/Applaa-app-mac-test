@@ -2231,6 +2231,14 @@ export class IpcClient {
     return this.ipcRenderer.invoke("credit:get-balance");
   }
 
+  public async getTokenUsageSummary(): Promise<{
+    success: boolean;
+    totalTokens: number;
+    byApp: Array<{ appId: string | null; tokens: number; appName?: string }>;
+  }> {
+    return this.ipcRenderer.invoke("credit:get-token-usage-summary");
+  }
+
   public async getCreditUsage(filters?: {
     operationType?: string;
     appId?: string;

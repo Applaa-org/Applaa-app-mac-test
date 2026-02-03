@@ -17,7 +17,7 @@ import { IpcClient } from "@/ipc/ipc_client";
 export default function ProfilePage() {
   const router = useRouter();
   const { profile, isLoading, error, refetch, updateProfile, isUpdating } = useProfile();
-  const { balance, usageHistory, isLoading: isLoadingCredits, refetch: refetchCredits } = useCredits();
+  const { balance, usageHistory, tokenUsageSummary, isLoading: isLoadingCredits, isLoadingTokenSummary, refetch: refetchCredits } = useCredits();
   const { syncSubscription, isSyncing } = useSubscriptionSync();
   const { isAuthenticated: isSupabaseAuthenticated, signOut: supabaseSignOut, isSigningOut: isSupabaseSigningOut } = useSupabaseAuth();
   const { isAuthenticated: isWordPressAuthenticated, logout: wordPressLogout, isLoggingOut: isWordPressLoggingOut } = useWordPressAuth();
@@ -531,11 +531,14 @@ export default function ProfilePage() {
                     </span>
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
+                  100 credits = 1M tokens · 1,000 credits = 10M tokens (chat uses token-based deduction)
+                </p>
               </div>
             ) : null}
 
-            {/* Total Tokens Used */}
-            {profile.total_tokens_used !== null && profile.total_tokens_used !== undefined && (
+            {/* Total Tokens Used (from shared token usage summary; matches profile.total_tokens_used) */}
+            {(tokenUsageSummary?.totalTokens !== undefined && tokenUsageSummary.totalTokens !== null) || (profile.total_tokens_used !== null && profile.total_tokens_used !== undefined) ? (
               <div className="rounded-xl border p-5 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -551,84 +554,63 @@ export default function ProfilePage() {
                   </div>
                   <div className="text-right">
                     <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                      {profile.total_tokens_used.toLocaleString()}
+                      {(tokenUsageSummary?.totalTokens ?? profile.total_tokens_used ?? 0).toLocaleString()}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">tokens</p>
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {/* Token Usage Breakdown by App */}
-            {usageHistory && usageHistory.length > 0 && (() => {
-              // Aggregate tokens by app_id
-              const tokensByApp = new Map<string | null, number>();
-              const appNames = new Map<string | null, string>();
-
-              usageHistory.forEach((usage) => {
-                if (usage.tokensUsed > 0) {
-                  const appId = usage.appId || null;
-                  const current = tokensByApp.get(appId) || 0;
-                  tokensByApp.set(appId, current + usage.tokensUsed);
-                  
-                  // Try to get app name from metadata
-                  if (appId && !appNames.has(appId) && usage.metadata?.appName) {
-                    appNames.set(appId, usage.metadata.appName);
-                  }
-                }
-              });
-
-              // Sort by tokens (descending) and take top 10
-              const sortedApps = Array.from(tokensByApp.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10);
-
-              if (sortedApps.length > 0) {
-                return (
-                  <div className="rounded-xl border p-5 bg-card">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                        <Globe className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <p className="text-sm font-semibold">Token Usage by App</p>
-                    </div>
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
-                      {sortedApps.map(([appId, tokens], index) => {
-                        const percentage = ((tokens / (profile.total_tokens_used || 1)) * 100);
-                        return (
-                          <div key={appId || 'no-app'} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-xs font-semibold text-purple-600 dark:text-purple-400">
-                                  {index + 1}
-                                </span>
-                                <p className="font-medium truncate">
-                                  {appId ? (appNames.get(appId) || `App ${appId}`) : 'Other Operations'}
-                                </p>
-                              </div>
-                              {appId && (
-                                <p className="text-xs text-muted-foreground ml-8">
-                                  ID: {appId}
-                                </p>
-                              )}
-                            </div>
-                            <div className="text-right ml-4 flex-shrink-0">
-                              <p className="font-semibold text-purple-600 dark:text-purple-400">
-                                {tokens.toLocaleString()}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {percentage.toFixed(1)}%
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+            {/* Token Usage Breakdown by App (from shared token usage summary API) */}
+            {tokenUsageSummary?.byApp && tokenUsageSummary.byApp.length > 0 ? (
+              <div className="rounded-xl border p-5 bg-card">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                    <Globe className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                   </div>
-                );
-              }
-              return null;
-            })()}
+                  <p className="text-sm font-semibold">Token Usage by App</p>
+                </div>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {tokenUsageSummary.byApp.slice(0, 10).map(({ appId, tokens, appName }, index) => {
+                    const totalTokens = tokenUsageSummary.totalTokens || 1;
+                    const percentage = (tokens / totalTokens) * 100;
+                    return (
+                      <div key={appId ?? 'no-app'} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-xs font-semibold text-purple-600 dark:text-purple-400">
+                              {index + 1}
+                            </span>
+                            <p className="font-medium truncate">
+                              {appId ? (appName || `App ${appId}`) : 'Other Operations'}
+                            </p>
+                          </div>
+                          {appId && (
+                            <p className="text-xs text-muted-foreground ml-8">
+                              ID: {appId}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right ml-4 flex-shrink-0">
+                          <p className="font-semibold text-purple-600 dark:text-purple-400">
+                            {tokens.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {percentage.toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : isLoadingTokenSummary ? (
+              <div className="rounded-xl border p-5 bg-card flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <p className="ml-2 text-sm text-muted-foreground">Loading token usage...</p>
+              </div>
+            ) : null}
 
             {/* Credit Usage History */}
             <div className="rounded-xl border p-5 bg-card">

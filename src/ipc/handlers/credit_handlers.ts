@@ -8,6 +8,7 @@ import {
   resetMonthlyCredits,
 } from '../../services/credit_service';
 import { checkAndResetCredits } from '../../services/credit_reset_service';
+import { getTokenUsageSummary } from '../../services/token_tracking_service';
 import { getSupabaseAuth } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../lib/supabase';
@@ -36,8 +37,8 @@ function getSupabaseAdminClient() {
   );
 }
 
-// Helper to get user ID from Supabase or WordPress auth
-async function getUserId(): Promise<string> {
+/** Resolves the current user's profile ID (used for credits, balance, usage). Export for use in chat stream handler so deduction/tracking match profile UI. */
+export async function getUserId(): Promise<string> {
   const auth = getSupabaseAuth();
   const supabaseUser = await auth.getCurrentUser();
 
@@ -87,7 +88,6 @@ async function getUserId(): Promise<string> {
             full_name: fullName,
             subscription_tier: 'free',
             monthly_credits: 100,
-            remaining_credits: 100,
             total_credits_used: 0,
             total_tokens_used: 0,
             credits_last_reset: new Date().toISOString(),
@@ -206,7 +206,6 @@ async function getUserId(): Promise<string> {
           wordpress_roles: roles,
           subscription_tier: 'free',
           monthly_credits: 100,
-          remaining_credits: 100,
           total_credits_used: 0,
           total_tokens_used: 0,
           credits_last_reset: new Date().toISOString(),
@@ -283,6 +282,23 @@ export function registerCreditHandlers() {
     } catch (error: any) {
       logger.error('Failed to get credit balance:', error);
       throw new Error(`Failed to get credit balance: ${error.message}`);
+    }
+  });
+
+  // Get token usage summary (total + per-app) for current user
+  ipcMain.handle('credit:get-token-usage-summary', async () => {
+    try {
+      const userId = await getUserId();
+      const summary = await getTokenUsageSummary(userId);
+
+      return {
+        success: true,
+        totalTokens: summary.totalTokens,
+        byApp: summary.byApp,
+      };
+    } catch (error: any) {
+      logger.error('Failed to get token usage summary:', error);
+      throw new Error(`Failed to get token usage summary: ${error.message}`);
     }
   });
 

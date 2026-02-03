@@ -106,10 +106,10 @@ export async function deductCredits(
     const adminClient = getSupabaseAdminClient();
     const operationCost = cost ?? getCreditCost(operationType as any);
 
-    // Get current balance first
+    // Get current balance first (remaining_credits is generated as monthly_credits - total_credits_used)
     const { data: currentProfile, error: profileError } = await adminClient
       .from('profiles')
-      .select('remaining_credits, subscription_tier')
+      .select('remaining_credits, total_credits_used, subscription_tier')
       .eq('id', userId)
       .single();
 
@@ -126,12 +126,12 @@ export async function deductCredits(
       );
     }
 
-    // Deduct credits and update total_credits_used
+    // Deduct credits: only update total_credits_used (remaining_credits is generated)
+    const newTotalCreditsUsed = (currentProfile.total_credits_used ?? 0) + operationCost;
     const { data: updatedProfile, error: updateError } = await adminClient
       .from('profiles')
       .update({
-        remaining_credits: currentBalance - operationCost,
-        total_credits_used: (currentProfile.total_credits_used ?? 0) + operationCost,
+        total_credits_used: newTotalCreditsUsed,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId)
@@ -200,20 +200,21 @@ export async function resetMonthlyCredits(userId: string): Promise<{ success: bo
     const rolloverLimit = getCreditRolloverLimit(tier);
     const currentBalance = profile.remaining_credits ?? 0;
 
-    // Calculate rollover (only for Pro+ tiers)
-    let newBalance = monthlyAllocation;
+    // Calculate rollover (only for Pro+ tiers). remaining_credits is generated as monthly_credits - total_credits_used.
+    let newMonthlyCredits = monthlyAllocation;
+    let newTotalCreditsUsed = 0;
     if (tier !== 'free' && currentBalance > 0 && rolloverLimit > 0) {
       const rolloverAmount = Math.min(currentBalance, rolloverLimit);
-      newBalance = monthlyAllocation + rolloverAmount;
+      newMonthlyCredits = monthlyAllocation + rolloverAmount;
       logger.info(`Credit rollover: ${rolloverAmount} credits added to ${monthlyAllocation} (user: ${userId})`);
     }
 
-    // Update credits
+    // Update credits: only set writable columns (remaining_credits is generated)
     const { data: updatedProfile, error: updateError } = await adminClient
       .from('profiles')
       .update({
-        remaining_credits: newBalance,
-        monthly_credits: monthlyAllocation,
+        monthly_credits: newMonthlyCredits,
+        total_credits_used: newTotalCreditsUsed,
         credits_last_reset: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -226,7 +227,7 @@ export async function resetMonthlyCredits(userId: string): Promise<{ success: bo
       throw new Error(`Failed to reset monthly credits: ${updateError?.message || 'Update failed'}`);
     }
 
-    logger.info(`Monthly credits reset: ${newBalance} credits (user: ${userId}, tier: ${tier})`);
+    logger.info(`Monthly credits reset: ${updatedProfile.remaining_credits} credits (user: ${userId}, tier: ${tier})`);
 
     return {
       success: true,
@@ -280,15 +281,16 @@ export async function updateCreditsOnTierChange(
     }
 
     const newBalance = currentBalance + creditsToAdd;
-    // Display monthly_credits as the new effective pool (current balance + new allocation) so UI reflects total available after upgrade
+    // remaining_credits is generated as monthly_credits - total_credits_used. Set writable columns so remaining = newBalance.
     const newMonthlyValue = newBalance > newMonthlyCredits ? newBalance : newMonthlyCredits;
+    const newTotalCreditsUsed = newMonthlyValue - newBalance;
 
-    // Update credits
+    // Update credits: only set writable columns (remaining_credits is generated)
     const { data: updatedProfile, error: updateError } = await adminClient
       .from('profiles')
       .update({
-        remaining_credits: newBalance,
         monthly_credits: newMonthlyValue,
+        total_credits_used: newTotalCreditsUsed,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId)
