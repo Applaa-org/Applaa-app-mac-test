@@ -1819,13 +1819,27 @@ ${problemReport.problems
       // Return the chat ID for backwards compatibility
       return req.chatId;
     } catch (error) {
-      logger.error("Error calling LLM:", error);
+      const isCancellation =
+        error instanceof Error &&
+        (error.message.includes('terminated') || error.message.includes('aborted') || error.message.includes('cancelled'));
+      const isApiError = error instanceof Error && error.message.includes('Responses API error:');
+      if (isCancellation) {
+        logger.warn("LLM request was cancelled or terminated:", (error as Error).message);
+      } else if (isApiError) {
+        logger.warn("LLM request failed (Responses API error):", (error as Error).message);
+      } else {
+        logger.error("Error calling LLM:", error);
+      }
 
       // Provide more user-friendly error messages for common errors
       let errorMessage = `Sorry, there was an error processing your request: ${error}`;
       if (error instanceof Error) {
         if (error.message.includes('terminated') || error.message.includes('aborted') || error.message.includes('cancelled')) {
           errorMessage = "Request was cancelled or terminated. Please try again.";
+        } else if (error.message.includes('Responses API error:')) {
+          // Server sent error/response.failed in stream (e.g. second request rate limit or model error)
+          const detail = error.message.replace(/^Responses API error:\s*/i, '').trim();
+          errorMessage = detail ? `The AI service returned an error: ${detail}. Please try again.` : "The AI service returned an error. Please try again.";
         } else if (error.message.includes('timeout') || error.message.includes('timed out')) {
           errorMessage = "Request timed out. The server may be slow or overloaded. Please try again.";
         } else if (error.message.includes('Network error') || error.message.includes('fetch failed')) {

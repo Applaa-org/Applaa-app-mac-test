@@ -318,6 +318,11 @@ function getRegularModelClient(
           useAnthropicFormat: true, // Uses Anthropic /messages endpoint
           // Model name is sent in request body
         },
+        "gpt-5.2-codex": {
+          baseURL: "https://applaa-qa.openai.azure.com",
+          apiVersion: "2025-03-01-preview", // Responses API requires 2025-03-01-preview or later
+          useResponsesEndpoint: true, // Azure: gpt-5.2-codex requires /openai/responses, not chat completions
+        },
         "claude-opus-4-5": {
           baseURL: "https://applaa-qa.openai.azure.com/anthropic", // Azure Anthropic endpoint
           apiVersion: "2024-05-01-preview", // Not used in URL for Anthropic format
@@ -344,6 +349,9 @@ function getRegularModelClient(
       }
       if (model.name === 'grok-4-fast-reasoning') {
         logger.info(`  - 🎯 Grok-4-Fast-Reasoning: Using OpenAI v1 endpoint (/openai/v1/chat/completions)`);
+      }
+      if (model.name === 'gpt-5.2-codex') {
+        logger.info(`  - 🎯 GPT-5.2 Codex: Using Azure Responses API (/openai/responses) - model does not support chatCompletion`);
       }
 
       // For Anthropic format (Claude), use OpenAI compatible with custom endpoint
@@ -813,11 +821,12 @@ function getRegularModelClient(
 
       // Models that require max_completion_tokens instead of max_tokens
       // Note: gpt-5.1-chat uses standard endpoint with max_completion_tokens (not Responses API)
-      const modelsRequiringMaxCompletionTokens = ['gpt-5-nano', 'o1', 'o4-mini', 'gpt-5.1-chat'];
+      // gpt-5.2 (Azure OpenAI v1 endpoint) also requires max_completion_tokens
+      const modelsRequiringMaxCompletionTokens = ['gpt-5-nano', 'o1', 'o4-mini', 'gpt-5.1-chat', 'gpt-5.2', 'gpt-5.2-codex'];
       const needsMaxCompletionTokens = modelsRequiringMaxCompletionTokens.includes(model.name);
 
-      // Models that don't support temperature parameter (O1)
-      const modelsNotSupportingTemperature = ['o1'];
+      // Models that don't support temperature parameter (O1, gpt-5.2-codex)
+      const modelsNotSupportingTemperature = ['o1', 'gpt-5.2-codex'];
       const shouldRemoveTemperature = modelsNotSupportingTemperature.includes(model.name);
 
       // Models that only support temperature = 1 (O4 Mini)
@@ -867,6 +876,10 @@ function getRegularModelClient(
 
           // Modify request body for model-specific requirements
           let modifiedOptions = { ...options };
+          // Track whether the original SDK request asked for streaming.
+          // This lets us distinguish between streaming and non-streaming
+          // generateText calls when handling the Responses API output.
+          let requestWantsStream = false;
           // Always modify body for Responses API and Models Router endpoints, or for models with special requirements
           // Special case: Always modify body for GPT-5.1 Chat to ensure max_completion_tokens conversion
           const shouldModifyBody = (needsMaxCompletionTokens || shouldRemoveTemperature || needsTemperatureOne || modelConfig.useModelsEndpoint || modelConfig.useResponsesEndpoint || modelConfig.useOpenAIv1Endpoint || model.name === 'gpt-5.1-chat');
@@ -892,6 +905,12 @@ function getRegularModelClient(
               }
 
               const bodyJson = JSON.parse(bodyText);
+
+              // Remember whether the caller requested streaming.
+              // The ai-sdk sets `stream: true` when it expects an SSE stream.
+              if (bodyJson.stream === true) {
+                requestWantsStream = true;
+              }
 
               // Log original body for debugging
               if (model.name === 'gpt-5.1-chat') {
@@ -989,12 +1008,15 @@ function getRegularModelClient(
                   bodyJson.model = deploymentName;
                   bodyModified = true;
                 }
-                // Ensure streaming is enabled for Responses API
-                if (bodyJson.stream !== true) {
-                  logger.info(`  - 🔄 Enabling streaming for Responses API (was: ${bodyJson.stream})`);
-                  bodyJson.stream = true;
-                  bodyModified = true;
-                }
+                // IMPORTANT:
+                // Do NOT force `stream: true` here.
+                // - If the original SDK request didn't set stream=true,
+                //   the higher-level ai-sdk will expect a JSON response,
+                //   not SSE; forcing streaming causes "Invalid JSON response"
+                //   errors when it tries to parse the entire SSE body as JSON.
+                // - If the original request did set stream=true, we'll
+                //   already have requestWantsStream = true and will
+                //   handle the SSE path in the response section below.
               }
 
               // Update the body if modified
@@ -1053,13 +1075,142 @@ function getRegularModelClient(
               logger.error(`  - ❌ Error response body: ${responseText.substring(0, 500)}`);
             }
 
-            // For Responses API, we need to transform the response format
-            // Responses API uses event-based streaming with different structure
-            // The SDK expects OpenAI format with 'choices' array, but Responses API uses 'type', 'sequence_number', 'response'
+            // For Responses API, we need to transform the response format.
+            // The SDK expects either:
+            // - JSON (non-streaming) when `stream` is false/undefined, or
+            // - An SSE stream in OpenAI "chat.completion.chunk" format when `stream` is true.
             if (modelConfig.useResponsesEndpoint && response.ok) {
-              logger.info(`  - 🔄 Transforming Responses API stream to OpenAI-compatible format`);
-              logger.info(`  - 📋 Responses API uses different event structure - converting to OpenAI SSE format`);
-              logger.info(`  - 📋 Content-Type: ${response.headers.get('content-type')}`);
+              logger.info(`  - 🔄 Handling Responses API result`);
+              const contentType = response.headers.get('content-type') || '';
+              logger.info(`  - 📋 Content-Type: ${contentType}`);
+
+              // NON-STREAMING CALLS:
+              // If the original request did NOT ask for streaming, the ai-sdk
+              // expects a single JSON object, not SSE. But Azure's Responses API
+              // may still choose to stream. To be robust, if we detect a
+              // "data: {...}" style body, we will:
+              //   - fully read the body,
+              //   - parse all SSE events,
+              //   - assemble the text,
+              //   - return a synthetic OpenAI-style JSON chat completion.
+              if (!requestWantsStream) {
+                const bodyText = await response.text();
+
+                if (bodyText.trim().startsWith('data:')) {
+                  logger.info(`  - 🔄 Parsing Responses API SSE into JSON for non-stream caller`);
+                  const lines = bodyText.split('\n').map((l) => l.trim());
+                  let assembled = '';
+
+                  for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6);
+                    if (!data || data === '[DONE]') continue;
+                    try {
+                      const evt = JSON.parse(data);
+                      logger.info(`  - 📋 Responses API event: ${evt.type || 'unknown'}`);
+                      const delta = evt?.choices?.[0]?.delta;
+                      if (delta?.content && typeof delta.content === 'string') {
+                        assembled += delta.content;
+                      }
+                    } catch {
+                      // Ignore malformed lines and continue.
+                    }
+                  }
+
+                  const text = assembled.trim();
+                  logger.info(`  - ✅ Assembled non-stream text from SSE, length=${text.length}`);
+
+                  const openAIJson = {
+                    id: 'resp_' + Date.now(),
+                    object: 'chat.completion',
+                    created: Math.floor(Date.now() / 1000),
+                    model: deploymentName,
+                    choices: [
+                      {
+                        index: 0,
+                        message: {
+                          role: 'assistant',
+                          content: text,
+                        },
+                        finish_reason: 'stop',
+                      },
+                    ],
+                  };
+
+                  return new Response(JSON.stringify(openAIJson), {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: new Headers({
+                      ...Object.fromEntries(response.headers.entries()),
+                      'content-type': 'application/json',
+                    }),
+                  });
+                }
+
+                // Azure Responses API returns application/json with object: "response"
+                // and output: [{ type: "message", content: [{ type: "output_text", text: "..." }] }].
+                // The ai-sdk expects OpenAI chat completion format (object: "chat.completion", choices).
+                // Parse and transform so generateText() does not throw "Invalid JSON response".
+                try {
+                  const json = JSON.parse(bodyText) as { object?: string; output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>; id?: string; created_at?: number };
+                  if (json?.object === 'response' && Array.isArray(json.output)) {
+                    let text = '';
+                    for (const item of json.output) {
+                      if (item?.type === 'message' && Array.isArray(item.content)) {
+                        for (const part of item.content) {
+                          if (part?.type === 'output_text' && typeof part.text === 'string') {
+                            text += part.text;
+                          }
+                        }
+                      }
+                    }
+                    logger.info(`  - 🔄 Transformed Responses API JSON to OpenAI format, output length=${text.length}`);
+
+                    const openAIJson = {
+                      id: json.id || 'resp_' + Date.now(),
+                      object: 'chat.completion',
+                      created: json.created_at ?? Math.floor(Date.now() / 1000),
+                      model: deploymentName,
+                      choices: [
+                        {
+                          index: 0,
+                          message: {
+                            role: 'assistant',
+                            content: text,
+                          },
+                          finish_reason: 'stop',
+                        },
+                      ],
+                      usage: (json as { usage?: object }).usage,
+                    };
+
+                    return new Response(JSON.stringify(openAIJson), {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: new Headers({
+                        ...Object.fromEntries(response.headers.entries()),
+                        'content-type': 'application/json',
+                      }),
+                    });
+                  }
+                } catch (parseErr) {
+                  logger.warn(`  - ⚠️  Could not parse/transform Responses API JSON: ${parseErr}`);
+                }
+
+                // Not Responses API shape; pass through (e.g. already OpenAI format).
+                return new Response(bodyText, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: new Headers({
+                    ...Object.fromEntries(response.headers.entries()),
+                    'content-type': 'application/json',
+                  }),
+                });
+              }
+
+              // STREAMING CALLS:
+              // Only for callers that explicitly requested `stream: true`.
+              logger.info(`  - 🔄 Transforming Responses API stream to OpenAI-compatible SSE format (streaming caller)`);
 
               // Ensure we're handling a streaming response
               if (!response.body) {
@@ -1081,9 +1232,10 @@ function getRegularModelClient(
                     }
 
                     let buffer = '';
+                    let streamFailed = false;
 
                     try {
-                      while (true) {
+                      readLoop: while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
 
@@ -1105,6 +1257,20 @@ function getRegularModelClient(
 
                               // Log the event type for debugging
                               logger.info(`  - 📋 Responses API event: ${event.type || 'unknown'}`);
+
+                              // Handle server-side error and response.failed so the second request gets a clear error instead of silent abort
+                              if (event.type === 'error' || event.type === 'response.failed') {
+                                const errMsg =
+                                  event.error?.message ??
+                                  event.error?.code ??
+                                  event.message ??
+                                  (typeof event.error === 'string' ? event.error : 'Responses API returned an error');
+                                const apiError = new Error(`Responses API error: ${errMsg}`);
+                                logger.warn(`  - ⚠️  Responses API stream error/failed: ${errMsg}`);
+                                streamFailed = true;
+                                controller.error(apiError);
+                                break readLoop;
+                              }
 
                               // Transform Responses API events to OpenAI format
                               // Responses API uses different event types: response.created, response.output_item.added, response.output_item.delta
@@ -1156,8 +1322,28 @@ function getRegularModelClient(
 
                                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                                 }
-                              } else if (event.type === 'response.done') {
-                                // Response is complete
+                              } else if (event.type === 'response.output_text.delta') {
+                                // Azure/OpenAI Responses API: text streamed via output_text.delta (delta is the chunk string)
+                                const textChunk = typeof event.delta === 'string' ? event.delta : (event.delta?.text ?? event.delta?.content ?? '');
+                                if (textChunk) {
+                                  const choice = {
+                                    index: 0,
+                                    delta: { content: textChunk },
+                                    finish_reason: null
+                                  };
+                                  const openAIFormat = {
+                                    id: event.response_id || 'resp_' + Date.now(),
+                                    object: 'chat.completion.chunk',
+                                    created: Math.floor(Date.now() / 1000),
+                                    model: deploymentName,
+                                    choices: [choice]
+                                  };
+                                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                                }
+                              } else if (event.type === 'response.done' || event.type === 'response.completed') {
+                                // Response is complete (Azure may send response.completed instead of response.done)
+                                // Do NOT emit [DONE] here - Azure may send more output_text.delta events after this.
+                                // We emit [DONE] only when the entire HTTP response body has been consumed.
                                 const finalChoice = {
                                   index: 0,
                                   delta: {},
@@ -1173,7 +1359,6 @@ function getRegularModelClient(
                                 };
 
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
-                                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                               } else if (event.type === 'response.created') {
                                 // Initial response created - send empty delta to initialize the stream
                                 // The actual content will come in output_item.added/delta events
@@ -1224,22 +1409,34 @@ function getRegularModelClient(
                                     }
                                   }
                                 }
+                              } else if (event.type === 'response.in_progress' || event.type === 'response.content_part.done' || event.type === 'response.output_item.done' || event.type === 'response.output_text.done') {
+                                // Expected mid-stream events, no chunk to emit
                               } else {
                                 // Log unhandled event types for debugging
                                 logger.info(`  - 📋 Unhandled Responses API event type: ${event.type}`);
                               }
                             } catch (parseError) {
-                              // If it's not JSON, pass through as-is (might be other SSE data)
+                              // If it's not JSON, skip (do not pass through - SDK expects only data: lines)
                               logger.warn(`  - ⚠️  Could not parse SSE event: ${data.substring(0, 100)}`);
                             }
-                          } else {
-                            // Pass through non-data lines
-                            controller.enqueue(encoder.encode(line + '\n'));
                           }
+                          // Do not pass through non-data lines (event:, empty, etc.) - SDK expects only "data: ..." / "data: [DONE]"
                         }
                       }
-                    } catch (error) {
-                      logger.error(`  - ❌ Error transforming Responses API stream: ${error}`);
+                      // Emit [DONE] only after the entire response body is consumed and stream did not fail (error/response.failed)
+                      if (!streamFailed) {
+                        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                      }
+                    } catch (error: any) {
+                      const isAbort =
+                        error?.name === 'AbortError' ||
+                        error?.message?.includes('aborted') ||
+                        error?.message?.includes('terminated');
+                      if (isAbort) {
+                        logger.warn(`  - ⚠️  Stream cancelled or terminated (e.g. user stopped): ${error?.message ?? 'terminated'}`);
+                      } else {
+                        logger.error(`  - ❌ Error transforming Responses API stream: ${error}`);
+                      }
                       controller.error(error);
                     } finally {
                       controller.close();
@@ -1256,7 +1453,7 @@ function getRegularModelClient(
                 }
               );
 
-              logger.info(`  - ✅ Transformed response created for Responses API`);
+              logger.info(`  - ✅ Transformed response created for Responses API (streaming)`);
               return transformedResponse;
             }
 
