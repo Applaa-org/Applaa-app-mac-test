@@ -274,6 +274,40 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
   openrouter: [
     // Qwen3 models - both free and paid versions
     {
+      name: "z-ai/glm-4.7",
+      displayName: "GLM-4.7",
+      description: "Zhipu GLM-4.7 via OpenRouter",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+    },
+    {
+      name: "z-ai/glm-4.6",
+      displayName: "GLM-4.6",
+      description: "Zhipu GLM-4.6 via OpenRouter",
+      maxOutputTokens: 32_000,
+      contextWindow: 128_000,
+      temperature: 0,
+    },
+    // Kimi K2.5
+    {
+      name: "moonshotai/kimi-k2.5",
+      displayName: "Kimi K2.5",
+      description: "Moonshot Kimi K2.5 - large MoE model with strong coding and long context",
+      maxOutputTokens: 32_000,
+      contextWindow: 256_000,
+      temperature: 0,
+    },
+    {
+      name: "moonshotai/kimi-k2-0905",
+      displayName: "Kimi K2 0905",
+      description: "1T parameter MoE model with enhanced frontend coding and 256k context",
+      maxOutputTokens: 32_000,
+      contextWindow: 256_000,
+      temperature: 0,
+      tag: "New",
+    },
+    {
       name: "qwen/qwen3-coder:free",
       displayName: "Qwen3 Coder (free)",
       description: "Qwen's best coding model - free tier",
@@ -298,16 +332,8 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 128_000,
       temperature: 0,
     },
-    // https://openrouter.ai/moonshotai/kimi-k2-0905/api
-    {
-      name: "moonshotai/kimi-k2-0905",
-      displayName: "Kimi K2 0905",
-      description: "1T parameter MoE model with enhanced frontend coding and 256k context",
-      maxOutputTokens: 32_000,
-      contextWindow: 256_000,
-      temperature: 0,
-      tag: "New",
-    },
+    
+    
     {
       name: "deepseek/deepseek-r1-0528",
       displayName: "DeepSeek R1",
@@ -325,6 +351,7 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
       contextWindow: 256_000,
       temperature: 0,
     },
+    // GLM models (Zhipu)
   ],
   groq: [
     {
