@@ -207,6 +207,8 @@ const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
     }
   }, [chatId, appId, chats, isFixingAll, isStreaming, isAutoFixing, streamMessage, problemReport]);
 
+  const isBusy = isFixingAll || isStreaming || isAutoFixing;
+
   if (problems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-32 text-center">
@@ -223,8 +225,18 @@ const ProblemsSummary = ({ problemReport, appId }: ProblemsSummaryProps) => {
   }
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-[var(--background-darkest)] border-b border-border">
+    <div
+      className={`flex items-center justify-between px-4 py-3 bg-[var(--background-darkest)] border-b border-border transition-colors ${
+        isBusy ? "border-orange-500/80 bg-[var(--background-darkest)]/90" : ""
+      }`}
+    >
       <div className="flex items-center gap-4">
+        {isBusy && (
+          <div className="flex items-center gap-2 text-xs text-orange-400">
+            <Loader2 size={14} className="animate-spin" />
+            <span>Auto-fixing problems…</span>
+          </div>
+        )}
         {totalErrors > 0 && (
           <div className="flex items-center gap-2">
             <XCircle size={16} className="text-red-500" />

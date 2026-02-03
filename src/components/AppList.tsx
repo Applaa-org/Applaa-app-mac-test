@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor, Gamepad2, Puzzle, Cpu, Box, Joystick } from "lucide-react";
-import { useAtom, useSetAtom } from "jotai";
+import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor, Gamepad2, Puzzle, Cpu, Box, Joystick, Loader2 } from "lucide-react";
+import { useAtom, useSetAtom, useAtomValue } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
 import {
   SidebarGroup,
@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { selectedChatIdAtom } from "@/atoms/chatAtoms";
+import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import { useLoadApps } from "@/hooks/useLoadApps";
 import type { App } from "@/ipc/ipc_types";
 import { detectAppCategory, getCategoryLabel, getCategoryIcon, type AppCategory } from "@/utils/appTypeDetection";
@@ -110,6 +110,7 @@ export function AppList({ show }: { show?: boolean }) {
   // const { isAuthenticated } = useSupabaseAuth();
   const [showCloudSync, setShowCloudSync] = useState(false);
   const [appFilter, setAppFilter] = useState<AppFilterType>("web");
+  const isStreaming = useAtomValue(isStreamingAtom);
 
   // Temporary fallback values
   const isAuthenticated = false;
@@ -238,6 +239,9 @@ export function AppList({ show }: { show?: boolean }) {
                 <span className="truncate font-medium text-gray-900 dark:text-gray-100">
                   {app.name}
                 </span>
+                {selectedAppId === app.id && isStreaming && (
+                  <Loader2 className="w-3 h-3 text-primary animate-spin ml-2 flex-shrink-0" />
+                )}
                 {/* Backup status temporarily disabled for core stability */}
                 {/* isAuthenticated && (
                 <BackupStatusIndicator

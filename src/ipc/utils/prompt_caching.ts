@@ -54,9 +54,10 @@ export function createCacheableSystemPrompt(
 export function getCachingConfig(provider: string): PromptCachingConfig {
   switch (provider) {
     case "anthropic":
+      // Disabled: native cache_control was causing issues (e.g. for game apps)
       return {
-        enableCaching: true,
-        minTokensForCaching: 1024, // Anthropic minimum for Claude 3.5 Sonnet/Opus
+        enableCaching: false,
+        minTokensForCaching: 1024,
         provider
       };
     case "openrouter":
