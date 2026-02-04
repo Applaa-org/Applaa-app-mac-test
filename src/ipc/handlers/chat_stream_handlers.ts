@@ -1045,7 +1045,7 @@ This conversation includes one or more image attachments. When the user uploads 
           }
           // 💰 COST CONTROL: Limit response length to prevent runaway costs
           const defaultMaxTokens = await getMaxTokens(settings.selectedModel);
-          const safeMaxTokens = Math.min(defaultMaxTokens || 8192, 8192); // Cap at 8K tokens
+          const safeMaxTokens = Math.min(defaultMaxTokens || 32768, 32768); // Cap at 32K tokens
           
           // Return full result object (includes usage) instead of just fullStream
           return streamText({
