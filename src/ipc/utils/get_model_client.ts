@@ -318,6 +318,10 @@ function getRegularModelClient(
           useAnthropicFormat: true, // Uses Anthropic /messages endpoint
           // Model name is sent in request body
         },
+        "gpt-5.2": {
+          baseURL: "https://applaa-qa.openai.azure.com",
+          apiVersion: "2025-03-01-preview",
+        },
         "gpt-5.2-codex": {
           baseURL: "https://applaa-qa.openai.azure.com",
           apiVersion: "2025-03-01-preview", // Responses API requires 2025-03-01-preview or later
