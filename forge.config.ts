@@ -6,6 +6,7 @@ import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-nati
 import { config as loadDotenv } from "dotenv";
 import { execSync } from "child_process";
 import * as path from "path";
+import * as fs from "fs";
 
 // Load environment variables from .env file
 loadDotenv();
@@ -131,6 +132,14 @@ const ignore = (file: string) => {
 
 const isEndToEndTestBuild = process.env.E2E_TEST_BUILD === "true";
 
+// Only include .env as an extra resource if it actually exists.
+// This prevents ENOENT errors in CI or environments where .env is not present.
+const extraResources: string[] = [];
+const envPath = path.resolve(__dirname, ".env");
+if (fs.existsSync(envPath)) {
+  extraResources.push(".env");
+}
+
 const config: ForgeConfig = {
   packagerConfig: {
     // Disable prune so our custom ignore filter controls node_modules. Otherwise Galactus
@@ -194,9 +203,7 @@ const config: ForgeConfig = {
       "node_modules/.bin/**",
       "drizzle/**"
     ],
-    extraResource: [
-      ".env"
-    ],
+    extraResource: extraResources,
     ignore,
     // Explicitly copy native modules into packaged app so require('sqlite-vec') resolves
     // Note: Forge/Vite pass buildPath = the app directory (the one packed into asar), not the .app bundle path
