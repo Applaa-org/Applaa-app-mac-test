@@ -1,7 +1,7 @@
 {
   "name": "applaa",
   "productName": "Applaa",
-  "version": "1.0.36",
+  "version": "2.0.0",
   "description": "Applaa - Your local AI app builder with beautiful orange and green design",
   "main": ".vite/build/main.js",
   "repository": {
