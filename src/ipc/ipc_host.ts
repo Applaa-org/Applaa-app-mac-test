@@ -93,6 +93,7 @@ import { registerSecurityHandlers } from "./handlers/security_handlers";
 import { registerVisualEditingHandlers } from "./handlers/visual_editing_handlers";
 import { registerPreviewImageHandlers } from "./handlers/preview_image_handlers";
 import { registerWebCloneHandlers } from "./handlers/web_clone_handlers";
+import { registerUpdateHandlers } from "./handlers/update_handlers";
 import { registerSubscriptionHandlers } from "./handlers/subscription_handlers";
 import { registerProfileHandlers } from "./handlers/profile_handlers";
 import { registerCreditHandlers } from "./handlers/credit_handlers";
@@ -259,7 +260,11 @@ export function registerIpcHandlers() {
 
   // 🌐 Website Cloning handlers
   registerWebCloneHandlers();
-
+  
+  // 🔄 Update handlers
+  console.log('🔄 Registering Update handlers...');
+  registerUpdateHandlers();
+  
   // 💳 Subscription handlers (Stripe integration - optional)
   try {
     registerSubscriptionHandlers();

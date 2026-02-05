@@ -148,6 +148,7 @@ export function useSupabaseAuth() {
     onSuccess: (data) => {
       toast.success(data.message || 'Account created successfully');
       queryClient.invalidateQueries({ queryKey: ['auth'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
       refetchAuth();
     },
     onError: (error: Error) => {
@@ -168,6 +169,7 @@ export function useSupabaseAuth() {
     onSuccess: (data) => {
       toast.success(data.message || 'Signed in successfully');
       queryClient.invalidateQueries({ queryKey: ['auth'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
       refetchAuth();
     },
     onError: (error: Error) => {
@@ -188,6 +190,7 @@ export function useSupabaseAuth() {
     onSuccess: (data) => {
       toast.success(data.message || 'Signed out successfully');
       queryClient.invalidateQueries({ queryKey: ['auth'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
       setAuthState({
         isAuthenticated: false,
         user: null,

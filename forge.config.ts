@@ -67,6 +67,61 @@ const ignore = (file: string) => {
   if (file.startsWith("/node_modules/sqlite-vec")) {
     return false;
   }
+  if (file.startsWith("/node_modules/electron-updater")) {
+    return false; // CRITICAL: Include electron-updater in packaged app
+  }
+  // Firebase SDK packages (needed for Remote Config and Cloud Functions)
+  if (file.startsWith("/node_modules/firebase")) {
+    return false; // CRITICAL: Include firebase SDK in packaged app
+  }
+  if (file.startsWith("/node_modules/@firebase")) {
+    return false; // CRITICAL: Include @firebase packages in packaged app
+  }
+  if (file.startsWith("/node_modules/builder-util-runtime")) {
+    return false; // CRITICAL: Include builder-util-runtime (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/lazy-val")) {
+    return false; // CRITICAL: Include lazy-val (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/lodash.escaperegexp")) {
+    return false; // CRITICAL: Include lodash.escaperegexp (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/lodash.isequal")) {
+    return false; // CRITICAL: Include lodash.isequal (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/semver")) {
+    return false; // CRITICAL: Include semver (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/tiny-typed-emitter")) {
+    return false; // CRITICAL: Include tiny-typed-emitter (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/js-yaml")) {
+    return false; // CRITICAL: Include js-yaml (dependency of electron-updater) in packaged app
+  }
+  if (file.startsWith("/node_modules/argparse")) {
+    return false; // CRITICAL: Include argparse (dependency of js-yaml) in packaged app
+  }
+  if (file.startsWith("/node_modules/debug")) {
+    return false; // CRITICAL: Include debug (dependency of builder-util-runtime) in packaged app
+  }
+  if (file.startsWith("/node_modules/ms")) {
+    return false; // CRITICAL: Include ms (dependency of debug) in packaged app
+  }
+  if (file.startsWith("/node_modules/sax")) {
+    return false; // CRITICAL: Include sax (dependency of builder-util-runtime) in packaged app
+  }
+  if (file.startsWith("/node_modules/fs-extra")) {
+    return false; // CRITICAL: Include fs-extra in packaged app
+  }
+  if (file.startsWith("/node_modules/universalify")) {
+    return false; // CRITICAL: Include universalify (dependency of fs-extra) in packaged app
+  }
+  if (file.startsWith("/node_modules/jsonfile")) {
+    return false; // CRITICAL: Include jsonfile (dependency of fs-extra) in packaged app
+  }
+  if (file.startsWith("/node_modules/graceful-fs")) {
+    return false; // CRITICAL: Include graceful-fs (dependency of fs-extra) in packaged app
+  }
   if (file.startsWith("/.vite")) {
     return false;
   }
@@ -78,6 +133,10 @@ const isEndToEndTestBuild = process.env.E2E_TEST_BUILD === "true";
 
 const config: ForgeConfig = {
   packagerConfig: {
+    // Disable prune so our custom ignore filter controls node_modules. Otherwise Galactus
+    // prunes direct deps (e.g. fs-extra) and we get "Cannot find module 'universalify'" in
+    // the packaged app (v1.0.24 EXE from GitHub workflow).
+    prune: false,
     appBundleId: "com.applaa.app",
     protocols: [
       {
@@ -85,7 +144,7 @@ const config: ForgeConfig = {
         schemes: ["applaa"],
       },
     ],
-    icon: "./assets/icon/logo.ico",
+    icon: path.resolve(__dirname, "assets/icon/logo.ico"),
     asar: true,
     // Code signing
     osxSign: {
@@ -98,13 +157,13 @@ const config: ForgeConfig = {
     } as any,
     // Notarization
     osxNotarize:
-      process.platform === 'darwin' && process.env.APPLE_ID && (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD)
+      process.platform === 'darwin' && (process.env.APPLE_ID || process.env.NODE_ENV === 'development')
         ? {
-          tool: "notarytool",
-          appleId: process.env.APPLE_ID as string,
-          appleIdPassword: (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD) as string,
-          teamId: process.env.APPLE_TEAM_ID || process.env.TEAM_ID || "P7VCYRVVPQ",
-        } as any
+            tool: "notarytool",
+            appleId: process.env.APPLE_ID || "raj@applaa.com", // Fallback for local testing
+            appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD || "nkod-jlnj-kbmi-hdvr", // Fallback for local testing
+            teamId: process.env.APPLE_TEAM_ID || process.env.TEAM_ID || "P7VCYRVVPQ",
+          } as any
         : undefined,
     asarUnpack: [
       "node_modules/@google/gemini-cli/**",
@@ -114,6 +173,22 @@ const config: ForgeConfig = {
       "node_modules/file-uri-to-path/**",
       "node_modules/sqlite-vec/**",
       "node_modules/sqlite-vec-*/**",
+      "node_modules/electron-updater/**", // CRITICAL: Must be unpacked for OTA updates to work
+      "node_modules/builder-util-runtime/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/lazy-val/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/lodash.escaperegexp/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/lodash.isequal/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/semver/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/tiny-typed-emitter/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/js-yaml/**", // CRITICAL: Dependency of electron-updater, must be unpacked
+      "node_modules/argparse/**", // CRITICAL: Dependency of js-yaml, must be unpacked
+      "node_modules/debug/**", // CRITICAL: Dependency of builder-util-runtime, must be unpacked
+      "node_modules/ms/**", // CRITICAL: Dependency of debug, must be unpacked
+      "node_modules/sax/**", // CRITICAL: Dependency of builder-util-runtime, must be unpacked
+      "node_modules/fs-extra/**", // CRITICAL: Must be unpacked for file operations
+      "node_modules/universalify/**", // CRITICAL: Dependency of fs-extra, must be unpacked
+      "node_modules/jsonfile/**", // CRITICAL: Dependency of fs-extra, must be unpacked
+      "node_modules/graceful-fs/**", // CRITICAL: Dependency of fs-extra, must be unpacked
       "node_modules/expo/**",
       "node_modules/@expo/**",
       "node_modules/.bin/**",
@@ -159,9 +234,11 @@ const config: ForgeConfig = {
   } as any,
   rebuildConfig: {
     // Use onlyModules to explicitly control which modules to rebuild
-    // This prevents auto-detection of better-sqlite3 which requires Windows SDK
+    // better-sqlite3 MUST be rebuilt for Electron to avoid MODULE_VERSION mismatch
     onlyModules: [
-
+      "better-sqlite3", // CRITICAL: Must rebuild for Electron's Node.js version
+      "onnxruntime-react-native", 
+      "react-native-transformers",
       "@react-native-async-storage/async-storage",
       "expo-sqlite",
       "react-native-svg",
@@ -181,8 +258,12 @@ const config: ForgeConfig = {
           name: "Applaa",
           authors: "Applaa Team",
           description: "Your local AI app builder with beautiful orange and green design",
-          setupIcon: "./assets/icon/logo.ico",
+          setupIcon: path.resolve(__dirname, "assets/icon/logo.ico"),
           noMsi: false,
+          // publisherName is required for Windows OTA updates to work
+          // This must match the certificate used for code signing (if any)
+          // For unsigned apps, this can be any name but should be consistent
+          publisherName: "Applaa Ltd",
         },
       },
     ] : []),
@@ -194,27 +275,43 @@ const config: ForgeConfig = {
       },
     },
     // macOS DMG maker (only include on macOS)
-    // Temporarily disabled due to macOS permission issues with DMG creation
-    // The ZIP file is sufficient for distribution. To re-enable DMG creation:
-    // 1. Ensure Terminal/Node has Full Disk Access in System Settings
-    // 2. Uncomment the DMG maker configuration below
-    // ...(process.platform === 'darwin' ? [
-    //   {
-    //     name: "@electron-forge/maker-dmg",
-    //     config: {
-    //       name: "Applaa",
-    //       format: "UDZO",
-    //       icon: "./assets/icon/logo.icns",
-    //       iconSize: 100,
-    //       contents: (opts) => {
-    //         return [
-    //           { x: 380, y: 280, type: "link", path: "/Applications" },
-    //           { x: 110, y: 280, type: "file", path: opts.appPath },
-    //         ];
-    //       },
-    //     },
-    //   },
-    // ] : []),
+    ...(process.platform === 'darwin' ? [
+      {
+        name: "@electron-forge/maker-dmg",
+        config: {
+          name: "Applaa",
+          format: "UDZO",
+          icon: "./assets/icon/logo.icns",
+          iconSize: 100,
+          contents: (opts) => {
+            return [
+              { x: 380, y: 280, type: "link", path: "/Applications" },
+              { x: 110, y: 280, type: "file", path: opts.appPath },
+            ];
+          },
+        },
+      },
+    ] : []),
+  ],
+  publishers: [
+    {
+      name: "@electron-forge/publisher-github",
+      config: {
+        // Use GITHUB_REPOSITORY in CI (e.g. Applaa-org/Applaa-app-mac-test) so publish targets the repo where the workflow runs
+        repository: (() => {
+          const repo = process.env.GITHUB_REPOSITORY;
+          if (repo) {
+            const [owner, name] = repo.split("/");
+            return { owner, name };
+          }
+          return { owner: "Applaa-Builder", name: "Applaa-Builder-v1" };
+        })(),
+        prerelease: false, // Set to true for beta releases
+        draft: false,
+        tagPrefix: "v", // Ensure tag prefix matches
+        generateReleaseNotes: true, // Auto-generate release notes
+      },
+    },
   ],
   hooks: {
     prePackage: async () => {

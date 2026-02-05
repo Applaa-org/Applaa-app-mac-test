@@ -82,6 +82,8 @@ export function useWordPressAuth() {
     onSuccess: (data) => {
       toast.success(data.message || 'Login successful');
       queryClient.invalidateQueries({ queryKey: ['wordpress'] });
+      queryClient.invalidateQueries({ queryKey: ['auth'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
       refetchAuth();
       // Force refresh authentication state
       setTimeout(() => {
@@ -115,6 +117,8 @@ export function useWordPressAuth() {
     onSuccess: (data) => {
       toast.success(data.message || 'Logged out successfully');
       queryClient.invalidateQueries({ queryKey: ['wordpress'] });
+      queryClient.invalidateQueries({ queryKey: ['auth'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
       setAuthState({
         isAuthenticated: false,
         user: null,

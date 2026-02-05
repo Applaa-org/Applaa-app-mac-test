@@ -417,6 +417,9 @@ const validInvokeChannels = [
 
   // Web Apps Templates Management channels
   "web-apps:list",
+  // Update management channels
+  "update:restart-and-install",
+  "update:check",
 ];
 
 // Add valid receive channels
@@ -447,6 +450,13 @@ const validReceiveChannels = [
   // Automation events
   "automation:create-tab",
   "automation:progress",
+  // Update notifications
+  "update:checking",
+  "update:available",
+  "update:not-available",
+  "update:download-progress",
+  "update:downloaded",
+  "update:error",
 ] as const;
 
 type ValidInvokeChannel = (typeof validInvokeChannels)[number];

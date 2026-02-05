@@ -1,0 +1,164 @@
+# .github/workflows/release.yml
+
+# Need to write to repo contents to upload the app to GitHub Release
+# See: https://www.electronforge.io/config/publishers/github#authentication
+permissions:
+  contents: write
+
+name: Release app
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature-ota-mukesh
+      - feature-enable-mac-release
+      - autoreleasebranch
+      - release/ota-update-auto-trigger
+      - release/**
+      - applaa-org
+jobs:
+  build:
+    environment: release
+    strategy:
+      # Uncomment max-parallel to prevent race condition (where multiple releases are
+      # created concurrently). Typically though, we'll create a release manually ahead of time
+      # which prevents the race.
+      # max-parallel: 1
+      matrix:
+        os: [
+            { name: "windows", image: "windows-latest" },
+            { name: "macos", image: "macos-latest" },
+          ]
+    runs-on: ${{ matrix.os.image }}
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0  # Fetch all history for tags
+          token: ${{ secrets.GITHUB_TOKEN }}  # Required to push tags
+      - name: Use Node.js
+        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Rebuild native modules for Electron
+        if: contains(matrix.os.name, 'windows')
+        run: |
+          echo "Rebuilding native modules for Electron..."
+          npx electron-rebuild --only=better-sqlite3 --force
+        shell: bash
+      - name: Create release tag if not exists
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          echo "Checking for tag: $TAG"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG does not exist, creating it..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG" || echo "Tag push failed or tag already exists remotely"
+          else
+            echo "Tag $TAG already exists"
+          fi
+        shell: bash
+      - name: Create GitHub Release if not exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          
+          echo "Checking for release: $TAG"
+          
+          # Check if release exists
+          RELEASE_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/tags/$TAG")
+          
+          if [ "$RELEASE_RESPONSE" = "404" ]; then
+            echo "Release $TAG does not exist, creating it..."
+            curl -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases" \
+              -d "{
+                \"tag_name\": \"$TAG\",
+                \"name\": \"Release $TAG\",
+                \"body\": \"Automated release $TAG\",
+                \"draft\": false,
+                \"prerelease\": false
+              }"
+            echo "✅ Release $TAG created"
+          else
+            echo "Release $TAG already exists"
+          fi
+        shell: bash
+      - name: add macos cert
+        if: contains(matrix.os.name, 'macos')
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: chmod +x tools/add-macos-cert.sh && . ./tools/add-macos-cert.sh
+      # Windows only
+      - name: Set up certificate
+        if: contains(matrix.os.name, 'windows')
+        run: |
+          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
+        shell: bash
+      - name: Set variables
+        if: contains(matrix.os.name, 'windows')
+        id: variables
+        run: |
+          echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV" 
+          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV" 
+          echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12" >> "$GITHUB_ENV" 
+          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
+        shell: bash
+      - name: Code signing with Software Trust Manager
+        if: contains(matrix.os.name, 'windows')
+        uses: digicert/ssm-code-signing@v1.1.0
+        continue-on-error: true
+      - name: Sync certificate (Windows)
+        if: contains(matrix.os.name, 'windows')
+        run: |
+          smctl windows certsync --keypair-alias=${{ secrets.DIGICERT_KEYPAIR_ALIAS }} || echo "Certificate sync skipped - keypair alias not configured"
+        shell: bash
+        continue-on-error: true
+        # Publish (Windows only)
+        # 🚀 Environment variables set here will be embedded into the packaged .exe
+        # via scripts/embed-env-vars.js (runs as part of "npm run publish")
+        # Note: GITHUB_TOKEN is automatically provided by GitHub Actions for publishing
+        # APPLAA_GITHUB_TOKEN is used for embedding into the app for OTA updates
+      - name: Publish app
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
+          # GitHub token for OTA updates (embedded into .exe/.app)
+          APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
+          # Supabase config is hardcoded in src/config/supabase.config.ts
+          # No secrets needed - app uses fallback values
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: npm run publish
+
+  verify-assets:
+    name: Verify Release Assets
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Use Node.js
+        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
+        with:
+          node-version: 20
+      - name: Verify all release assets are uploaded
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/verify-release-assets.js

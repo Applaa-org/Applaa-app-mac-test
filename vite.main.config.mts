@@ -28,6 +28,18 @@ export default defineConfig({
         // sqlite-vec: external so native extension loads from node_modules (sqlite-vec-darwin-arm64 etc.)
         "sqlite-vec",
         /^sqlite-vec-/,
+        "googleapis",
+        "google-auth-library",
+        "@google/generative-ai",
+        "stripe",
+        "electron-updater",
+        "fs-extra",
+        // Firebase SDK modules (must be external for Electron main process)
+        "firebase/app",
+        "firebase/auth",
+        "firebase/functions",
+        "firebase/remote-config",
+        /^firebase\//,  // Match all firebase/* imports
         ...builtinModules,
         ...builtinModules.map((m) => `node:${m}`),
         // Handle subpath imports like stream/promises

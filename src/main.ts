@@ -4,7 +4,8 @@ import * as fs from "node:fs";
 import { registerIpcHandlers } from "./ipc/ipc_host";
 import dotenv from "dotenv";
 // @ts-ignore
-import { initAutoUpdater } from "./main/updater";
+import started from "electron-squirrel-startup";
+import { autoUpdater } from "electron-updater";
 import log from "electron-log";
 import {
   getSettingsFilePath,
@@ -23,7 +24,8 @@ import { bindTerminalWindow } from "./ipc/handlers/terminal_handlers";
 import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_manager";
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
 import { startLocalServer } from "./server/api";
-import { initializeSupabase } from "./lib/supabase";
+import { initializeSupabase, getSupabaseAuth, type SupabaseConfig } from "./lib/supabase";
+import { SUPABASE_CONFIG } from "./config/supabase.config";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -75,6 +77,35 @@ for (const envPath of possibleEnvPaths) {
   }
 }
 
+if (!envLoaded) {
+  console.log('⚠️ No .env file found in any of the expected locations');
+}
+
+
+if (process.env.SUPABASE_URL) {
+  console.log('SUPABASE_URL value:', process.env.SUPABASE_URL);
+}
+
+// Initialize Firebase Remote Config and store the promise
+// We'll await this before using Remote Config
+let firebaseInitPromise: Promise<void> | null = null;
+
+async function initializeFirebase() {
+  try {
+    const { firebaseService } = await import('./services/firebase_service');
+    await firebaseService.initialize();
+    console.log('✅ Firebase Remote Config initialized successfully');
+  } catch (error) {
+    console.log('⚠️ Failed to initialize Firebase Remote Config:', error);
+    // Don't block app startup if Firebase fails - will use fallback values
+  }
+}
+
+// Start Firebase initialization immediately (but don't block)
+firebaseInitPromise = initializeFirebase();
+
+// Load secrets from Supabase Vault (after .env is loaded)
+// This allows Vault to supplement .env variables, but .env takes precedence
 if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
   try {
     initializeSupabase({
@@ -90,14 +121,26 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
 // Register IPC handlers before app is ready
 registerIpcHandlers();
 
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't crash the app, just log it
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  // Show error dialog before crashing
+  dialog.showErrorBox(
+    "Uncaught Exception",
+    `An unexpected error occurred:\n\n${error.message}\n\nPlease check the logs at: ${log.transports.file.getFile().path}`
+  );
+  // Still exit, but with better error reporting
+  app.quit();
+});
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-try {
-  if (require('electron-squirrel-startup')) {
-    app.quit();
-  }
-} catch (e) {
-  // electron-squirrel-startup not available in ZIP builds, that's OK
-}
+
 
 // https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app#main-process-mainjs
 if (process.defaultApp) {
@@ -139,8 +182,80 @@ export async function onReady() {
     initializeDatabase();
   } catch (e) {
     logger.error("❌ Failed to initialize database:", e);
-    // Re-throw to prevent app from starting with broken database
-    throw e;
+    // Show error dialog to user instead of silently crashing
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    dialog.showErrorBox(
+      "Database Initialization Failed",
+      `Failed to initialize the database. The application may not work correctly.\n\nError: ${errorMessage}\n\nPlease check the logs at: ${log.transports.file.getFile().path}`
+    );
+    // Don't throw - allow app to continue and show the error
+    // The app might still work with limited functionality
+    logger.warn("⚠️ Continuing app startup despite database initialization failure");
+  }
+
+  // ✅ FIX: Initialize Supabase early from Remote Config or environment variables
+  // This ensures profile and credit handlers can work immediately
+  try {
+    // IMPORTANT: Wait for Firebase to finish initializing before trying to use Remote Config
+    if (firebaseInitPromise) {
+      logger.info('⏳ Waiting for Firebase Remote Config to initialize...');
+      await firebaseInitPromise;
+      logger.info('✅ Firebase initialization complete, proceeding with Supabase setup');
+    }
+    
+    // Try to get config from Firebase Remote Config first, then fall back to env
+    let config: SupabaseConfig;
+    
+    try {
+      const { getSupabaseConfig } = await import('./config/supabase_remote');
+      const remoteConfig = getSupabaseConfig();
+      
+      // Use Remote Config if available
+      // Service role key: SUPABASE_CONFIG (hardcoded) → process.env
+      config = {
+        url: remoteConfig.url,
+        anonKey: remoteConfig.anonKey,
+        serviceRoleKey: SUPABASE_CONFIG.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+      };
+      
+      logger.info('✅ Using Supabase config from Firebase Remote Config');
+      logger.info(`📍 Supabase URL: ${remoteConfig.url}`);
+    } catch (error) {
+      // Fallback order: SUPABASE_CONFIG (hardcoded) → process.env
+      config = {
+        url: SUPABASE_CONFIG.URL || process.env.SUPABASE_URL,
+        anonKey: SUPABASE_CONFIG.ANON_KEY || process.env.SUPABASE_ANON_KEY,
+        serviceRoleKey: SUPABASE_CONFIG.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+      };
+      logger.warn('⚠️ Using hardcoded Supabase config (Remote Config not available)');
+      logger.warn(`📍 Supabase URL: ${config.url}`);
+    }
+    
+    if (config.url && config.anonKey) {
+      initializeSupabase(config);
+      const auth = getSupabaseAuth();
+      
+      // Set up auth state listener
+      auth.onAuthStateChange(async (event, session) => {
+        logger.info(`Auth state changed: ${event}`);
+        
+        if (session) {
+          // ✅ Ensure profile exists when user signs in
+          try {
+            await auth.ensureProfileExists(session.user);
+          } catch (error) {
+            logger.warn('Failed to ensure profile exists:', error);
+          }
+        }
+      });
+      
+      logger.info("✅ Supabase initialized successfully from environment variables");
+    } else {
+      logger.warn("⚠️ Supabase credentials not found in environment variables. Profile and credit features may not work until Supabase is initialized.");
+    }
+  } catch (error) {
+    logger.error("❌ Failed to initialize Supabase from environment variables:", error);
+    // Don't block app startup if Supabase init fails
   }
 
   // 🚀 PERFORMANCE: Initialize workspace dependency manager for faster app creation
@@ -198,23 +313,109 @@ export async function onReady() {
   }
 
   if (settings.enableAutoUpdate) {
-    // 🚀 OTA Updates: Check Applaa-Builder/applaa-releases
-    initAutoUpdater();
-
-    const { autoUpdater } = require("electron");
-
-    // Listen for update downloaded
-    autoUpdater.on("update-downloaded", (event: any, releaseNotes: any, releaseName: any) => {
-      logger.info("Update downloaded, sending message to renderer");
-      mainWindow?.webContents.send("update-available", { releaseName });
+    // Configure electron-updater for GitHub Releases
+    // Support for private repositories with GitHub token
+    // Note: VITE_GITHUB_TOKEN is for renderer process, we need GITHUB_TOKEN for main process
+    // APPLAA_GITHUB_TOKEN is embedded via CI workflow for OTA updates
+    const githubToken = 
+      process.env.APPLAA_GITHUB_TOKEN ||
+      process.env.GITHUB_TOKEN || 
+      process.env.GH_TOKEN || 
+      process.env.VITE_GITHUB_TOKEN;
+    const feedURLConfig: any = {
+      provider: "github",
+      owner: "Applaa-Builder",
+      repo: "Applaa-Builder-v1",
+    };
+    
+    // Add token if available (required for private repositories)
+    if (githubToken) {
+      feedURLConfig.token = githubToken;
+      logger.info("GitHub token found - private repository updates enabled");
+    } else {
+      logger.info("No GitHub token found - using public repository access");
+    }
+    
+    autoUpdater.setFeedURL(feedURLConfig);
+    
+    // Configure release channel
+    // For beta: allow pre-releases; for stable: only stable releases
+    const isBeta = settings.releaseChannel === "beta";
+    autoUpdater.allowPrerelease = isBeta;
+    autoUpdater.channel = isBeta ? "beta" : "latest";
+    logger.info("Auto-update release channel=", settings.releaseChannel, "(allowPrerelease=", isBeta, ")");
+    
+    // Configure logging
+    autoUpdater.logger = logger;
+    // Note: electron-log is already configured above, no need to set transports.file.level
+    
+    // Check for updates on startup and then every 4 hours
+    autoUpdater.checkForUpdatesAndNotify();
+    
+    // Set up update event handlers
+    autoUpdater.on("checking-for-update", () => {
+      logger.info("Checking for updates...");
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:checking");
+      }
     });
-
-    // Handle install request
-    const { ipcMain } = require("electron");
-    ipcMain.handle("update:install", () => {
-      logger.info("User requested install, quitting and installing...");
-      autoUpdater.quitAndInstall();
+    
+    autoUpdater.on("update-available", (info) => {
+      logger.info("Update available:", info.version);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:available", {
+          version: info.version,
+          releaseDate: info.releaseDate,
+          releaseNotes: info.releaseNotes,
+        });
+      }
     });
+    
+    autoUpdater.on("update-not-available", (info) => {
+      logger.info("Update not available. Current version is latest.");
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:not-available");
+      }
+    });
+    
+    autoUpdater.on("error", (err) => {
+      logger.error("Error in auto-updater:", err);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:error", err.message || String(err));
+      }
+    });
+    
+    autoUpdater.on("download-progress", (progressObj) => {
+      let logMessage = `Download speed: ${progressObj.bytesPerSecond} - `;
+      logMessage += `Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+      logger.info(logMessage);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:download-progress", {
+          percent: progressObj.percent,
+          bytesPerSecond: progressObj.bytesPerSecond,
+          transferred: progressObj.transferred,
+          total: progressObj.total,
+        });
+      }
+    });
+    
+    autoUpdater.on("update-downloaded", (info) => {
+      logger.info("Update downloaded. Will quit and install on next app launch.");
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:downloaded", {
+          version: info.version,
+          releaseDate: info.releaseDate,
+          releaseNotes: info.releaseNotes,
+        });
+      }
+    });
+    
+    // Check for updates periodically (every 4 hours)
+    setInterval(() => {
+      if (settings.enableAutoUpdate) {
+        autoUpdater.checkForUpdatesAndNotify();
+      }
+    }, 4 * 60 * 60 * 1000); // 4 hours in milliseconds
   }
 }
 
@@ -268,8 +469,9 @@ declare global {
 let mainWindow: BrowserWindow | null = null;
 
 const createWindow = () => {
-  // Create the browser window.
-  mainWindow = new BrowserWindow({
+  try {
+    // Create the browser window.
+    mainWindow = new BrowserWindow({
     width: process.env.NODE_ENV === "development" ? 1280 : 960,
     height: 700,
     show: true,
@@ -504,7 +706,34 @@ const createWindow = () => {
       mainWindow.focus();
     }
   });
-
+  
+  // Add error handlers for window loading
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    logger.error(`Window failed to load: ${errorCode} - ${errorDescription} (${validatedURL})`);
+    dialog.showErrorBox(
+      "Failed to Load Application",
+      `The application window failed to load.\n\nError: ${errorDescription}\n\nCode: ${errorCode}\n\nURL: ${validatedURL}`
+    );
+  });
+  
+  mainWindow.webContents.on('crashed', (event, killed) => {
+    logger.error(`Renderer process crashed (killed: ${killed})`);
+    dialog.showErrorBox(
+      "Application Crashed",
+      "The application window has crashed. Please restart the application."
+    );
+  });
+  
+  } catch (error) {
+    logger.error("❌ Failed to create window:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    dialog.showErrorBox(
+      "Window Creation Failed",
+      `Failed to create the application window.\n\nError: ${errorMessage}\n\nPlease check the logs at: ${log.transports.file.getFile().path}`
+    );
+    // Don't quit - let the user see the error and try again
+  }
+  
   // Developer tools can be opened manually with Ctrl+Shift+I or F12
   // if (process.env.NODE_ENV === "development") {
   //   // Open the DevTools.

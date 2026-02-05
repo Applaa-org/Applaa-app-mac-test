@@ -4,6 +4,26 @@ import { readSettings, writeSettings } from '../../main/settings';
 import { loadWordPressConfig, getWordPressAuthEndpoint } from '../../lib/wordpress-config';
 import { syncWordPressUserToSupabase } from '../../lib/supabase';
 import { hasAdminPermission } from '../../utils/permissions';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../lib/supabase';
+import { SUPABASE_CONFIG } from '../../config/supabase.config';
+
+// Helper function to get Supabase admin client (bypasses RLS)
+function getSupabaseAdminClient() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_CONFIG.SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL || SUPABASE_CONFIG.URL;
+
+  return createClient<Database>(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
 
 // WordPress Auth state management
 let isAuthenticated = false;
@@ -108,11 +128,84 @@ export function registerWordPressAuthHandlers() {
       
       console.log('🔑 [WordPress Auth] Raw userData from WordPress API:', JSON.stringify(userData, null, 2));
       
+      // ✅ FIX: Resolve email from Supabase if WordPress doesn't provide it
+      // WordPress users already exist in Supabase, so we can fetch their real email
+      let resolvedEmail = userData.email;
+      
+      if (!resolvedEmail || resolvedEmail === '') {
+        console.log('🔍 [WordPress Auth] Email not provided by WordPress API, looking up in Supabase...');
+        
+        try {
+          const adminClient = getSupabaseAdminClient();
+          let profile = null;
+          
+          // Strategy 1: Try by wordpress_username
+          if (userData.username) {
+            console.log('🔍 [WordPress Auth] Strategy 1: Looking up by wordpress_username:', userData.username);
+            const { data, error } = await adminClient
+              .from('profiles')
+              .select('email')
+              .eq('wordpress_username', userData.username)
+              .maybeSingle();
+            
+            if (data && !error) {
+              profile = data;
+              console.log('✅ [WordPress Auth] Found profile by wordpress_username:', data.email);
+            }
+          }
+          
+          // Strategy 2: Try by wordpress_display_name (often matches username in database)
+          if (!profile && userData.name) {
+            console.log('🔍 [WordPress Auth] Strategy 2: Looking up by wordpress_display_name:', userData.name);
+            const { data, error } = await adminClient
+              .from('profiles')
+              .select('email')
+              .eq('wordpress_display_name', userData.name)
+              .maybeSingle();
+            
+            if (data && !error) {
+              profile = data;
+              console.log('✅ [WordPress Auth] Found profile by wordpress_display_name:', data.email);
+            }
+          }
+          
+          // Strategy 3: Try by wordpress_user_id
+          if (!profile && userData.id) {
+            console.log('🔍 [WordPress Auth] Strategy 3: Looking up by wordpress_user_id:', userData.id);
+            const { data, error } = await adminClient
+              .from('profiles')
+              .select('email')
+              .eq('wordpress_user_id', userData.id)
+              .maybeSingle();
+            
+            if (data && !error) {
+              profile = data;
+              console.log('✅ [WordPress Auth] Found profile by wordpress_user_id:', data.email);
+            }
+          }
+          
+          // Use found email or fallback
+          if (profile?.email) {
+            resolvedEmail = profile.email;
+            console.log('✅ [WordPress Auth] Successfully resolved email from Supabase:', resolvedEmail);
+          } else {
+            console.log('⚠️ [WordPress Auth] No existing profile found in Supabase, using fallback email');
+            resolvedEmail = 'unknown@example.com';
+          }
+        } catch (error) {
+          console.error('❌ [WordPress Auth] Failed to lookup email from Supabase:', error);
+          log.warn('Failed to lookup WordPress user email from Supabase:', error);
+          resolvedEmail = 'unknown@example.com';
+        }
+      } else {
+        console.log('✅ [WordPress Auth] Email provided by WordPress API:', resolvedEmail);
+      }
+      
       // Store user data with proper validation and fallbacks
       currentUser = {
         id: userData.id || 0,
         username: userData.username || 'unknown',
-        email: userData.email || 'unknown@example.com',
+        email: resolvedEmail,
         display_name: userData.name || userData.username || 'User',
         roles: userData.roles || ['subscriber'],
         avatar_url: userData.avatar_urls?.['96'],

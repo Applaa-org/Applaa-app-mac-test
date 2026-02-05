@@ -2,17 +2,14 @@ import { createClient } from '@supabase/supabase-js';
 import log from 'electron-log';
 import type { Database } from '../lib/supabase';
 import { resetMonthlyCredits } from './credit_service';
+import { SUPABASE_CONFIG } from '../config/supabase.config';
 
 const logger = log.scope('credit-reset-service');
 
 // Helper function to get Supabase admin client (bypasses RLS)
 function getSupabaseAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-
-  if (!serviceRoleKey || !supabaseUrl) {
-    throw new Error('Supabase service role key or URL not configured');
-  }
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_CONFIG.SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL || SUPABASE_CONFIG.URL;
 
   return createClient<Database>(
     supabaseUrl,
