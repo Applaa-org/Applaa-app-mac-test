@@ -25,7 +25,28 @@ export interface Profile {
 export function useProfile() {
   const queryClient = useQueryClient();
 
-  // Fetch current profile
+  // Read cached auth status without triggering auth checks (avoids race conditions during login)
+  // This is safer than calling useSupabaseAuth/useWordPressAuth hooks directly
+  const supabaseAuthData = queryClient.getQueryData<{ isAuthenticated: boolean }>(['auth', 'status']);
+  const wpAuthData = queryClient.getQueryData<{ isAuthenticated: boolean }>(['wordpress', 'auth', 'status']);
+  
+  // Check if auth queries are still loading or haven't been initialized yet
+  const supabaseQuery = queryClient.getQueryState(['auth', 'status']);
+  const wpQuery = queryClient.getQueryState(['wordpress', 'auth', 'status']);
+  
+  // If queries don't exist yet or are pending, we're still loading
+  const isAuthLoading = 
+    !supabaseQuery || !wpQuery || // Queries not initialized yet
+    supabaseQuery.status === 'pending' || 
+    wpQuery.status === 'pending';
+  
+  // Only consider authenticated if we have data AND it says authenticated
+  const isAuthenticated = Boolean(
+    (supabaseAuthData?.isAuthenticated) || 
+    (wpAuthData?.isAuthenticated)
+  );
+
+  // Fetch current profile — only when authenticated
   const {
     data: profile,
     isLoading,
@@ -40,9 +61,11 @@ export function useProfile() {
       }
       return result.profile;
     },
+    // Don't fetch profile until auth check is done AND user is logged in
+    enabled: !isAuthLoading && isAuthenticated,
     retry: 1,
     meta: {
-      showErrorToast: true,
+      showErrorToast: false, // We handle errors gracefully in the UI now
     },
   });
 

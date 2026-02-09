@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Save, User, Mail, Calendar, Crown, Globe, Loader2, RefreshCw, LogOut, Coins, TrendingUp, ExternalLink, Edit } from "lucide-react";
+import { ArrowLeft, Save, User, Mail, Calendar, Crown, Globe, Loader2, RefreshCw, LogOut, Coins, TrendingUp, ExternalLink, Edit, LogIn } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 import { showError, showSuccess } from "@/lib/toast";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useWordPressAuth } from "@/hooks/useWordPressAuth";
 import { IpcClient } from "@/ipc/ipc_client";
+import { CombinedAuthDialog } from "@/components/auth/CombinedAuthDialog";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function ProfilePage() {
   const isAuthenticated = isSupabaseAuthenticated || isWordPressAuthenticated;
   const isLoggingOut = isSupabaseSigningOut || isWordPressLoggingOut;
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
 
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -90,6 +92,50 @@ export default function ProfilePage() {
     }
   };
 
+  // --- Not authenticated: show a clean sign-in prompt (no error) ---
+  if (!isAuthenticated && !isLoading) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.navigate({ to: "/" })}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Profile</h1>
+              <p className="text-muted-foreground">Sign in to view and manage your profile</p>
+            </div>
+          </div>
+
+          <Card>
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                <User className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <CardTitle>Welcome to Applaa</CardTitle>
+              <CardDescription>
+                Sign in to access your profile, track credits, and manage your subscription.
+                You can still use free features without signing in.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-3">
+              <Button onClick={() => setIsAuthDialogOpen(true)} className="w-full max-w-xs">
+                <LogIn className="h-4 w-4 mr-2" />
+                Sign In
+              </Button>
+              <Button variant="outline" onClick={() => router.navigate({ to: "/" })} className="w-full max-w-xs">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Continue as Free User
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <CombinedAuthDialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen} />
+      </div>
+    );
+  }
+
+  // --- Loading skeleton (auth done, profile fetching) ---
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 max-w-4xl">
@@ -111,118 +157,59 @@ export default function ProfilePage() {
     );
   }
 
-  if (error) {
+  // --- Authenticated but profile failed to load: show retry + logout (no scary error) ---
+  if ((error || (!profile && !isLoading)) && isAuthenticated) {
     return (
       <div className="container mx-auto p-6 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Error Loading Profile</CardTitle>
-            <CardDescription>
-              {error instanceof Error ? error.message : "Failed to load profile. Please try again."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.navigate({ to: "/" })}>
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" onClick={() => router.navigate({ to: "/" })}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Go Home
-            </Button>
-            {/* Subscription Management */}
-            <Button 
-              onClick={async () => {
-                setIsRedirecting(true);
-                try {
-                  await IpcClient.getInstance().redirectToSubscribe();
-                  showSuccess("Opening subscription page in your browser...");
-                } catch (error) {
-                  showError(error instanceof Error ? error.message : "Failed to open subscription page");
-                } finally {
-                  setIsRedirecting(false);
-                }
-              }}
-              disabled={isRedirecting}
-              className="w-full"
-              variant="default"
-            >
-              <Crown className="h-4 w-4 mr-2" />
-              {isRedirecting ? "Opening..." : "Upgrade Subscription"}
-            </Button>
-            {/* Logout Button */}
-            {isAuthenticated && (
-              <Button 
-                variant="destructive" 
-                onClick={handleSignOut}
+            <div>
+              <h1 className="text-3xl font-bold">Profile</h1>
+              <p className="text-muted-foreground">Having trouble loading your profile</p>
+            </div>
+          </div>
+
+          <Card>
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                <User className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <CardTitle>Could not load profile</CardTitle>
+              <CardDescription>
+                We could not load your profile right now. You can retry, go back home, or sign out and sign in again.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-3">
+              <Button onClick={() => refetch()} className="w-full max-w-xs">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+              <Button variant="outline" onClick={() => router.navigate({ to: "/" })} className="w-full max-w-xs">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go Home
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="w-full"
+                className="w-full max-w-xs"
               >
                 <LogOut className="h-4 w-4 mr-2" />
-                {isLoggingOut ? "Signing out..." : "Sign Out"}
+                {isLoggingOut ? "Signing out..." : "Sign Out & Try Again"}
               </Button>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
-  if (!profile && !isLoading) {
-    return (
-      <div className="container mx-auto p-6 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile Not Found</CardTitle>
-            <CardDescription>
-              Unable to load your profile. Please sign in to view your profile.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-            <Button variant="outline" onClick={() => router.navigate({ to: "/" })}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Go Home
-            </Button>
-            {/* Subscription Management */}
-            <Button 
-              onClick={async () => {
-                setIsRedirecting(true);
-                try {
-                  await IpcClient.getInstance().redirectToSubscribe();
-                  showSuccess("Opening subscription page in your browser...");
-                } catch (error) {
-                  showError(error instanceof Error ? error.message : "Failed to open subscription page");
-                } finally {
-                  setIsRedirecting(false);
-                }
-              }}
-              disabled={isRedirecting}
-              className="w-full"
-              variant="default"
-            >
-              <Crown className="h-4 w-4 mr-2" />
-              {isRedirecting ? "Opening..." : "Upgrade Subscription"}
-            </Button>
-            {/* Logout Button */}
-            {isAuthenticated && (
-              <Button 
-                variant="destructive" 
-                onClick={handleSignOut}
-                disabled={isLoggingOut}
-                className="w-full"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                {isLoggingOut ? "Signing out..." : "Sign Out"}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
+  // If we somehow get here with no profile (edge case), go home
+  if (!profile) {
+    return null;
   }
 
   return (
