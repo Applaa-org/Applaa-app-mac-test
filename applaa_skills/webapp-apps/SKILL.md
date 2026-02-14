@@ -166,10 +166,34 @@ npm run build    # Production build
 npm start        # Start production
 ```
 
+## Preview Shows Old App When Switching – ALWAYS check when preview looks wrong
+
+**Symptom:** When switching between web apps, the preview briefly shows the old app for a few seconds before showing the current one.
+
+**Root cause:** `appUrlAtom` holds `{ appUrl, appId, originalUrl }`. `selectedAppId` updates immediately on app switch, but components use `appUrl` without checking `appId === selectedAppId`, so they render the previous app's URL for one or more frames.
+
+**Fix:** In `PreviewIframe.tsx` (and any component using `appUrlAtom` for preview/iframe logic):
+
+1. Use the full `appUrlObj` from `appUrlAtom`.
+2. Compute `effectiveAppUrl` / `effectiveOriginalUrl` only when `appUrlObj.appId === selectedAppId`; otherwise use `null`.
+3. Use `effectiveAppUrl` for: iframe `src`, loader/empty state checks, navigation history init, postMessage `baseUrl`, URL resolution.
+4. Use `effectiveOriginalUrl` for "Open in Browser" button.
+
+```tsx
+const appUrlObj = useAtomValue(appUrlAtom);
+const { appUrl, originalUrl } = appUrlObj ?? { appUrl: null, originalUrl: null };
+const belongsToCurrentApp = appUrlObj && 'appId' in appUrlObj && appUrlObj.appId === selectedAppId;
+const effectiveAppUrl = belongsToCurrentApp && appUrl ? appUrl : null;
+const effectiveOriginalUrl = belongsToCurrentApp && originalUrl ? originalUrl : null;
+```
+
+**Rule:** When preview shows wrong/stale app content when switching apps, check `appUrlAtom` usage – ensure `appId === selectedAppId` before using the URL.
+
 ## Common Issues
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
+| Preview shows old app when switching | appUrl used without appId check | Use effectiveAppUrl (see above) |
 | Preview not starting | Port in use | Kill process on port 3000 |
 | Build fails | Missing dependencies | `npm install` |
 | Shadcn not working | Missing components | Add via `npx shadcn-ui@latest add` |

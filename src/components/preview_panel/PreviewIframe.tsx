@@ -173,7 +173,12 @@ const ErrorBanner = ({ error, onDismiss, onAIFix }: ErrorBannerProps) => {
 // Preview iframe component
 export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; godotExportUrl?: string }) => {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
-  const { appUrl, originalUrl } = useAtomValue(appUrlAtom);
+  const appUrlObj = useAtomValue(appUrlAtom);
+  const { appUrl, originalUrl } = appUrlObj ?? { appUrl: null, originalUrl: null };
+  // ✅ CRITICAL: Only use appUrl/originalUrl if they belong to the current app - prevents showing previous app preview for a few seconds
+  const belongsToCurrentApp = appUrlObj && 'appId' in appUrlObj && appUrlObj.appId === selectedAppId;
+  const effectiveAppUrl = belongsToCurrentApp && appUrl ? appUrl : null;
+  const effectiveOriginalUrl = belongsToCurrentApp && originalUrl ? originalUrl : null;
   const { expoUrl } = useExpoUrl();
   const setAppOutput = useSetAtom(appOutputAtom);
   const appOutput = useAtomValue(appOutputAtom);
@@ -753,7 +758,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
     return () => {
       iframe.removeEventListener('load', handleLoad);
     };
-  }, [isGodotApp, expoUrl, selectedAppId, appUrl]);
+  }, [isGodotApp, expoUrl, selectedAppId, effectiveAppUrl]);
 
 
   useEffect(() => {
@@ -1144,13 +1149,13 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
 
   // Initialize navigation history when iframe loads
   useEffect(() => {
-    if (appUrl) {
-      setNavigationHistory([appUrl]);
+    if (effectiveAppUrl) {
+      setNavigationHistory([effectiveAppUrl]);
       setCurrentHistoryPosition(0);
       setCanGoBack(false);
       setCanGoForward(false);
     }
-  }, [appUrl]);
+  }, [effectiveAppUrl]);
 
   // Function to activate component selector in the iframe
   const handleActivateComponentSelector = async () => {
@@ -1236,9 +1241,9 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
 
   // Function to navigate to a specific route
   const navigateToRoute = (path: string) => {
-    if (iframeRef.current?.contentWindow && appUrl) {
+    if (iframeRef.current?.contentWindow && effectiveAppUrl) {
       // Create the full URL by combining the base URL with the path
-      const baseUrl = new URL(appUrl).origin;
+      const baseUrl = new URL(effectiveAppUrl).origin;
       const newUrl = `${baseUrl}${path}`;
 
       // Navigate to the URL
@@ -1515,13 +1520,13 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             <button
               data-testid="preview-open-browser-button"
               onClick={() => {
-                if (originalUrl) {
-                  IpcClient.getInstance().openExternalUrl(originalUrl);
+                if (effectiveOriginalUrl) {
+                  IpcClient.getInstance().openExternalUrl(effectiveOriginalUrl);
                 }
               }}
               className="godot-button godot-button-icon"
               title="Open in Browser"
-              disabled={!originalUrl}
+              disabled={!effectiveOriginalUrl}
             >
               <ExternalLink size={16} />
             </button>
@@ -1655,7 +1660,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
             ) : (
               // Show regular app preview during streaming (only if not building)
               <div className="flex-1 relative">
-                {!appUrl && !expoUrl && !currentGodotExportUrl && !godotExportUrl ? (
+                {!effectiveAppUrl && !expoUrl && !currentGodotExportUrl && !godotExportUrl ? (
                   <div className={cn("flex flex-col items-center justify-center h-full", isGodotApp && "godot-loading")}>
                     {isGodotApp ? (
                       <div className="godot-spinner"></div>
@@ -1670,12 +1675,12 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                       <iframe
                         data-testid="preview-iframe-element"
                         onLoad={(e) => {
-                          const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                          const url = currentGodotExportUrl || godotExportUrl || effectiveAppUrl || expoUrl;
                           // Iframe loaded successfully
                           setErrorMessage(undefined);
                         }}
                         onError={(e) => {
-                          const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                          const url = currentGodotExportUrl || godotExportUrl || effectiveAppUrl || expoUrl;
                           // Iframe load error (handled by error handler)
                           setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
                         }}
@@ -1683,7 +1688,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                         key={reloadKey}
                         title={`Preview for App ${selectedAppId}`}
                         className="w-full h-full border-none"
-                        src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
+                        src={currentGodotExportUrl || godotExportUrl || effectiveAppUrl || expoUrl || undefined}
                         allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
                       />
                     </div>
@@ -1692,7 +1697,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               </div>
             )}
           </div>
-        ) : !appUrl && !expoUrl && !godotExportUrl && !currentGodotExportUrl ? (
+        ) : !effectiveAppUrl && !expoUrl && !godotExportUrl && !currentGodotExportUrl ? (
           <div className={cn("flex flex-col items-center justify-center h-full", isGodotApp && "godot-loading")}>
             {isGodotApp ? (
               <div className="godot-spinner"></div>
@@ -1707,7 +1712,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
               <iframe
                 data-testid="preview-iframe-element"
                 onLoad={(e) => {
-                  const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                  const url = currentGodotExportUrl || godotExportUrl || effectiveAppUrl || expoUrl;
                   // Iframe loaded
                   setErrorMessage(undefined);
                   
@@ -1722,7 +1727,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                   }
                 }}
                 onError={(e) => {
-                  const url = currentGodotExportUrl || godotExportUrl || appUrl || expoUrl;
+                  const url = currentGodotExportUrl || godotExportUrl || effectiveAppUrl || expoUrl;
                   // Iframe load error
                   setErrorMessage(`Failed to load preview: ${url}. The app server might not be running or there could be a CORS issue.`);
                 }}
@@ -1730,7 +1735,7 @@ export const PreviewIframe = ({ loading, godotExportUrl }: { loading: boolean; g
                 key={reloadKey}
                 title={`Preview for App ${selectedAppId}`}
                 className="w-full h-full border-none"
-                src={currentGodotExportUrl || godotExportUrl || appUrl || expoUrl || undefined}
+                src={currentGodotExportUrl || godotExportUrl || effectiveAppUrl || expoUrl || undefined}
                 allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture; geolocation; autoplay; picture-in-picture"
               />
             </div>

@@ -55,6 +55,16 @@ You have access to pre-built skills in the `applaa_skills/` folder that contain 
 | `godot-games/` | Godot game errors |
 | `blocklaa-apps/` | Blocklaa block errors |
 
+## Rule: Check on Every Preview/App-Switch Work
+
+**When preview shows wrong or stale content (e.g. old app when switching):**
+
+1. Search `applaa_skills/troubleshooting/SKILL.md` for "Preview shows old app" or "effectiveAppUrl"
+2. Read `applaa_skills/webapp-apps/SKILL.md` § Preview shows old app when switching
+3. Ensure any component using `appUrlAtom` for iframe/preview logic checks `appId === selectedAppId` before using the URL; use `effectiveAppUrl` / `effectiveOriginalUrl` pattern
+
+**Do not** use `appUrl` from `appUrlAtom` directly for iframe `src`, loader visibility, or navigation—it may belong to a different app after switch.
+
 ## When Building New Features
 
 Before implementing, check if a skill exists:

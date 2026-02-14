@@ -139,10 +139,11 @@ ERROR MESSAGE → Search this doc → Find matching pattern → Read linked skil
 
 ## Webapp Preview Errors → [webapp-apps](../webapp-apps/SKILL.md)
 
-**When web app preview doesn't work:**
+**When web app preview doesn't work or shows wrong content:**
 
 | Error Pattern | Cause | Quick Fix |
 |---------------|-------|-----------|
+| Preview briefly shows old app when switching apps | appUrl used without appId check | Use effectiveAppUrl – only use appUrl when appUrlObj.appId === selectedAppId (see [webapp-apps § Preview shows old app](../webapp-apps/SKILL.md#preview-shows-old-app-when-switching--always-check-when-preview-looks-wrong)) |
 | Preview not starting | Port in use | Kill process on port 3000 |
 | `ENOENT: package.json` | Wrong directory | Check app path |
 | Hot reload broken | Vite cache | Delete `.vite` folder |
