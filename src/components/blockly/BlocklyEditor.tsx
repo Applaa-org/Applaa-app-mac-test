@@ -936,16 +936,31 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
         requestAnimationFrame(() => requestAnimationFrame(runCode));
     };
 
+    /** Load a project into the workspace only (no guide/lessons). Used by Examples tab so Lessons don't open. */
+    const handleLoadTemplateOnly = (project: any) => {
+        if (!workspaceRef.current) return;
+        try {
+            workspaceRef.current.clear();
+            Blockly.serialization.workspaces.load(project.workspace, workspaceRef.current);
+            setCustomLesson(null);
+            if (workspaceRef.current.options) {
+                workspaceRef.current.options.readOnly = false;
+            }
+            setTimeout(() => generateAllCode(), 100);
+        } catch (e) {
+            const err = e instanceof Error ? e : new Error(String(e));
+            console.error("Failed to load template", err.message, err.stack, e);
+            alert(`Failed to load. Please try again.${err.message ? ` (${err.message})` : ""}`);
+        }
+    };
+
+    /** Load from Hub (left sidebar): load workspace and optionally show guide in right panel. */
     const handleLoadHubSample = (project: any) => {
         if (!workspaceRef.current) return;
         try {
-            // Clear workspace first
             workspaceRef.current.clear();
-
-            // Load the sample
             Blockly.serialization.workspaces.load(project.workspace, workspaceRef.current);
 
-            // Load Guide if available — right panel shows "Guide: [title]" and steps (instruction + description)
             if (project.guide) {
                 const guideLesson = {
                     id: `guide_${project.id}`,
@@ -965,16 +980,10 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 setCustomLesson(null);
             }
 
-            // Keep all blocks editable: ensure workspace is not read-only
             if (workspaceRef.current.options) {
                 workspaceRef.current.options.readOnly = false;
             }
-
-            // Regenerate code after load
-            setTimeout(() => {
-                generateAllCode();
-            }, 100); // Small delay to ensure blocks are fully rendered
-
+            setTimeout(() => generateAllCode(), 100);
         } catch (e) {
             const err = e instanceof Error ? e : new Error(String(e));
             console.error("Failed to load hub sample", err.message, err.stack, e);
@@ -1083,12 +1092,13 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 />
             </Suspense>
 
-            {/* Learn Panel - interactive tutorials */}
+            {/* Right panel: Examples (template only, no lessons) + Lessons (step-by-step). Hub uses handleLoadHubSample (with guide). */}
             <LearnPanel
-                isOpen={isLearnPanelOpen}
+                isOpen={isLearnPanelOpen && !isHubOpen}
                 onClose={() => setIsLearnPanelOpen(false)}
                 onHighlightCategory={handleHighlightCategory}
                 customLesson={customLesson}
+                onUseTemplate={handleLoadTemplateOnly}
             />
 
             {/* Appy the AI Teacher - Lazy loaded */}
@@ -1111,8 +1121,8 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                 justifyContent: 'space-between'
             }}>
-                {/* LEFT: Discovery Group */}
-                <div style={{ display: 'flex', gap: '8px' }}>
+                {/* LEFT: Discovery — Examples & lessons (right panel); all blocks are in the toolbox on the left */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                         onClick={() => setIsLearnPanelOpen(!isLearnPanelOpen)}
                         style={{
@@ -1125,12 +1135,15 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                             fontWeight: '600',
                             display: 'flex', alignItems: 'center', gap: '6px'
                         }}
-                        title="Lesson Guide"
+                        title="Examples & step-by-step lessons"
                     >
-                        <span>🎓</span> <span>Learn</span>
+                        <span>✨</span> <span>Examples & Learn</span>
                     </button>
                     <button
-                        onClick={() => setIsHubOpen(true)}
+                        onClick={() => {
+                            setIsHubOpen(true);
+                            setIsLearnPanelOpen(false); // Don't show Learn on the right when Hub is open
+                        }}
                         style={{
                             padding: '8px 12px',
                             backgroundColor: '#F3E8FF',
@@ -1299,6 +1312,30 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
             {/* Blockly Workspace or Code View */}
             <div style={{ flex: 1, position: 'relative', minHeight: '400px' }}>
 
+                {/* Hint for under-10s: all blocks on the left, examples on the right */}
+                {currentTab === 'blocks' && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        padding: '8px 16px',
+                        backgroundColor: '#f0f9ff',
+                        borderBottom: '1px solid #e0f2fe',
+                        fontSize: '13px',
+                        color: '#0369a1',
+                        zIndex: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap'
+                    }}>
+                        <span><strong>All blocks are on the left</strong> — drag them here to build.</span>
+                        <span>Try an example on the right → then change it and make it yours (math, art, science).</span>
+                    </div>
+                )}
+
                 {/* 🏆 Gamification Layers */}
                 <BadgeNotification />
                 {isBadgesOpen && <BadgesPanel onClose={() => setIsBadgesOpen(false)} />}
@@ -1427,7 +1464,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                     className="w-full h-full"
                     style={{
                         position: 'absolute',
-                        top: 0,
+                        top: currentTab === 'blocks' ? '42px' : 0,
                         left: 0,
                         right: 0,
                         bottom: 0,

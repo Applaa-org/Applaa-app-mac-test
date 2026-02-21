@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { LessonManager, Lesson, LessonStep } from '@/managers/LessonManager';
 import { CelebrationManager } from '@/managers/CelebrationManager';
+import { SAMPLE_PROJECTS, SampleProject } from '@/data/sampleProjects';
 
 interface LearnPanelProps {
     isOpen: boolean;
     onClose: () => void;
     onHighlightCategory?: (categoryId: string | null) => void;
     customLesson?: Lesson;
+    /** Load a template into the workspace so kids can copy and build (math, art, science). */
+    onUseTemplate?: (project: SampleProject) => void;
 }
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -32,33 +35,55 @@ const getCategoryName = (id: string): string => {
     return CATEGORY_NAMES[id] || id;
 };
 
-// Icons for difficulties
+// Icons and display labels for levels (Beginner / Intermediate / Expert)
 const DIFF_ICONS = {
     beginner: '🟢',
     intermediate: '🟡',
     advanced: '🔴'
 };
+const LEVEL_LABELS: Record<string, string> = {
+    all: 'All',
+    beginner: 'Beginner',
+    intermediate: 'Intermediate',
+    advanced: 'Expert'
+};
 
-export const LearnPanel: React.FC<LearnPanelProps> = ({ isOpen, onClose, onHighlightCategory, customLesson }) => {
+const EXAMPLE_CATEGORIES: SampleProject['category'][] = ['Math', 'Art', 'Science', 'Music', 'Games', 'Tutorials', 'Logic'];
+
+export const LearnPanel: React.FC<LearnPanelProps> = ({ isOpen, onClose, onHighlightCategory, customLesson, onUseTemplate }) => {
     const [lessons, setLessons] = useState<Lesson[]>([]);
     const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-    // Filter State
-    const [activeDifficulty, setActiveDifficulty] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
+    // Right panel tab: Examples (templates to copy) first for under-10s, then Lessons
+    const [rightTab, setRightTab] = useState<'examples' | 'lessons'>('examples');
+
+    // Success feedback when they click "Use this template" — clear and interactive
+    const [justLoadedTitle, setJustLoadedTitle] = useState<string | null>(null);
+
+    // Filter State — default to Beginner so new users see easiest lessons first
+    const [activeDifficulty, setActiveDifficulty] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('beginner');
     const [activeTag, setActiveTag] = useState<string>('all');
 
     useEffect(() => {
         setLessons(LessonManager.getLessons());
     }, []);
 
-    // React to custom lesson (from Hub Guides)
+    // React to custom lesson only when coming from Hub (guide). Examples tab uses onUseTemplate only — no lesson.
     useEffect(() => {
         if (customLesson && isOpen) {
             setActiveLesson(customLesson);
             setCurrentStepIndex(0);
+            setRightTab('lessons');
         }
     }, [customLesson, isOpen]);
+
+    // Clear "Loaded!" message after a few seconds
+    useEffect(() => {
+        if (!justLoadedTitle) return;
+        const t = setTimeout(() => setJustLoadedTitle(null), 5000);
+        return () => clearTimeout(t);
+    }, [justLoadedTitle]);
 
     // Trigger highlighting when step changes
     useEffect(() => {
@@ -109,153 +134,272 @@ export const LearnPanel: React.FC<LearnPanelProps> = ({ isOpen, onClose, onHighl
 
     if (!isOpen) return null;
 
-    // --- Render List View ---
+    // --- Render List View (Examples or Lessons tab) ---
     if (!activeLesson) {
+        const panelStyle = {
+            position: 'absolute' as const,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: '380px',
+            backgroundColor: 'white',
+            borderLeft: '1px solid #e5e7eb',
+            boxShadow: '-4px 0 24px rgba(0,0,0,0.08)',
+            display: 'flex',
+            flexDirection: 'column' as const,
+            zIndex: 90
+        };
+
         return (
-            <div style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                bottom: 0,
-                width: '380px',
-                backgroundColor: 'white',
-                borderLeft: '1px solid #e5e7eb',
-                boxShadow: '-4px 0 24px rgba(0,0,0,0.08)',
-                display: 'flex',
-                flexDirection: 'column',
-                zIndex: 90
-            }}>
-                {/* Header */}
-                <div style={{ padding: '20px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white' }}>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: '22px', color: '#111827', fontWeight: '800' }}>🎓 Learn Code</h2>
-                        <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6B7280' }}>Interactive guided lessons</p>
+            <div style={panelStyle}>
+                {/* Header: Try & Learn — for under-10s: examples (copy & build) + step-by-step lessons */}
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', backgroundColor: 'white' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: '20px', color: '#111827', fontWeight: '800' }}>✨ Try & Learn</h2>
+                            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6B7280' }}>Copy a template and build something cool (math, art, science)</p>
+                        </div>
+                        <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '22px', cursor: 'pointer', color: '#9CA3AF', padding: '4px' }}>✕</button>
                     </div>
-                    <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '24px', cursor: 'pointer', color: '#9CA3AF', padding: '4px' }}>✕</button>
-                </div>
-
-                {/* Filters */}
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', backgroundColor: '#FAFAFA', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {/* Difficulty Toggles */}
-                    <div style={{ display: 'flex', padding: '4px', backgroundColor: '#E5E7EB', borderRadius: '8px' }}>
-                        {(['all', 'beginner', 'intermediate', 'advanced'] as const).map(d => (
-                            <button
-                                key={d}
-                                onClick={() => setActiveDifficulty(d)}
-                                style={{
-                                    flex: 1,
-                                    padding: '6px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    backgroundColor: activeDifficulty === d ? 'white' : 'transparent',
-                                    color: activeDifficulty === d ? '#111' : '#6B7280',
-                                    boxShadow: activeDifficulty === d ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-                                    cursor: 'pointer',
-                                    fontWeight: '600',
-                                    fontSize: '12px',
-                                    textTransform: 'capitalize',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                {d === 'all' ? 'All' : d}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Tag Chips */}
-                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                    {/* Tabs: Examples (templates) | Lessons */}
+                    <div style={{ display: 'flex', gap: '4px', padding: '4px', backgroundColor: '#f3f4f6', borderRadius: '10px' }}>
                         <button
-                            onClick={() => setActiveTag('all')}
+                            onClick={() => setRightTab('examples')}
                             style={{
-                                padding: '4px 12px',
-                                borderRadius: '16px',
-                                border: activeTag === 'all' ? '1px solid #4F46E5' : '1px solid #E5E7EB',
-                                backgroundColor: activeTag === 'all' ? '#EEF2FF' : 'white',
-                                color: activeTag === 'all' ? '#4F46E5' : '#4B5563',
+                                flex: 1,
+                                padding: '10px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                backgroundColor: rightTab === 'examples' ? 'white' : 'transparent',
+                                color: rightTab === 'examples' ? '#111827' : '#6b7280',
+                                fontWeight: '600',
+                                fontSize: '14px',
                                 cursor: 'pointer',
-                                fontSize: '12px',
-                                whiteSpace: 'nowrap',
-                                fontWeight: '500'
+                                boxShadow: rightTab === 'examples' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
                             }}
                         >
-                            All Topics
+                            📋 Examples
                         </button>
-                        {allTags.map(tag => (
-                            <button
-                                key={tag}
-                                onClick={() => setActiveTag(tag)}
-                                style={{
-                                    padding: '4px 12px',
-                                    borderRadius: '16px',
-                                    border: activeTag === tag ? '1px solid #4F46E5' : '1px solid #E5E7EB',
-                                    backgroundColor: activeTag === tag ? '#EEF2FF' : 'white',
-                                    color: activeTag === tag ? '#4F46E5' : '#4B5563',
-                                    cursor: 'pointer',
-                                    fontSize: '12px',
-                                    whiteSpace: 'nowrap',
-                                    fontWeight: '500'
-                                }}
-                            >
-                                {tag}
-                            </button>
-                        ))}
+                        <button
+                            onClick={() => setRightTab('lessons')}
+                            style={{
+                                flex: 1,
+                                padding: '10px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                backgroundColor: rightTab === 'lessons' ? 'white' : 'transparent',
+                                color: rightTab === 'lessons' ? '#111827' : '#6b7280',
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                boxShadow: rightTab === 'lessons' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                            }}
+                        >
+                            🎓 Lessons
+                        </button>
                     </div>
                 </div>
 
-                {/* Lesson List */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px', backgroundColor: '#F9FAFB' }}>
-                    {filteredLessons.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9CA3AF' }}>
-                            <div style={{ fontSize: '40px', marginBottom: '8px' }}>🕵️</div>
-                            <div>No lessons found for this filter.</div>
-                        </div>
-                    ) : (
-                        filteredLessons.map(lesson => (
+                {rightTab === 'examples' ? (
+                    /* Examples: templates by category — use one and build/improve. No lessons auto-open. */
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '16px', backgroundColor: '#f9fafb' }}>
+                        {justLoadedTitle && (
                             <div
-                                key={lesson.id}
-                                onClick={() => handleStartLesson(lesson)}
                                 style={{
-                                    padding: '16px',
+                                    marginBottom: '16px',
+                                    padding: '14px',
                                     borderRadius: '12px',
-                                    border: '1px solid #E5E7EB',
-                                    marginBottom: '12px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    backgroundColor: 'white',
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                    backgroundColor: '#dcfce7',
+                                    border: '1px solid #86efac',
+                                    color: '#166534',
+                                    fontSize: '14px',
+                                    fontWeight: '600'
                                 }}
-                                className="hover:shadow-md hover:border-indigo-300 hover:transform hover:-translate-y-0.5"
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'flex-start' }}>
-                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1F2937' }}>
-                                        {lesson.title}
-                                    </h3>
-                                    <span style={{ fontSize: '14px' }} title={lesson.difficulty}>{DIFF_ICONS[lesson.difficulty]}</span>
-                                </div>
-
-                                <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#6B7280', lineHeight: '1.5' }}>
-                                    {lesson.description}
-                                </p>
-
-                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                    {lesson.tags?.map(tag => (
-                                        <span key={tag} style={{
-                                            fontSize: '10px',
-                                            padding: '2px 8px',
-                                            borderRadius: '10px',
-                                            backgroundColor: '#F3F4F6',
-                                            color: '#4B5563',
-                                            fontWeight: '600',
-                                            border: '1px solid #E5E7EB'
-                                        }}>
-                                            #{tag}
-                                        </span>
+                                ✓ Loaded &quot;{justLoadedTitle}&quot;! Build in the workspace → change blocks and run your code.
+                            </div>
+                        )}
+                        <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#6b7280' }}>
+                            Pick a project. Click &quot;Use this template&quot; — it loads in the middle. Then change it and make it yours!
+                        </p>
+                        {EXAMPLE_CATEGORIES.map(cat => {
+                            const projects = SAMPLE_PROJECTS.filter(p => p.category === cat);
+                            if (projects.length === 0) return null;
+                            return (
+                                <div key={cat} style={{ marginBottom: '20px' }}>
+                                    <h3 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: '700', color: '#374151' }}>{cat}</h3>
+                                    {projects.map(project => (
+                                        <div
+                                            key={project.id}
+                                            style={{
+                                                padding: '14px',
+                                                borderRadius: '12px',
+                                                border: '1px solid #e5e7eb',
+                                                marginBottom: '10px',
+                                                backgroundColor: 'white',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: '#111827' }}>{project.title}</h4>
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '6px',
+                                                    backgroundColor: project.difficulty === 'Beginner' ? '#dcfce7' : project.difficulty === 'Intermediate' ? '#fef3c7' : '#fee2e2',
+                                                    color: project.difficulty === 'Beginner' ? '#166534' : project.difficulty === 'Intermediate' ? '#92400e' : '#991b1b',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {project.difficulty}
+                                                </span>
+                                            </div>
+                                            <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#6b7280', lineHeight: '1.45' }}>{project.description}</p>
+                                            {onUseTemplate && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onUseTemplate(project);
+                                                        setJustLoadedTitle(project.title);
+                                                    }}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '10px 12px',
+                                                        borderRadius: '8px',
+                                                        border: 'none',
+                                                        backgroundColor: '#4f46e5',
+                                                        color: 'white',
+                                                        fontSize: '13px',
+                                                        fontWeight: '600',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Use this template
+                                                </button>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    /* Lessons: step-by-step by level */
+                    <>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', backgroundColor: '#FAFAFA', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', padding: '4px', backgroundColor: '#E5E7EB', borderRadius: '8px' }}>
+                                {(['all', 'beginner', 'intermediate', 'advanced'] as const).map(d => (
+                                    <button
+                                        key={d}
+                                        onClick={() => setActiveDifficulty(d)}
+                                        style={{
+                                            flex: 1,
+                                            padding: '8px 6px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            backgroundColor: activeDifficulty === d ? 'white' : 'transparent',
+                                            color: activeDifficulty === d ? '#111' : '#6B7280',
+                                            boxShadow: activeDifficulty === d ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                                            cursor: 'pointer',
+                                            fontWeight: '600',
+                                            fontSize: '11px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {LEVEL_LABELS[d]}
+                                    </button>
+                                ))}
                             </div>
-                        ))
-                    )}
-                </div>
+                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                                <button
+                                    onClick={() => setActiveTag('all')}
+                                    style={{
+                                        padding: '4px 12px',
+                                        borderRadius: '16px',
+                                        border: activeTag === 'all' ? '1px solid #4F46E5' : '1px solid #E5E7EB',
+                                        backgroundColor: activeTag === 'all' ? '#EEF2FF' : 'white',
+                                        color: activeTag === 'all' ? '#4F46E5' : '#4B5563',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        whiteSpace: 'nowrap',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    All Topics
+                                </button>
+                                {allTags.map(tag => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => setActiveTag(tag)}
+                                        style={{
+                                            padding: '4px 12px',
+                                            borderRadius: '16px',
+                                            border: activeTag === tag ? '1px solid #4F46E5' : '1px solid #E5E7EB',
+                                            backgroundColor: activeTag === tag ? '#EEF2FF' : 'white',
+                                            color: activeTag === tag ? '#4F46E5' : '#4B5563',
+                                            cursor: 'pointer',
+                                            fontSize: '12px',
+                                            whiteSpace: 'nowrap',
+                                            fontWeight: '500'
+                                        }}
+                                    >
+                                        {tag}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', backgroundColor: '#F9FAFB' }}>
+                            {filteredLessons.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9CA3AF' }}>
+                                    <div style={{ fontSize: '40px', marginBottom: '8px' }}>🕵️</div>
+                                    <div>No lessons found for this filter.</div>
+                                </div>
+                            ) : (
+                                filteredLessons.map(lesson => (
+                                    <div
+                                        key={lesson.id}
+                                        onClick={() => handleStartLesson(lesson)}
+                                        style={{
+                                            padding: '16px',
+                                            borderRadius: '12px',
+                                            border: '1px solid #E5E7EB',
+                                            marginBottom: '12px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            backgroundColor: 'white',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                        }}
+                                        className="hover:shadow-md hover:border-indigo-300 hover:transform hover:-translate-y-0.5"
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'flex-start' }}>
+                                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1F2937' }}>
+                                                {lesson.title}
+                                            </h3>
+                                            <span style={{ fontSize: '14px' }} title={LEVEL_LABELS[lesson.difficulty]}>{DIFF_ICONS[lesson.difficulty]}</span>
+                                        </div>
+                                        <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#6B7280', lineHeight: '1.5' }}>
+                                            {lesson.description}
+                                        </p>
+                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                            {lesson.tags?.map(tag => (
+                                                <span key={tag} style={{
+                                                    fontSize: '10px',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px',
+                                                    backgroundColor: '#F3F4F6',
+                                                    color: '#4B5563',
+                                                    fontWeight: '600',
+                                                    border: '1px solid #E5E7EB'
+                                                }}>
+                                                    #{tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </>
+                )}
             </div>
         );
     }
