@@ -8,13 +8,8 @@ interface SampleHubProps {
     initialCategory?: string;
 }
 
-const HUB_LEVELS = ['All', 'Beginner', 'Intermediate', 'Advanced'] as const;
-type HubLevel = (typeof HUB_LEVELS)[number];
-
 export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'All' }: SampleHubProps) {
     const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
-    const [selectedLevel, setSelectedLevel] = useState<HubLevel>('All');
-    const [confirmProject, setConfirmProject] = useState<SampleProject | null>(null);
 
     // Update selected category when initialCategory changes and hub opens
     React.useEffect(() => {
@@ -26,41 +21,23 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
     // Get unique categories
     const categories = ['All', ...Array.from(new Set(SAMPLE_PROJECTS.map(p => p.category)))];
 
-    // Filter by category and level
-    const filteredProjects = SAMPLE_PROJECTS.filter(p => {
-        if (selectedCategory !== 'All' && p.category !== selectedCategory) return false;
-        if (selectedLevel !== 'All' && p.difficulty !== selectedLevel) return false;
-        return true;
-    });
-
-    const handleProjectClick = (project: SampleProject) => {
-        setConfirmProject(project);
-    };
-
-    const handleConfirmLoad = () => {
-        if (confirmProject) {
-            onLoadSample(confirmProject);
-            setConfirmProject(null);
-            onClose();
-        }
-    };
-
-    const handleCancelLoad = () => {
-        setConfirmProject(null);
-    };
+    // Filter projects
+    const filteredProjects = selectedCategory === 'All'
+        ? SAMPLE_PROJECTS
+        : SAMPLE_PROJECTS.filter(p => p.category === selectedCategory);
 
     return (
         <div style={{
             position: 'fixed',
             top: 0,
-            left: 0,
+            right: 0, // Right side hub (moved from left)
             bottom: 0,
             width: '340px',
             maxWidth: '90vw',
-            backgroundColor: '#fafafa',
-            boxShadow: '2px 0 16px rgba(0,0,0,0.12)',
-            zIndex: 1100,
-            transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+            backgroundColor: '#ffffff',
+            boxShadow: '-2px 0 12px rgba(0,0,0,0.15)',
+            zIndex: 1100, // Above editor
+            transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
             transition: 'transform 0.3s ease-in-out',
             display: 'flex',
             flexDirection: 'column'
@@ -68,18 +45,15 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
             {/* Header */}
             <div style={{
                 padding: '16px 20px',
-                borderBottom: '1px solid #e5e7eb',
+                borderBottom: '1px solid #eee',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                backgroundColor: 'white'
+                backgroundColor: '#f8f9fa'
             }}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        🚀 Project Hub
-                    </h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' }}>Try samples by category and level</p>
-                </div>
+                <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🚀 Applaa Hub
+                </h2>
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -88,9 +62,9 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                     style={{
                         background: 'none',
                         border: 'none',
-                        fontSize: '24px',
+                        fontSize: '28px',
                         cursor: 'pointer',
-                        color: '#6b7280',
+                        color: '#666',
                         width: '40px',
                         height: '40px',
                         display: 'flex',
@@ -99,15 +73,16 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                         borderRadius: '8px',
                         transition: 'all 0.2s',
                         padding: 0,
-                        lineHeight: 1
+                        lineHeight: 1,
+                        margin: 0
                     }}
                     onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#f3f4f6';
-                        e.currentTarget.style.color = '#111';
+                        e.currentTarget.style.backgroundColor = '#f0f0f0';
+                        e.currentTarget.style.color = '#333';
                     }}
                     onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#6b7280';
+                        e.currentTarget.style.color = '#666';
                     }}
                     title="Close Hub"
                 >
@@ -115,63 +90,45 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                 </button>
             </div>
 
-            {/* Level filter: Beginner / Intermediate / Advanced */}
+            {/* Category Filter */}
             <div style={{
                 padding: '12px 16px',
-                borderBottom: '1px solid #e5e7eb',
-                backgroundColor: 'white'
-            }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Level</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {HUB_LEVELS.map(level => (
-                        <button
-                            key={level}
-                            onClick={() => setSelectedLevel(level)}
-                            style={{
-                                padding: '8px 14px',
-                                borderRadius: '20px',
-                                border: '2px solid ' + (selectedLevel === level ? '#6366f1' : '#e5e7eb'),
-                                backgroundColor: selectedLevel === level ? '#6366f1' : '#f9fafb',
-                                color: selectedLevel === level ? 'white' : '#374151',
-                                fontSize: '13px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            {level}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Category tabs */}
-            <div style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #e5e7eb',
                 display: 'flex',
                 gap: '8px',
                 overflowX: 'auto',
+                borderBottom: '1px solid #eee',
                 alignItems: 'center',
-                backgroundColor: 'white',
-                flexShrink: 0
+                minHeight: '48px',
+                backgroundColor: '#fafafa'
             }}>
                 {categories.map(cat => (
                     <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
                         style={{
-                            padding: '8px 14px',
-                            borderRadius: '20px',
-                            border: '1px solid ' + (selectedCategory === cat ? '#6366f1' : '#e5e7eb'),
-                            backgroundColor: selectedCategory === cat ? '#eef2ff' : '#f9fafb',
-                            color: selectedCategory === cat ? '#4f46e5' : '#4b5563',
+                            padding: '8px 16px',
+                            borderRadius: '18px',
+                            border: '2px solid ' + (selectedCategory === cat ? '#4CAF50' : '#ddd'),
+                            backgroundColor: selectedCategory === cat ? '#4CAF50' : 'white',
+                            color: selectedCategory === cat ? 'white' : '#333',
                             fontSize: '13px',
-                            fontWeight: selectedCategory === cat ? '600' : '500',
+                            fontWeight: selectedCategory === cat ? 'bold' : 'normal',
                             cursor: 'pointer',
                             whiteSpace: 'nowrap',
                             transition: 'all 0.2s',
                             flexShrink: 0
+                        }}
+                        onMouseEnter={(e) => {
+                            if (selectedCategory !== cat) {
+                                e.currentTarget.style.backgroundColor = '#f5f5f5';
+                                e.currentTarget.style.borderColor = '#4CAF50';
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            if (selectedCategory !== cat) {
+                                e.currentTarget.style.backgroundColor = 'white';
+                                e.currentTarget.style.borderColor = '#ddd';
+                            }
                         }}
                     >
                         {cat}
@@ -179,140 +136,65 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                 ))}
             </div>
 
-            {/* Project list */}
+            {/* Project List */}
             <div style={{
                 padding: '16px',
                 flex: 1,
-                overflowY: 'auto'
+                overflowY: 'auto',
+                backgroundColor: '#f9fafb'
             }}>
-                {filteredProjects.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '32px 16px', color: '#9ca3af', fontSize: '14px' }}>
-                        No projects match this filter. Try another level or category.
-                    </div>
-                ) : (
-                    filteredProjects.map(project => (
-                        <div
-                            key={project.id}
-                            onClick={() => handleProjectClick(project)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => e.key === 'Enter' && handleProjectClick(project)}
-                            style={{
-                                padding: '14px',
-                                marginBottom: '12px',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '12px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                backgroundColor: 'white',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.borderColor = '#6366f1';
-                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(99,102,241,0.15)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.borderColor = '#e5e7eb';
-                                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
-                            }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
-                                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: '#111827', lineHeight: '1.3' }}>
-                                    {project.title}
-                                </h3>
-                                <span style={{
-                                    fontSize: '10px',
-                                    padding: '3px 8px',
-                                    borderRadius: '6px',
-                                    backgroundColor: getDifficultyColor(project.difficulty),
-                                    color: 'white',
-                                    fontWeight: '600',
-                                    flexShrink: 0
-                                }}>
-                                    {project.difficulty}
-                                </span>
-                            </div>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', lineHeight: '1.45' }}>
-                                {project.description}
-                            </p>
-                            <div style={{ marginTop: '8px', fontSize: '11px', color: '#9ca3af' }}>
-                                {project.category}
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
-
-            {/* In-app confirm dialog (replaces browser confirm) */}
-            {confirmProject && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        backgroundColor: 'rgba(0,0,0,0.4)',
-                        zIndex: 1200,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '20px'
-                    }}
-                    onClick={handleCancelLoad}
-                >
+                {filteredProjects.map(project => (
                     <div
-                        style={{
-                            backgroundColor: 'white',
-                            borderRadius: '16px',
-                            padding: '24px',
-                            maxWidth: '360px',
-                            width: '100%',
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+                        key={project.id}
+                        onClick={() => {
+                            if (confirm(`Load "${project.title}"? This will discard current changes.`)) {
+                                onLoadSample(project);
+                                onClose();
+                            }
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            padding: '16px',
+                            marginBottom: '16px',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            backgroundColor: 'white'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.18)';
+                            e.currentTarget.style.borderColor = '#4CAF50';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                            e.currentTarget.style.borderColor = '#e5e7eb';
+                        }}
                     >
-                        <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: '700', color: '#111827' }}>
-                            Load this project?
-                        </h3>
-                        <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#6b7280', lineHeight: 1.5 }}>
-                            <strong>{confirmProject.title}</strong>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#111827' }}>{project.title}</h3>
+                            <span style={{
+                                fontSize: '11px',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                backgroundColor: getDifficultyColor(project.difficulty),
+                                color: 'white',
+                                fontWeight: 'bold'
+                            }}>
+                                {project.difficulty}
+                            </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '13px', color: '#4b5563', lineHeight: 1.5 }}>
+                            {project.description}
                         </p>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af' }}>
-                            Your current blocks will be replaced. You can always open the Hub again to try another.
-                        </p>
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '20px', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={handleCancelLoad}
-                                style={{
-                                    padding: '10px 18px',
-                                    borderRadius: '10px',
-                                    border: '1px solid #e5e7eb',
-                                    backgroundColor: 'white',
-                                    color: '#374151',
-                                    fontSize: '14px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleConfirmLoad}
-                                style={{
-                                    padding: '10px 18px',
-                                    borderRadius: '10px',
-                                    border: 'none',
-                                    backgroundColor: '#6366f1',
-                                    color: 'white',
-                                    fontSize: '14px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Load project
-                            </button>
+                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#9ca3af', fontWeight: '500' }}>
+                            📁 {project.category}
                         </div>
                     </div>
-                </div>
-            )}
+                ))}
+            </div>
         </div>
     );
 }
@@ -325,3 +207,4 @@ function getDifficultyColor(diff: string) {
         default: return '#999';
     }
 }
+
