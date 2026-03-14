@@ -925,7 +925,7 @@ export function LearningAcademyCurriculumTopic() {
           <span className="text-gray-300 dark:text-gray-600">|</span>
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-xl">{subject.emoji}</span>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 break-words min-w-0">
               {topic.title}
             </h1>
             <span className="text-gray-500 dark:text-gray-400 text-sm shrink-0">

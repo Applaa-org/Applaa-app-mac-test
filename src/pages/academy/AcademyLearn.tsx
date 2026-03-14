@@ -56,7 +56,7 @@ function BlockSubTopicDetail({
   const sub = getBlockSubTopic(blockId, subTopicId);
   if (!sub) return null;
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-8">
       <Link
         to="/academy/learn"
         search={{ track: blockId }}
@@ -348,7 +348,7 @@ export function AcademyLearn() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 w-full max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
         <Sparkles className="h-7 w-7 text-amber-500" />
         Learning modules

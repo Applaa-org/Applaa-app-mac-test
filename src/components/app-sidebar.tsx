@@ -89,7 +89,7 @@ const items = [
   },
   {
     id: "ai-academy",
-    title: "AI Academy",
+    title: "AI Ac'dmy",
     to: "/academy",
     icon: GraduationCap,
   },
@@ -187,14 +187,17 @@ export function AppSidebar() {
     }
   }
 
-  // Determine if sidebar should be expanded (18rem) or collapsed (5rem)
+  // Determine if sidebar should be expanded (icon column + panel) or collapsed (icons only).
+  // Expanded must fit: icon column (4rem / w-16) + right panel (240px) = 19rem to avoid trimming main content.
+  // Collapsed uses 5rem so gap matches actual icon width and doesn't reserve extra space.
   const shouldExpand = selectedItem === "Apps" || selectedItem === "Settings";
 
   return (
     <Sidebar
       collapsible="icon"
+      className="top-12 h-[calc(100vh-3rem)]"
       style={{
-        '--sidebar-width': shouldExpand ? '18rem' : '5rem',
+        '--sidebar-width': shouldExpand ? '19rem' : '5rem',
         '--sidebar-width-icon': '5rem'
       } as React.CSSProperties}
       onMouseLeave={() => {
@@ -203,8 +206,8 @@ export function AppSidebar() {
         }
       }}
     >
-      <SidebarContent className="overflow-hidden flex flex-col h-full">
-        <div className="flex flex-1 mt-8 min-h-0">
+      <SidebarContent className="flex flex-col h-full min-h-0 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-auto">
           {/* Left Column: Menu items */}
           <div className="flex-shrink-0">
             <SidebarTrigger
@@ -372,10 +375,13 @@ function AppIcons({
                         }`}>
                         <item.icon className="h-5 w-5 text-white" />
                       </div>
-                      <span className={`text-xs font-medium whitespace-nowrap ${isActive
-                        ? "text-blue-700 dark:text-blue-300"
-                        : "text-gray-700 dark:text-gray-300"
-                        }`}>
+                      <span
+                        title={item.title}
+                        className={`text-xs font-medium whitespace-nowrap overflow-visible min-w-0 text-center ${isActive
+                          ? "text-blue-700 dark:text-blue-300"
+                          : "text-gray-700 dark:text-gray-300"
+                          }`}
+                      >
                         {item.title}
                       </span>
                     </div>

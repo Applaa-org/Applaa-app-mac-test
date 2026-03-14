@@ -21,7 +21,7 @@ import { useRandomGame } from "@/hooks/useRandomGame";
 import { isStreamingAtom } from "@/atoms/chatAtoms";
 import type { GameOption } from "@/hooks/useRandomGame";
 import { useSettings } from "@/hooks/useSettings";
-
+import { cn } from "@/lib/utils";
 
 export default function RootLayout({
   children,
@@ -111,7 +111,7 @@ export default function RootLayout({
     <ErrorBoundary>
       <ThemeProvider>
         <DeepLinkProvider>
-          <SidebarProvider>
+          <SidebarProvider className="flex h-screen w-full overflow-hidden">
             <TooltipProvider>
               {/* 🚀 PERFORMANCE: Semantic Context DISABLED for testing - will re-enable after core fixes */}
               {/* Semantic context UI removed for MVP */}
@@ -122,26 +122,31 @@ export default function RootLayout({
               </ErrorBoundary>
               */}
               <TitleBar />
-              {!location.pathname.startsWith("/learning-academy") && (
+              {/* Main row: sidebar + content constrained so nothing trims */}
+              <div className="flex flex-1 min-h-0 min-w-0 mt-12 overflow-hidden">
+                {!location.pathname.startsWith("/academy") && !location.pathname.startsWith("/learning-academy") && (
+                  <ErrorBoundary>
+                    <AppSidebar />
+                  </ErrorBoundary>
+                )}
                 <ErrorBoundary>
-                  <AppSidebar />
+                  <BackgroundTaskStatusBar />
                 </ErrorBoundary>
-              )}
-              {/* Background task status bar */}
-              <ErrorBoundary>
-                <BackgroundTaskStatusBar />
-              </ErrorBoundary>
-              {/* Background task completion handler */}
-              <ErrorBoundary>
-                <BackgroundTaskCompletionHandler />
-              </ErrorBoundary>
-              <div className={isFullscreenMode
-                ? "flex h-screenish w-full overflow-hidden bg-background mt-12"
-                : "flex h-screenish w-full overflow-x-hidden mt-12 mb-4 mr-4 border-t border-l border-border rounded-lg bg-background"
-              }>
                 <ErrorBoundary>
-                  {children}
+                  <BackgroundTaskCompletionHandler />
                 </ErrorBoundary>
+                <div
+                  className={cn(
+                    "flex flex-1 min-w-0 min-h-0 overflow-hidden bg-background h-screenish",
+                    !isFullscreenMode && "mb-4 mr-4 border-t border-l border-border rounded-lg"
+                  )}
+                >
+                  <ErrorBoundary>
+                    <div className="min-w-0 flex-1 min-h-0 overflow-hidden w-full">
+                      {children}
+                    </div>
+                  </ErrorBoundary>
+                </div>
               </div>
               <Toaster richColors />
 

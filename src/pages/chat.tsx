@@ -236,7 +236,7 @@ export default function ChatPage() {
   }
 
   return (
-    <PanelGroup autoSaveId="persistence" direction="horizontal">
+    <PanelGroup autoSaveId="persistence" direction="horizontal" className="min-w-0 w-full h-full">
       <Panel
         id="left-panel"
         minSize={30}
