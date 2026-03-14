@@ -41,7 +41,8 @@ export function AcademyProjectDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["academy-projects"] });
       queryClient.invalidateQueries({ queryKey: ["academy-project", id] });
-      showSuccess("Project saved");
+      queryClient.invalidateQueries({ queryKey: ["academy-progress"] });
+      showSuccess("Project saved! 🎉 Check your dashboard for medals!");
     },
     onError: (e) => showError(e as Error),
   });

@@ -7,6 +7,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getUserId } from "./credit_handlers";
+import { getTutorAnswer } from "@/data/academyTutorKnowledge";
 import log from "electron-log";
 
 const logger = log.scope("academy-handlers");
@@ -217,18 +218,15 @@ export function registerAcademyHandlers() {
     return { success: true };
   });
 
-  // AI Tutor: simple Q&A with code context (uses existing chat/count-tokens if we want; for MVP we use a simple invoke that could call an LLM later)
+  // AI Tutor: offline knowledge base – no LLM, works fully offline
   ipcMain.handle(
     "academy:ai-tutor",
     async (
       _,
       { code, question }: { code: string; question: string }
     ): Promise<{ answer: string }> => {
-      // MVP: return a placeholder. Later wire to start-chat-stream or a dedicated tutor model.
-      return {
-        answer:
-          "AI Tutor is coming soon. For now, try reading the error message, adding console.log/print to see values, and checking the lesson explanation. You've got this!",
-      };
+      const answer = getTutorAnswer(question, code);
+      return { answer };
     }
   );
 }

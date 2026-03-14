@@ -22,7 +22,7 @@ export const academyIndexRoute = createRoute({
 });
 
 const academyLearnSearchSchema = z.object({
-  track: z.enum(["python", "javascript"]).optional(),
+  track: z.enum(["basics", "python", "javascript"]).optional(),
   lessonId: z.string().optional(),
 });
 

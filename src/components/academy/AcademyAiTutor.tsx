@@ -40,10 +40,13 @@ export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>AI Tutor</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            AI Tutor (offline)
+          </DialogTitle>
         </DialogHeader>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Ask things like: &quot;Why is my code not working?&quot; or &quot;Explain this code.&quot;
+          I know about variables, loops, functions, errors, and debugging. Ask e.g. &quot;Why is my code not working?&quot; or &quot;Explain this code.&quot; No internet needed.
         </p>
         <textarea
           className="w-full min-h-[80px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm resize-y"
@@ -64,7 +67,7 @@ export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
           Ask
         </Button>
         {tutorMutation.data && (
-          <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-3 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+          <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-3 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700">
             {tutorMutation.data.answer}
           </div>
         )}

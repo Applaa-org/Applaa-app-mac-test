@@ -119,6 +119,100 @@ print("Paris:", get_temp("Paris"))
 `,
     },
   },
+  {
+    id: "guessing",
+    name: "Number Guessing Game",
+    type: "guessing",
+    instructions: "The program picks a random number. The user guesses until they get it right. Use a loop and input/prompt.",
+    starterCode: {
+      javascript: `// Guess the number (1-10)
+const secret = Math.floor(Math.random() * 10) + 1;
+let guess = parseInt(prompt("Guess 1-10:"), 10);
+while (guess !== secret) {
+  console.log(guess < secret ? "Too low!" : "Too high!");
+  guess = parseInt(prompt("Guess again:"), 10);
+}
+console.log("You got it!");
+`,
+      python: `import random
+secret = random.randint(1, 10)
+guess = int(input("Guess 1-10: "))
+while guess != secret:
+    print("Too low!" if guess < secret else "Too high!")
+    guess = int(input("Guess again: "))
+print("You got it!")
+`,
+    },
+  },
+  {
+    id: "story",
+    name: "Mad Libs Story",
+    type: "story",
+    instructions: "Ask for a few words (noun, verb, place) and then print a silly sentence using those words.",
+    starterCode: {
+      javascript: `let noun = "dragon";
+let verb = "dance";
+let place = "the moon";
+console.log("The " + noun + " likes to " + verb + " at " + place + "!");
+`,
+      python: `noun = input("Give me a noun: ")
+verb = input("Give me a verb: ")
+place = input("Give me a place: ")
+print(f"The {noun} likes to {verb} at {place}!")
+`,
+    },
+  },
+  {
+    id: "counter",
+    name: "Click Counter",
+    type: "counter",
+    instructions: "Simulate a counter: start at 0, add functions to add one, subtract one, and reset. Print the count after each action.",
+    starterCode: {
+      javascript: `let count = 0;
+function addOne() { count++; return count; }
+function subOne() { count--; return count; }
+function reset() { count = 0; return count; }
+addOne(); addOne(); addOne();
+console.log("Count:", count);
+subOne();
+console.log("Count:", count);
+`,
+      python: `count = 0
+def add_one():
+    global count
+    count += 1
+    return count
+def sub_one():
+    global count
+    count -= 1
+    return count
+def reset():
+    global count
+    count = 0
+    return count
+add_one(); add_one(); add_one()
+print("Count:", count)
+sub_one()
+print("Count:", count)
+`,
+    },
+  },
+  {
+    id: "greeting",
+    name: "Greeting Machine",
+    type: "greeting",
+    instructions: "Ask for the user's name and the time of day (morning/afternoon/evening). Print a greeting like 'Good morning, Alex!'",
+    starterCode: {
+      javascript: `let name = "Alex";
+let time = "morning";
+console.log("Good " + time + ", " + name + "!");
+`,
+      python: `name = input("Your name: ")
+time = input("Morning, afternoon, or evening? ")
+print(f"Good {time}, {name}!")
+`,
+    },
+  },
 ];
 
 export function getProjectTemplate(type: string): AcademyProjectTemplate | undefined {

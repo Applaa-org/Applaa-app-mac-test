@@ -30,8 +30,31 @@ async function runPython(code: string): Promise<string> {
     if (!getPyodide) return "Pyodide not loaded.";
     if (!window.__pyodidePromise) window.__pyodidePromise = getPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/" });
     const pyodide = await window.__pyodidePromise;
-    const result = pyodide.runPython(code);
-    return result != null ? String(result) : "";
+
+    // Capture print() and last expression: redirect stdout to StringIO, run code, get value
+    const setup = `
+import sys
+from io import StringIO
+__academy_buf__ = StringIO()
+__academy_old_stdout__ = sys.stdout
+sys.stdout = __academy_buf__
+`;
+    const teardown = `
+sys.stdout = __academy_old_stdout__
+__academy_out__ = __academy_buf__.getvalue()
+`;
+    try {
+      pyodide.runPython(setup);
+      pyodide.runPython(code);
+    } finally {
+      try {
+        pyodide.runPython(teardown);
+      } catch (_) {
+        pyodide.runPython("sys.stdout = __academy_old_stdout__");
+      }
+    }
+    const out = (pyodide.globals.get("__academy_out__") ?? "") as string;
+    return out.trim() || "(no output)";
   } catch (e: any) {
     return `Error: ${e?.message ?? e}`;
   }
@@ -84,6 +107,7 @@ export function AcademyCodeEditor({
   const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const runCode = useCallback(async () => {
+    if (running) return;
     setRunning(true);
     setOutput("Running...");
     try {
@@ -102,28 +126,68 @@ export function AcademyCodeEditor({
     } finally {
       setRunning(false);
     }
-  }, [value, language, onRun]);
+  }, [value, language, onRun, running]);
+
+  const runCodeRef = useRef(runCode);
+  runCodeRef.current = runCode;
+
+  const handleEditorMount: OnMount = useCallback(
+    (editor, monaco) => {
+      if (!showRunButton) return;
+      editor.addAction({
+        id: "academy-run-code",
+        label: "Run code",
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+        run: () => {
+          runCodeRef.current();
+        },
+      });
+    },
+    [showRunButton]
+  );
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (showRunButton) runCodeRef.current();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showRunButton]);
 
   const editorTheme = isDark ? "vs-dark" : "vs";
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-900">
-      <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-          {language === "python" ? "Python" : "JavaScript"}
+    <div className="rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/50 overflow-hidden bg-white dark:bg-gray-900 shadow-md">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50">
+        <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+          {language === "python" ? "🐍 Python" : "🟨 JavaScript"}
         </span>
         {showRunButton && (
-          <Button size="sm" onClick={runCode} disabled={running} className="gap-1.5">
-            {running ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Play className="h-3.5 w-3.5" />
-            )}
-            Run
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+              Ctrl+Enter to run
+            </span>
+            <Button
+              size="sm"
+              onClick={runCode}
+              disabled={running}
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold shadow"
+            >
+              {running ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 fill-current" />
+              )}
+              Run code
+            </Button>
+          </div>
         )}
       </div>
       <Editor
+        onMount={handleEditorMount}
         height={typeof height === "number" ? height : height}
         language={language}
         value={value}
@@ -132,15 +196,25 @@ export function AcademyCodeEditor({
         options={{
           readOnly,
           minimap: { enabled: false },
-          fontSize: 14,
+          fontSize: 15,
           lineNumbers: "on",
           scrollBeyondLastLine: false,
           wordWrap: "on",
+          padding: { top: 14 },
+          lineHeight: 22,
+          cursorBlinking: "smooth",
         }}
       />
       {showRunButton && (
-        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-900 text-gray-100 p-3 font-mono text-sm overflow-auto max-h-40">
-          <pre className="whitespace-pre-wrap break-words m-0">Output:\n{output || " (click Run)"}</pre>
+        <div className="border-t-2 border-indigo-100 dark:border-indigo-900/50 bg-slate-900 text-slate-100">
+          <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide border-b border-slate-700">
+            Output
+          </div>
+          <div className="p-4 font-mono text-sm overflow-auto min-h-[4.5rem] max-h-52">
+            <pre className="whitespace-pre-wrap break-words m-0">
+              {output || "Click “Run code” or press Ctrl+Enter to see output here! 👆"}
+            </pre>
+          </div>
         </div>
       )}
     </div>
