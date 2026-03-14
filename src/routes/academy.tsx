@@ -57,3 +57,4 @@ export const academyProjectDetailRoute = createRoute({
   path: "projects/$projectId",
   component: AcademyProjectDetail,
 });
+

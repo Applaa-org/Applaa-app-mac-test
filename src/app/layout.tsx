@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const location = useLocation();
-  const isFullscreenMode = location.pathname.startsWith('/blockly') || location.pathname.startsWith('/arcade') || location.pathname.startsWith('/chat') || location.pathname.startsWith('/academy');
+  const isFullscreenMode = location.pathname.startsWith('/blockly') || location.pathname.startsWith('/arcade') || location.pathname.startsWith('/chat') || location.pathname.startsWith('/academy') || location.pathname.startsWith('/learning-academy');
 
   // SAFETY NET: Ensure Browser Agent view is hidden when navigation away
 
@@ -122,9 +122,11 @@ export default function RootLayout({
               </ErrorBoundary>
               */}
               <TitleBar />
-              <ErrorBoundary>
-                <AppSidebar />
-              </ErrorBoundary>
+              {!location.pathname.startsWith("/learning-academy") && (
+                <ErrorBoundary>
+                  <AppSidebar />
+                </ErrorBoundary>
+              )}
               {/* Background task status bar */}
               <ErrorBoundary>
                 <BackgroundTaskStatusBar />

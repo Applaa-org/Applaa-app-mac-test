@@ -6,7 +6,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { Globe, Smartphone, Gamepad2, Code, Box, Blocks, GraduationCap } from 'lucide-react';
+import { Globe, Smartphone, Gamepad2, Code, Box, Blocks, GraduationCap, BookMarked } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 
 interface SimpleAppTypeSelectorProps {
@@ -23,6 +23,10 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
 
   const handleAcademySelect = useCallback(() => {
     navigate({ to: '/academy' });
+  }, [navigate]);
+
+  const handleLearningAcademySelect = useCallback(() => {
+    navigate({ to: '/learning-academy' });
   }, [navigate]);
 
   const handleMobileSelect = useCallback(() => {
@@ -157,6 +161,30 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
               </p>
             </div>
             <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-br from-violet-400 to-indigo-500 opacity-10 rounded-full transform translate-x-8 translate-y-8 group-hover:scale-110 transition-transform duration-300" />
+          </div>
+        </div>
+
+        {/* Learning Academy Tile */}
+        <div
+          onClick={handleLearningAcademySelect}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-teal-400 to-cyan-500 opacity-5 group-hover:opacity-10 transition-opacity duration-300" />
+          <div className="relative z-10">
+            <div className="mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/80 dark:bg-gray-800/80 flex items-center justify-center shadow-sm">
+                <BookMarked className="h-8 w-8 text-teal-600 dark:text-teal-400" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+                Learning Academy
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                UK curriculum for ages 7–11: Math, Science, CS & more. Lessons, practice & assessments to GCSE.
+              </p>
+            </div>
+            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-br from-teal-400 to-cyan-500 opacity-10 rounded-full transform translate-x-8 translate-y-8 group-hover:scale-110 transition-transform duration-300" />
           </div>
         </div>
 

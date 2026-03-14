@@ -19,6 +19,13 @@ import {
   academyProjectsRoute,
   academyProjectDetailRoute,
 } from "./routes/academy";
+import {
+  learningAcademyRoute,
+  learningAcademyIndexRoute,
+  learningAcademyCurriculumRoute,
+  learningAcademyCurriculumTopicRoute,
+  learningAcademyScheduleRoute,
+} from "./routes/learning-academy";
 
 import { minecraftHubRoute } from "./routes/minecraft-hub";
 import { automationRoute } from "./routes/automation";
@@ -38,6 +45,12 @@ const routeTree = rootRoute.addChildren([
     academyChallengesRoute,
     academyProjectsRoute,
     academyProjectDetailRoute,
+  ]),
+  learningAcademyRoute.addChildren([
+    learningAcademyIndexRoute,
+    learningAcademyCurriculumRoute,
+    learningAcademyCurriculumTopicRoute,
+    learningAcademyScheduleRoute,
   ]),
   promptToProjectRoute,
 

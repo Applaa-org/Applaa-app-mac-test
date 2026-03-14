@@ -10,7 +10,8 @@ import {
   Target,
   Bot,
   Crown,
-  GraduationCap
+  GraduationCap,
+  BookMarked,
 } from "lucide-react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
@@ -45,8 +46,10 @@ import { WordPressAuthDialog } from "@/components/auth/WordPressAuthDialog";
 
 
 // Menu items with dynamic colors - blue for active, gray for inactive
+// Each item has a unique `id` to avoid duplicate page/sidebar ids and truncation confusion
 const items = [
   {
+    id: "apps",
     title: "Apps",
     to: "/",
     icon: Sparkles, // AI magic for app creation
@@ -54,35 +57,47 @@ const items = [
 
   // 🚀 MVP: Chat tab removed - chat is integrated within each app context
   // {
+  //   id: "chat",
   //   title: "Chat",
-  //   to: "/chat", 
-  //   icon: MessageSquareCode, // Code-focused chat
+  //   to: "/chat",
+  //   icon: MessageSquareCode,
   // },
   // {
+  //   id: "library",
   //   title: "Library",
   //   to: "/library",
   //   icon: BookOpen,
   // }, // Disabled for MVP
 
   {
+    id: "hub",
     title: "Hub",
     to: "/hub",
     icon: Zap, // Energy/power for marketplace
   },
   {
+    id: "settings",
     title: "Settings",
     to: "/settings",
     icon: Sliders, // More modern settings icon
   },
   {
+    id: "docs",
     title: "Docs",
     to: "/docs",
     icon: BookOpenText,
   },
   {
+    id: "ai-academy",
     title: "AI Academy",
     to: "/academy",
     icon: GraduationCap,
+  },
+  {
+    id: "learning-academy",
+    title: "Learning",
+    to: "/learning-academy",
+    icon: BookMarked,
   },
 ];
 
@@ -328,22 +343,24 @@ function AppIcons({
               (item.to !== "/" && pathname.startsWith(item.to));
 
             return (
-              <SidebarMenuItem key={item.title}>
+              <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton
                   asChild
                   size="sm"
                   className="font-medium w-14 h-auto"
                 >
                   <Link
+                    id={`sidebar-nav-${item.id}`}
                     to={item.to}
+                    aria-label={item.title}
                     className={`flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 ${isActive ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20" : ""
                       }`}
                     onMouseEnter={() => {
-                      if (item.title === "Apps") {
+                      if (item.id === "apps") {
                         onHoverChange("start-hover:app");
-                      } else if (item.title === "Chat") {
+                      } else if (item.id === "chat") {
                         onHoverChange("start-hover:chat");
-                      } else if (item.title === "Settings") {
+                      } else if (item.id === "settings") {
                         onHoverChange("start-hover:settings");
                       }
                     }}
