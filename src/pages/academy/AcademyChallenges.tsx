@@ -9,6 +9,10 @@ const TRACKS: { id: AcademyTrack | "all"; label: string }[] = [
   { id: "all", label: "All" },
   { id: "python", label: "Python" },
   { id: "javascript", label: "JavaScript" },
+  { id: "html", label: "Web (HTML)" },
+  { id: "react", label: "React" },
+  { id: "typescript", label: "TypeScript" },
+  { id: "ai", label: "AI" },
 ];
 
 const DIFF_COLORS = {
@@ -17,15 +21,38 @@ const DIFF_COLORS = {
   hard: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
 };
 
+/** Map difficulty to display level (Starter / Intermediate / Expert) */
+const DIFF_LABELS: Record<"easy" | "medium" | "hard", string> = {
+  easy: "Starter",
+  medium: "Intermediate",
+  hard: "Expert",
+};
+
+type LevelFilter = "all" | "Starter" | "Intermediate" | "Expert";
+const LEVEL_FILTERS: { id: LevelFilter; label: string }[] = [
+  { id: "all", label: "All levels" },
+  { id: "Starter", label: "Starter" },
+  { id: "Intermediate", label: "Intermediate" },
+  { id: "Expert", label: "Expert" },
+];
+
+function difficultyToLevel(d: "easy" | "medium" | "hard"): LevelFilter {
+  return d === "easy" ? "Starter" : d === "medium" ? "Intermediate" : "Expert";
+}
+
 export function AcademyChallenges() {
   const [trackFilter, setTrackFilter] = useState<AcademyTrack | "all">("all");
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [code, setCode] = useState(ACADEMY_CHALLENGES[0].starter);
 
   const filtered = useMemo(() => {
-    if (trackFilter === "all") return ACADEMY_CHALLENGES;
-    return getChallengesByTrack(trackFilter);
-  }, [trackFilter]);
+    let list = trackFilter === "all" ? ACADEMY_CHALLENGES : getChallengesByTrack(trackFilter);
+    if (levelFilter !== "all") {
+      list = list.filter((c) => difficultyToLevel(c.difficulty) === levelFilter);
+    }
+    return list;
+  }, [trackFilter, levelFilter]);
 
   const challenge = filtered[Math.min(selectedIndex, filtered.length - 1)] ?? filtered[0];
   const safeChallenge = challenge ?? ACADEMY_CHALLENGES[0];
@@ -41,7 +68,7 @@ export function AcademyChallenges() {
     setSelectedIndex(0);
     const first = filtered[0];
     if (first) setCode(first.starter);
-  }, [trackFilter]);
+  }, [trackFilter, levelFilter]);
 
   const lessonTitle =
     ACADEMY_LESSONS[safeChallenge.track]?.find((l) => l.id === safeChallenge.lessonId)?.title ?? "";
@@ -53,11 +80,32 @@ export function AcademyChallenges() {
         Coding challenges
       </h1>
       <p className="text-gray-600 dark:text-gray-400 mb-4">
-        Over 50 fun challenges! Pick one, write your code, and click Run. Start easy and level up.
+        Pick a level and track, then choose a challenge. Write your code and click Run.
       </p>
+
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Level</p>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {LEVEL_FILTERS.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => setLevelFilter(l.id)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                levelFilter === l.id
+                  ? "bg-indigo-600 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <Filter className="h-4 w-4 text-gray-500" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Track:</span>
         {TRACKS.map((t) => (
           <button
             key={t.id}
@@ -97,8 +145,9 @@ export function AcademyChallenges() {
                 </span>
                 <span
                   className={`inline-block mt-1 px-1.5 py-0.5 rounded text-xs ${DIFF_COLORS[c.difficulty]}`}
+                  title={c.difficulty}
                 >
-                  {c.difficulty}
+                  {DIFF_LABELS[c.difficulty]}
                 </span>
               </button>
             ))}
@@ -122,7 +171,7 @@ export function AcademyChallenges() {
           <AcademyCodeEditor
             value={code}
             onChange={setCode}
-            language={safeChallenge.track}
+            language={safeChallenge.track === "ai" ? "python" : safeChallenge.track}
             height={340}
             showRunButton={true}
           />

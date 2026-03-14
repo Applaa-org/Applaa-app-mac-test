@@ -5,7 +5,7 @@ import { Play, Loader2 } from "lucide-react";
 import "@/components/chat/monaco";
 import { useTheme } from "@/contexts/ThemeContext";
 
-type Lang = "python" | "javascript";
+type Lang = "python" | "javascript" | "html" | "react" | "typescript";
 
 declare global {
   interface Window {
@@ -82,6 +82,61 @@ function runJavaScript(code: string): string {
   return lines.join("\n") || "(no output)";
 }
 
+const REACT_CDN =
+  "https://unpkg.com/react@18/umd/react.development.js";
+const REACT_DOM_CDN =
+  "https://unpkg.com/react-dom@18/umd/react-dom.development.js";
+
+function buildReactRunnerHtml(code: string): string {
+  const escaped = code
+    .replace(/\\/g, "\\\\")
+    .replace(/`/g, "\\`")
+    .replace(/\$/g, "\\$")
+    .replace(/<\/script/g, "<\\/script");
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="${REACT_CDN}"></script>
+  <script crossorigin src="${REACT_DOM_CDN}"></script>
+  <script>
+    (function() {
+      try {
+        var root = ReactDOM.createRoot(document.getElementById('root'));
+        (function(React, ReactDOM, root) {
+          ${escaped}
+        })(window.React, window.ReactDOM, root);
+      } catch (e) {
+        document.body.innerHTML = '<pre style="color:red;padding:1rem;white-space:pre-wrap">' + (e.message || e) + '</pre>';
+      }
+    })();
+  <\/script>
+</body>
+</html>`;
+}
+
+function runReactInIframe(
+  code: string,
+  onDone: (err: string | null) => void
+): void {
+  const html = buildReactRunnerHtml(code);
+  const iframe = document.createElement("iframe");
+  iframe.sandbox.add("allow-scripts");
+  iframe.style.cssText = "width:100%;height:280px;border:0;background:white;";
+  const container = document.getElementById("academy-react-preview");
+  if (!container) {
+    onDone("Preview container not found");
+    return;
+  }
+  container.innerHTML = "";
+  container.appendChild(iframe);
+  iframe.srcdoc = html;
+  iframe.onload = () => onDone(null);
+  iframe.onerror = () => onDone("Failed to load React preview");
+}
+
 interface AcademyCodeEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -102,12 +157,49 @@ export function AcademyCodeEditor({
   showRunButton = true,
 }: AcademyCodeEditorProps) {
   const [output, setOutput] = useState("");
+  const [htmlPreview, setHtmlPreview] = useState("");
   const [running, setRunning] = useState(false);
   const { theme } = useTheme();
   const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const runCode = useCallback(async () => {
-    if (running) return;
+    if (running && language !== "html" && language !== "react") return;
+    if (language === "html") {
+      setHtmlPreview(value || "<p>Write HTML above and click Run to see the preview.</p>");
+      onRun?.("(HTML preview updated)");
+      return;
+    }
+    if (language === "react") {
+      setRunning(true);
+      setOutput("Loading React...");
+      try {
+        await runReactInIframe(value, (err) => {
+          setOutput(err ? `Error: ${err}` : "(React app rendered in preview)");
+          onRun?.(err ?? "(rendered)");
+          setRunning(false);
+        });
+      } catch (e: any) {
+        setOutput(`Error: ${e?.message ?? e}`);
+        onRun?.(`Error: ${e?.message ?? e}`);
+        setRunning(false);
+      }
+      return;
+    }
+    if (language === "typescript") {
+      setRunning(true);
+      setOutput("Running...");
+      try {
+        const out = runJavaScript(value);
+        setOutput(out || "(no output)");
+        onRun?.(out);
+      } catch (e: any) {
+        setOutput(`Error: ${e?.message ?? e}`);
+        onRun?.(`Error: ${e?.message ?? e}`);
+      } finally {
+        setRunning(false);
+      }
+      return;
+    }
     setRunning(true);
     setOutput("Running...");
     try {
@@ -158,23 +250,24 @@ export function AcademyCodeEditor({
   }, [showRunButton]);
 
   const editorTheme = isDark ? "vs-dark" : "vs";
+  const isError = output.startsWith("Error:") || output.startsWith("error:");
 
   return (
-    <div className="rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/50 overflow-hidden bg-white dark:bg-gray-900 shadow-md">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50">
-        <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-          {language === "python" ? "🐍 Python" : "🟨 JavaScript"}
+    <div className="rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/50 overflow-hidden bg-white dark:bg-gray-900 shadow-lg">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50">
+        <span className="text-base font-semibold text-indigo-700 dark:text-indigo-300">
+          {language === "python" ? "🐍 Python" : language === "html" ? "📄 HTML/CSS" : language === "react" ? "⚛️ React" : language === "typescript" ? "📘 TypeScript" : "🟨 JavaScript"}
         </span>
         {showRunButton && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
-              Ctrl+Enter to run
+              ⌨️ Ctrl+Enter to run
             </span>
             <Button
               size="sm"
               onClick={runCode}
               disabled={running}
-              className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold shadow"
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-md px-4 py-2 h-9"
             >
               {running ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -186,35 +279,66 @@ export function AcademyCodeEditor({
           </div>
         )}
       </div>
+      <div className="bg-gray-50/50 dark:bg-gray-900/50">
       <Editor
         onMount={handleEditorMount}
         height={typeof height === "number" ? height : height}
-        language={language}
-        value={value}
-        onChange={(v) => onChange(v ?? "")}
-        theme={editorTheme}
-        options={{
-          readOnly,
-          minimap: { enabled: false },
-          fontSize: 15,
-          lineNumbers: "on",
-          scrollBeyondLastLine: false,
-          wordWrap: "on",
-          padding: { top: 14 },
-          lineHeight: 22,
-          cursorBlinking: "smooth",
-        }}
-      />
+        language={language === "react" ? "javascript" : language === "typescript" ? "typescript" : language}
+          value={value}
+          onChange={(v) => onChange(v ?? "")}
+          theme={editorTheme}
+          options={{
+            readOnly,
+            minimap: { enabled: false },
+            fontSize: 16,
+            lineNumbers: "on",
+            scrollBeyondLastLine: false,
+            wordWrap: "on",
+            padding: { top: 16, bottom: 16 },
+            lineHeight: 24,
+            cursorBlinking: "smooth",
+            fontFamily: "var(--font-mono, 'SF Mono', Monaco, monospace)",
+            letterSpacing: 0.3,
+            renderLineHighlight: "line",
+            bracketPairColorization: { enabled: true },
+          }}
+        />
+      </div>
       {showRunButton && (
         <div className="border-t-2 border-indigo-100 dark:border-indigo-900/50 bg-slate-900 text-slate-100">
-          <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide border-b border-slate-700">
-            Output
+          <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              {language === "html" ? "Preview" : "Output"}
+            </span>
+            <span className="text-xs text-slate-500 hidden md:inline">Tip: change the code and run again to experiment!</span>
           </div>
-          <div className="p-4 font-mono text-sm overflow-auto min-h-[4.5rem] max-h-52">
-            <pre className="whitespace-pre-wrap break-words m-0">
-              {output || "Click “Run code” or press Ctrl+Enter to see output here! 👆"}
-            </pre>
-          </div>
+          {language === "html" ? (
+            <div className="min-h-[5rem] max-h-56 overflow-auto bg-white">
+              <iframe
+                title="HTML preview"
+                srcDoc={htmlPreview || "<p>Write HTML above and click Run to see the preview.</p>"}
+                className="w-full min-h-[12rem] border-0"
+                sandbox="allow-scripts"
+              />
+            </div>
+          ) : language === "react" ? (
+            <div className="min-h-[5rem] max-h-56 overflow-auto bg-white">
+              <div id="academy-react-preview" className="min-h-[12rem]" />
+              {output && !output.startsWith("Error") && (
+                <p className="text-xs text-slate-500 px-4 py-2">{output}</p>
+              )}
+            </div>
+          ) : (
+            <div
+              className={`p-4 font-mono text-[15px] leading-relaxed overflow-auto min-h-[5rem] max-h-56 ${
+                isError ? "text-red-300 bg-red-950/30" : ""
+              }`}
+            >
+              <pre className="whitespace-pre-wrap break-words m-0">
+                {output || "Click “Run code” or press Ctrl+Enter to see output here! 👆"}
+              </pre>
+            </div>
+          )}
         </div>
       )}
     </div>

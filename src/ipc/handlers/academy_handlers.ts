@@ -168,7 +168,7 @@ export function registerAcademyHandlers() {
         name: string;
         projectType: string;
         code: string;
-        language: "python" | "javascript";
+        language: "python" | "javascript" | "react" | "typescript";
       }
     ) => {
       const userId = await getUserId();

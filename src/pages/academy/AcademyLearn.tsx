@@ -3,26 +3,138 @@ import { useSearch } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IpcClient } from "@/ipc/ipc_client";
-import { ACADEMY_LESSONS, getLesson, type AcademyTrack } from "@/data/academyLessons";
+import { ACADEMY_LESSONS, getLesson, type AcademyTrack, type AcademyLesson } from "@/data/academyLessons";
 import { ACADEMY_BASICS } from "@/data/academyBasics";
+import {
+  ACADEMY_CONCEPT_BLOCKS,
+  getConceptBlock,
+  getBlockSubTopic,
+  CONCEPT_ONLY_BLOCK_IDS,
+  type ConceptBlockId,
+  type BlockSection,
+} from "@/data/academyBlocks";
 import { AcademyCodeEditor } from "@/components/academy/AcademyCodeEditor";
 import { AcademyAiTutor } from "@/components/academy/AcademyAiTutor";
 import { CopyableCodeBlock } from "@/components/academy/CopyableCodeBlock";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronRight, Lock, BookOpen, Code2, Sparkles } from "lucide-react";
+import { Check, ChevronRight, Lock, BookOpen, Code2, Sparkles, Lightbulb } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
-const TRACKS: { id: AcademyTrack | "basics"; label: string }[] = [
+type LearnTrack = AcademyTrack | "basics" | ConceptBlockId;
+
+// Order: Web first, then Python, JS, React, TypeScript, C++ (basics to expert). No duplication – single source in Learn.
+const TRACKS: { id: LearnTrack; label: string }[] = [
   { id: "basics", label: "🌟 Basics" },
-  { id: "python", label: "Python" },
-  { id: "javascript", label: "JavaScript" },
+  { id: "html", label: "📄 Web (HTML/CSS)" },
+  { id: "python", label: "🐍 Python" },
+  { id: "javascript", label: "🟨 JavaScript" },
+  { id: "react", label: "⚛️ React JS" },
+  { id: "typescript", label: "📘 TypeScript" },
+  { id: "cpp", label: "⚡ C++" },
+  { id: "ai", label: "🤖 AI" },
 ];
 
+/** Editor language for each track when showing code lessons */
+const TRACK_EDITOR_LANG: Record<string, "python" | "javascript" | "html"> = {
+  python: "python",
+  javascript: "javascript",
+  html: "html",
+  react: "javascript",
+  typescript: "javascript",
+  ai: "python",
+};
+
+function BlockSubTopicDetail({
+  blockId,
+  subTopicId,
+  blockLabel,
+}: {
+  blockId: ConceptBlockId;
+  subTopicId: string;
+  blockLabel: string;
+}) {
+  const sub = getBlockSubTopic(blockId, subTopicId);
+  if (!sub) return null;
+  return (
+    <div className="p-6 max-w-4xl mx-auto space-y-8">
+      <Link
+        to="/academy/learn"
+        search={{ track: blockId }}
+        className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-block"
+      >
+        ← Back to {blockLabel}
+      </Link>
+      <div className="flex items-center gap-3">
+        {sub.emoji && <span className="text-4xl">{sub.emoji}</span>}
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{sub.title}</h1>
+      </div>
+      <div className="space-y-8">
+        {sub.sections.map((sec, i) => (
+          <BlockSectionView key={i} section={sec} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BlockSectionView({ section }: { section: BlockSection }) {
+  const lang = (section.codeLanguage ?? "text") as "javascript" | "typescript" | "jsx" | "cpp" | "python" | "text";
+  return (
+    <section className="space-y-3">
+      {section.heading && (
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{section.heading}</h2>
+      )}
+      <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{section.body}</p>
+      {section.bullets && section.bullets.length > 0 && (
+        <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-1 ml-2">
+          {section.bullets.map((b, j) => (
+            <li key={j}>{b}</li>
+          ))}
+        </ul>
+      )}
+      {section.realLifeExample && (
+        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 p-4">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200 mb-1 flex items-center gap-2">
+            <Lightbulb className="h-4 w-4" />
+            Real-life example
+          </p>
+          <p className="text-emerald-900 dark:text-emerald-100">{section.realLifeExample}</p>
+        </div>
+      )}
+      {section.codeExample && (
+        <div>
+          <CopyableCodeBlock code={section.codeExample} language={lang} title="Code example" />
+        </div>
+      )}
+    </section>
+  );
+}
+
+const TRACK_LABELS: Record<LearnTrack, string> = {
+  basics: "Basics",
+  python: "Python",
+  javascript: "JavaScript",
+  html: "Web (HTML/CSS)",
+  react: "React JS",
+  typescript: "TypeScript",
+  cpp: "C++",
+  ai: "AI",
+};
+
 export function AcademyLearn() {
-  const search = useSearch({ from: "/academy/learn" }) as { track?: string; lessonId?: string };
+  const search = useSearch({ from: "/academy/learn" }) as {
+    track?: string;
+    lessonId?: string;
+    subTopicId?: string;
+  };
   const trackRaw = search.track ?? "basics";
-  const track = (trackRaw === "javascript" ? "javascript" : trackRaw === "python" ? "python" : "basics") as AcademyTrack | "basics";
+  const track = (
+    ["basics", "python", "javascript", "html", "react", "typescript", "cpp", "ai"].includes(trackRaw)
+      ? trackRaw
+      : "basics"
+  ) as LearnTrack;
   const lessonId = search.lessonId;
+  const subTopicId = search.subTopicId;
   const [challengeCode, setChallengeCode] = useState<Record<string, string>>({});
   const [showMoreExamples, setShowMoreExamples] = useState(false);
   const queryClient = useQueryClient();
@@ -40,16 +152,32 @@ export function AcademyLearn() {
   });
 
   const isBasics = track === "basics";
-  const lessons = isBasics ? ACADEMY_BASICS : ACADEMY_LESSONS[track as AcademyTrack];
+  const isConceptBlock = (["react", "typescript", "cpp", "ai", "python", "javascript"] as const).includes(track);
+  const conceptBlock = isConceptBlock ? getConceptBlock(track as ConceptBlockId) : null;
+  const hasCodeLessons = (["python", "javascript", "html", "react", "typescript", "ai"] as const).includes(track);
+  const lessons = isBasics ? ACADEMY_BASICS : hasCodeLessons ? ACADEMY_LESSONS[track as AcademyTrack] : [];
   const completedSet = new Set(
-    track === "python" ? progress?.pythonCompleted : track === "javascript" ? progress?.javascriptCompleted : []
+    track === "python" ? (progress?.pythonCompleted ?? []) : track === "javascript" ? (progress?.javascriptCompleted ?? []) : []
   );
-  const lesson = lessonId && !isBasics ? getLesson(track as AcademyTrack, lessonId) : null;
+  const lesson = lessonId && hasCodeLessons ? getLesson(track as AcademyTrack, lessonId) : null;
+  const editorLang = TRACK_EDITOR_LANG[track] ?? "javascript";
+  const canMarkComplete = track === "python" || track === "javascript";
   const basicsLesson = lessonId && isBasics ? ACADEMY_BASICS.find((b) => b.id === lessonId) : null;
+  const showingBlockSubTopic = isConceptBlock && subTopicId && getBlockSubTopic(track as ConceptBlockId, subTopicId);
 
   const handleMarkComplete = (lid: string) => {
     completeLesson.mutate({ track: track as AcademyTrack, lessonId: lid });
   };
+
+  if (showingBlockSubTopic && conceptBlock) {
+    return (
+      <BlockSubTopicDetail
+        blockId={track as ConceptBlockId}
+        subTopicId={subTopicId!}
+        blockLabel={conceptBlock.title}
+      />
+    );
+  }
 
   if (basicsLesson) {
     return (
@@ -105,7 +233,7 @@ export function AcademyLearn() {
           search={{ track }}
           className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-block"
         >
-          ← Back to {track === "python" ? "Python" : "JavaScript"} lessons
+          ← Back to {TRACK_LABELS[track]}
         </Link>
 
         <div>
@@ -126,7 +254,7 @@ export function AcademyLearn() {
           </h2>
           <CopyableCodeBlock
             code={lesson.exampleCode}
-            language={track}
+            language={track === "html" ? "html" : track === "react" || track === "typescript" ? "javascript" : (track as "python" | "javascript")}
             title="Main example"
           />
           {hasExtraExamples && (
@@ -146,7 +274,7 @@ export function AcademyLearn() {
                     <CopyableCodeBlock
                       key={i}
                       code={ex.code}
-                      language={track}
+                      language={editorLang}
                       title={ex.title}
                     />
                   ))}
@@ -171,7 +299,7 @@ export function AcademyLearn() {
             <AcademyCodeEditor
               value={code}
               onChange={(v) => setChallengeCode((c) => ({ ...c, [lesson.id]: v }))}
-              language={track}
+              language={editorLang}
               height={320}
               showRunButton={true}
             />
@@ -196,23 +324,25 @@ export function AcademyLearn() {
           </ul>
         </section>
 
-        <div className="flex items-center gap-3 pt-2">
-          {!completedSet.has(lesson.id) && (
-            <Button
-              onClick={() => handleMarkComplete(lesson.id)}
-              disabled={completeLesson.isPending}
-              className="gap-2"
-            >
-              <Check className="h-4 w-4" />
-              Mark as complete
-            </Button>
-          )}
-          {completedSet.has(lesson.id) && (
-            <p className="text-green-600 dark:text-green-400 flex items-center gap-2">
-              <Check className="h-4 w-4" /> Completed
-            </p>
-          )}
-        </div>
+        {canMarkComplete && (
+          <div className="flex items-center gap-3 pt-2">
+            {!completedSet.has(lesson.id) && (
+              <Button
+                onClick={() => handleMarkComplete(lesson.id)}
+                disabled={completeLesson.isPending}
+                className="gap-2"
+              >
+                <Check className="h-4 w-4" />
+                Mark as complete
+              </Button>
+            )}
+            {completedSet.has(lesson.id) && (
+              <p className="text-green-600 dark:text-green-400 flex items-center gap-2">
+                <Check className="h-4 w-4" /> Completed
+              </p>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -224,7 +354,7 @@ export function AcademyLearn() {
         Learning modules
       </h1>
       <p className="text-gray-600 dark:text-gray-400 mb-6">
-        Start with <strong>Basics</strong> to learn what code, HTML, CSS, and databases are. Then try <strong>Python</strong> or <strong>JavaScript</strong>!
+        Start with <strong>Basics</strong>, then <strong>Web</strong> (HTML/CSS), then <strong>Python</strong>, <strong>JavaScript</strong>, <strong>React</strong>, <strong>TypeScript</strong>, and <strong>C++</strong> – from basics to expert. One place for all lessons; no duplication.
       </p>
       <div className="flex flex-wrap gap-2 mb-6">
         {TRACKS.map((t) => (
@@ -242,46 +372,100 @@ export function AcademyLearn() {
           </Link>
         ))}
       </div>
-      <ul className="space-y-2">
-        {isBasics
-          ? (lessons as typeof ACADEMY_BASICS).map((l) => (
-              <li key={l.id}>
+
+      {isBasics && (
+        <ul className="space-y-2">
+          {(lessons as typeof ACADEMY_BASICS).map((l) => (
+            <li key={l.id}>
+              <Link
+                to="/academy/learn"
+                search={{ track: "basics", lessonId: l.id }}
+                className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-indigo-200 dark:hover:border-indigo-800"
+              >
+                <span className="text-2xl shrink-0">{l.emoji}</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{l.title}</span>
+                <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {hasCodeLessons && !conceptBlock && (
+        <ul className="space-y-2">
+          {(lessons as AcademyLesson[]).map((l) => (
+            <li key={l.id}>
+              <Link
+                to="/academy/learn"
+                search={{ track: track as AcademyTrack, lessonId: l.id }}
+                className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-indigo-200 dark:hover:border-indigo-800"
+              >
+                <span className="text-2xl shrink-0">📄</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{l.title}</span>
+                <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {conceptBlock && (CONCEPT_ONLY_BLOCK_IDS.includes(track as ConceptBlockId) || hasCodeLessons) && (
+        <>
+          {hasCodeLessons && (
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-8 mb-2 flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-indigo-500" />
+              Concepts (detailed sub-topics)
+            </h2>
+          )}
+          <ul className="space-y-2">
+            {conceptBlock.subTopics.map((st) => (
+              <li key={st.id}>
                 <Link
                   to="/academy/learn"
-                  search={{ track: "basics", lessonId: l.id }}
+                  search={{ track, subTopicId: st.id }}
                   className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-indigo-200 dark:hover:border-indigo-800"
                 >
-                  <span className="text-2xl shrink-0">{l.emoji}</span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {l.title}
-                  </span>
+                  {st.emoji && <span className="text-2xl shrink-0">{st.emoji}</span>}
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{st.title}</span>
                   <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
                 </Link>
               </li>
-            ))
-          : (lessons as typeof ACADEMY_LESSONS.python).map((l) => {
-              const done = completedSet.has(l.id);
-              return (
-                <li key={l.id}>
-                  <Link
-                    to="/academy/learn"
-                    search={{ track: track as AcademyTrack, lessonId: l.id }}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                  >
-                    {done ? (
-                      <Check className="h-5 w-5 text-green-600 shrink-0" />
-                    ) : (
-                      <Lock className="h-5 w-5 text-gray-400 shrink-0" />
-                    )}
-                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {l.title}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
-                  </Link>
-                </li>
-              );
-            })}
-      </ul>
+            ))}
+          </ul>
+          {hasCodeLessons && (
+            <>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-8 mb-2 flex items-center gap-2">
+                <Code2 className="h-5 w-5 text-green-600" />
+                Code lessons (practice with the editor)
+              </h2>
+              <ul className="space-y-2">
+                {(lessons as AcademyLesson[]).map((l) => {
+                  const done = canMarkComplete && completedSet.has(l.id);
+                  return (
+                    <li key={l.id}>
+                      <Link
+                        to="/academy/learn"
+                        search={{ track: track as AcademyTrack, lessonId: l.id }}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      >
+                        {done ? (
+                          <Check className="h-5 w-5 text-green-600 shrink-0" />
+                        ) : canMarkComplete ? (
+                          <Lock className="h-5 w-5 text-gray-400 shrink-0" />
+                        ) : (
+                          <BookOpen className="h-5 w-5 text-indigo-500 shrink-0" />
+                        )}
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{l.title}</span>
+                        <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }

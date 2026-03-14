@@ -398,13 +398,34 @@ function ensureCoreTables(sqlite: Database.Database): void {
         name TEXT NOT NULL,
         project_type TEXT NOT NULL,
         code TEXT NOT NULL,
-        language TEXT NOT NULL DEFAULT 'javascript' CHECK (language IN ('python', 'javascript')),
+        language TEXT NOT NULL DEFAULT 'javascript' CHECK (language IN ('python', 'javascript', 'react', 'typescript')),
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         updated_at INTEGER NOT NULL DEFAULT (unixepoch())
       )
     `).run();
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_academy_projects_user_id ON academy_projects(user_id)`).run();
     logger.log("Successfully created academy_projects table");
+  } else {
+    const tableInfo = sqlite.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='academy_projects'`).get() as { sql: string } | undefined;
+    const needsMigration = tableInfo?.sql && tableInfo.sql.includes("language IN ('python', 'javascript')") && !tableInfo.sql.includes("'react'");
+    if (needsMigration) {
+      logger.log("Migrating academy_projects to support react/typescript language...");
+      sqlite.prepare(`CREATE TABLE academy_projects_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        project_type TEXT NOT NULL,
+        code TEXT NOT NULL,
+        language TEXT NOT NULL DEFAULT 'javascript' CHECK (language IN ('python', 'javascript', 'react', 'typescript')),
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )`).run();
+      sqlite.prepare(`INSERT INTO academy_projects_new SELECT id, user_id, name, project_type, code, language, created_at, updated_at FROM academy_projects`).run();
+      sqlite.prepare(`DROP TABLE academy_projects`).run();
+      sqlite.prepare(`ALTER TABLE academy_projects_new RENAME TO academy_projects`).run();
+      sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_academy_projects_user_id ON academy_projects(user_id)`).run();
+      logger.log("Migration complete.");
+    }
   }
 
   const academyChallengeAttemptsExists = sqlite.prepare(`

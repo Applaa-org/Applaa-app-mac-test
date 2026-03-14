@@ -22,8 +22,9 @@ export const academyIndexRoute = createRoute({
 });
 
 const academyLearnSearchSchema = z.object({
-  track: z.enum(["basics", "python", "javascript"]).optional(),
+  track: z.enum(["basics", "python", "javascript", "html", "react", "typescript", "cpp", "ai"]).optional(),
   lessonId: z.string().optional(),
+  subTopicId: z.string().optional(),
 });
 
 export const academyLearnRoute = createRoute({

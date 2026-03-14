@@ -2348,7 +2348,7 @@ export class IpcClient {
     name: string;
     projectType: string;
     code: string;
-    language: "python" | "javascript";
+    language: "python" | "javascript" | "react" | "typescript";
   }): Promise<{ id: number; success: boolean }> {
     return this.ipcRenderer.invoke("academy:save-project", params);
   }

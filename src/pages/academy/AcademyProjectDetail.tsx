@@ -68,7 +68,7 @@ export function AcademyProjectDetail() {
     );
   }
 
-  const lang = project.language as "python" | "javascript";
+  const lang = project.language as "python" | "javascript" | "react" | "typescript";
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -79,10 +79,17 @@ export function AcademyProjectDetail() {
         <ArrowLeft className="h-4 w-4" />
         Back to projects
       </Link>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {name}
-        </h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {name}
+          </h1>
+          {template?.level && (
+            <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200">
+              {template.level}
+            </span>
+          )}
+        </div>
         <Button
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
@@ -93,9 +100,36 @@ export function AcademyProjectDetail() {
         </Button>
       </div>
       {template && (
-        <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
-          {template.instructions}
-        </p>
+        <div className="mb-4 space-y-4">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/30 p-4">
+            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+              Real project
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
+              {template.instructions}
+            </p>
+            {template.explanation && (
+              <p className="text-gray-600 dark:text-gray-400 text-sm italic border-l-2 border-indigo-300 dark:border-indigo-600 pl-3">
+                {template.explanation}
+              </p>
+            )}
+          </div>
+          {template.enhanceOptions && template.enhanceOptions.length > 0 && (
+            <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-4">
+              <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                Enhance it to learn
+              </h2>
+              <p className="text-xs text-amber-800 dark:text-amber-200 mb-3">
+                Try one or more of these to practice and level up:
+              </p>
+              <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                {template.enhanceOptions.map((opt, i) => (
+                  <li key={i}>{opt}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
       <AcademyCodeEditor
         value={code}

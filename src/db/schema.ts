@@ -353,11 +353,13 @@ export const buddyMessageEmbeddingsRelations = relations(buddyMessageEmbeddings,
 // APPLAA AI ACADEMY
 // ============================================================================
 
-/** Lesson progress per user (track = python | javascript) */
+/** Lesson progress per user (all code tracks) */
 export const academyLessonProgress = sqliteTable("academy_lesson_progress", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull(),
-  track: text("track", { enum: ["python", "javascript"] }).notNull(),
+  track: text("track", {
+    enum: ["python", "javascript", "html", "react", "typescript", "ai"],
+  }).notNull(),
   lessonId: text("lesson_id").notNull(),
   completedAt: integer("completed_at", { mode: "timestamp" })
     .notNull()
@@ -370,7 +372,7 @@ export const academyProjects = sqliteTable("academy_projects", {
   name: text("name").notNull(),
   projectType: text("project_type").notNull(), // calculator | todo | quiz | weather
   code: text("code").notNull(),
-  language: text("language", { enum: ["python", "javascript"] }).notNull().default("javascript"),
+  language: text("language", { enum: ["python", "javascript", "react", "typescript"] }).notNull().default("javascript"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
