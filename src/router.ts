@@ -10,6 +10,15 @@ import { appDetailsRoute } from "./routes/app-details";
 import { hubRoute } from "./routes/hub";
 import { promptToProjectRoute } from "./routes/create-with-prompt";
 import { blocklyRoute } from "./routes/blockly";
+import {
+  academyRoute,
+  academyIndexRoute,
+  academyLearnRoute,
+  academyPlaygroundRoute,
+  academyChallengesRoute,
+  academyProjectsRoute,
+  academyProjectDetailRoute,
+} from "./routes/academy";
 
 import { minecraftHubRoute } from "./routes/minecraft-hub";
 import { automationRoute } from "./routes/automation";
@@ -22,6 +31,14 @@ const routeTree = rootRoute.addChildren([
   minecraftHubRoute,
   chatRoute,
   blocklyRoute,
+  academyRoute.addChildren([
+    academyIndexRoute,
+    academyLearnRoute,
+    academyPlaygroundRoute,
+    academyChallengesRoute,
+    academyProjectsRoute,
+    academyProjectDetailRoute,
+  ]),
   promptToProjectRoute,
 
   // libraryRoute, // Disabled for MVP

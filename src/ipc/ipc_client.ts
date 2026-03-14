@@ -2293,6 +2293,79 @@ export class IpcClient {
     return this.ipcRenderer.invoke("credit:top-up", amount);
   }
 
+  // Applaa AI Academy
+  public async academyGetProgress(): Promise<{
+    pythonCompleted: string[];
+    javascriptCompleted: string[];
+    projectCount: number;
+  }> {
+    return this.ipcRenderer.invoke("academy:get-progress");
+  }
+
+  public async academyCompleteLesson(params: {
+    track: "python" | "javascript";
+    lessonId: string;
+  }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("academy:complete-lesson", params);
+  }
+
+  public async academyRecordChallengeAttempt(params: {
+    track: "python" | "javascript";
+    lessonId: string;
+    passed: boolean;
+  }): Promise<{ success: boolean }> {
+    return this.ipcRenderer.invoke("academy:record-challenge-attempt", params);
+  }
+
+  public async academyListProjects(): Promise<
+    Array<{
+      id: number;
+      name: string;
+      projectType: string;
+      code: string;
+      language: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }>
+  > {
+    return this.ipcRenderer.invoke("academy:list-projects");
+  }
+
+  public async academyGetProject(params: { id: number }): Promise<{
+    id: number;
+    name: string;
+    projectType: string;
+    code: string;
+    language: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }> {
+    return this.ipcRenderer.invoke("academy:get-project", params);
+  }
+
+  public async academySaveProject(params: {
+    id?: number;
+    name: string;
+    projectType: string;
+    code: string;
+    language: "python" | "javascript";
+  }): Promise<{ id: number; success: boolean }> {
+    return this.ipcRenderer.invoke("academy:save-project", params);
+  }
+
+  public async academyDeleteProject(params: { id: number }): Promise<{
+    success: boolean;
+  }> {
+    return this.ipcRenderer.invoke("academy:delete-project", params);
+  }
+
+  public async academyAiTutor(params: {
+    code: string;
+    question: string;
+  }): Promise<{ answer: string }> {
+    return this.ipcRenderer.invoke("academy:ai-tutor", params);
+  }
+
   public async subscriptionCreateCheckout(params: {
     priceId: string;
     trialDays?: number;

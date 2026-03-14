@@ -9,7 +9,8 @@ import {
   LogIn,
   Target,
   Bot,
-  Crown
+  Crown,
+  GraduationCap
 } from "lucide-react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
@@ -77,6 +78,11 @@ const items = [
     title: "Docs",
     to: "/docs",
     icon: BookOpenText,
+  },
+  {
+    title: "AI Academy",
+    to: "/academy",
+    icon: GraduationCap,
   },
 ];
 

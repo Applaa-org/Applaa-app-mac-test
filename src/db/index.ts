@@ -367,6 +367,63 @@ function ensureCoreTables(sqlite: Database.Database): void {
     logger.log("Successfully created automation_plans table");
   }
 
+  // Applaa AI Academy tables
+  const academyLessonProgressExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='academy_lesson_progress'
+  `).get();
+  if (!academyLessonProgressExists) {
+    logger.log("Creating academy_lesson_progress table...");
+    sqlite.prepare(`
+      CREATE TABLE academy_lesson_progress (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        track TEXT NOT NULL CHECK (track IN ('python', 'javascript')),
+        lesson_id TEXT NOT NULL,
+        completed_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `).run();
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_academy_lesson_progress_user_track ON academy_lesson_progress(user_id, track)`).run();
+    logger.log("Successfully created academy_lesson_progress table");
+  }
+
+  const academyProjectsExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='academy_projects'
+  `).get();
+  if (!academyProjectsExists) {
+    logger.log("Creating academy_projects table...");
+    sqlite.prepare(`
+      CREATE TABLE academy_projects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        project_type TEXT NOT NULL,
+        code TEXT NOT NULL,
+        language TEXT NOT NULL DEFAULT 'javascript' CHECK (language IN ('python', 'javascript')),
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `).run();
+    sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_academy_projects_user_id ON academy_projects(user_id)`).run();
+    logger.log("Successfully created academy_projects table");
+  }
+
+  const academyChallengeAttemptsExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='academy_challenge_attempts'
+  `).get();
+  if (!academyChallengeAttemptsExists) {
+    logger.log("Creating academy_challenge_attempts table...");
+    sqlite.prepare(`
+      CREATE TABLE academy_challenge_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        lesson_id TEXT NOT NULL,
+        track TEXT NOT NULL CHECK (track IN ('python', 'javascript')),
+        passed INTEGER NOT NULL,
+        attempted_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `).run();
+    logger.log("Successfully created academy_challenge_attempts table");
+  }
 }
 
 /**
