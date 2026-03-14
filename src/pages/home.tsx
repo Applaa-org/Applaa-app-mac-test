@@ -467,9 +467,10 @@ ${extraDbText}`;
     );
   }
 
-  // Main Home Page Content
+  // Main Home Page Content - scrollable so Minecraft, Roblox, and all cards are visible
   return (
-    <div className="flex flex-col items-center justify-center max-w-7xl m-auto p-8">
+    <div className="h-full min-h-0 overflow-auto w-full">
+      <div className="flex flex-col items-center justify-center max-w-7xl m-auto p-8">
       <CombinedAuthDialog
         open={showAuthDialog}
         onOpenChange={handleAuthDialogOpenChange}
@@ -526,6 +527,7 @@ ${extraDbText}`;
         userPrompt={pendingPrompt}
         onNameSelected={handleNameSelected}
       />
+      </div>
     </div>
   );
 }
