@@ -556,7 +556,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 /* Toolbox Container */
                 .blocklyToolboxDiv {
                     background-color: #f0f7ff;
-                    border-right: 2px solid #ddd;
+                    border-right: none; /* Remove vertical divider line */
                 }
                 
                 /* Category Labels */
@@ -630,6 +630,13 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 } else if (typeof (maybeFlyout as any).hide === 'function') {
                     (maybeFlyout as any).hide();
                 }
+            }
+
+            // Also forcibly hide the flyout DOM element so the vertical strip disappears,
+            // even if the toolbox implementation doesn't expose getFlyout.
+            const flyoutNode = container.querySelector('.blocklyFlyout') as HTMLElement | null;
+            if (flyoutNode) {
+                flyoutNode.style.display = 'none';
             }
 
             if (typeof (toolbox as any).clearSelection === 'function') {
