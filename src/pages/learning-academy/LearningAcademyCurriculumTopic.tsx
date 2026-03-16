@@ -132,7 +132,84 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
       lessonSummary: "You now know that a percentage is a number out of 100; how to convert between percentages, fractions and decimals; how to find 10% by dividing by 10 and use it to find other percentages; and how to use percentages in real situations like discounts and scores. Practise with the Practice and Assessment tabs.",
     };
   }
-  if (t.includes("algebra") || t.includes("expression") || t.includes("equation") || t.includes("sequences") || t.includes("formulae")) {
+  // Algebra — individual lessons matched specifically (most specific first)
+  if (t.includes("expression") && !t.includes("equation") && !t.includes("sequence") && !t.includes("formulae")) {
+    return {
+      intro: "An expression is a mathematical phrase written in symbols that contains numbers, letters (variables) and operations — but no equals sign. Expressions are one of the most important building blocks of algebra. Understanding them lets you describe situations using maths and opens the door to solving equations and writing formulae.",
+      learningObjectives: [
+        "Understand that a letter (variable) represents an unknown or changing number.",
+        "Recognise and write algebraic expressions (e.g. 2n + 3, 4x − 7).",
+        "Simplify expressions by collecting like terms (e.g. 3x + 2x = 5x).",
+        "Substitute a value into an expression to work out its value.",
+      ],
+      coreConcepts: [
+        { name: "Variables and terms", explanation: "A variable is a letter that stands for a number we don't know yet (e.g. x, n, y). A term is a single part of an expression: it can be a number (constant), a variable, or a number multiplied by a variable (e.g. 3x). In the expression 4x + 2y − 5, there are three terms: 4x, 2y, and −5." },
+        { name: "Writing expressions", explanation: "We write expressions to describe situations. 'Three more than n' is n + 3. 'Five times a number x' is 5x. 'A number divided by 4 then subtract 2' is n ÷ 4 − 2. There is no equals sign — we are describing an amount, not stating that two things are equal." },
+        { name: "Simplifying — collecting like terms", explanation: "Like terms have exactly the same variable (and power). We can add or subtract them: 3x + 2x = 5x, or 7y − 3y = 4y. Unlike terms (e.g. 3x and 2y) cannot be combined. Simplifying makes expressions shorter and easier to use. For example, 5x + 2y + 3x − y = 8x + y." },
+        { name: "Substitution", explanation: "Substitution means replacing the variable with a given number to work out the value of the expression. If the expression is 2n + 3 and n = 4, then 2(4) + 3 = 8 + 3 = 11. Always follow the order of operations: brackets, then multiply or divide, then add or subtract (BODMAS)." },
+      ],
+      example: "Expression: 2n + 3. If n = 5: substitute to get 2 × 5 + 3 = 10 + 3 = 13. Simplify 4x + 3y + 2x − y: collect x terms → 4x + 2x = 6x; collect y terms → 3y − y = 2y; result: 6x + 2y.",
+      lessonSummary: "You now know what a variable and a term are; how to write algebraic expressions to describe real situations; how to simplify by collecting like terms; and how to substitute a value to find the numerical result. These skills underpin all further algebra.",
+    };
+  }
+  if (t.includes("equation") && !t.includes("expression") && !t.includes("sequence") && !t.includes("formulae")) {
+    return {
+      intro: "An equation is a mathematical statement that says two expressions are equal, shown by an equals sign (=). Solving an equation means finding the value of the unknown letter that makes the statement true. Equations appear throughout maths and science whenever we want to find an unknown value.",
+      learningObjectives: [
+        "Understand the difference between an expression (no equals sign) and an equation (with equals sign).",
+        "Solve one-step equations using inverse operations (e.g. x + 5 = 12 → x = 7).",
+        "Solve two-step equations by applying inverse operations in reverse order.",
+        "Check solutions by substituting the answer back into the original equation.",
+      ],
+      coreConcepts: [
+        { name: "Equation vs. expression", explanation: "An expression (e.g. 3x + 2) is a phrase; it has no answer by itself. An equation (e.g. 3x + 2 = 11) is a statement that two sides are equal. The equals sign is the key difference. We solve equations; we simplify or evaluate expressions." },
+        { name: "Inverse operations", explanation: "To solve an equation we 'undo' the operations done to the unknown. Addition undoes subtraction and vice versa; multiplication undoes division and vice versa. We apply the inverse operation to both sides to keep the equation balanced. For example, x + 7 = 15 → subtract 7 from both sides → x = 8." },
+        { name: "One-step and two-step equations", explanation: "A one-step equation needs one inverse operation: x + 5 = 12 → x = 7. A two-step equation needs two steps — work in reverse order of BODMAS: first undo addition/subtraction, then undo multiplication/division. For 2x + 3 = 11: subtract 3 from both sides → 2x = 8; then divide by 2 → x = 4." },
+        { name: "Checking the solution", explanation: "Always check: substitute your answer back into the original equation. If both sides are equal, the solution is correct. For x = 4 in 2x + 3 = 11: 2(4) + 3 = 8 + 3 = 11 ✓. This habit catches arithmetic errors and builds confidence." },
+      ],
+      example: "Solve 3x − 4 = 11. Step 1: add 4 to both sides → 3x = 15. Step 2: divide both sides by 3 → x = 5. Check: 3(5) − 4 = 15 − 4 = 11 ✓. The solution is x = 5.",
+      lessonSummary: "You now know what an equation is and how it differs from an expression; how to use inverse operations to isolate the unknown; how to solve one-step and two-step equations; and how to check by substituting back in. Practise with the Practice and Assessment tabs.",
+    };
+  }
+  if (t.includes("sequence") && !t.includes("expression") && !t.includes("equation") && !t.includes("formulae")) {
+    return {
+      intro: "A sequence is an ordered list of numbers or shapes that follow a rule. Understanding sequences means being able to describe and continue patterns, find any term using an nth-term formula, and use sequences in real-life problems such as predicting costs or distances.",
+      learningObjectives: [
+        "Recognise and continue arithmetic sequences (add or subtract the same amount each time).",
+        "Describe the term-to-term rule (common difference).",
+        "Find and use an nth-term formula to generate any term in a sequence.",
+        "Verify whether a given number is a term in a sequence.",
+      ],
+      coreConcepts: [
+        { name: "Arithmetic sequence", explanation: "In an arithmetic sequence, the same amount is added (or subtracted) each time. This amount is called the common difference (d). For example, 5, 8, 11, 14, … has d = 3 (add 3 each time). If d is negative, the sequence decreases (e.g. 20, 17, 14, 11, … has d = −3)." },
+        { name: "Term-to-term rule", explanation: "The term-to-term rule tells us what to do to one term to get the next. 'Add 3' is the term-to-term rule for 5, 8, 11, 14, … This is useful for continuing a sequence but requires all previous terms to find a later one." },
+        { name: "nth-term formula", explanation: "The nth-term formula gives us the value of any term directly, using its position number n. For an arithmetic sequence: nth term = a + (n − 1)d, where a is the first term and d is the common difference. For 5, 8, 11, 14, …: nth term = 5 + (n − 1) × 3 = 3n + 2. Check: n=1 gives 5 ✓, n=2 gives 8 ✓." },
+        { name: "Is a number in the sequence?", explanation: "To check, set the nth-term formula equal to the number and solve for n. If n is a positive whole number, it is in the sequence. Example: is 50 in 3n + 2? Set 3n + 2 = 50 → 3n = 48 → n = 16. Yes — it is the 16th term. Is 45 a term? 3n + 2 = 45 → n = 14.3. No, n is not a whole number, so 45 is not a term." },
+      ],
+      example: "Sequence: 2, 5, 8, 11, … First term a = 2, common difference d = 3. nth-term = 2 + (n − 1) × 3 = 3n − 1. 10th term = 3(10) − 1 = 29. Is 100 a term? 3n − 1 = 100 → n = 33.67 — no. Is 98 a term? 3n − 1 = 98 → n = 33 — yes, the 33rd term.",
+      lessonSummary: "You now know what an arithmetic sequence is and what the common difference means; how to describe the term-to-term rule; how to find and apply an nth-term formula; and how to check whether a number is in a sequence. Use this in pattern problems, predictions and GCSE exam questions.",
+    };
+  }
+  if (t.includes("formulae") || t.includes("formula")) {
+    return {
+      intro: "A formula is a rule written using letters (variables) that describes the relationship between quantities. Formulae save time by giving us a reliable method to calculate an unknown whenever we know the other values. They are used throughout maths, science, engineering and everyday life.",
+      learningObjectives: [
+        "Understand that a formula expresses a rule using letters.",
+        "Substitute values into a formula to calculate an unknown quantity.",
+        "Rearrange a simple formula to change the subject.",
+        "Recognise and use common formulae (area, perimeter, speed, etc.).",
+      ],
+      coreConcepts: [
+        { name: "What a formula is", explanation: "A formula is an equation that shows a rule connecting two or more quantities, all written using letters. For example, the area of a rectangle: A = l × w. Here A, l and w are variables. Once we know any two values we can find the third. A formula is always true for all allowed values — not just one specific case." },
+        { name: "Substituting into a formula", explanation: "To use a formula, replace each letter with its known value and then calculate. For example, with A = l × w, if l = 6 cm and w = 4 cm, then A = 6 × 4 = 24 cm². Follow BODMAS when calculating. Always include units in your answer." },
+        { name: "Rearranging a formula (changing the subject)", explanation: "The 'subject' of a formula is the letter on its own on one side. We can rearrange to make a different letter the subject using inverse operations, just as in solving equations. For speed = distance ÷ time (s = d ÷ t), rearranging to find distance: d = s × t." },
+        { name: "Common formulae to know", explanation: "Important formulae include: Area of rectangle = length × width (A = lw); Perimeter of rectangle = 2(l + w); Area of triangle = ½ × base × height; Speed = distance ÷ time (s = d/t); Circumference of circle = 2πr; Area of circle = πr². Knowing these lets you tackle a wide range of GCSE problems." },
+      ],
+      example: "Formula: speed = distance ÷ time. A car travels 120 km in 2 hours. Speed = 120 ÷ 2 = 60 km/h. Now rearrange to find distance: distance = speed × time. If speed = 60 km/h and time = 3 hours, distance = 60 × 3 = 180 km.",
+      lessonSummary: "You now know what a formula is and how it expresses a rule using letters; how to substitute values to calculate unknowns; how to rearrange a simple formula to change its subject; and several important common formulae. These skills are essential across maths, science and GCSE exams.",
+    };
+  }
+  if (t.includes("algebra")) {
     return {
       intro: "Algebra uses letters to stand for unknown numbers. We work with expressions (no equals sign), equations (with equals), sequences (ordered lists that follow a rule), and formulae (rules written using letters). This lesson introduces these ideas and how they link together.",
       coreConcepts: [
