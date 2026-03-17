@@ -222,17 +222,119 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
       lessonSummary: "You now know that letters represent unknowns; the difference between expressions and equations; how to solve simple equations and check your answer; what sequences are and how to describe the rule; and how formulae use letters to state rules. Use this in maths, science and everyday problems.",
     };
   }
-  if (t.includes("geometry") || t.includes("shape") || t.includes("angle")) {
+  // Geometry — individual lessons (most specific first)
+  if (t.includes("shape") && !t.includes("angle") && !t.includes("area") && !t.includes("perimeter") && !t.includes("volume") && !t.includes("unit")) {
     return {
-      intro: "Geometry is about shapes, angles, and space. We look at properties of shapes, measure lengths and angles, and work out area and perimeter. This lesson covers the core ideas.",
-      coreConcepts: [
-        { name: "Properties of shapes", explanation: "Shapes are described by their properties: number of sides, angles, symmetry, parallel sides, etc. For example, a triangle has 3 sides and 3 angles." },
-        { name: "Angles", explanation: "Angles are measured in degrees (°). A right angle is 90°; a straight line is 180°. We use a protractor to measure and draw angles." },
-        { name: "Perimeter", explanation: "Perimeter is the distance around the outside of a shape. For a rectangle, add all four sides (or 2 × length + 2 × width)." },
-        { name: "Area", explanation: "Area is the amount of space inside a shape. For a rectangle, area = length × width. We measure it in square units (e.g. cm²)." },
+      intro: "Shapes are the building blocks of geometry. Every flat (2D) shape and solid (3D) shape has properties we can describe: the number of sides, angles, parallel or perpendicular sides, and lines of symmetry. Knowing these properties helps us classify shapes, spot them in real life, and use their rules in calculations.",
+      learningObjectives: [
+        "Name and describe common 2D shapes (triangles, quadrilaterals, circles, polygons).",
+        "Identify properties: number of sides, angles, equal sides, parallel sides, symmetry.",
+        "Name and describe common 3D shapes (cube, cuboid, sphere, cylinder, cone, prism, pyramid).",
+        "Classify shapes using their properties (e.g. regular vs irregular, types of triangle).",
       ],
-      example: "A rectangle with sides 5 cm and 3 cm has perimeter 5+3+5+3 = 16 cm and area 5×3 = 15 cm².",
-      lessonSummary: "You now know how to describe shapes by their properties; how angles are measured in degrees; and how to find perimeter (distance around) and area (space inside) for simple shapes like rectangles.",
+      coreConcepts: [
+        { name: "2D shapes", explanation: "2D (flat) shapes include triangles (3 sides), quadrilaterals (4 sides: squares, rectangles, parallelograms, rhombuses, trapezoids), pentagons (5 sides), hexagons (6 sides) and circles. A regular polygon has all sides equal and all angles equal (e.g. a regular hexagon). An irregular polygon has sides or angles of different sizes." },
+        { name: "Properties of 2D shapes", explanation: "We describe shapes by: number of sides and vertices (corners); whether sides are equal in length; whether sides are parallel (never meet) or perpendicular (meet at 90°); number of lines of symmetry (a line you can fold along so both halves match); and the sizes of interior angles." },
+        { name: "Types of triangle", explanation: "Triangles are classified by sides: equilateral (all 3 sides equal, all angles 60°), isosceles (2 sides equal, 2 base angles equal), scalene (no sides equal). By angles: acute (all angles < 90°), right-angled (one angle = 90°), obtuse (one angle > 90°). The three angles of any triangle always add to 180°." },
+        { name: "3D shapes", explanation: "3D (solid) shapes have faces (flat surfaces), edges (where two faces meet), and vertices (corners). A cube has 6 square faces, 12 edges, 8 vertices. A cylinder has 2 circular faces and 1 curved surface. A prism has two identical parallel faces (the cross-section) and rectangular faces joining them. A pyramid has a polygon base and triangular faces meeting at a point." },
+      ],
+      example: "A rectangle: 4 sides, opposite sides equal and parallel, 4 right angles (90°), 2 lines of symmetry. A square is a special rectangle where all 4 sides are equal and it has 4 lines of symmetry. A cuboid is the 3D version: 6 rectangular faces, 12 edges, 8 vertices.",
+      lessonSummary: "You now know how to name, describe and classify 2D and 3D shapes by their properties (sides, angles, parallel/perpendicular lines, symmetry, faces, edges, vertices). Use this to identify shapes in diagrams and real life, and as the foundation for area, perimeter and volume calculations.",
+    };
+  }
+  if (t.includes("angle") && !t.includes("shape") && !t.includes("area") && !t.includes("perimeter") && !t.includes("volume") && !t.includes("unit")) {
+    return {
+      intro: "An angle is the amount of turn between two lines that meet at a point. We measure angles in degrees (°). Understanding angles is essential for describing shapes, reading maps, designing structures and solving many real-life problems.",
+      learningObjectives: [
+        "Understand what an angle is and how degrees measure the amount of turn.",
+        "Identify and name types of angle: acute, right, obtuse, straight, reflex.",
+        "Use angle rules: angles on a line (180°), angles at a point (360°), vertically opposite angles.",
+        "Calculate missing angles in triangles and quadrilaterals.",
+      ],
+      coreConcepts: [
+        { name: "Types of angle", explanation: "Angles are classified by size: acute (greater than 0° and less than 90°); right angle (exactly 90°, shown by a small square); obtuse (greater than 90° and less than 180°); straight angle (exactly 180°, a straight line); reflex (greater than 180° and less than 360°); full turn (360°). Being able to estimate and name the type first helps you check your calculations." },
+        { name: "Angle rules", explanation: "Angles on a straight line add to 180°. Angles around a point add to 360°. Vertically opposite angles (formed when two lines cross) are equal. These rules let you find missing angles without measuring — just subtract from the known total. For example, if one angle on a line is 65°, the other is 180° − 65° = 115°." },
+        { name: "Angles in triangles", explanation: "The three interior angles of any triangle add to 180°. So if two angles are known, subtract their sum from 180° to find the third. For example, if a triangle has angles 50° and 70°, the third is 180° − 50° − 70° = 60°. This works for every triangle, no matter its shape or size." },
+        { name: "Angles in quadrilaterals", explanation: "The four interior angles of any quadrilateral (4-sided shape) add to 360°. For a rectangle all four are 90° (4 × 90° = 360°). For irregular quadrilaterals, add the three known angles and subtract from 360° to find the unknown. Parallel lines also create equal alternate angles and co-interior angles that add to 180°." },
+      ],
+      example: "Two angles are on a straight line. One is 120°. The other = 180° − 120° = 60°. In a triangle, two angles are 45° and 85°. Third angle = 180° − 45° − 85° = 50°. In a quadrilateral, three angles are 90°, 110° and 75°. Fourth = 360° − 90° − 110° − 75° = 85°.",
+      lessonSummary: "You now know what an angle is; how to name types of angle; the rules for angles on a line, at a point, and in triangles and quadrilaterals; and how to calculate missing angles. These skills are used throughout geometry and are essential for GCSE.",
+    };
+  }
+  if (t.includes("area") && !t.includes("perimeter") && !t.includes("volume")) {
+    return {
+      intro: "Area is the amount of flat space inside a 2D shape. We measure area in square units such as cm², m² or km². Knowing how to calculate area is vital for real life: flooring, painting walls, land measurement and design all depend on it.",
+      learningObjectives: [
+        "Understand that area measures the space inside a shape, in square units.",
+        "Calculate the area of rectangles and squares using length × width.",
+        "Calculate the area of triangles using ½ × base × height.",
+        "Calculate the area of parallelograms and trapezoids.",
+      ],
+      coreConcepts: [
+        { name: "Area of a rectangle", explanation: "Area = length × width (A = lw). A rectangle 8 cm long and 5 cm wide has area 8 × 5 = 40 cm². A square is a special rectangle: A = side². For example, a 6 cm square has area 36 cm². Always include the unit squared (cm², m²) in your answer." },
+        { name: "Area of a triangle", explanation: "Area = ½ × base × height (A = ½bh). The height must be the perpendicular height — straight up from the base to the opposite vertex, not along a slanted side. For a triangle with base 10 cm and perpendicular height 6 cm: A = ½ × 10 × 6 = 30 cm²." },
+        { name: "Area of a parallelogram", explanation: "A parallelogram has two pairs of parallel sides. Area = base × perpendicular height (A = bh). Note: the height is perpendicular to the base, not the slant side length. For example, base 9 cm, height 4 cm: A = 9 × 4 = 36 cm². A rectangle is a special parallelogram." },
+        { name: "Area of a trapezoid", explanation: "A trapezoid has one pair of parallel sides (called a and b). Area = ½ × (a + b) × h, where h is the perpendicular height between the parallel sides. For example, parallel sides 6 cm and 10 cm, height 5 cm: A = ½ × (6 + 10) × 5 = ½ × 16 × 5 = 40 cm²." },
+      ],
+      example: "A room is L-shaped. Split it into two rectangles: one is 5 m × 3 m (area = 15 m²) and the other is 4 m × 2 m (area = 8 m²). Total area = 15 + 8 = 23 m². This is how we calculate how much flooring to buy.",
+      lessonSummary: "You now know that area is the space inside a shape measured in square units; the formulas for rectangles (lw), triangles (½bh), parallelograms (bh) and trapezoids (½(a+b)h); and how to split compound shapes. Use these in real-life measurement problems.",
+    };
+  }
+  if (t.includes("perimeter") && !t.includes("area") && !t.includes("volume")) {
+    return {
+      intro: "Perimeter is the total distance around the outside of a 2D shape. We measure it in length units such as cm, m or km. Perimeter is used whenever we need to know how far it is around something — fencing a garden, framing a picture, or running around a track.",
+      learningObjectives: [
+        "Understand that perimeter is the total length around the outside of a shape.",
+        "Calculate the perimeter of rectangles using 2(l + w).",
+        "Find the perimeter of any polygon by adding all its sides.",
+        "Solve problems where some side lengths must be worked out first.",
+      ],
+      coreConcepts: [
+        { name: "Perimeter of a rectangle", explanation: "A rectangle has two pairs of equal sides (length l and width w). Perimeter = l + w + l + w = 2l + 2w = 2(l + w). For example, a rectangle 7 cm long and 4 cm wide: P = 2(7 + 4) = 2 × 11 = 22 cm. A square with side s has P = 4s." },
+        { name: "Perimeter of any polygon", explanation: "For any polygon, add all the side lengths together. For a triangle with sides 5 cm, 8 cm and 6 cm: P = 5 + 8 + 6 = 19 cm. For an irregular hexagon, measure or read off all six sides and add them. There is no 'formula shortcut' for irregular shapes — just add every side carefully." },
+        { name: "Missing side lengths", explanation: "Sometimes a side length is not given directly. Look for clues: opposite sides of a rectangle are equal; the total width of a compound shape equals the sum of its parts. For example, a compound shape has a total width of 10 cm; one part is 4 cm, so the unknown part = 10 − 4 = 6 cm. Find all sides before adding." },
+        { name: "Circumference of a circle", explanation: "The perimeter of a circle is called the circumference. C = 2πr = πd, where r is the radius and d is the diameter. Using π ≈ 3.14 or the π button on a calculator. For a circle with radius 5 cm: C = 2 × π × 5 ≈ 31.4 cm." },
+      ],
+      example: "A rectangular garden is 12 m long and 8 m wide. Perimeter = 2(12 + 8) = 2 × 20 = 40 m. If fencing costs £3 per metre, total cost = 40 × £3 = £120. This is exactly how fencing is planned in real life.",
+      lessonSummary: "You now know that perimeter is the total distance around a shape; formulas for rectangles (2(l+w)) and squares (4s); how to add all sides of any polygon; how to find missing side lengths; and the circumference of a circle (2πr). Use this whenever you need to measure around the outside of a shape.",
+    };
+  }
+  if (t.includes("volume") && !t.includes("area") && !t.includes("perimeter")) {
+    return {
+      intro: "Volume is the amount of 3D space inside a solid shape. We measure it in cubic units such as cm³, m³ or litres (1 litre = 1000 cm³). Volume is used in real life for filling containers, calculating capacity, and in science for density and pressure.",
+      learningObjectives: [
+        "Understand that volume measures the 3D space inside a solid.",
+        "Calculate the volume of cubes and cuboids using length × width × height.",
+        "Calculate the volume of prisms using cross-section area × length.",
+        "Convert between cm³ and litres/ml.",
+      ],
+      coreConcepts: [
+        { name: "Volume of a cuboid", explanation: "Volume = length × width × height (V = lwh). A cuboid 5 cm long, 3 cm wide and 4 cm tall: V = 5 × 3 × 4 = 60 cm³. A cube with side s has V = s³. For example, a 3 cm cube: V = 3 × 3 × 3 = 27 cm³. Always include the unit cubed (cm³, m³)." },
+        { name: "Volume of a prism", explanation: "A prism is a 3D shape with a consistent cross-section along its length. Volume = area of cross-section × length (V = Al). So for a triangular prism with cross-section area 12 cm² and length 8 cm: V = 12 × 8 = 96 cm³. The cross-section is the shape you'd see if you cut straight across." },
+        { name: "Volume of a cylinder", explanation: "A cylinder is a circular prism. Its cross-section is a circle, so the area = πr². Volume = πr² × h, where h is the height. For a cylinder with radius 4 cm and height 10 cm: V = π × 4² × 10 = π × 16 × 10 ≈ 502.7 cm³." },
+        { name: "Units of volume and capacity", explanation: "1 cm³ = 1 millilitre (ml). 1000 cm³ = 1 litre. 1 m³ = 1000 litres. These conversions are used when filling containers (e.g. a 2-litre bottle = 2000 cm³) and in everyday life (e.g. medicine doses in ml, swimming pools in m³)." },
+      ],
+      example: "A fish tank is 60 cm long, 30 cm wide and 40 cm deep. Volume = 60 × 30 × 40 = 72,000 cm³ = 72 litres. If you fill it to ¾ full, you need ¾ × 72 = 54 litres of water.",
+      lessonSummary: "You now know that volume is the 3D space inside a solid; formulas for cuboids (lwh), prisms (Al) and cylinders (πr²h); and how to convert between cm³ and litres. Use volume calculations whenever you need to know how much a container holds.",
+    };
+  }
+  if (t.includes("unit") && !t.includes("area") && !t.includes("perimeter") && !t.includes("volume")) {
+    return {
+      intro: "Units of measurement let us describe length, mass, time, capacity, area and volume in a way everyone understands. Choosing the right unit and being able to convert between units are everyday skills used in cooking, science, travel and construction.",
+      learningObjectives: [
+        "Know common metric units for length, mass, capacity and time.",
+        "Convert between related metric units (e.g. km ↔ m, kg ↔ g, litres ↔ ml).",
+        "Know common imperial units and approximate metric equivalents (e.g. 1 inch ≈ 2.54 cm).",
+        "Choose appropriate units for a given measurement.",
+      ],
+      coreConcepts: [
+        { name: "Metric units of length", explanation: "The base unit is the metre (m). 1 km = 1000 m; 1 m = 100 cm; 1 cm = 10 mm. To convert from a larger unit to a smaller unit, multiply; to convert from smaller to larger, divide. For example: 3.5 km = 3.5 × 1000 = 3500 m; 250 cm = 250 ÷ 100 = 2.5 m." },
+        { name: "Metric units of mass and capacity", explanation: "Mass: 1 kg = 1000 g; 1 tonne = 1000 kg. Capacity: 1 litre (l) = 1000 ml; 1 cl = 10 ml. These conversions are used in cooking (e.g. 250 ml of milk) and science (e.g. 2.5 kg of sand). Always check whether you need to multiply or divide, based on whether you are going to a smaller or larger unit." },
+        { name: "Units of area and volume", explanation: "Area is measured in square units: 1 m² = 10,000 cm² (because 100 × 100 = 10,000). Volume is measured in cubic units: 1 m³ = 1,000,000 cm³ (100 × 100 × 100). Also: 1 cm³ = 1 ml, so 1 litre = 1000 cm³. These links between area, volume and capacity are frequently tested at GCSE." },
+        { name: "Imperial units and conversions", explanation: "Imperial units are still used in everyday life in the UK. Key approximate conversions: 1 inch ≈ 2.54 cm; 1 foot = 12 inches ≈ 30 cm; 1 mile ≈ 1.6 km (or 5 miles ≈ 8 km); 1 pound (lb) ≈ 454 g; 1 stone = 14 lb; 1 pint ≈ 568 ml; 1 gallon ≈ 4.5 litres. Approximate conversions are enough for most GCSE questions." },
+      ],
+      example: "A recipe uses 0.75 litres of milk. In ml: 0.75 × 1000 = 750 ml. A road sign says 5 miles. In km: 5 × 1.6 = 8 km. A room is 4.5 m wide. In cm: 4.5 × 100 = 450 cm. These conversions are used every day.",
+      lessonSummary: "You now know the key metric units for length, mass, capacity, area and volume; how to convert between them by multiplying or dividing; important imperial units and their metric equivalents; and how to choose the right unit. These skills run through all of maths, science and everyday life.",
     };
   }
   if (t.includes("statistics") || t.includes("data") || t.includes("chart")) {
@@ -574,6 +676,36 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
 
 /** Practice questions with hints and explanations (what we're looking for / model answer) */
 function getPracticeQuestionsForTopic(topic: { title: string }): { question: string; hint: string; explanation: string }[] {
+  const t = topic.title.toLowerCase();
+  if (t.includes("geometry") || t.includes("measure")) {
+    return [
+      {
+        question: "A rectangle is 9 cm long and 5 cm wide. Calculate its perimeter and its area. Show your working.",
+        hint: "Perimeter uses 2(l + w). Area uses l × w. Remember to include units.",
+        explanation: "Perimeter = 2(9 + 5) = 2 × 14 = 28 cm. Area = 9 × 5 = 45 cm². Perimeter is measured in cm; area in cm² (square centimetres).",
+      },
+      {
+        question: "A triangle has angles of 55° and 72°. What is the third angle? Name the type of angle you calculated.",
+        hint: "Angles in a triangle add to 180°. Then classify the result as acute, right or obtuse.",
+        explanation: "Third angle = 180° − 55° − 72° = 53°. Since 53° is less than 90°, it is an acute angle. All three angles are acute, so this is an acute triangle.",
+      },
+      {
+        question: "A cuboid has length 6 cm, width 4 cm and height 3 cm. Calculate its volume. Convert your answer to millilitres.",
+        hint: "Volume of a cuboid = l × w × h. 1 cm³ = 1 ml.",
+        explanation: "Volume = 6 × 4 × 3 = 72 cm³. Since 1 cm³ = 1 ml, the volume is also 72 ml.",
+      },
+      {
+        question: "A runner completes a 5-kilometre race. How many metres is this? A sign says the finish line is 600 m away — how many km is that?",
+        hint: "1 km = 1000 m. Multiply to go from km to m; divide to go from m to km.",
+        explanation: "5 km = 5 × 1000 = 5000 m. 600 m = 600 ÷ 1000 = 0.6 km. To convert km → m multiply; to convert m → km divide by 1000.",
+      },
+      {
+        question: "Name one 2D and one 3D shape. For each, state two properties (e.g. number of sides/faces, angles, symmetry).",
+        hint: "Think about shapes from the Shapes lesson. 2D: sides, angles, symmetry. 3D: faces, edges, vertices.",
+        explanation: "Example: Rectangle (2D) — 4 sides, 4 right angles (90°), 2 lines of symmetry, opposite sides equal and parallel. Cuboid (3D) — 6 rectangular faces, 12 edges, 8 vertices. Any two correct properties for each shape are acceptable.",
+      },
+    ];
+  }
   return [
     {
       question: `What is the main idea behind ${topic.title}?`,
@@ -600,6 +732,33 @@ function getAssessmentQuestionsForTopic(topic: { title: string }): {
   correctIndex: number;
   explanation: string;
 }[] {
+  const t = topic.title.toLowerCase();
+
+  if (t.includes("geometry") || t.includes("measure")) {
+    return [
+      { question: "How many sides does a hexagon have?", options: ["4", "5", "6", "8"], correctIndex: 2, explanation: "A hexagon has 6 sides. Hex means 6 in Greek. A regular hexagon has all 6 sides equal and all angles 120°." },
+      { question: "What do the interior angles of any triangle always add up to?", options: ["90°", "180°", "270°", "360°"], correctIndex: 1, explanation: "The three interior angles of any triangle always add to 180°, no matter what shape or size the triangle is." },
+      { question: "A rectangle is 8 cm long and 3 cm wide. What is its area?", options: ["11 cm²", "22 cm²", "24 cm²", "32 cm²"], correctIndex: 2, explanation: "Area = length × width = 8 × 3 = 24 cm². Area is always in square units (cm²)." },
+      { question: "A rectangle is 8 cm long and 3 cm wide. What is its perimeter?", options: ["11 cm", "22 cm", "24 cm", "32 cm"], correctIndex: 1, explanation: "Perimeter = 2(l + w) = 2(8 + 3) = 2 × 11 = 22 cm. Perimeter goes around the outside." },
+      { question: "What is the formula for the volume of a cuboid?", options: ["l + w + h", "2(l + w + h)", "l × w", "l × w × h"], correctIndex: 3, explanation: "Volume of a cuboid = length × width × height. This gives the 3D space inside in cubic units (cm³, m³)." },
+      { question: "How many metres are in 4.5 kilometres?", options: ["45 m", "450 m", "4500 m", "45,000 m"], correctIndex: 2, explanation: "1 km = 1000 m, so 4.5 km = 4.5 × 1000 = 4500 m. Multiply when converting from a larger to a smaller unit." },
+      { question: "An angle of 135° is best described as:", options: ["Acute", "Right", "Obtuse", "Reflex"], correctIndex: 2, explanation: "Obtuse angles are greater than 90° but less than 180°. 135° is between 90° and 180°, so it is obtuse." },
+      { question: "What is the area of a triangle with base 10 cm and perpendicular height 7 cm?", options: ["17 cm²", "35 cm²", "70 cm²", "100 cm²"], correctIndex: 1, explanation: "Area of triangle = ½ × base × height = ½ × 10 × 7 = 35 cm². Always use the perpendicular (vertical) height." },
+      { question: "How many faces does a cube have?", options: ["4", "5", "6", "8"], correctIndex: 2, explanation: "A cube has 6 faces, all of which are identical squares. It also has 12 edges and 8 vertices." },
+      { question: "Angles on a straight line always add up to:", options: ["90°", "180°", "270°", "360°"], correctIndex: 1, explanation: "Angles on a straight line add to 180°. This is because a straight line represents a half-turn." },
+      { question: "A cuboid has length 5 cm, width 4 cm, height 2 cm. What is its volume?", options: ["11 cm³", "22 cm³", "40 cm³", "100 cm³"], correctIndex: 2, explanation: "Volume = 5 × 4 × 2 = 40 cm³. Multiply all three dimensions together and write the result in cubic units." },
+      { question: "Which metric unit is most appropriate to measure the distance between two cities?", options: ["Millimetres (mm)", "Centimetres (cm)", "Metres (m)", "Kilometres (km)"], correctIndex: 3, explanation: "Kilometres are used for large distances like those between cities. Metres suit room/field sizes; cm and mm suit smaller objects." },
+      { question: "A square has one side of 6 cm. What is its perimeter?", options: ["12 cm", "18 cm", "24 cm", "36 cm"], correctIndex: 2, explanation: "A square has 4 equal sides. Perimeter = 4 × 6 = 24 cm." },
+      { question: "Which of these correctly describes an equilateral triangle?", options: ["2 equal sides, 2 equal angles", "No equal sides", "3 equal sides, all angles 60°", "One angle of 90°"], correctIndex: 2, explanation: "An equilateral triangle has 3 equal sides and 3 equal angles, each 60°. 3 × 60° = 180° ✓." },
+      { question: "1 litre is equal to how many millilitres?", options: ["10 ml", "100 ml", "1000 ml", "10,000 ml"], correctIndex: 2, explanation: "1 litre = 1000 millilitres (ml). This is like saying 1 kg = 1000 g — the kilo prefix always means 1000." },
+      { question: "Two angles at a point are 130° and 80°. What is the third angle at the same point?", options: ["30°", "50°", "100°", "150°"], correctIndex: 3, explanation: "Angles around a point add to 360°. Third angle = 360° − 130° − 80° = 150°, which is a reflex angle." },
+      { question: "A parallelogram has base 7 cm and perpendicular height 4 cm. What is its area?", options: ["11 cm²", "22 cm²", "28 cm²", "56 cm²"], correctIndex: 2, explanation: "Area of parallelogram = base × perpendicular height = 7 × 4 = 28 cm². Do not use the slant side." },
+      { question: "What is the circumference of a circle with radius 5 cm? (Use π ≈ 3.14)", options: ["15.7 cm", "31.4 cm", "78.5 cm", "157 cm"], correctIndex: 1, explanation: "Circumference = 2πr = 2 × 3.14 × 5 = 31.4 cm. Alternatively, C = πd = 3.14 × 10 = 31.4 cm." },
+      { question: "Which conversion is correct?", options: ["1 m² = 100 cm²", "1 m² = 1000 cm²", "1 m² = 10,000 cm²", "1 m² = 100,000 cm²"], correctIndex: 2, explanation: "1 m = 100 cm, so 1 m² = 100 × 100 = 10,000 cm². Squaring the unit means squaring the conversion factor." },
+      { question: "A triangular prism has a triangular cross-section with area 15 cm² and a length of 9 cm. What is its volume?", options: ["24 cm³", "45 cm³", "120 cm³", "135 cm³"], correctIndex: 3, explanation: "Volume of prism = cross-section area × length = 15 × 9 = 135 cm³. This formula works for any prism." },
+    ];
+  }
+
   const base: { question: string; options: string[]; correctIndex: number; explanation: string }[] = [
     {
       question: `Which best describes ${topic.title}?`,
