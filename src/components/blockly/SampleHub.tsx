@@ -30,20 +30,21 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
         <div style={{
             position: 'fixed',
             top: 0,
-            left: 0, // Left side hub
+            right: 0, // Right side hub (moved from left)
             bottom: 0,
-            width: '320px',
+            width: '340px',
+            maxWidth: '90vw',
             backgroundColor: '#ffffff',
-            boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
-            zIndex: 1100, // Higher than editor
-            transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+            boxShadow: '-2px 0 12px rgba(0,0,0,0.15)',
+            zIndex: 1100, // Above editor
+            transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
             transition: 'transform 0.3s ease-in-out',
             display: 'flex',
             flexDirection: 'column'
         }}>
             {/* Header */}
             <div style={{
-                padding: '16px',
+                padding: '16px 20px',
                 borderBottom: '1px solid #eee',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -61,19 +62,19 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                     style={{
                         background: 'none',
                         border: 'none',
-                        fontSize: '32px',
+                        fontSize: '28px',
                         cursor: 'pointer',
                         color: '#666',
-                        width: '48px',
-                        height: '48px',
+                        width: '40px',
+                        height: '40px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderRadius: '8px',
                         transition: 'all 0.2s',
-                        padding: '0',
-                        lineHeight: '1',
-                        margin: '0'
+                        padding: 0,
+                        lineHeight: 1,
+                        margin: 0
                     }}
                     onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = '#f0f0f0';
@@ -89,32 +90,32 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                 </button>
             </div>
 
-            {/* Category Filter - flexShrink: 0 so "Tutorials" / "Games" don't clip */}
+            {/* Category Filter */}
             <div style={{
-                padding: '16px',
+                padding: '12px 16px',
                 display: 'flex',
-                gap: '12px',
+                gap: '8px',
                 overflowX: 'auto',
                 borderBottom: '1px solid #eee',
                 alignItems: 'center',
-                minHeight: '52px'
+                minHeight: '48px',
+                backgroundColor: '#fafafa'
             }}>
                 {categories.map(cat => (
                     <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
                         style={{
-                            padding: '12px 20px',
-                            borderRadius: '20px',
+                            padding: '8px 16px',
+                            borderRadius: '18px',
                             border: '2px solid ' + (selectedCategory === cat ? '#4CAF50' : '#ddd'),
                             backgroundColor: selectedCategory === cat ? '#4CAF50' : 'white',
                             color: selectedCategory === cat ? 'white' : '#333',
-                            fontSize: '14px',
+                            fontSize: '13px',
                             fontWeight: selectedCategory === cat ? 'bold' : 'normal',
                             cursor: 'pointer',
                             whiteSpace: 'nowrap',
                             transition: 'all 0.2s',
-                            minWidth: '80px',
                             flexShrink: 0
                         }}
                         onMouseEnter={(e) => {
@@ -139,7 +140,8 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
             <div style={{
                 padding: '16px',
                 flex: 1,
-                overflowY: 'auto'
+                overflowY: 'auto',
+                backgroundColor: '#f9fafb'
             }}>
                 {filteredProjects.map(project => (
                     <div
@@ -153,26 +155,26 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                         style={{
                             padding: '16px',
                             marginBottom: '16px',
-                            border: '2px solid #eee',
+                            border: '1px solid #e5e7eb',
                             borderRadius: '12px',
                             cursor: 'pointer',
                             transition: 'all 0.2s',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                             backgroundColor: 'white'
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.15)';
+                            e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.18)';
                             e.currentTarget.style.borderColor = '#4CAF50';
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
-                            e.currentTarget.style.borderColor = '#eee';
+                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                            e.currentTarget.style.borderColor = '#e5e7eb';
                         }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>{project.title}</h3>
+                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#111827' }}>{project.title}</h3>
                             <span style={{
                                 fontSize: '11px',
                                 padding: '4px 8px',
@@ -184,10 +186,10 @@ export function SampleHub({ onLoadSample, isOpen, onClose, initialCategory = 'Al
                                 {project.difficulty}
                             </span>
                         </div>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#666', lineHeight: '1.5' }}>
+                        <p style={{ margin: 0, fontSize: '13px', color: '#4b5563', lineHeight: 1.5 }}>
                             {project.description}
                         </p>
-                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#999', fontWeight: '500' }}>
+                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#9ca3af', fontWeight: '500' }}>
                             📁 {project.category}
                         </div>
                     </div>
@@ -205,3 +207,4 @@ function getDifficultyColor(diff: string) {
         default: return '#999';
     }
 }
+

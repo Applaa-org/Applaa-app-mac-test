@@ -291,16 +291,21 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
     // State for Multi-Language Support
     type Tab = 'blocks' | 'javascript' | 'python' | 'php' | 'lua' | 'dart' | 'xml' | 'json';
     const [generatedCodeMap, setGeneratedCodeMap] = useState<Record<string, string>>({});
+    // Optional user edits in the code view (per language). This is for learning/copying;
+    // it does not modify the underlying blocks, and Run Code still executes the JS generated from blocks.
+    const [codeOverrides, setCodeOverrides] = useState<Record<string, string>>({});
 
     const [generatedCode, setGeneratedCode] = useState<string>(''); // Keep for backward compat
     const [isRunning, setIsRunning] = useState(false);
     const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
-    const [showTerminal, setShowTerminal] = useState(false); // Don't auto-open terminal
-    const [isHubOpen, setIsHubOpen] = useState(false);
+    const [showTerminal, setShowTerminal] = useState(false); // Terminal is closed by default; user can open it manually
+    const [isHubOpen, setIsHubOpen] = useState(false); // Dedicated Hub panel (right side)
     const [lastSavedXml, setLastSavedXml] = useState<string>('');
     const [showWelcome, setShowWelcome] = useState(() => {
         return !localStorage.getItem('blocklaa-welcome-seen');
     });
+    // Short-lived toast when a template is loaded from Examples
+    const [templateToast, setTemplateToast] = useState<string | null>(null);
 
     // Highlight Block in Toolbox Logic
     const handleHighlightBlock = (categoryName: string, blockType: string) => {
@@ -398,7 +403,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
             aiBlockAssistant.setReferences(appyRef.current, workspaceRef.current);
             console.log("🧠 AI Block Assistant Connected");
         }
-    }, [isHubOpen]); // Re-register if hub closes/opens or generally on mount
+    }, []); // Run once when editor mounts
 
     // Listen for Sandbox Messages
     useEffect(() => {
@@ -551,7 +556,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 /* Toolbox Container */
                 .blocklyToolboxDiv {
                     background-color: #f0f7ff;
-                    border-right: 2px solid #ddd;
+                    border-right: none; /* Remove vertical divider line */
                 }
                 
                 /* Category Labels */
@@ -593,6 +598,58 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
             `;
             document.head.appendChild(style);
         }
+    }, []);
+
+    // UX: Hide the toolbox flyout/sidebar when kids click back on the workspace
+    // This removes the persistent vertical strip you see after opening categories like "Art & Music".
+    useEffect(() => {
+        const container = blocklyDivRef.current;
+        if (!container) return;
+
+        const handleMouseDown = (event: MouseEvent) => {
+            const target = event.target as Node | null;
+            if (!target) return;
+
+            // Ignore clicks inside the toolbox or its flyout
+            const toolboxEl = container.querySelector('.blocklyToolboxDiv');
+            const flyoutEl = container.querySelector('.blocklyFlyout');
+            if ((toolboxEl && toolboxEl.contains(target)) || (flyoutEl && flyoutEl.contains(target))) {
+                return;
+            }
+
+            const workspace = workspaceRef.current as any;
+            if (!workspace || !workspace.getToolbox) return;
+
+            const toolbox = workspace.getToolbox();
+            if (!toolbox) return;
+
+            const maybeFlyout = (toolbox as any).getFlyout ? (toolbox as any).getFlyout() : null;
+            if (maybeFlyout) {
+                if (typeof (maybeFlyout as any).setVisible === 'function') {
+                    (maybeFlyout as any).setVisible(false);
+                } else if (typeof (maybeFlyout as any).hide === 'function') {
+                    (maybeFlyout as any).hide();
+                }
+            }
+
+            // Also forcibly hide the flyout DOM element so the vertical strip disappears,
+            // even if the toolbox implementation doesn't expose getFlyout.
+            const flyoutNode = container.querySelector('.blocklyFlyout') as HTMLElement | null;
+            if (flyoutNode) {
+                flyoutNode.style.display = 'none';
+            }
+
+            if (typeof (toolbox as any).clearSelection === 'function') {
+                (toolbox as any).clearSelection();
+            } else if (typeof (toolbox as any).setSelectedItem === 'function') {
+                (toolbox as any).setSelectedItem(null);
+            }
+        };
+
+        container.addEventListener('mousedown', handleMouseDown);
+        return () => {
+            container.removeEventListener('mousedown', handleMouseDown);
+        };
     }, []);
 
     // Code generation function (can be called manually)
@@ -671,6 +728,13 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
 
             setGeneratedCodeMap(newCodeMap);
             setGeneratedCode(codeJS); // Primary for execution
+
+            // When blocks change, clear any previous JS override so the code view
+            // reflects the latest blocks by default. Learners can edit again if they want.
+            setCodeOverrides(prev => {
+                const { javascript, ...rest } = prev;
+                return rest;
+            });
 
             if (onWorkspaceChange) {
                 onWorkspaceChange({
@@ -899,13 +963,20 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
 
 
     const handleRunCode = () => {
-        if (!generatedCode) {
-            alert('No code to run! Add some blocks first.');
+        // Decide what JS to actually execute.
+        // If the learner is on the JavaScript tab and has edited the code,
+        // respect their edited JS. Otherwise, fall back to the JS generated from blocks.
+        const editedJs = codeOverrides['javascript'];
+        const generatedJs = generatedCodeMap['javascript'] || generatedCode;
+        const codeToRun = editedJs && editedJs.trim().length > 0 ? editedJs : generatedJs;
+
+        if (!codeToRun) {
+            alert('No code to run! Add some blocks first, or write JavaScript in the code view.');
             return;
         }
+
         setIsRunning(true);
         setConsoleLogs([]); // Clear logs
-        setShowTerminal(true); // Open terminal
         setIsStageOpen(true); // Open Stage so visual output shows (same as Learn section)
 
         // Resume AudioContext on user gesture so Play Sound / notes / drums can play
@@ -924,7 +995,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
             try {
                 sandboxWindow.contentWindow!.postMessage({
                     type: 'run',
-                    code: generatedCode
+                    code: codeToRun
                 }, '*');
                 setTimeout(() => setIsRunning(false), 500);
             } catch (error) {
@@ -936,16 +1007,31 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
         requestAnimationFrame(() => requestAnimationFrame(runCode));
     };
 
+    /** Load a project into the workspace only (no guide/lessons). Used by Examples tab so Lessons don't open. */
+    const handleLoadTemplateOnly = (project: any) => {
+        if (!workspaceRef.current) return;
+        try {
+            workspaceRef.current.clear();
+            Blockly.serialization.workspaces.load(project.workspace, workspaceRef.current);
+            setCustomLesson(null);
+            if (workspaceRef.current.options) {
+                workspaceRef.current.options.readOnly = false;
+            }
+            setTimeout(() => generateAllCode(), 100);
+        } catch (e) {
+            const err = e instanceof Error ? e : new Error(String(e));
+            console.error("Failed to load template", err.message, err.stack, e);
+            alert(`Failed to load. Please try again.${err.message ? ` (${err.message})` : ""}`);
+        }
+    };
+
+    /** Load from Hub (left sidebar): load workspace and optionally show guide in right panel. */
     const handleLoadHubSample = (project: any) => {
         if (!workspaceRef.current) return;
         try {
-            // Clear workspace first
             workspaceRef.current.clear();
-
-            // Load the sample
             Blockly.serialization.workspaces.load(project.workspace, workspaceRef.current);
 
-            // Load Guide if available — right panel shows "Guide: [title]" and steps (instruction + description)
             if (project.guide) {
                 const guideLesson = {
                     id: `guide_${project.id}`,
@@ -965,16 +1051,10 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 setCustomLesson(null);
             }
 
-            // Keep all blocks editable: ensure workspace is not read-only
             if (workspaceRef.current.options) {
                 workspaceRef.current.options.readOnly = false;
             }
-
-            // Regenerate code after load
-            setTimeout(() => {
-                generateAllCode();
-            }, 100); // Small delay to ensure blocks are fully rendered
-
+            setTimeout(() => generateAllCode(), 100);
         } catch (e) {
             const err = e instanceof Error ? e : new Error(String(e));
             console.error("Failed to load hub sample", err.message, err.stack, e);
@@ -1073,6 +1153,26 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
         }
     };
 
+    // UX: When either the Try & Learn right panel or Hub is open, move Appy left
+    // so he doesn't overlap the side panel or cover the Run Code area.
+    useEffect(() => {
+        if (!appyRef.current) return;
+        if (isLearnPanelOpen || isHubOpen) {
+            // Nudge Appy to the left side of the workspace
+            appyRef.current.setPosition({ x: 60, y: 75, facing: 'south' });
+        } else {
+            // Default home position near bottom-right
+            appyRef.current.setPosition({ x: 85, y: 75, facing: 'south' });
+        }
+    }, [isLearnPanelOpen, isHubOpen]);
+
+    // Auto-hide template toast after a short delay
+    useEffect(() => {
+        if (!templateToast) return;
+        const t = setTimeout(() => setTemplateToast(null), 5000);
+        return () => clearTimeout(t);
+    }, [templateToast]);
+
     return (
         <div className="blockly-editor-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Robot Welcome - Lazy loaded */}
@@ -1083,12 +1183,18 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 />
             </Suspense>
 
-            {/* Learn Panel - interactive tutorials */}
+            {/* Right panel: Examples/Lessons (Try & Learn) */}
             <LearnPanel
                 isOpen={isLearnPanelOpen}
                 onClose={() => setIsLearnPanelOpen(false)}
                 onHighlightCategory={handleHighlightCategory}
                 customLesson={customLesson}
+                onUseTemplate={(project) => {
+                    handleLoadTemplateOnly(project);
+                    // Auto-close the panel after applying an example so kids can see Run Code / Stage.
+                    setIsLearnPanelOpen(false);
+                    setTemplateToast(`Loaded "${project.title}". Press "Run Code" to try it, then change blocks or code to make it yours!`);
+                }}
             />
 
             {/* Appy the AI Teacher - Lazy loaded */}
@@ -1111,8 +1217,8 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                 justifyContent: 'space-between'
             }}>
-                {/* LEFT: Discovery Group */}
-                <div style={{ display: 'flex', gap: '8px' }}>
+                {/* LEFT: Discovery — Examples & lessons (right panel); all blocks are in the toolbox on the left */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                         onClick={() => setIsLearnPanelOpen(!isLearnPanelOpen)}
                         style={{
@@ -1125,12 +1231,16 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                             fontWeight: '600',
                             display: 'flex', alignItems: 'center', gap: '6px'
                         }}
-                        title="Lesson Guide"
+                        title="Examples & step-by-step lessons"
                     >
-                        <span>🎓</span> <span>Learn</span>
+                        <span>✨</span> <span>Examples & Learn</span>
                     </button>
                     <button
-                        onClick={() => setIsHubOpen(true)}
+                    onClick={() => {
+                            // Open dedicated Hub panel on the right and close Try & Learn
+                            setIsHubOpen(true);
+                            setIsLearnPanelOpen(false);
+                    }}
                         style={{
                             padding: '8px 12px',
                             backgroundColor: '#F3E8FF',
@@ -1295,9 +1405,67 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                 </div>
             </div>
 
+            {/* Hub panel on the right (category + difficulty) */}
+            <Suspense fallback={null}>
+                {isHubOpen && (
+                    <SampleHub
+                        isOpen={isHubOpen}
+                        onClose={() => setIsHubOpen(false)}
+                        onLoadSample={handleLoadHubSample}
+                    />
+                )}
+            </Suspense>
+
 
             {/* Blockly Workspace or Code View */}
             <div style={{ flex: 1, position: 'relative', minHeight: '400px' }}>
+
+                {/* Toast when an example/template is loaded */}
+                {templateToast && (
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: 8,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            backgroundColor: '#022c22',
+                            color: '#ecfdf5',
+                            padding: '8px 16px',
+                            borderRadius: '999px',
+                            fontSize: '13px',
+                            boxShadow: '0 4px 10px rgba(0,0,0,0.25)',
+                            zIndex: 30,
+                            maxWidth: '90%',
+                            textAlign: 'center'
+                        }}
+                    >
+                        {templateToast}
+                    </div>
+                )}
+
+                {/* Hint for under-10s: all blocks on the left, examples on the right */}
+                {currentTab === 'blocks' && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        padding: '8px 16px',
+                        backgroundColor: '#f0f9ff',
+                        borderBottom: '1px solid #e0f2fe',
+                        fontSize: '13px',
+                        color: '#0369a1',
+                        zIndex: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap'
+                    }}>
+                        <span><strong>All blocks are on the left</strong> — drag them here to build.</span>
+                        <span>Try an example on the right → then change it and make it yours (math, art, science).</span>
+                    </div>
+                )}
 
                 {/* 🏆 Gamification Layers */}
                 <BadgeNotification />
@@ -1427,7 +1595,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                     className="w-full h-full"
                     style={{
                         position: 'absolute',
-                        top: 0,
+                        top: currentTab === 'blocks' ? '42px' : 0,
                         left: 0,
                         right: 0,
                         bottom: 0,
@@ -1444,7 +1612,7 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                         display: 'flex',
                         backgroundColor: '#1E1E1E'
                     }}>
-                        {/* Source Code Panel */}
+                        {/* Source Code Panel (editable for learning/copying) */}
                         <div style={{
                             flex: 1,
                             padding: '16px',
@@ -1482,7 +1650,29 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                                     </div>
                                 </div>
                             )}
-                            <pre style={{ margin: 0 }}>{generatedCodeMap[currentTab] || '// No code generated'}</pre>
+                            <textarea
+                                value={
+                                    (codeOverrides[currentTab] ?? generatedCodeMap[currentTab]) ||
+                                    '// No code generated yet.\n// Edit here to learn or copy the code.'
+                                }
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setCodeOverrides(prev => ({ ...prev, [currentTab]: value }));
+                                }}
+                                spellCheck={false}
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    border: 'none',
+                                    outline: 'none',
+                                    resize: 'none',
+                                    backgroundColor: 'transparent',
+                                    color: '#d4d4d4',
+                                    fontFamily: 'Consolas, Monaco, monospace',
+                                    fontSize: '14px',
+                                    lineHeight: 1.5
+                                }}
+                            />
                         </div>
 
                         {/* Side-by-Side Output Panel */}
@@ -1567,16 +1757,6 @@ export const BlocklyEditor: React.FC<BlocklyEditorProps> = ({
                     </div>
                 )}
 
-                {/* Sample Hub Sidebar - Lazy loaded */}
-                <Suspense fallback={null}>
-                    {isHubOpen && (
-                        <SampleHub
-                            isOpen={isHubOpen}
-                            onClose={() => setIsHubOpen(false)}
-                            onLoadSample={handleLoadHubSample}
-                        />
-                    )}
-                </Suspense>
             </div>
 
             {/* Sandbox iframe for safe code execution */}
