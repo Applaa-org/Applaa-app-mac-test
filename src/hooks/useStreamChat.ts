@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ComponentSelection,
   Message,
@@ -17,7 +17,7 @@ import { isPreviewOpenAtom } from "@/atoms/viewAtoms";
 import type { ChatResponseEnd } from "@/ipc/ipc_types";
 import { useChats } from "./useChats";
 import { useLoadApp } from "./useLoadApp";
-import { selectedAppIdAtom } from "@/atoms/appAtoms";
+import { selectedAppIdAtom, appUrlAtom } from "@/atoms/appAtoms";
 import { useVersions } from "./useVersions";
 import { showExtraFilesToast } from "@/lib/toast";
 import { useProposal } from "./useProposal";
@@ -44,6 +44,9 @@ export function useStreamChat({
   
   const setIsPreviewOpen = useSetAtom(isPreviewOpenAtom);
   const [selectedAppId] = useAtom(selectedAppIdAtom);
+  const appUrl = useAtomValue(appUrlAtom);
+  const [holdBuildingAppId, setHoldBuildingAppId] = useState<number | null>(null);
+  const holdBuildingStartedAtRef = useRef<number>(0);
   const { refreshChats } = useChats(selectedAppId);
   const { refreshApp } = useLoadApp(selectedAppId);
   const setStreamCount = useSetAtom(chatStreamCountAtom);
@@ -175,7 +178,14 @@ export function useStreamChat({
 
               // 🚨 DYAD PATTERN: Direct streaming state reset
               setIsStreaming(false);
-              setCurrentStreamingAppId(null);
+              // If files changed, Applaa triggers a preview restart/build.
+              // Keep the "building" guard active until the preview URL is ready again.
+              if (response.updatedFiles && selectedAppId) {
+                setHoldBuildingAppId(selectedAppId);
+              } else {
+                setCurrentStreamingAppId(null);
+                setHoldBuildingAppId(null);
+              }
               
               refreshChats();
               refreshApp();
@@ -189,6 +199,7 @@ export function useStreamChat({
               // 🚨 DYAD PATTERN: Direct streaming state reset on error
               setIsStreaming(false);
               setCurrentStreamingAppId(null);
+              setHoldBuildingAppId(null);
               
               refreshChats();
               refreshApp();
@@ -216,11 +227,33 @@ export function useStreamChat({
           // 🚨 DYAD PATTERN: Direct streaming state reset on exception
           setIsStreaming(false);
           setCurrentStreamingAppId(null);
+          setHoldBuildingAppId(null);
           setError(error instanceof Error ? error.message : String(error));
           reject(error);
         }
       });
   };
+
+  // Clear the "building" guard once app preview is ready again.
+  useEffect(() => {
+    if (!holdBuildingAppId) return;
+
+    if (!holdBuildingStartedAtRef.current) {
+      holdBuildingStartedAtRef.current = Date.now();
+    }
+
+    const isReadyForApp =
+      appUrl.appId === holdBuildingAppId && !!appUrl.originalUrl;
+
+    const elapsedMs = Date.now() - holdBuildingStartedAtRef.current;
+    const exceededTimeout = elapsedMs > 20000; // safety net
+
+    if (isReadyForApp || exceededTimeout) {
+      setCurrentStreamingAppId(null);
+      setHoldBuildingAppId(null);
+      holdBuildingStartedAtRef.current = 0;
+    }
+  }, [holdBuildingAppId, appUrl.appId, appUrl.originalUrl, setCurrentStreamingAppId]);
 
   return {
     streamMessage,
