@@ -97,8 +97,8 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
 
         toast.success('Arcade app created!');
 
-        // Navigate to Arcade editor
-        window.location.href = `/arcade?id=${result.app.id}`;
+        // Navigate to Arcade editor (keep SPA navigation so packaged builds don't resolve as file://)
+        navigate({ to: '/arcade', search: { id: result.app.id } });
       } catch (error: any) {
         console.error('Failed to create Arcade app:', error);
         toast.error(`Failed to create Arcade app: ${error?.message || 'Unknown error'}`);
@@ -127,7 +127,8 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
         toast.success('Blocklaa workspace ready!');
 
         // Navigate directly to Blocklaa editor page (same as AppList.tsx)
-        window.location.href = `/blockly?id=${result.app.id}`;
+        // Use router navigation instead of window.location to avoid file:// URLs in packaged Electron.
+        navigate({ to: '/blockly', search: { id: result.app.id } });
       } catch (error: any) {
         console.error('Failed to create Blocklaa app:', error);
         toast.error(`Failed to create Blocklaa app: ${error?.message || 'Unknown error'}`);

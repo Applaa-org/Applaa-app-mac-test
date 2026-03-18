@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { PlusCircle, Sparkles, Code2, Smartphone, Zap, Globe, Monitor, Gamepad2, Puzzle, Cpu, Box, Joystick, Loader2 } from "lucide-react";
 import { useAtom, useSetAtom, useAtomValue } from "jotai";
 import { selectedAppIdAtom } from "@/atoms/appAtoms";
+import { currentStreamingAppIdAtom, selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -12,11 +13,12 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { selectedChatIdAtom, isStreamingAtom } from "@/atoms/chatAtoms";
 import { useLoadApps } from "@/hooks/useLoadApps";
 import type { App } from "@/ipc/ipc_types";
 import { detectAppCategory, getCategoryLabel, getCategoryIcon, type AppCategory } from "@/utils/appTypeDetection";
 import { AppTypeFilter, type AppFilterType } from "@/components/AppTypeFilter";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
+import { createPortal } from "react-dom";
 // Advanced features temporarily disabled for core stability
 // import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 // import { CloudSyncPanel } from "@/components/cloud/CloudSyncPanel";
@@ -111,6 +113,8 @@ export function AppList({ show }: { show?: boolean }) {
   const [showCloudSync, setShowCloudSync] = useState(false);
   const [appFilter, setAppFilter] = useState<AppFilterType>("web");
   const isStreaming = useAtomValue(isStreamingAtom);
+  const currentStreamingAppId = useAtomValue(currentStreamingAppIdAtom);
+  const [showBuildingWarning, setShowBuildingWarning] = useState(false);
 
   // Temporary fallback values
   const isAuthenticated = false;
@@ -168,6 +172,16 @@ export function AppList({ show }: { show?: boolean }) {
   }
 
   const handleAppClick = (id: number) => {
+    // Block switching apps while the current app is still streaming/building.
+    if (
+      currentStreamingAppId !== null &&
+      currentStreamingAppId === selectedAppId &&
+      id !== selectedAppId
+    ) {
+      setShowBuildingWarning(true);
+      return;
+    }
+
     setSelectedAppId(id);
     setSelectedChatId(null);
 
@@ -361,6 +375,21 @@ export function AppList({ show }: { show?: boolean }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Building Warning Dialog */}
+      {createPortal(
+        <ConfirmationDialog
+          isOpen={showBuildingWarning}
+          title="App is Building"
+          message="Please wait for the current app to finish building before switching to another app."
+          confirmText="OK"
+          cancelText=""
+          confirmButtonClass="bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
+          onConfirm={() => setShowBuildingWarning(false)}
+          onCancel={() => setShowBuildingWarning(false)}
+        />,
+        document.body
       )}
     </SidebarGroup>
   );
