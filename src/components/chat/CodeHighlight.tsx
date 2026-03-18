@@ -11,6 +11,7 @@ import githubDark from "@shikijs/themes/github-dark-default";
 import type { Element as HastElement } from "hast";
 import { useTheme } from "../../contexts/ThemeContext";
 import { Copy, Check } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface CodeHighlightProps {
   className?: string | undefined;
@@ -25,10 +26,12 @@ export const CodeHighlight = memo(
     const isInline = node ? isInlineCode(node) : false;
     //handle copying code to clipboard with transition effect
     const [copied, setCopied] = useState(false);
-    const handleCopy = () => {
-      navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000); // revert after 2s
+    const handleCopy = async () => {
+      const success = await copyToClipboard(code);
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000); // revert after 2s
+      }
     };
 
     const { isDarkMode } = useTheme();
