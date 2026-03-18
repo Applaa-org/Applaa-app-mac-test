@@ -224,7 +224,8 @@ export function AcademyLearn() {
 
   if (lesson) {
     const starter = lesson.challengeStarterCode ?? lesson.exampleCode;
-    const code = challengeCode[lesson.id] ?? starter;
+    const codeKey = `${track}:${lesson.id}`;
+    const code = challengeCode[codeKey] ?? starter;
     const hasExtraExamples = lesson.extraExamples && lesson.extraExamples.length > 0;
     return (
       <div className="p-6 max-w-4xl mx-auto space-y-8">
@@ -298,7 +299,7 @@ export function AcademyLearn() {
           <div className="min-h-[320px]">
             <AcademyCodeEditor
               value={code}
-              onChange={(v) => setChallengeCode((c) => ({ ...c, [lesson.id]: v }))}
+              onChange={(v) => setChallengeCode((c) => ({ ...c, [codeKey]: v }))}
               language={editorLang}
               height={320}
               showRunButton={true}
