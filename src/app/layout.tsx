@@ -142,7 +142,7 @@ export default function RootLayout({
                   )}
                 >
                   <ErrorBoundary>
-                    <div className="min-w-0 flex-1 min-h-0 overflow-hidden w-full">
+                    <div className="min-w-0 flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full">
                       {children}
                     </div>
                   </ErrorBoundary>
