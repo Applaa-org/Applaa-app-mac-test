@@ -99,6 +99,7 @@ export function AcademyPlayground() {
         language={language}
         height="400px"
         showRunButton={true}
+        onReset={() => setCode(SAMPLES[language])}
       />
     </div>
   );
