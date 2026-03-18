@@ -293,7 +293,7 @@ export function AcademyLearn() {
           <div className="flex flex-wrap items-center gap-2">
             <AcademyAiTutor code={code} language={track} />
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              Ask the tutor if you’re stuck
+              Ask the tutor if you're stuck
             </span>
           </div>
           <div className="min-h-[320px]">
@@ -303,6 +303,13 @@ export function AcademyLearn() {
               language={editorLang}
               height={320}
               showRunButton={true}
+              onReset={challengeCode[codeKey] !== undefined ? () =>
+                setChallengeCode((c) => {
+                  const next = { ...c };
+                  delete next[codeKey];
+                  return next;
+                })
+              : undefined}
             />
           </div>
         </section>

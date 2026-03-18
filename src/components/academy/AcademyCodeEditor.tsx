@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from "react";
 import Editor, { OnMount } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2 } from "lucide-react";
+import { Play, Loader2, RotateCcw } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import "@/components/chat/monaco";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -145,6 +146,7 @@ interface AcademyCodeEditorProps {
   readOnly?: boolean;
   onRun?: (output: string) => void;
   showRunButton?: boolean;
+  onReset?: () => void;
 }
 
 export function AcademyCodeEditor({
@@ -155,6 +157,7 @@ export function AcademyCodeEditor({
   readOnly = false,
   onRun,
   showRunButton = true,
+  onReset,
 }: AcademyCodeEditorProps) {
   const [output, setOutput] = useState("");
   const [htmlPreview, setHtmlPreview] = useState("");
@@ -259,10 +262,30 @@ export function AcademyCodeEditor({
           {language === "python" ? "🐍 Python" : language === "html" ? "📄 HTML/CSS" : language === "react" ? "⚛️ React" : language === "typescript" ? "📘 TypeScript" : "🟨 JavaScript"}
         </span>
         {showRunButton && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
               ⌨️ Ctrl+Enter to run
             </span>
+            {onReset && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={onReset}
+                      className="h-9 w-9 p-0 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 dark:hover:text-red-400 transition-colors"
+                      aria-label="Reset code to starter"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Reset code
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <Button
               size="sm"
               onClick={runCode}
