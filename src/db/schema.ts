@@ -349,6 +349,49 @@ export const buddyMessageEmbeddingsRelations = relations(buddyMessageEmbeddings,
   }),
 }));
 
+// ============================================================================
+// APPLAA AI ACADEMY
+// ============================================================================
+
+/** Lesson progress per user (all code tracks) */
+export const academyLessonProgress = sqliteTable("academy_lesson_progress", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  track: text("track", {
+    enum: ["python", "javascript", "html", "react", "typescript", "ai"],
+  }).notNull(),
+  lessonId: text("lesson_id").notNull(),
+  completedAt: integer("completed_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+/** Saved projects (calculator, todo, quiz, weather, etc.) */
+export const academyProjects = sqliteTable("academy_projects", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  projectType: text("project_type").notNull(), // calculator | todo | quiz | weather
+  code: text("code").notNull(),
+  language: text("language", { enum: ["python", "javascript", "react", "typescript"] }).notNull().default("javascript"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+/** Challenge attempts (optional, for analytics) */
+export const academyChallengeAttempts = sqliteTable("academy_challenge_attempts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  lessonId: text("lesson_id").notNull(),
+  track: text("track", { enum: ["python", "javascript"] }).notNull(),
+  passed: integer("passed", { mode: "boolean" }).notNull(),
+  attemptedAt: integer("attempted_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 // Prompts table temporarily disabled for MVP
 // export const prompts = sqliteTable("prompts", {
 //   id: integer("id").primaryKey({ autoIncrement: true }),

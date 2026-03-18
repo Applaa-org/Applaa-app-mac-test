@@ -417,6 +417,16 @@ const validInvokeChannels = [
 
   // Web Apps Templates Management channels
   "web-apps:list",
+
+  // Applaa AI Academy
+  "academy:get-progress",
+  "academy:complete-lesson",
+  "academy:record-challenge-attempt",
+  "academy:list-projects",
+  "academy:get-project",
+  "academy:save-project",
+  "academy:delete-project",
+  "academy:ai-tutor",
 ];
 
 // Add valid receive channels

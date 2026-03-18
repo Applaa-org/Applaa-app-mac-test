@@ -121,6 +121,9 @@ Error occurs → Open troubleshooting skill → Find error pattern → Follow li
 | [godot-games](#godot-games) | Working with Godot game projects |
 | [webapp-apps](#webapp-apps) | Working with React/Next.js web apps |
 | [expo-mobile-apps](#expo-mobile-apps) | Working with Expo React Native apps |
+| [layout-sidebar-fixes](#layout-sidebar-fixes) | Chat trimmed, sidebar width on toggle, top-left space, academy layout |
+| [ai-academy](#ai-academy) | AI Academy routes, layout, sidebar (indigo theme) |
+| [learning-academy](#learning-academy) | Learning Academy routes, layout, sidebar (teal theme) |
 
 ---
 
@@ -326,6 +329,61 @@ Use when working with:
 - `expo-templates/base-router/`
 - `src/ipc/handlers/expo_handlers.ts`
 - `src/prompts/expo_system_prompt.ts`
+
+---
+
+## Layout & Academy Skills
+
+### layout-sidebar-fixes
+**Main app layout and left sidebar bug fixes.**
+
+Use when:
+- Chat or main content is trimmed / cut off on the right
+- Left menu overlaps or trims content when toggled (sidebar width ≠ gap)
+- There is unwanted space at the top of the sidebar (above hamburger)
+- Academy "Main menu" is not visible or layout overflows
+
+**What it covers:**
+- Root and main row constraints (`SidebarProvider`, flex, `min-w-0`, overflow)
+- Sidebar CSS variables (`--sidebar-width` 19rem expanded, 5rem collapsed; `--sidebar-width-icon` 5rem)
+- Removing extra top margin in sidebar content
+- Academy layout root using `h-full min-h-0` instead of viewport calc
+
+**Key files:** `src/app/layout.tsx`, `src/components/app-sidebar.tsx`, `src/pages/chat.tsx`, academy layout files
+
+---
+
+### ai-academy
+**AI Academy (coding/AI learning) – routes, layout, and patterns.**
+
+Use when:
+- Adding or changing AI Academy routes or pages
+- Changing sidebar nav or "Main menu" on `/academy`
+- Fixing layout on AI Academy (indigo theme)
+
+**What it covers:**
+- Routes: `/academy`, learn, playground, challenges, projects
+- Layout: `AcademyLayout`, `h-full min-h-0`, sidebar with Main menu at bottom
+- Nav items and active-state logic
+
+**Key files:** `src/routes/academy.tsx`, `src/pages/academy/AcademyLayout.tsx`, `src/pages/academy/*`
+
+---
+
+### learning-academy
+**Learning Academy (curriculum/school-style) – routes, layout, and patterns.**
+
+Use when:
+- Adding or changing Learning Academy routes or pages
+- Changing sidebar nav or "Main menu" on `/learning-academy`
+- Fixing layout on Learning Academy (teal theme)
+
+**What it covers:**
+- Routes: `/learning-academy`, curriculum, schedule, curriculum topic
+- Layout: `LearningAcademyLayout`, `h-full min-h-0`, sidebar with Main menu at bottom
+- Nav items and active-state logic
+
+**Key files:** `src/routes/learning-academy.tsx`, `src/pages/learning-academy/LearningAcademyLayout.tsx`, `src/pages/learning-academy/*`
 
 ---
 

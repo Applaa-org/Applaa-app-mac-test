@@ -96,6 +96,7 @@ import { registerWebCloneHandlers } from "./handlers/web_clone_handlers";
 import { registerSubscriptionHandlers } from "./handlers/subscription_handlers";
 import { registerProfileHandlers } from "./handlers/profile_handlers";
 import { registerCreditHandlers } from "./handlers/credit_handlers";
+import { registerAcademyHandlers } from "./handlers/academy_handlers";
 
 
 export function registerIpcHandlers() {
@@ -272,6 +273,9 @@ export function registerIpcHandlers() {
 
   // 💎 Credit handlers
   registerCreditHandlers();
+
+  // 🎓 Applaa AI Academy
+  registerAcademyHandlers();
 
   // 🌍 Global Container System with Transformers.js integration
   // Container handlers removed for MVP

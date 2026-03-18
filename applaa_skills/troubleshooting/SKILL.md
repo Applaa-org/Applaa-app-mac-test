@@ -180,6 +180,19 @@ ERROR MESSAGE → Search this doc → Find matching pattern → Read linked skil
 
 ---
 
+## Layout / Sidebar / Trimming → [layout-sidebar-fixes](../layout-sidebar-fixes/SKILL.md)
+
+**When the main app layout or left sidebar causes clipping or wrong spacing:**
+
+| Error Pattern | Cause | Quick Fix |
+|---------------|-------|-----------|
+| Chat / main content trimmed on the right | Content area not flex-constrained | See layout-sidebar-fixes: root + main row + min-w-0 |
+| Left menu trims chat when toggled | Sidebar width ≠ gap width | Set --sidebar-width 19rem expanded, 5rem collapsed; --sidebar-width-icon 5rem |
+| Extra space at top of sidebar (above hamburger) | Unwanted margin on content | Remove mt-8 from sidebar content wrapper in app-sidebar.tsx |
+| Academy "Main menu" not visible / cut off | Academy layout overflow | Use h-full min-h-0 on academy layout root, not 100vh calc |
+
+---
+
 # Still Stuck?
 
 ## Identify the error source
@@ -192,6 +205,16 @@ ERROR MESSAGE → Search this doc → Find matching pattern → Read linked skil
 | `.vite/`, `out/` | Packaging |
 | `apps/` folder | App type specific |
 
+## Chat / App context
+
+**When the chat or any app-specific feature uses the wrong app:**
+
+- Chat and app-scoped features use `selectedAppIdAtom` (see `src/atoms/appAtoms.ts`). The "current app" in the UI is whatever app is selected (e.g. from the app list or when opening an app).
+- When implementing or debugging chat, app list, or Skills that refer to "current app", ensure they read or set `selectedAppIdAtom` so the correct app's context (chats, files, preview) is used. Do not assume a single global "current app" outside this atom.
+- If chat shows another app's conversations after switching apps, verify the component uses `useAtomValue(selectedAppIdAtom)` (or equivalent) and that switching apps updates this atom.
+
+---
+
 ## Prevention Checklist
 
 Before adding new features, check the relevant skill:
@@ -202,4 +225,7 @@ Before adding new features, check the relevant skill:
 | New IPC channel | ipc-handler-creation |
 | Database table/column | database-schema |
 | React hook | react-hook-patterns |
+| Layout / sidebar / main content area changes | layout-sidebar-fixes |
+| AI Academy feature or route | ai-academy |
+| Learning Academy feature or route | learning-academy |
 | App type feature | Relevant app type skill |

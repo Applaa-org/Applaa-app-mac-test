@@ -9,7 +9,9 @@ import {
   LogIn,
   Target,
   Bot,
-  Crown
+  Crown,
+  GraduationCap,
+  BookMarked,
 } from "lucide-react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useSidebar } from "@/components/ui/sidebar"; // import useSidebar hook
@@ -44,8 +46,10 @@ import { WordPressAuthDialog } from "@/components/auth/WordPressAuthDialog";
 
 
 // Menu items with dynamic colors - blue for active, gray for inactive
+// Each item has a unique `id` to avoid duplicate page/sidebar ids and truncation confusion
 const items = [
   {
+    id: "apps",
     title: "Apps",
     to: "/",
     icon: Sparkles, // AI magic for app creation
@@ -53,30 +57,47 @@ const items = [
 
   // 🚀 MVP: Chat tab removed - chat is integrated within each app context
   // {
+  //   id: "chat",
   //   title: "Chat",
-  //   to: "/chat", 
-  //   icon: MessageSquareCode, // Code-focused chat
+  //   to: "/chat",
+  //   icon: MessageSquareCode,
   // },
   // {
+  //   id: "library",
   //   title: "Library",
   //   to: "/library",
   //   icon: BookOpen,
   // }, // Disabled for MVP
 
   {
+    id: "hub",
     title: "Hub",
     to: "/hub",
     icon: Zap, // Energy/power for marketplace
   },
   {
+    id: "settings",
     title: "Settings",
     to: "/settings",
     icon: Sliders, // More modern settings icon
   },
   {
+    id: "docs",
     title: "Docs",
     to: "/docs",
     icon: BookOpenText,
+  },
+  {
+    id: "ai-academy",
+    title: "AI Ac'dmy",
+    to: "/academy",
+    icon: GraduationCap,
+  },
+  {
+    id: "learning-academy",
+    title: "Learning",
+    to: "/learning-academy",
+    icon: BookMarked,
   },
 ];
 
@@ -166,14 +187,17 @@ export function AppSidebar() {
     }
   }
 
-  // Determine if sidebar should be expanded (18rem) or collapsed (5rem)
+  // Determine if sidebar should be expanded (icon column + panel) or collapsed (icons only).
+  // Expanded must fit: icon column (4rem / w-16) + right panel (240px) = 19rem to avoid trimming main content.
+  // Collapsed uses 5rem so gap matches actual icon width and doesn't reserve extra space.
   const shouldExpand = selectedItem === "Apps" || selectedItem === "Settings";
 
   return (
     <Sidebar
       collapsible="icon"
+      className="top-12 h-[calc(100vh-3rem)]"
       style={{
-        '--sidebar-width': shouldExpand ? '18rem' : '5rem',
+        '--sidebar-width': shouldExpand ? '19rem' : '5rem',
         '--sidebar-width-icon': '5rem'
       } as React.CSSProperties}
       onMouseLeave={() => {
@@ -182,8 +206,8 @@ export function AppSidebar() {
         }
       }}
     >
-      <SidebarContent className="overflow-hidden flex flex-col h-full">
-        <div className="flex flex-1 mt-8 min-h-0">
+      <SidebarContent className="flex flex-col h-full min-h-0 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-auto">
           {/* Left Column: Menu items */}
           <div className="flex-shrink-0">
             <SidebarTrigger
@@ -322,22 +346,24 @@ function AppIcons({
               (item.to !== "/" && pathname.startsWith(item.to));
 
             return (
-              <SidebarMenuItem key={item.title}>
+              <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton
                   asChild
                   size="sm"
                   className="font-medium w-14 h-auto"
                 >
                   <Link
+                    id={`sidebar-nav-${item.id}`}
                     to={item.to}
+                    aria-label={item.title}
                     className={`flex flex-col items-center gap-2 py-3 px-2 mb-2 rounded-2xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 ${isActive ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20" : ""
                       }`}
                     onMouseEnter={() => {
-                      if (item.title === "Apps") {
+                      if (item.id === "apps") {
                         onHoverChange("start-hover:app");
-                      } else if (item.title === "Chat") {
+                      } else if (item.id === "chat") {
                         onHoverChange("start-hover:chat");
-                      } else if (item.title === "Settings") {
+                      } else if (item.id === "settings") {
                         onHoverChange("start-hover:settings");
                       }
                     }}
@@ -349,10 +375,13 @@ function AppIcons({
                         }`}>
                         <item.icon className="h-5 w-5 text-white" />
                       </div>
-                      <span className={`text-xs font-medium whitespace-nowrap ${isActive
-                        ? "text-blue-700 dark:text-blue-300"
-                        : "text-gray-700 dark:text-gray-300"
-                        }`}>
+                      <span
+                        title={item.title}
+                        className={`text-xs font-medium whitespace-nowrap overflow-visible min-w-0 text-center ${isActive
+                          ? "text-blue-700 dark:text-blue-300"
+                          : "text-gray-700 dark:text-gray-300"
+                          }`}
+                      >
                         {item.title}
                       </span>
                     </div>
