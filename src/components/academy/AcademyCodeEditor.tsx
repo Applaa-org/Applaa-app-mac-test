@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import Editor, { OnMount } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2, RotateCcw } from "lucide-react";
+import { Play, Loader2, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import "@/components/chat/monaco";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -277,7 +277,7 @@ export function AcademyCodeEditor({
                       className="h-9 w-9 p-0 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 dark:hover:text-red-400 transition-colors"
                       aria-label="Reset code to starter"
                     >
-                      <RotateCcw className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">
