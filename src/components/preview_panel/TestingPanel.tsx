@@ -10,8 +10,12 @@ export function TestingPanel() {
   const selectedAppId = useAtomValue(selectedAppIdAtom);
   const appUrlObj = useAtomValue(appUrlAtom);
   
-  // Extract the actual URL string from the object
-  const appUrl = appUrlObj?.appUrl || null;
+  // Only use the URL if it belongs to the currently selected app
+  const belongsToCurrentApp = !!(
+    appUrlObj &&
+    appUrlObj.appId === selectedAppId
+  );
+  const appUrl = belongsToCurrentApp ? appUrlObj?.appUrl || null : null;
 
   // Show message if no app is selected
   if (!selectedAppId) {

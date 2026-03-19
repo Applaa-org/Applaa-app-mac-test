@@ -143,7 +143,7 @@ ERROR MESSAGE → Search this doc → Find matching pattern → Read linked skil
 
 | Error Pattern | Cause | Quick Fix |
 |---------------|-------|-----------|
-| Preview briefly shows old app when switching apps | appUrl used without appId check | Use effectiveAppUrl – only use appUrl when appUrlObj.appId === selectedAppId (see [webapp-apps § Preview shows old app](../webapp-apps/SKILL.md#preview-shows-old-app-when-switching--always-check-when-preview-looks-wrong)) |
+| Preview briefly shows old app when switching apps | appUrl used without appId check | Use effectiveAppUrl/effectiveOriginalUrl and apply appId guards in all preview consumers (iframe, ready/loading checks, testing panel, timeout hooks). See [webapp-apps § Preview shows old app](../webapp-apps/SKILL.md#preview-shows-old-app-when-switching--always-check-when-preview-looks-wrong) |
 | Preview not starting | Port in use | Kill process on port 3000 |
 | `ENOENT: package.json` | Wrong directory | Check app path |
 | Hot reload broken | Vite cache | Delete `.vite` folder |
