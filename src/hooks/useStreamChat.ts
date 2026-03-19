@@ -46,7 +46,7 @@ export function useStreamChat({
   const [selectedAppId] = useAtom(selectedAppIdAtom);
   const appUrl = useAtomValue(appUrlAtom);
   const [holdBuildingAppId, setHoldBuildingAppId] = useState<number | null>(null);
-  const holdBuildingStartedAtRef = useRef<number>(0);
+  const holdBuildingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { refreshChats } = useChats(selectedAppId);
   const { refreshApp } = useLoadApp(selectedAppId);
   const setStreamCount = useSetAtom(chatStreamCountAtom);
@@ -236,23 +236,43 @@ export function useStreamChat({
 
   // Clear the "building" guard once app preview is ready again.
   useEffect(() => {
-    if (!holdBuildingAppId) return;
-
-    if (!holdBuildingStartedAtRef.current) {
-      holdBuildingStartedAtRef.current = Date.now();
+    if (!holdBuildingAppId) {
+      if (holdBuildingTimeoutRef.current) {
+        clearTimeout(holdBuildingTimeoutRef.current);
+        holdBuildingTimeoutRef.current = null;
+      }
+      return;
     }
 
     const isReadyForApp =
       appUrl.appId === holdBuildingAppId && !!appUrl.originalUrl;
 
-    const elapsedMs = Date.now() - holdBuildingStartedAtRef.current;
-    const exceededTimeout = elapsedMs > 20000; // safety net
-
-    if (isReadyForApp || exceededTimeout) {
+    // Clear immediately when preview is ready for the same app.
+    if (isReadyForApp) {
+      if (holdBuildingTimeoutRef.current) {
+        clearTimeout(holdBuildingTimeoutRef.current);
+        holdBuildingTimeoutRef.current = null;
+      }
       setCurrentStreamingAppId(null);
       setHoldBuildingAppId(null);
-      holdBuildingStartedAtRef.current = 0;
+      return;
     }
+
+    // Safety net: always clear after 20s even if appUrl never changes.
+    if (!holdBuildingTimeoutRef.current) {
+      holdBuildingTimeoutRef.current = setTimeout(() => {
+        setCurrentStreamingAppId(null);
+        setHoldBuildingAppId(null);
+        holdBuildingTimeoutRef.current = null;
+      }, 20000);
+    }
+
+    return () => {
+      if (holdBuildingTimeoutRef.current) {
+        clearTimeout(holdBuildingTimeoutRef.current);
+        holdBuildingTimeoutRef.current = null;
+      }
+    };
   }, [holdBuildingAppId, appUrl.appId, appUrl.originalUrl, setCurrentStreamingAppId]);
 
   return {

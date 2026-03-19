@@ -286,7 +286,7 @@ export function AppList({ show }: { show?: boolean }) {
         </div>
         Your Apps
       </SidebarGroupLabel>
-      <SidebarGroupContent className="flex-1 overflow-y-auto">
+      <SidebarGroupContent className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="flex flex-col space-y-2 pb-4">
           <Button
             onClick={handleNewApp}
