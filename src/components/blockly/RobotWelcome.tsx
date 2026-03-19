@@ -212,10 +212,11 @@ function AnimatedWalkingRobot({ animation }: { animation: string }) {
 
     // Walking animation frames
     const walkFrames = [
-        '/blocky-walk-1.png', // Left leg forward
-        '/blocky-walk-2.png', // Both legs together
-        '/blocky-walk-3.png', // Right leg forward
-        '/blocky-walk-4.png'  // Both legs together
+        // Resolve from built JS location so route path doesn't alter file:// lookups.
+        new URL('../blocky-walk-1.png', import.meta.url).toString(), // Left leg forward
+        new URL('../blocky-walk-2.png', import.meta.url).toString(), // Both legs together
+        new URL('../blocky-walk-3.png', import.meta.url).toString(), // Right leg forward
+        new URL('../blocky-walk-4.png', import.meta.url).toString()  // Both legs together
     ];
 
     // Cycle through walking frames
@@ -277,7 +278,7 @@ function getBodyAnimation(type: string) {
                 transition: {
                     repeat: Infinity,
                     duration: 0.6,
-                    ease: "easeInOut"
+                    // Keep motion typing compatible across framer-motion versions
                 }
             };
         case 'jump-excited':

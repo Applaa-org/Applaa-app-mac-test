@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, forwardRef, useImperativeHandle, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Suspense } from 'react';
-import { useLoader } from '@react-three/fiber';
-import { FBXLoader } from 'three-stdlib';
+import { FBXLoader, GLTFLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { SpeechBubble } from './SpeechBubble';
 import type { AppyPosition } from './appy/AppyMovement';
@@ -28,15 +27,66 @@ const ANIMATION_FILES: Record<string, string> = {
 function AppyModel({ animation, setAnimation, facing, color }: { animation: string, setAnimation: (anim: string) => void, facing: string, color?: string }) {
     // Get correct filename
     const fileName = ANIMATION_FILES[animation] || ANIMATION_FILES['Idle'];
-    const filePath = `/appy/meshy/${fileName}.fbx`;
+    // Resolve from the built JS location so routing path changes (/blockly) don't break asset fetches.
+    const filePath = new URL(`../appy/meshy/${fileName}.fbx`, import.meta.url).toString();
 
     const groupRef = useRef<THREE.Group>(null);
     const mixerRef = useRef<THREE.AnimationMixer | null>(null);
     const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [fbx, setFbx] = useState<THREE.Group | null>(null);
+    const [fallbackScene, setFallbackScene] = useState<THREE.Object3D | null>(null);
 
-    // Load FBX file
-    console.log(`🎬 Loading Meshy BestFbx: ${fileName}`);
-    const fbx = useLoader(FBXLoader, filePath);
+    // Load FBX in both dev and packaged builds.
+    useEffect(() => {
+        let cancelled = false;
+        setFbx(null);
+
+        console.log(`🎬 Loading Meshy BestFbx: ${fileName}`);
+        const loader = new FBXLoader();
+        loader.load(
+            filePath,
+            (loadedFbx) => {
+                if (cancelled) return;
+                setFbx(loadedFbx);
+            },
+            undefined,
+            (error) => {
+                if (cancelled) return;
+                console.error(`❌ Failed to load ${filePath}:`, error);
+            }
+        );
+
+        return () => {
+            cancelled = true;
+        };
+    }, [fileName, filePath]);
+
+    // Fallback model if FBX is unavailable.
+    useEffect(() => {
+        if (fbx) return; // Prefer animated model when available
+
+        let cancelled = false;
+        const glbPath = new URL('../appy/appy.glb', import.meta.url).toString();
+        const loader = new GLTFLoader();
+
+        loader.load(
+            glbPath,
+            (gltf) => {
+                if (cancelled) return;
+                setFallbackScene(gltf.scene);
+            },
+            undefined,
+            (error) => {
+                if (cancelled) return;
+                console.error(`❌ Failed to load ${glbPath}:`, error);
+                setFallbackScene(null);
+            }
+        );
+
+        return () => {
+            cancelled = true;
+        };
+    }, [fbx]);
 
     // Dynamic Color Application
     useEffect(() => {
@@ -136,11 +186,22 @@ function AppyModel({ animation, setAnimation, facing, color }: { animation: stri
 
         action.fadeIn(0.2).play();
 
-        return () => newMixer.stopAllAction();
+        return () => {
+            newMixer.stopAllAction();
+        };
     }, [fbx, animation, fileName, setAnimation]);
 
     // Update mixer every frame
     useFrame((_, delta) => mixerRef.current?.update(delta));
+
+    if (!fbx) {
+        if (!fallbackScene) return null;
+        return (
+            <group ref={groupRef}>
+                <primitive object={fallbackScene} scale={0.9} position={[0, -1, 0]} />
+            </group>
+        );
+    }
 
     return (
         <group ref={groupRef}>
