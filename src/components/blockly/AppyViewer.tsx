@@ -3,8 +3,9 @@ import { OrbitControls, useGLTF } from '@react-three/drei';
 import { Suspense, useState, useEffect } from 'react';
 
 function AppyModel() {
-    // GLB file is in public/appy/ folder
-    const { scene } = useGLTF('/appy/appy.glb');
+    // Resolve from built JS location so router URL changes don't affect asset path.
+    const glbPath = new URL('../appy/appy.glb', import.meta.url).toString();
+    const { scene } = useGLTF(glbPath);
     return <primitive object={scene} scale={1.5} position={[0, -1, 0]} />;
 }
 
