@@ -88,7 +88,14 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
   const { expoUrl } = useExpoUrl();
   const { hasExport: hasGodotExport, exportUrl: godotExportUrl, isLoading: isGodotExportLoading, error: godotExportError, errorDetails: godotExportErrorDetails, data: godotExportData, refetch: refetchGodotExport } = useGodotExport();
   const { hasProject: hasGodotProject, isLoading: isGodotProjectLoading, isBuilding: isGodotBuilding } = useGodotProjectStatus();
-  const appUrl = useAtomValue(appUrlAtom);
+  const appUrlObj = useAtomValue(appUrlAtom);
+  const belongsToCurrentApp = !!(
+    appUrlObj &&
+    appUrlObj.appId === selectedAppId
+  );
+  const effectiveOriginalUrl = belongsToCurrentApp
+    ? appUrlObj.originalUrl
+    : null;
   const isStreaming = useAtomValue(isStreamingAtom);
   const [gameCreationPrompt, setGameCreationPrompt] = useAtom(gameCreationPromptAtom) as [string | null, any];
 
@@ -457,7 +464,7 @@ export function PreviewPanel({ isLeftPanelOpen, onToggleLeftPanel }: PreviewPane
                       // Project exists AND export is ready - show preview
                       <PreviewIframe key={key} loading={loading} godotExportUrl={godotExportUrl} />
                     )
-                  ) : (loading || !app || (app && !isExpoApp && !isMakeCodeApp && !isBlocklyApp && !isMinecraftJavaMod && !appUrl?.originalUrl)) ? (
+                  ) : (loading || !app || (app && !isExpoApp && !isMakeCodeApp && !isBlocklyApp && !isMinecraftJavaMod && !effectiveOriginalUrl)) ? (
                     <div className="godot-preview-container h-full">
                       <div className="godot-loading">
                         <div className="godot-spinner"></div>

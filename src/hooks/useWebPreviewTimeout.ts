@@ -19,7 +19,12 @@ export function useWebPreviewTimeout(): WebPreviewTimeoutState {
   // 🚨 DYAD PATTERN: Use simple global streaming atom
   const isStreaming = useAtomValue(isStreamingAtom);
   
-  const appUrl = useAtomValue(appUrlAtom);
+  const appUrlObj = useAtomValue(appUrlAtom);
+  const belongsToCurrentApp = !!(
+    appUrlObj &&
+    appUrlObj.appId === selectedAppId
+  );
+  const effectiveAppUrl = belongsToCurrentApp ? appUrlObj.appUrl : null;
   const { problemReport } = useCheckProblems(selectedAppId);
   
   const [shouldShowTimeoutPopup, setShouldShowTimeoutPopup] = useState(false);
@@ -30,8 +35,12 @@ export function useWebPreviewTimeout(): WebPreviewTimeoutState {
 
   // Check if web app server is running by checking if we have a valid app URL
   const checkWebAppStatus = useCallback((): boolean => {
-    return appUrl?.appUrl !== null && appUrl?.appUrl !== undefined && appUrl.appUrl !== '';
-  }, [appUrl]);
+    return (
+      effectiveAppUrl !== null &&
+      effectiveAppUrl !== undefined &&
+      effectiveAppUrl !== ""
+    );
+  }, [effectiveAppUrl]);
 
   // Reset timeout tracking
   const resetTimeout = useCallback(() => {
@@ -78,7 +87,7 @@ export function useWebPreviewTimeout(): WebPreviewTimeoutState {
       // Web app is not running, start timeout
       if (!startTimeRef.current) {
         startTimeRef.current = Date.now();
-        lastAppUrlRef.current = appUrl?.appUrl || null;
+        lastAppUrlRef.current = effectiveAppUrl || null;
       }
 
       // Set timeout for 30 seconds
@@ -114,11 +123,11 @@ export function useWebPreviewTimeout(): WebPreviewTimeoutState {
         resetTimeout();
       }
       
-      lastAppUrlRef.current = appUrl?.appUrl || null;
+      lastAppUrlRef.current = effectiveAppUrl || null;
     }, 2000); // Check every 2 seconds
 
     return () => clearInterval(checkInterval);
-  }, [selectedAppId, isStreaming, checkWebAppStatus, resetTimeout, appUrl?.appUrl]);
+  }, [selectedAppId, isStreaming, checkWebAppStatus, resetTimeout, effectiveAppUrl]);
 
   // Cleanup on unmount
   useEffect(() => {

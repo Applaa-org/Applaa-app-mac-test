@@ -172,12 +172,16 @@ npm start        # Start production
 
 **Root cause:** `appUrlAtom` holds `{ appUrl, appId, originalUrl }`. `selectedAppId` updates immediately on app switch, but components use `appUrl` without checking `appId === selectedAppId`, so they render the previous app's URL for one or more frames.
 
-**Fix:** In `PreviewIframe.tsx` (and any component using `appUrlAtom` for preview/iframe logic):
+**Fix:** In `PreviewIframe.tsx` (and any component/hook using `appUrlAtom` for preview/iframe, readiness, testing, or timeout logic):
 
 1. Use the full `appUrlObj` from `appUrlAtom`.
 2. Compute `effectiveAppUrl` / `effectiveOriginalUrl` only when `appUrlObj.appId === selectedAppId`; otherwise use `null`.
 3. Use `effectiveAppUrl` for: iframe `src`, loader/empty state checks, navigation history init, postMessage `baseUrl`, URL resolution.
-4. Use `effectiveOriginalUrl` for "Open in Browser" button.
+4. Use `effectiveOriginalUrl` for "Open in Browser" and preview-ready checks.
+5. Apply the same guard pattern in related consumers (not just iframe rendering):
+   - `PreviewPanel.tsx` loading/ready conditions
+   - `TestingPanel.tsx` app URL passed to tests
+   - `useWebPreviewTimeout.ts` status/timeout checks
 
 ```tsx
 const appUrlObj = useAtomValue(appUrlAtom);
@@ -187,7 +191,7 @@ const effectiveAppUrl = belongsToCurrentApp && appUrl ? appUrl : null;
 const effectiveOriginalUrl = belongsToCurrentApp && originalUrl ? originalUrl : null;
 ```
 
-**Rule:** When preview shows wrong/stale app content when switching apps, check `appUrlAtom` usage – ensure `appId === selectedAppId` before using the URL.
+**Rule:** When preview shows wrong/stale app content when switching apps, check **all** `appUrlAtom` consumers (components and hooks) and ensure `appId === selectedAppId` before using the URL.
 
 ## Common Issues
 
