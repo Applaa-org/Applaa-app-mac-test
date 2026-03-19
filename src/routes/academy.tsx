@@ -27,6 +27,12 @@ const academyLearnSearchSchema = z.object({
   subTopicId: z.string().optional(),
 });
 
+const academyChallengesSearchSchema = z.object({
+  track: z.enum(["python", "javascript", "html", "react", "typescript", "ai"]).optional(),
+  lessonId: z.string().optional(),
+  challengeId: z.string().optional(),
+});
+
 export const academyLearnRoute = createRoute({
   getParentRoute: () => academyRoute,
   path: "learn",
@@ -44,6 +50,7 @@ export const academyChallengesRoute = createRoute({
   getParentRoute: () => academyRoute,
   path: "challenges",
   component: AcademyChallenges,
+  validateSearch: academyChallengesSearchSchema,
 });
 
 export const academyProjectsRoute = createRoute({

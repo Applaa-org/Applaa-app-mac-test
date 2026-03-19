@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useParams, useRouter } from "@tanstack/react-router";
 import { getSubject, getTopic } from "@/data/learningAcademyCurriculum";
 import {
   BookOpen,
@@ -7,6 +7,7 @@ import {
   PenLine,
   ClipboardCheck,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Circle,
   PlayCircle,
@@ -889,6 +890,9 @@ function LessonsTab({ topic }: { topic: { title: string; description: string } }
   const [selectedIndex, setSelectedIndex] = useState<number | null>(0);
   const selectedLesson = selectedIndex !== null ? lessons[selectedIndex] : null;
   const detail = selectedLesson ? getLessonDetail(selectedLesson, topic.title) : null;
+  const canPrev = selectedIndex !== null && selectedIndex > 0;
+  const canNext =
+    selectedIndex !== null && selectedIndex >= 0 && selectedIndex < lessons.length - 1;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -924,6 +928,28 @@ function LessonsTab({ topic }: { topic: { title: string; description: string } }
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-3">
               {selectedLesson}
             </h2>
+
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSelectedIndex((v) => (v === null ? v : Math.max(0, v - 1)))}
+                disabled={!canPrev}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIndex((v) => (v === null ? v : Math.min(lessons.length - 1, v + 1)))}
+                disabled={!canNext}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+
             <section>
               <p className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">
                 {detail.intro}
@@ -1131,18 +1157,30 @@ function AssessmentTab({
 
 export function LearningAcademyCurriculumTopic() {
   const { subjectId, topicId } = useParams({ from: "/learning-academy/curriculum/$subjectId/$topicId" });
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("explain");
 
   const subject = subjectId ? getSubject(subjectId) : undefined;
   const topic = subjectId && topicId ? getTopic(subjectId, topicId) : undefined;
 
+  const orderedTopics = subject ? subject.topics.slice().sort((a, b) => a.order - b.order) : [];
+  const topicIndex = topic ? orderedTopics.findIndex((t) => t.id === topic.id) : -1;
+  const prevTopic = topicIndex > 0 ? orderedTopics[topicIndex - 1] : null;
+  const nextTopic =
+    topicIndex >= 0 && topicIndex < orderedTopics.length - 1 ? orderedTopics[topicIndex + 1] : null;
+
   if (!subject || !topic) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <p className="text-gray-500">Topic not found.</p>
-        <Link to="/learning-academy/curriculum" className="text-teal-600 dark:text-teal-400 mt-2 inline-block">
-          Back to Curriculum
-        </Link>
+        <button
+          type="button"
+          onClick={() => router.history.back()}
+          className="text-teal-600 dark:text-teal-400 mt-2 inline-flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
       </div>
     );
   }
@@ -1151,13 +1189,14 @@ export function LearningAcademyCurriculumTopic() {
     <div className="min-h-full w-full">
       <div className="p-6 w-full max-w-[1600px] mx-auto pb-20">
         <div className="flex items-center gap-4 mb-4">
-          <Link
-            to="/learning-academy/curriculum"
+          <button
+            type="button"
+            onClick={() => router.history.back()}
             className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Curriculum
-          </Link>
+            Back to {subject.title}
+          </button>
           <span className="text-gray-300 dark:text-gray-600">|</span>
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-xl">{subject.emoji}</span>
@@ -1168,6 +1207,33 @@ export function LearningAcademyCurriculumTopic() {
               {subject.title} · Year {topic.years.join(", ")}
             </span>
           </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          {prevTopic ? (
+            <Link
+              to="/learning-academy/curriculum/$subjectId/$topicId"
+              params={{ subjectId, topicId: prevTopic.id }}
+              className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Previous topic: {prevTopic.title}
+            </Link>
+          ) : (
+            <span className="text-sm text-gray-400 dark:text-gray-600" />
+          )}
+          {nextTopic ? (
+            <Link
+              to="/learning-academy/curriculum/$subjectId/$topicId"
+              params={{ subjectId, topicId: nextTopic.id }}
+              className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+            >
+              Next topic: {nextTopic.title}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          ) : (
+            <span className="text-sm text-gray-400 dark:text-gray-600" />
+          )}
         </div>
 
         {/* Tabs: Explain | Lessons | Practice | Assessment */}

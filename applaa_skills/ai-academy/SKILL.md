@@ -83,3 +83,34 @@ At the bottom of the sidebar there is a "Main menu" link (Home icon) to `/`. It 
 - **Layout overflow:** Using `h-[calc(100vh-...)]` on the academy layout root causes the bottom of the sidebar (including "Main menu") to be cut off. Use `h-full min-h-0` instead.
 - **Main app sidebar:** It is intentionally hidden on `/academy`; don’t show it for academy routes.
 - **Styling:** Keep indigo for AI Academy; Learning Academy uses teal so the two stay visually distinct.
+
+---
+## Lesson Navigation UX (Back/Next + pickers)
+
+Use these patterns when updating `src/pages/academy/` lesson/assignment flows:
+
+### Academy Learn (lesson detail)
+- Back button should use history navigation (returns to where the user came from) and label should be:
+  - `Back to {track}` (e.g. `Back to JavaScript`)
+- For track lesson detail pages, show:
+  - A top line `Next lesson: <lesson title>` (or `Last lesson`)
+  - A collapsible picker (e.g. via `details/summary`) to browse all lessons in the current track
+  - Keep bottom navigation buttons for `Previous` and `Next` between lessons
+- For concept sub-topic pages:
+  - Back label should be `Back to {blockLabel}`
+  - Add `Previous`/`Next` sub-topic navigation alongside the Back control
+
+### Academy Challenges (assignment detail)
+- Challenges page must use full-height scrolling:
+  - Root container: `h-full flex flex-col`
+  - Main row: `flex-1 min-h-0`
+  - Left list container: `flex-1 min-h-0 overflow-y-auto` (avoid small fixed max-heights)
+- Back label should be `Back to {track}` (e.g. `Back to Python`)
+- Both the top Back and bottom “Back to …” links must navigate to the track’s main Learn page:
+  - `/academy/learn` with `search={{ track }}`
+  - Do not use history-back here (so it doesn’t land one step back)
+- Challenges can optionally be opened from a specific lesson; when using URL navigation, ensure the route search includes:
+  - `track`, `lessonId`, `challengeId`
+
+### Academy Projects (project detail)
+- Back navigation should return via history (so it returns to the previous flow step).

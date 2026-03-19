@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useParams, useRouter } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IpcClient } from "@/ipc/ipc_client";
 import { AcademyCodeEditor } from "@/components/academy/AcademyCodeEditor";
@@ -15,6 +15,7 @@ export function AcademyProjectDetail() {
   const ipc = IpcClient.getInstance();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
+  const router = useRouter();
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["academy-project", id],
@@ -53,9 +54,13 @@ export function AcademyProjectDetail() {
     return (
       <div className="p-6">
         <p className="text-red-600">Invalid project.</p>
-        <Link to="/academy/projects" className="text-indigo-600 hover:underline">
-          Back to projects
-        </Link>
+        <button
+          type="button"
+          onClick={() => router.history.back()}
+          className="text-indigo-600 hover:underline"
+        >
+          Back
+        </button>
       </div>
     );
   }
@@ -72,13 +77,14 @@ export function AcademyProjectDetail() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <Link
-        to="/academy/projects"
+      <button
+        type="button"
+        onClick={() => router.history.back()}
         className="inline-flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to projects
-      </Link>
+        Back
+      </button>
       <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">

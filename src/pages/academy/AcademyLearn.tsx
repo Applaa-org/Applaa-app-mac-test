@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { useSearch } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter, useSearch } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IpcClient } from "@/ipc/ipc_client";
 import { ACADEMY_LESSONS, getLesson, type AcademyTrack, type AcademyLesson } from "@/data/academyLessons";
 import { ACADEMY_BASICS } from "@/data/academyBasics";
+import { ACADEMY_CHALLENGES } from "@/data/academyChallenges";
 import {
   ACADEMY_CONCEPT_BLOCKS,
   getConceptBlock,
@@ -17,7 +17,7 @@ import { AcademyCodeEditor } from "@/components/academy/AcademyCodeEditor";
 import { AcademyAiTutor } from "@/components/academy/AcademyAiTutor";
 import { CopyableCodeBlock } from "@/components/academy/CopyableCodeBlock";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronRight, Lock, BookOpen, Code2, Sparkles, Lightbulb } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, BookOpen, Code2, Sparkles, Lightbulb } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 type LearnTrack = AcademyTrack | "basics" | ConceptBlockId;
@@ -53,17 +53,25 @@ function BlockSubTopicDetail({
   subTopicId: string;
   blockLabel: string;
 }) {
+  const router = useRouter();
   const sub = getBlockSubTopic(blockId, subTopicId);
   if (!sub) return null;
+
+  const conceptBlock = getConceptBlock(blockId);
+  const idx = conceptBlock?.subTopics.findIndex((st) => st.id === subTopicId) ?? -1;
+  const prevSub = idx > 0 ? conceptBlock!.subTopics[idx - 1] : null;
+  const nextSub = conceptBlock && idx >= 0 && idx < conceptBlock.subTopics.length - 1 ? conceptBlock.subTopics[idx + 1] : null;
+
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-8">
-      <Link
-        to="/academy/learn"
-        search={{ track: blockId }}
-        className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-block"
+      <button
+        type="button"
+        onClick={() => router.history.back()}
+        className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-2"
       >
-        ← Back to {blockLabel}
-      </Link>
+        <ArrowLeft className="h-4 w-4" />
+        Back to {blockLabel}
+      </button>
       <div className="flex items-center gap-3">
         {sub.emoji && <span className="text-4xl">{sub.emoji}</span>}
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{sub.title}</h1>
@@ -72,6 +80,38 @@ function BlockSubTopicDetail({
         {sub.sections.map((sec, i) => (
           <BlockSectionView key={i} section={sec} />
         ))}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+        {prevSub ? (
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link to="/academy/learn" search={{ track: blockId, subTopicId: prevSub.id }}>
+              <ArrowLeft className="h-4 w-4" />
+              Previous
+            </Link>
+          </Button>
+        ) : (
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link to="/academy/learn" search={{ track: blockId }}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to {blockLabel}
+            </Link>
+          </Button>
+        )}
+
+        {nextSub ? (
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link to="/academy/learn" search={{ track: blockId, subTopicId: nextSub.id }}>
+              Next
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" className="gap-2" disabled>
+            Next
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -127,6 +167,7 @@ export function AcademyLearn() {
     lessonId?: string;
     subTopicId?: string;
   };
+  const router = useRouter();
   const trackRaw = search.track ?? "basics";
   const track = (
     ["basics", "python", "javascript", "html", "react", "typescript", "cpp", "ai"].includes(trackRaw)
@@ -180,20 +221,40 @@ export function AcademyLearn() {
   }
 
   if (basicsLesson) {
+    const idx = ACADEMY_BASICS.findIndex((b) => b.id === basicsLesson.id);
+    const prevLesson = idx > 0 ? ACADEMY_BASICS[idx - 1] : null;
+    const nextLesson =
+      idx >= 0 && idx < ACADEMY_BASICS.length - 1 ? ACADEMY_BASICS[idx + 1] : null;
+
     return (
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <Link
-          to="/academy/learn"
-          search={{ track: "basics" }}
-          className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-block"
+        <button
+          type="button"
+          onClick={() => router.history.back()}
+          className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-2"
         >
-          ← Back to Basics
-        </Link>
+          <ArrowLeft className="h-4 w-4" />
+          Back to Basics
+        </button>
         <div className="flex items-center gap-3">
           <span className="text-4xl">{basicsLesson.emoji}</span>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {basicsLesson.title}
           </h1>
+        </div>
+        <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap items-center gap-2">
+          <span>Next lesson:</span>
+          {nextLesson ? (
+            <Link
+              to="/academy/learn"
+              search={{ track: "basics", lessonId: nextLesson.id }}
+              className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+            >
+              {nextLesson.title}
+            </Link>
+          ) : (
+            <span className="font-medium">Last lesson</span>
+          )}
         </div>
         <div className="prose dark:prose-invert max-w-none">
           <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed text-lg">
@@ -218,24 +279,62 @@ export function AcademyLearn() {
           </p>
           <p className="text-amber-900 dark:text-amber-100">{basicsLesson.funFact}</p>
         </div>
+
+        <div className="flex items-center justify-between gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+          {prevLesson ? (
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link to="/academy/learn" search={{ track: "basics", lessonId: prevLesson.id }}>
+                <ArrowLeft className="h-4 w-4" />
+                Previous
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link to="/academy/learn" search={{ track: "basics" }}>
+                <ArrowLeft className="h-4 w-4" />
+                Back to Basics
+              </Link>
+            </Button>
+          )}
+
+          {nextLesson ? (
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link to="/academy/learn" search={{ track: "basics", lessonId: nextLesson.id }}>
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="gap-2" disabled>
+              Next
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
 
   if (lesson) {
+    const trackLessons = lessons as AcademyLesson[];
+    const idx = trackLessons.findIndex((l) => l.id === lesson.id);
+    const prevLesson = idx > 0 ? trackLessons[idx - 1] : null;
+    const nextLesson = idx >= 0 && idx < trackLessons.length - 1 ? trackLessons[idx + 1] : null;
+
     const starter = lesson.challengeStarterCode ?? lesson.exampleCode;
     const codeKey = `${track}:${lesson.id}`;
     const code = challengeCode[codeKey] ?? starter;
     const hasExtraExamples = lesson.extraExamples && lesson.extraExamples.length > 0;
     return (
       <div className="p-6 max-w-4xl mx-auto space-y-8">
-        <Link
-          to="/academy/learn"
-          search={{ track }}
-          className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-block"
+        <button
+          type="button"
+          onClick={() => router.history.back()}
+          className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-2"
         >
-          ← Back to {TRACK_LABELS[track]}
-        </Link>
+          <ArrowLeft className="h-4 w-4" />
+          Back to {TRACK_LABELS[track]}
+        </button>
 
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
@@ -246,6 +345,58 @@ export function AcademyLearn() {
               {lesson.explanation}
             </p>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap items-center gap-2">
+            <span>Next lesson:</span>
+            {nextLesson ? (
+              <Link
+                to="/academy/learn"
+                search={{ track, lessonId: nextLesson.id }}
+                className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+              >
+                {nextLesson.title}
+              </Link>
+            ) : (
+              <span className="font-medium">Last lesson</span>
+            )}
+          </div>
+
+          <details className="bg-gray-50/50 dark:bg-gray-900/30 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-indigo-700 dark:text-indigo-300 select-none">
+              Browse all {TRACK_LABELS[track]} lessons
+            </summary>
+            <ul className="mt-3 space-y-1 max-h-56 overflow-y-auto pr-1">
+              {trackLessons.map((l) => {
+                const done = canMarkComplete && completedSet.has(l.id);
+                const isCurrent = l.id === lesson.id;
+                return (
+                  <li key={l.id}>
+                    <Link
+                      to="/academy/learn"
+                      search={{ track, lessonId: l.id }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                        isCurrent
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700"
+                          : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40"
+                      }`}
+                    >
+                      {done ? (
+                        <Check className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-600 shrink-0">•</span>
+                      )}
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {l.title}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
         </div>
 
         <section className="space-y-3">
@@ -351,6 +502,72 @@ export function AcademyLearn() {
             )}
           </div>
         )}
+
+        {(() => {
+          const challengeTrack = track as AcademyTrack;
+          const firstChallenge = ACADEMY_CHALLENGES.find(
+            (c) => c.track === challengeTrack && c.lessonId === lesson.id
+          );
+          if (!firstChallenge) return null;
+
+          return (
+            <div className="flex items-center gap-3 pt-4 flex-wrap">
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link
+                  to="/academy/challenges"
+                  search={{
+                    track: challengeTrack,
+                    lessonId: lesson.id,
+                    challengeId: firstChallenge.id,
+                  }}
+                >
+                  Go to assignment (challenge)
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link to="/academy/projects">Go to projects</Link>
+              </Button>
+            </div>
+          );
+        })()}
+
+        <div className="flex items-center justify-between gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+          {prevLesson ? (
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link
+                to="/academy/learn"
+                search={{ track, lessonId: prevLesson.id }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Previous
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link to="/academy/learn" search={{ track }}>
+                <ArrowLeft className="h-4 w-4" />
+                Back to {TRACK_LABELS[track]}
+              </Link>
+            </Button>
+          )}
+
+          {nextLesson ? (
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link
+                to="/academy/learn"
+                search={{ track, lessonId: nextLesson.id }}
+              >
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="gap-2" disabled>
+              Next
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
     );
   }

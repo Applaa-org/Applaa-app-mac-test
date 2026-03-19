@@ -79,3 +79,16 @@ At the bottom of the sidebar there is a "Main menu" link (Home icon) to `/`. It 
 - **Layout overflow:** Using `h-[calc(100vh-...)]` on the academy layout root causes the bottom of the sidebar (including "Main menu") to be cut off. Use `h-full min-h-0` instead.
 - **Main app sidebar:** It is intentionally hidden on `/learning-academy`; don’t show it for learning-academy routes.
 - **Styling:** Keep teal for Learning Academy; AI Academy uses indigo so the two stay visually distinct.
+
+---
+## Topic Navigation UX (Back/Next + lesson panels)
+
+When updating `src/pages/learning-academy/` topic detail pages, follow these patterns:
+
+- Top-level Back button should:
+  - Use history navigation (returns to where the user came from)
+  - Label should be `Back to {subject title}` (e.g. `Back to Mathematics`)
+- Topic detail pages should include:
+  - `Previous topic` / `Next topic` navigation based on subject topic order
+- Within a topic:
+  - The Lessons tab can include `Back`/`Next` within the lesson panel list (not just “Back to Curriculum”)
