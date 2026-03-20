@@ -90,8 +90,12 @@ At the bottom of the sidebar there is a "Main menu" link (Home icon) to `/`. It 
 Use these patterns when updating `src/pages/academy/` lesson/assignment flows:
 
 ### Academy Learn (lesson detail)
-- Back button should use history navigation (returns to where the user came from) and label should be:
-  - `Back to {track}` (e.g. `Back to JavaScript`)
+- Back button should NOT use `history.back()` (it can land on an unrelated previous flow after deep navigation).
+  - Always navigate to the track’s Learn page instead:
+    - route: `/academy/learn`
+    - search: `{{ track }}`
+  - label should be:
+    - `Back to {track}` (e.g. `Back to JavaScript`)
 - For track lesson detail pages, show:
   - A top line `Next lesson: <lesson title>` (or `Last lesson`)
   - A collapsible picker (e.g. via `details/summary`) to browse all lessons in the current track
@@ -99,6 +103,9 @@ Use these patterns when updating `src/pages/academy/` lesson/assignment flows:
 - For concept sub-topic pages:
   - Back label should be `Back to {blockLabel}`
   - Add `Previous`/`Next` sub-topic navigation alongside the Back control
+  - The Back control should also navigate to the parent concept block’s Learn page:
+    - route: `/academy/learn`
+    - search: `{{ track: blockId }}` (where `blockId` is the current concept block id used by the page)
 
 ### Academy Challenges (assignment detail)
 - Challenges page must use full-height scrolling:
