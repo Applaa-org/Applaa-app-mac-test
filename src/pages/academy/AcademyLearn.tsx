@@ -66,7 +66,13 @@ function BlockSubTopicDetail({
     <div className="p-6 w-full max-w-7xl mx-auto space-y-8">
       <button
         type="button"
-        onClick={() => router.history.back()}
+        onClick={() =>
+          router.navigate({
+            to: "/academy/learn",
+            // Return to the concept block list for this track (not browser history).
+            search: { track: blockId as any },
+          })
+        }
         className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-2"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -230,7 +236,12 @@ export function AcademyLearn() {
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         <button
           type="button"
-          onClick={() => router.history.back()}
+          onClick={() =>
+            router.navigate({
+              to: "/academy/learn",
+              search: { track: "basics" as any },
+            })
+          }
           className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -329,7 +340,12 @@ export function AcademyLearn() {
       <div className="p-6 max-w-4xl mx-auto space-y-8">
         <button
           type="button"
-          onClick={() => router.history.back()}
+          onClick={() =>
+            router.navigate({
+              to: "/academy/learn",
+              search: { track: track as any },
+            })
+          }
           className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
