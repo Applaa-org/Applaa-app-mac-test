@@ -593,7 +593,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
       {!selectedAppType && (
         <div className="text-center space-y-4 mb-8">
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Learn, Build and Earn. Turn your Idea to real Apps with Applaa
+            Learn, Create and Earn. Turn your Idea to real Apps with Applaa
           </p>
 
           {/* Pro Status Indicator */}

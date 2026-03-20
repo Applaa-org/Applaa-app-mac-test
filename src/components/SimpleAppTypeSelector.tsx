@@ -150,14 +150,14 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
             </div>
           </div>
 
-          {/* Build */}
+          {/* Create */}
           <div className="rounded-2xl border border-emerald-200/50 dark:border-emerald-800/40 bg-gradient-to-br from-emerald-50/60 via-white/70 to-lime-50/30 dark:from-emerald-900/20 dark:via-gray-900/20 dark:to-lime-900/20 p-5 shadow-sm">
             <div className="flex items-start gap-3 mb-4">
               <div className="w-9 h-9 rounded-2xl bg-emerald-100/70 dark:bg-emerald-900/20 flex items-center justify-center">
-                <Gamepad2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <Code className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="pt-0.5">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Build</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Create</h2>
                 <div className="mt-1 h-1.5 w-14 rounded-full bg-gradient-to-r from-emerald-500/60 to-lime-500/40" />
               </div>
             </div>
@@ -183,7 +183,7 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
                       Build 2D/3D games with AI.
                     </p>
                     <div className="mt-3 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
-                      Build now →
+                      Create now →
                     </div>
                   </div>
                 </div>
@@ -226,7 +226,7 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
                       Mobile
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                      Create native apps with Expo.
+                      Create native mobile apps.
                     </p>
                     <div className="mt-3 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
                       Create mobile →
@@ -406,7 +406,7 @@ export function SimpleAppTypeSelector({ onSelection, className = '' }: SimpleApp
                 Mobile App
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                Create native apps with Expo. We auto-select Expo for you.
+                Create native mobile apps.
               </p>
             </div>
             {/* Decorative Element */}
