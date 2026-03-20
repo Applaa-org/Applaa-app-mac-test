@@ -207,10 +207,10 @@ export function LearningAcademyCurriculum() {
                 <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-800/30">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                     {selectedYear === "all"
-                      ? "Topics (all years)"
+                      ? `${subject.title} - Topics (all years)`
                       : selectedYear === "gcse"
-                        ? "Year 11 / GCSE topics – use Practice & Assessment to prepare"
-                        : `Topics for ${UK_YEARS.find((y) => y.value === selectedYear)?.label ?? selectedYear}`}
+                        ? `${subject.title} - Year 11 / GCSE topics – use Practice & Assessment to prepare`
+                        : `${subject.title} - ${UK_YEARS.find((y) => y.value === selectedYear)?.label ?? `Year ${selectedYear}`}`}
                   </p>
                   <ul className="space-y-2">
                     {topics.map((topic) => (
