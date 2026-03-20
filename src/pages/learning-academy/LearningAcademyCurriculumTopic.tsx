@@ -392,23 +392,145 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
     };
   }
   // Physics
-  if (t.includes("push") || t.includes("pull") || t.includes("gravity") || t.includes("friction") || t.includes("balanced force")) {
+  if (t.includes("balanced force")) {
     return {
-      intro: "Forces are what make things move, stop or change direction. In this lesson we look at what a force is (a push or a pull), gravity (the pull towards the Earth), friction (what slows things down when surfaces rub), and what we mean by balanced forces—when nothing changes because the forces cancel out. These ideas help you explain why a ball falls, why a car slows down when you brake, and why a book stays still on a table.",
+      intro: "Balanced forces happen when forces are equal in size and opposite in direction. The key result is that the object does not change its motion.",
       learningObjectives: [
-        "Describe a force as a push or a pull and give everyday examples.",
-        "Explain what gravity is and how it affects weight and falling.",
-        "Explain what friction is and how it affects motion.",
-        "Explain balanced forces and when an object does not change motion.",
+        "Define balanced forces as equal and opposite forces.",
+        "Describe what happens to an object's speed and direction.",
+        "Give an everyday example of balanced forces.",
       ],
       coreConcepts: [
-        { name: "Push and pull", explanation: "A force is a push or a pull. When you kick a ball you push it; when you open a drawer you pull it. Forces can make things start moving, stop moving, speed up, slow down or change direction. We measure the size of a force in newtons (N). The bigger the force, the greater its effect (e.g. a harder kick sends the ball further)." },
-        { name: "Gravity", explanation: "Gravity is a pull towards the centre of the Earth. It makes unsupported objects fall and gives objects weight. Weight is the force of gravity on an object. On the Moon, gravity is weaker, so the same object would weigh less and fall more slowly. We take gravity for granted on Earth, but it is what keeps us on the ground and makes things drop." },
-        { name: "Friction", explanation: "Friction is a force between two surfaces when they rub or slide past each other. It acts against the direction of motion, so it slows things down. Friction can also make things warm (e.g. rubbing your hands together). Rough surfaces usually have more friction than smooth ones; that's why it's harder to slide a heavy box on carpet than on a smooth floor." },
-        { name: "Balanced forces", explanation: "When two (or more) forces on an object are equal in size and opposite in direction, they are balanced. The result is that the object does not change speed or direction. A book on a table: gravity pulls the book down; the table pushes the book up with an equal force. The forces are balanced, so the book stays still. If you push a box at constant speed, the pushing force is balanced by friction—same idea." },
+        {
+          name: "What “balanced” means",
+          explanation:
+            "When two (or more) forces on an object are equal in size and opposite in direction, the forces balance. The overall (resultant) force is zero.",
+        },
+        {
+          name: "No change in motion",
+          explanation:
+            "If forces are balanced, the object does not change speed or direction. It stays at rest or moves at constant speed in a straight line.",
+        },
+        {
+          name: "Example: a book on a table",
+          explanation:
+            "Gravity pulls the book down. The table pushes up with an equal force. These forces balance, so the book stays still.",
+        },
+        {
+          name: "Example: constant speed",
+          explanation:
+            "If you push a box and friction opposes that push with an equal force, the box moves at a constant speed. The push and friction are balanced.",
+        },
       ],
-      example: "A toy car on a ramp: gravity pulls the car down the ramp (that's why it moves). Friction between the wheels and the ramp acts against the motion and slows the car. If you make the ramp smoother, friction is less and the car goes faster. If the car is on a flat table and you don't push it, the forces (e.g. gravity and the table pushing up) are balanced and the car doesn't move.",
-      lessonSummary: "You now know that forces are pushes or pulls; that gravity pulls things towards the Earth and gives them weight; that friction opposes motion and can make things warm; and that balanced forces mean no change in motion. Use this to explain everyday movements and simple experiments.",
+      example: "A person holding a bag of groceries still: the pull of gravity down is balanced by the pull/support force upwards from your hands.",
+      lessonSummary:
+        "You now know balanced forces mean equal/opposite forces and a resultant force of zero. That leads to no change in speed or direction—objects can be at rest or move with constant speed.",
+    };
+  }
+  if (t.includes("friction")) {
+    return {
+      intro: "Friction is a force that acts between surfaces when they rub or slide past each other. It usually slows motion down.",
+      learningObjectives: [
+        "Define friction as a force between surfaces.",
+        "Explain how friction acts against motion.",
+        "Describe how surface roughness affects friction.",
+      ],
+      coreConcepts: [
+        {
+          name: "Where friction comes from",
+          explanation:
+            "Friction acts whenever two surfaces touch and move (or try to move) relative to each other. It is not present only in air; it happens in many real materials.",
+        },
+        {
+          name: "Friction’s effect",
+          explanation:
+            "Friction acts against the direction of motion, so it slows objects down. That can also reduce how far something travels.",
+        },
+        {
+          name: "Roughness matters",
+          explanation:
+            "Rough surfaces generally have more friction than smooth ones. Smoother surfaces tend to make it easier to slide objects.",
+        },
+        {
+          name: "Friction and warmth",
+          explanation:
+            "Friction can transfer energy as heat. That's why rubbing your hands together makes them warmer.",
+        },
+      ],
+      example:
+        "A box on carpet: the carpet’s surface is rougher, so friction is larger and the box slows down more quickly than on a smooth floor.",
+      lessonSummary:
+        "You now know what friction is, that it opposes motion, that rougher surfaces usually create more friction, and that friction can produce heat. Use this to explain slowing down in everyday situations.",
+    };
+  }
+  if (t.includes("gravity")) {
+    return {
+      intro: "Gravity is a pull towards the centre of the Earth. It makes unsupported objects fall and it gives objects their weight.",
+      learningObjectives: [
+        "Explain gravity as a pull towards Earth.",
+        "Define weight as the force of gravity on an object.",
+        "Describe what happens to unsupported objects.",
+      ],
+      coreConcepts: [
+        {
+          name: "Gravity",
+          explanation:
+            "Gravity is the force of attraction that pulls objects towards the centre of the Earth (or towards any mass, generally). On Earth, it is what keeps you on the ground.",
+        },
+        {
+          name: "Weight",
+          explanation:
+            "Weight is the force of gravity on an object. If gravity is weaker, the weight is smaller.",
+        },
+        {
+          name: "Falling",
+          explanation:
+            "When an object is unsupported, gravity is unopposed and causes it to fall.",
+        },
+        {
+          name: "Earth vs Moon",
+          explanation:
+            "Gravity on the Moon is weaker, so objects weigh less there and fall more slowly compared with Earth.",
+        },
+      ],
+      example: "If you drop a ball, gravity pulls it down. The ball speeds up because gravity keeps applying a force.",
+      lessonSummary:
+        "You now know gravity pulls towards Earth, that weight is the force of gravity, and that unsupported objects fall because gravity acts when there’s no support force.",
+    };
+  }
+  if (t.includes("push") || t.includes("pull")) {
+    return {
+      intro: "A force can be a push or a pull. Forces can change how something moves: they can start it, stop it, or change its speed or direction.",
+      learningObjectives: [
+        "Define a force as a push or a pull.",
+        "Identify examples of pushes and pulls.",
+        "Explain that bigger forces have bigger effects.",
+      ],
+      coreConcepts: [
+        {
+          name: "Push and pull",
+          explanation:
+            "A force is a push or a pull. Kicking a ball is a push; opening a door by pulling it is a pull.",
+        },
+        {
+          name: "How forces change motion",
+          explanation:
+            "Forces can make objects start moving, stop moving, speed up, slow down, or change direction.",
+        },
+        {
+          name: "Size of a force",
+          explanation:
+            "We measure the size of a force in newtons (N). A larger force usually causes a larger change in motion.",
+        },
+        {
+          name: "Examples",
+          explanation:
+            "Forces happen in everyday life: pushing a swing, pulling a suitcase, or stretching a rubber band.",
+        },
+      ],
+      example: "If you push a toy car harder across the floor, it moves faster and covers more distance in the same time.",
+      lessonSummary:
+        "You now know a force is a push or a pull, and forces can change speed or direction. You can also describe forces as being larger or smaller using newtons (N).",
     };
   }
   if (t.includes("shadow") || t.includes("reflection") || t.includes("refraction") || (t.includes("light") && !t.includes("highlight"))) {
@@ -437,43 +559,335 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
       lessonSummary: "You now know that sound is made by vibrations; that pitch depends on how fast the vibration is; that volume depends on the size of the vibration; and that sound needs a material to travel through. Use this to explain musical instruments and everyday sounds.",
     };
   }
-  if (t.includes("circuit") || t.includes("conductor") || t.includes("insulator") || t.includes("electricity")) {
+  if (t.includes("component")) {
     return {
-      intro: "Electricity can make things work: lights, buzzers, motors. An electric circuit is a closed loop that electricity can flow around. We need a power source (like a cell or battery), wires, and something that uses the energy (e.g. a bulb).",
+      intro: "Components are the parts you use to build a circuit. In this lesson you will focus on which components you need and what they do.",
       coreConcepts: [
-        { name: "Circuit", explanation: "A complete circuit is a closed path. Electricity flows from the negative side of the battery, through the wires and the component (e.g. bulb), and back to the positive side. If the loop is broken, the current stops." },
-        { name: "Conductors", explanation: "Conductors are materials that let electricity flow through them. Metals (e.g. copper, iron) are good conductors. That is why wires are made of metal." },
-        { name: "Insulators", explanation: "Insulators do not let electricity flow. Plastic, rubber and wood are insulators. We use them to cover wires and hold components so we don't get a shock." },
-        { name: "Components", explanation: "Components are the parts in a circuit: cells (or batteries), bulbs, buzzers, motors, switches. A switch breaks the circuit when open so we can turn things on and off." },
+        {
+          name: "Power source",
+          explanation:
+            "A cell or battery provides the electrical energy to run the circuit.",
+        },
+        {
+          name: "Wires (connections)",
+          explanation:
+            "Wires complete the path so electricity can flow between the power source and the component you want to run.",
+        },
+        {
+          name: "Devices (bulbs/buzzers/motors)",
+          explanation:
+            "A bulb, buzzer or motor is a component that uses the electrical energy (for example, a bulb produces light).",
+        },
+        {
+          name: "Switches",
+          explanation:
+            "A switch controls whether the circuit is complete: when the switch is open, the circuit is broken and the current stops.",
+        },
       ],
-      example: "A simple circuit: one cell, two wires, one bulb. One wire goes from the cell to the bulb; the other from the bulb back to the cell. When the circuit is complete, the bulb lights. Add a switch: when the switch is open, the circuit is broken and the bulb goes out.",
-      lessonSummary: "You now know what a complete circuit is; that conductors let current flow and insulators do not; and how to use cells, wires, bulbs and switches in a simple circuit. Use this to build and explain simple circuits safely.",
+      example: "A simple circuit can use one cell, two wires, one bulb, and a switch. If the switch is opened, the bulb goes off because the circuit is broken.",
+      lessonSummary:
+        "You now know common circuit components: power sources, connecting wires, devices that use electricity, and switches that open/close the circuit.",
     };
   }
-  if (t.includes("energy transfer") || t.includes("types of energy") || t.includes("conservation") || (t.includes("energy") && topicTitle.toLowerCase() === "energy")) {
+  if (t.includes("insulator")) {
     return {
-      intro: "Energy is what makes things happen. It can be stored (e.g. in a battery or in food) or moving (e.g. in a moving ball). Energy can change from one type to another and be transferred, but it is never created or destroyed.",
+      intro: "Insulators are materials that do not let electricity flow easily. In this lesson you will focus on insulation and safety in circuits.",
       coreConcepts: [
-        { name: "Types of energy", explanation: "Common types: kinetic (moving), gravitational potential (height), chemical (in fuels and food), light, sound, electrical, thermal (heat). We name the type by how it is stored or how it is transferred." },
-        { name: "Energy transfer", explanation: "Energy is transferred from one place or object to another. For example, when a ball falls, gravitational potential energy is transferred to kinetic energy. When you switch on a lamp, electrical energy is transferred to light and heat." },
-        { name: "Conservation of energy", explanation: "Energy cannot be created or destroyed—only changed from one form to another or transferred. The total amount of energy stays the same. Some energy may be transferred to the surroundings as heat." },
-        { name: "Useful energy", explanation: "In a device we often want one type of energy (e.g. light from a lamp). Some energy is always transferred in ways we don't want (e.g. heat). We say some energy is 'wasted' to the surroundings." },
+        {
+          name: "What an insulator does",
+          explanation:
+            "Insulators prevent current from flowing through them. That means electricity is blocked.",
+        },
+        {
+          name: "Examples of insulators",
+          explanation:
+            "Plastic, rubber and dry wood are typical insulators. That is why wire insulation is often made of plastic or rubber.",
+        },
+        {
+          name: "Why insulators are used",
+          explanation:
+            "Insulation helps protect you from electric shocks and keeps the circuit working safely.",
+        },
+        {
+          name: "Insulators vs conductors",
+          explanation:
+            "Conductors allow current to flow; insulators block it. Wires are designed to use conductors so current can travel where you want it.",
+        },
       ],
-      example: "A battery-powered torch: chemical energy in the battery is transferred as electrical energy through the wires, then to light and heat in the bulb. The total energy is conserved; we just wanted more light and less heat.",
-      lessonSummary: "You now know different types of energy; that energy is transferred between stores; that energy is conserved; and that in real devices some energy is useful and some is wasted. Use this to describe everyday energy changes.",
+      example: "A plastic cover on a cable stops electricity flowing to your hand.",
+      lessonSummary:
+        "You now know what insulators do, examples of insulators, and why insulation is used to prevent unwanted current flow and shocks.",
     };
   }
-  if (t.includes("speed") || t.includes("distance") || t.includes("time") || (t.includes("motion") && topicTitle.toLowerCase().includes("physics"))) {
+  if (t.includes("conductor")) {
     return {
-      intro: "Motion is about things moving. We describe motion using speed (how fast), distance (how far) and time (how long). Scientists use graphs and the relationship speed = distance ÷ time to analyse motion.",
+      intro: "Conductors are materials that allow electricity to flow. In this lesson you will focus on how conductors help circuits work.",
       coreConcepts: [
-        { name: "Speed", explanation: "Speed is how far something travels in a certain time. We often use metres per second (m/s) or kilometres per hour (km/h). Faster means more distance in the same time, or the same distance in less time." },
-        { name: "Distance and time", explanation: "Distance is how far something has moved (e.g. in metres). Time is how long the journey took (e.g. in seconds). We measure these to work out speed." },
-        { name: "Speed = distance ÷ time", explanation: "We can calculate speed with: speed = distance ÷ time. So if a car travels 100 m in 5 s, speed = 100 ÷ 5 = 20 m/s. We can also find distance (distance = speed × time) or time (time = distance ÷ speed)." },
-        { name: "Distance–time graphs", explanation: "On a distance–time graph, distance is on the vertical axis and time on the horizontal. A steeper line means a faster speed. A flat line means the object is not moving." },
+        {
+          name: "What a conductor does",
+          explanation:
+            "A conductor allows electrical charge to move through it, so current can flow.",
+        },
+        {
+          name: "Metals are usually good conductors",
+          explanation:
+            "Many metals (for example copper and iron) are good conductors. That is why metal is used for electrical wires.",
+        },
+        {
+          name: "Conductors complete the circuit",
+          explanation:
+            "A complete circuit needs a path of conductors so electricity can travel from the power source to the device and back.",
+        },
+        {
+          name: "Using the right material",
+          explanation:
+            "Choosing conductors for connections helps bulbs, buzzers and motors work as intended.",
+        },
       ],
-      example: "A cyclist travels 600 m in 2 minutes. Time in seconds = 2 × 60 = 120 s. Speed = 600 ÷ 120 = 5 m/s. So the cyclist's speed is 5 metres per second.",
-      lessonSummary: "You now know what speed, distance and time mean; how to use speed = distance ÷ time; and how to interpret simple distance–time graphs. Use this to describe and compare motions.",
+      example: "Copper wires let current flow so a bulb can light.",
+      lessonSummary:
+        "You now know conductors allow current to flow, that metals are good conductors, and that conductors help complete the circuit.",
+    };
+  }
+  if (t.includes("circuit")) {
+    return {
+      intro: "An electric circuit is a closed loop that allows electricity to flow. In this lesson you will focus on circuits themselves and why they must be complete.",
+      coreConcepts: [
+        {
+          name: "Complete circuit",
+          explanation:
+            "A complete circuit is a closed path. Electricity can flow around the loop from the power source, through a component, and back again.",
+        },
+        {
+          name: "What happens if the loop opens",
+          explanation:
+            "If the circuit is broken (for example, by opening a switch), the path is no longer complete, so the current stops.",
+        },
+        {
+          name: "Basic parts of a circuit",
+          explanation:
+            "A circuit needs a power source, connecting wires, and a component that uses the electrical energy (like a bulb).",
+        },
+        {
+          name: "Closed vs open",
+          explanation:
+            "Closed circuits allow current; open circuits stop current. This is the key idea behind using switches.",
+        },
+      ],
+      example: "With one cell, wires and a bulb, the bulb lights when the circuit is closed. Add a switch: open the switch and the bulb goes out.",
+      lessonSummary:
+        "You now know what a complete circuit is, why electricity needs a closed loop, and what happens when a circuit is broken.",
+    };
+  }
+  if (t.includes("types of energy")) {
+    return {
+      intro: "Energy can be stored in different forms. In this lesson you will focus on the main types of energy you need for GCSE science.",
+      coreConcepts: [
+        {
+          name: "Energy stores",
+          explanation:
+            "Energy can be stored in objects and then transferred to make things happen. Common stores include motion (kinetic), height (gravitational potential), and chemical energy in fuels and food.",
+        },
+        {
+          name: "Electrical and thermal",
+          explanation:
+            "Electrical energy is linked to electricity in circuits, and thermal (heat) energy is linked to temperature.",
+        },
+        {
+          name: "Light and sound",
+          explanation:
+            "Light energy and sound energy can be produced and transferred. They are often recognised by the effects they have.",
+        },
+        {
+          name: "Naming energy by what it is",
+          explanation:
+            "We usually name the type of energy by how it is stored or how it is transferred (for example, chemical energy to electrical energy).",
+        },
+      ],
+      example: "A torch battery stores chemical energy. When the torch is on, it provides electrical energy which becomes light and heat.",
+      lessonSummary:
+        "You now know key types of energy (kinetic, gravitational potential, chemical, electrical, thermal, light and sound) and the idea of energy stores.",
+    };
+  }
+  if (t.includes("energy transfer")) {
+    return {
+      intro: "Energy transfers from one object/place/store to another. In this lesson you will focus on energy transfer using everyday examples.",
+      coreConcepts: [
+        {
+          name: "What energy transfer means",
+          explanation:
+            "Energy transfer is the movement of energy from one place or store to another.",
+        },
+        {
+          name: "Changing energy type",
+          explanation:
+            "Energy can change from one type to another during transfer. For example, a falling ball changes energy from gravitational potential to kinetic.",
+        },
+        {
+          name: "Examples from devices",
+          explanation:
+            "When you switch on a lamp, electrical energy is transferred to light and heat.",
+        },
+        {
+          name: "Describing transfers",
+          explanation:
+            "A good answer says: what is the starting store, what it transfers to, and what type of energy you get at the end.",
+        },
+      ],
+      example: "A ball falls: gravitational potential energy transfers to kinetic energy, so the ball speeds up as it gets closer to the ground.",
+      lessonSummary:
+        "You now know how to describe energy transfer, including that energy can change type during transfer and how to use everyday examples in explanations.",
+    };
+  }
+  if (t.includes("conservation") || (t.includes("energy") && topicTitle.toLowerCase() === "energy")) {
+    return {
+      intro: "Conservation of energy is the rule that total energy in a system stays the same. In this lesson you will focus on what that means in real situations.",
+      coreConcepts: [
+        {
+          name: "Cannot be created or destroyed",
+          explanation:
+            "Energy can’t be created from nothing or destroyed. It can only be changed from one form to another and transferred.",
+        },
+        {
+          name: "Total energy stays the same",
+          explanation:
+            "The total amount of energy remains constant, even when the forms change.",
+        },
+        {
+          name: "Useful vs unwanted (wasted) energy",
+          explanation:
+            "In devices we often want one useful type of energy, but some energy is always transferred to the surroundings in unwanted ways (often heat).",
+        },
+        {
+          name: "Explaining “waste”",
+          explanation:
+            "“Wasted” energy still exists; it just goes into the surroundings where we can’t use it for the same purpose.",
+        },
+      ],
+      example: "In a torch, chemical energy becomes electrical energy, then to light (useful) and heat (unwanted). The total energy is conserved.",
+      lessonSummary:
+        "You now know that energy is conserved (not created or destroyed), total energy stays constant, and that real devices transfer some energy to surroundings as heat.",
+    };
+  }
+  if (t.includes("graph")) {
+    return {
+      intro: "Distance-time graphs help you interpret motion. In this lesson you will focus on how to read and use a distance-time graph.",
+      coreConcepts: [
+        {
+          name: "Axes",
+          explanation:
+            "On a distance-time graph, time is on the horizontal (x) axis, and distance is on the vertical (y) axis.",
+        },
+        {
+          name: "Gradient = speed",
+          explanation:
+            "The gradient (steepness) tells you the speed. A steeper line means a higher speed.",
+        },
+        {
+          name: "Horizontal line",
+          explanation:
+            "A flat (horizontal) line means the distance is not changing, so the object is not moving.",
+        },
+        {
+          name: "Constant speed",
+          explanation:
+            "If speed is constant, the graph is a straight line.",
+        },
+      ],
+      example:
+        "If a cyclist’s distance-time graph becomes steeper, the cyclist is travelling faster; if it becomes flat, the cyclist has stopped.",
+      lessonSummary:
+        "You now know how to read a distance-time graph using axes and gradient: gradient is speed, steeper is faster, and flat means not moving.",
+    };
+  }
+  if (t.includes("speed")) {
+    return {
+      intro: "Speed describes how fast an object is moving. In this lesson you will focus on speed and how to calculate it.",
+      coreConcepts: [
+        {
+          name: "What speed means",
+          explanation:
+            "Speed tells you how far something travels in a given time.",
+        },
+        {
+          name: "Units",
+          explanation:
+            "Speed is often measured in metres per second (m/s) or kilometres per hour (km/h).",
+        },
+        {
+          name: "Speed formula",
+          explanation:
+            "Speed = distance ÷ time. If distance is in metres and time is in seconds, you get m/s.",
+        },
+        {
+          name: "More speed = quicker travel",
+          explanation:
+            "A higher speed means you cover more distance in the same time (or cover the same distance in less time).",
+        },
+      ],
+      example: "A car travels 100 m in 5 s. Speed = 100 ÷ 5 = 20 m/s.",
+      lessonSummary:
+        "You now know what speed means, the common units, and how to calculate speed using speed = distance ÷ time.",
+    };
+  }
+  if (t.includes("distance")) {
+    return {
+      intro: "Distance tells you how far something has moved. In this lesson you will focus on distance and measurement units.",
+      coreConcepts: [
+        {
+          name: "What distance is",
+          explanation:
+            "Distance is the length of the path travelled (how far you go), measured in units like metres.",
+        },
+        {
+          name: "Common units",
+          explanation:
+            "In science problems you’ll usually use metres (m). For longer distances, kilometres (km) may be used.",
+        },
+        {
+          name: "Converting units (idea)",
+          explanation:
+            "When you convert: 1 km = 1000 m. You multiply to go from km to m, and divide to go from m to km.",
+        },
+        {
+          name: "Distance helps define speed",
+          explanation:
+            "To calculate speed, you need distance and time together: speed = distance ÷ time.",
+        },
+      ],
+      example: "If you travel 3 km, that is 3000 m.",
+      lessonSummary:
+        "You now know what distance means, typical units, and the basic idea of converting km to m. Distance is essential for calculating speed.",
+    };
+  }
+  if (t.includes("time")) {
+    return {
+      intro: "Time is how long a journey or movement takes. In this lesson you will focus on time and how it links to speed.",
+      coreConcepts: [
+        {
+          name: "What time is",
+          explanation:
+            "Time is the duration of the movement—how long the object takes to travel a given distance.",
+        },
+        {
+          name: "Units",
+          explanation:
+            "Time is usually measured in seconds (s) for these science calculations.",
+        },
+        {
+          name: "Time affects speed",
+          explanation:
+            "For the same distance, a shorter time means a higher speed, and a longer time means a lower speed.",
+        },
+        {
+          name: "Speed calculation",
+          explanation:
+            "Use time in the formula: speed = distance ÷ time.",
+        },
+      ],
+      example: "If a runner takes 30 s for 120 m, their speed is found using 120 ÷ 30.",
+      lessonSummary:
+        "You now know what time is, its units (seconds), and how time affects speed in calculations.",
     };
   }
   // Chemistry
@@ -678,6 +1092,124 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
 /** Practice questions with hints and explanations (what we're looking for / model answer) */
 function getPracticeQuestionsForTopic(topic: { title: string }): { question: string; hint: string; explanation: string }[] {
   const t = topic.title.toLowerCase();
+  if (t.includes("forces")) {
+    return [
+      {
+        question: "What is a force? Explain it as a push or a pull, and give one example from everyday life.",
+        hint: "Look for 'push'/'pull' and one short example.",
+        explanation: "A force is a push or a pull. Examples include kicking a ball (push) or pulling a door open (pull). Forces can change how an object moves.",
+      },
+      {
+        question: "Explain gravity and why unsupported objects fall.",
+        hint: "Gravity is a pull towards the Earth.",
+        explanation: "Gravity is a pull towards the centre of the Earth. When an object is unsupported, gravity is unopposed, so it falls.",
+      },
+      {
+        question: "What is weight? Write it in terms of gravity.",
+        hint: "Weight is a force.",
+        explanation: "Weight is the force of gravity on an object.",
+      },
+      {
+        question: "What is friction, and how does it affect a moving object?",
+        hint: "Friction acts against motion.",
+        explanation: "Friction is a force between surfaces when they rub or slide. It acts opposite to the direction of motion, slowing the object down.",
+      },
+      {
+        question: "When are forces balanced? What happens to the object’s motion?",
+        hint: "Think equal size, opposite direction, and no change.",
+        explanation:
+          "Forces are balanced when they are equal in size and opposite in direction. The result is no change in speed or direction: the object stays at rest or moves at constant speed.",
+      },
+    ];
+  }
+  if (t.includes("electricity")) {
+    return [
+      {
+        question: "What is a complete circuit? Explain why a broken circuit stops things working.",
+        hint: "Use 'closed loop' / 'complete path'.",
+        explanation: "A complete circuit is a closed loop. Electricity can flow only when the circuit is complete; if the path is broken (e.g. an open switch), current stops.",
+      },
+      {
+        question: "Explain what a conductor is and give one example of a good conductor.",
+        hint: "Conductors let electricity flow.",
+        explanation: "Conductors allow electricity to flow through them. Metals such as copper are good conductors.",
+      },
+      {
+        question: "Explain what an insulator is and why wire insulation is important.",
+        hint: "Insulators block electricity flow.",
+        explanation: "Insulators do not let electricity flow easily. Insulation (often plastic/rubber) helps prevent shocks and keeps wires safe.",
+      },
+      {
+        question: "List the main components in a simple circuit (e.g. power source, wires, device) and what one does.",
+        hint: "Power, connections, and the thing that uses electricity.",
+        explanation: "A simple circuit needs a power source (cell/battery), wires to connect, and a device/component (e.g. bulb). A switch can open/close the circuit.",
+      },
+      {
+        question: "What happens when a switch is opened in a circuit?",
+        hint: "Think 'circuit broken'.",
+        explanation: "Opening the switch breaks the circuit, so the current stops and the bulb/device goes off.",
+      },
+    ];
+  }
+  if (t.includes("energy")) {
+    return [
+      {
+        question: "Name four types of energy and give a short example for each.",
+        hint: "Think kinetic, gravitational potential, chemical, electrical, thermal, light, sound.",
+        explanation: "Examples: kinetic (moving), gravitational potential (height), chemical (fuel/food), electrical (circuits), thermal (heat), light (lamps), sound (vibrations).",
+      },
+      {
+        question: "What does energy transfer mean? Explain using one example (ball falling or lamp).",
+        hint: "Energy moves from one store to another.",
+        explanation: "Energy transfer is the movement of energy from one object/place/store to another. For example: a ball falling transfers gravitational potential energy to kinetic energy; a lamp transfers electrical energy to light and heat.",
+      },
+      {
+        question: "State the conservation of energy rule in your own words.",
+        hint: "Not created or destroyed; changed and transferred.",
+        explanation: "Energy cannot be created or destroyed. It can only be changed from one form to another or transferred. The total amount stays the same.",
+      },
+      {
+        question: "Useful energy vs wasted energy: what’s the difference?",
+        hint: "Useful is what we want; wasted often becomes heat.",
+        explanation:
+          "Useful energy is the output we want (e.g. light). Wasted energy is energy that goes to the surroundings in unwanted ways, often as heat, even though energy is still conserved.",
+      },
+      {
+        question: "In a torch, what energy stores and transfers are happening?",
+        hint: "Think chemical -> electrical -> light/heat.",
+        explanation: "Chemical energy in the battery is transferred as electrical energy through wires, then to light (useful) and heat (unwanted) in the bulb.",
+      },
+    ];
+  }
+  if (t.includes("motion")) {
+    return [
+      {
+        question: "Explain what speed means and how to calculate it using distance and time.",
+        hint: "Use: speed = distance ÷ time.",
+        explanation: "Speed is how far something travels in a certain time. Calculate using speed = distance ÷ time.",
+      },
+      {
+        question: "A cyclist travels 120 m in 30 s. Calculate the speed.",
+        hint: "Divide distance by time.",
+        explanation: "Speed = 120 ÷ 30 = 4 m/s.",
+      },
+      {
+        question: "What is distance? What unit is most commonly used in these problems?",
+        hint: "Distance is how far; think metres.",
+        explanation: "Distance is how far something moves, measured in metres (m) for most calculations.",
+      },
+      {
+        question: "What is time, and what unit is commonly used in motion calculations?",
+        hint: "Think seconds.",
+        explanation: "Time is how long the journey/movement takes, commonly measured in seconds (s).",
+      },
+      {
+        question: "On a distance-time graph, what does a flat (horizontal) line mean?",
+        hint: "Distance isn’t changing.",
+        explanation: "A flat line means distance is not changing, so the object is not moving.",
+      },
+    ];
+  }
   if (t.includes("geometry") || t.includes("measure")) {
     return [
       {
@@ -734,6 +1266,506 @@ function getAssessmentQuestionsForTopic(topic: { title: string }): {
   explanation: string;
 }[] {
   const t = topic.title.toLowerCase();
+
+  if (t.includes("forces")) {
+    return [
+      {
+        question: "A force is best described as:",
+        options: ["energy of motion", "a push or a pull", "a type of heat", "a measure of time"],
+        correctIndex: 1,
+        explanation: "A force can be a push or a pull. Forces can start/stop motion or change speed/direction.",
+      },
+      {
+        question: "Forces are measured in:",
+        options: ["joules (J)", "newtons (N)", "watts (W)", "metres (m)"],
+        correctIndex: 1,
+        explanation: "The unit of force is the newton (N).",
+      },
+      {
+        question: "Gravity is a:",
+        options: ["push from Earth", "pull towards the centre of the Earth", "force that only acts in water", "friction between surfaces"],
+        correctIndex: 1,
+        explanation: "Gravity pulls objects towards the centre of the Earth.",
+      },
+      {
+        question: "An unsupported object falls because:",
+        options: ["it is pulled by gravity", "air pushes it up", "it is heavier on the Moon only", "friction acts upward"],
+        correctIndex: 0,
+        explanation: "When unsupported, gravity is unopposed so it pulls the object down.",
+      },
+      {
+        question: "Weight is best described as:",
+        options: ["the amount of matter", "the force of gravity on an object", "a measure of speed", "the energy transferred to heat"],
+        correctIndex: 1,
+        explanation: "Weight is the force of gravity acting on an object.",
+      },
+      {
+        question: "A rough surface usually has:",
+        options: ["less friction", "more friction", "zero friction", "no effect on motion"],
+        correctIndex: 1,
+        explanation: "Rough surfaces increase friction, which tends to slow objects down.",
+      },
+      {
+        question: "Friction acts:",
+        options: ["in the same direction as motion", "opposite to the direction of motion", "only when objects are stationary", "only in space"],
+        correctIndex: 1,
+        explanation: "Friction opposes the motion between surfaces, so it reduces speed.",
+      },
+      {
+        question: "When forces are balanced, the object will:",
+        options: ["speed up", "change direction", "stay at rest or move at constant speed", "stop instantly and disappear"],
+        correctIndex: 2,
+        explanation: "Balanced forces mean zero resultant force, so there is no change in speed or direction.",
+      },
+      {
+        question: "A book resting on a table is an example of balanced forces because:",
+        options: ["gravity is zero", "the table pushes up with an equal force", "there is no friction", "the forces are both in the same direction"],
+        correctIndex: 1,
+        explanation: "Gravity pulls the book down; the table pushes up with an equal force—forces balance.",
+      },
+      {
+        question: "If you push a box and it moves at constant speed, the forces on it are:",
+        options: ["balanced (resultant force is zero)", "unbalanced and accelerating forward", "unbalanced and reversing", "always zero even while falling"],
+        correctIndex: 0,
+        explanation: "Constant speed means no change in motion, so the forces must be balanced.",
+      },
+      {
+        question: "What force makes a bicycle slow down when you brake (ignoring air resistance)?",
+        options: ["gravity", "friction between pads and wheel", "magnetism", "sound"],
+        correctIndex: 1,
+        explanation: "Braking relies on friction between brake pads and the wheel.",
+      },
+      {
+        question: "If the surface becomes smoother, friction usually:",
+        options: ["increases", "decreases", "stays the same always", "turns the object into a magnet"],
+        correctIndex: 1,
+        explanation: "Smooth surfaces have less contact resistance, so friction decreases.",
+      },
+      {
+        question: "A skydiver reaches terminal velocity when:",
+        options: ["gravity and air resistance balance", "air resistance is always zero", "they fall faster and faster forever", "the parachute has no effect"],
+        correctIndex: 0,
+        explanation: "At terminal velocity, forces balance so speed becomes constant.",
+      },
+      {
+        question: "In a tug of war where both teams pull with equal force in opposite directions, the rope:",
+        options: ["does not accelerate (balanced forces)", "moves faster for the team on the left only", "moves because friction always increases", "stops because gravity disappears"],
+        correctIndex: 0,
+        explanation: "Equal and opposite forces balance, giving zero resultant force, so there is no acceleration.",
+      },
+      {
+        question: "Which situation shows a net (resultant) force of zero?",
+        options: ["A car accelerating", "A car moving at constant speed", "A ball speeding up when dropped", "A rocket thrusting upward"],
+        correctIndex: 1,
+        explanation: "A car moving at constant speed has no change in motion, so the net force is zero.",
+      },
+      {
+        question: "If the pushing force is bigger than friction, the object will:",
+        options: ["slow down", "speed up", "remain perfectly still", "lose mass"],
+        correctIndex: 1,
+        explanation: "Unbalanced forces cause a change in motion. Bigger push than friction speeds the object up.",
+      },
+      {
+        question: "If you apply a force to a trolley and it starts moving, you have:",
+        options: ["reduced gravity", "applied an unbalanced force", "created energy", "stopped friction"],
+        correctIndex: 1,
+        explanation: "It starts moving because the forces are unbalanced (resultant force is not zero).",
+      },
+      {
+        question: "Weight is measured in:",
+        options: ["newtons (N)", "kilograms (kg)", "seconds (s)", "metres (m)"],
+        correctIndex: 0,
+        explanation: "Weight is a force, so its unit is newtons (N).",
+      },
+      {
+        question: "A force changes motion by affecting:",
+        options: ["only speed", "only direction", "speed or direction", "only temperature"],
+        correctIndex: 2,
+        explanation: "Forces can change both speed and direction (or just one of them).",
+      },
+      {
+        question: "Which is a correct statement about gravity?",
+        options: ["Gravity pushes objects away from Earth", "Gravity pulls objects towards Earth", "Gravity depends only on mass, not height", "Gravity exists only in liquids"],
+        correctIndex: 1,
+        explanation: "Gravity pulls objects towards Earth; the strength depends on where you are (e.g. weaker on the Moon).",
+      },
+    ];
+  }
+
+  if (t.includes("electricity")) {
+    return [
+      {
+        question: "A complete circuit is:",
+        options: ["an open path", "a closed loop", "a circle with no wires", "a chemical reaction"],
+        correctIndex: 1,
+        explanation: "A complete circuit is a closed loop that current can flow around.",
+      },
+      {
+        question: "Electricity flows in a circuit when:",
+        options: ["the circuit is complete (closed)", "the battery is removed", "the wires are unplugged", "the switch is open"],
+        correctIndex: 0,
+        explanation: "Current needs a complete path, so the circuit must be closed.",
+      },
+      {
+        question: "If a switch is open, typically:",
+        options: ["current continues", "the circuit is broken and current stops", "the bulb gets brighter", "only sound works"],
+        correctIndex: 1,
+        explanation: "Opening a switch breaks the circuit, so current stops.",
+      },
+      {
+        question: "Conductors are materials that:",
+        options: ["do not let electricity flow", "allow electricity to flow easily", "make light energy directly", "stop sound vibrations"],
+        correctIndex: 1,
+        explanation: "Conductors allow current to pass through them.",
+      },
+      {
+        question: "Which material is a good conductor?",
+        options: ["rubber", "wood", "copper", "plastic wrap"],
+        correctIndex: 2,
+        explanation: "Copper is a metal and a good conductor of electricity.",
+      },
+      {
+        question: "Insulators are materials that:",
+        options: ["allow current flow", "do not let electricity flow", "increase battery voltage", "conduct only when hot"],
+        correctIndex: 1,
+        explanation: "Insulators block current and stop electricity flowing through them.",
+      },
+      {
+        question: "Plastic is often used to cover wires because it is:",
+        options: ["a conductor", "an insulator", "a power source", "a switch"],
+        correctIndex: 1,
+        explanation: "Plastic is an insulator, so it helps prevent shocks.",
+      },
+      {
+        question: "A cell or battery in a circuit provides:",
+        options: ["an electrical power source", "a type of friction", "a light bulb", "a measuring unit"],
+        correctIndex: 0,
+        explanation: "The battery/cell provides the electrical energy to run the circuit.",
+      },
+      {
+        question: "Which component is mainly for switching the circuit on and off?",
+        options: ["a switch", "a bulb", "a motor", "a conductor wire"],
+        correctIndex: 0,
+        explanation: "A switch opens/closes the circuit.",
+      },
+      {
+        question: "A bulb in a simple circuit mainly converts electrical energy to:",
+        options: ["chemical energy", "light (and heat)", "motion energy", "sound waves"],
+        correctIndex: 1,
+        explanation: "Bulbs produce light, and they also transfer some energy as heat.",
+      },
+      {
+        question: "Current flows around a circuit along the path that is:",
+        options: ["broken", "complete", "random", "made of air only"],
+        correctIndex: 1,
+        explanation: "Current needs a complete path, so the circuit must be closed.",
+      },
+      {
+        question: "If the circuit is broken (open), the bulb:",
+        options: ["stays on", "goes off", "changes colour randomly", "only flickers when it is dark"],
+        correctIndex: 1,
+        explanation: "With an open circuit, there is no complete loop so current stops.",
+      },
+      {
+        question: "A conductor is typically made of:",
+        options: ["metal", "glass", "rubber", "dry sand"],
+        correctIndex: 0,
+        explanation: "Metals are usually conductors, so current can flow through them.",
+      },
+      {
+        question: "An insulator is typically made of:",
+        options: ["metal", "copper", "plastic or rubber", "iron only"],
+        correctIndex: 2,
+        explanation: "Plastic/rubber insulate wires by blocking current flow.",
+      },
+      {
+        question: "Which of these is an example of a circuit component?",
+        options: ["bulb", "cell", "switch", "all of these"],
+        correctIndex: 3,
+        explanation: "Bulbs, cells and switches are all components used in circuits.",
+      },
+      {
+        question: "Wires are used to:",
+        options: ["carry electricity between components", "stop electricity from flowing", "make energy disappear", "measure current with a sensor"],
+        correctIndex: 0,
+        explanation: "Wires connect components and provide the path for current.",
+      },
+      {
+        question: "Which action breaks a circuit?",
+        options: ["closing a switch", "removing a wire", "adding more insulation", "using a conductor"],
+        correctIndex: 1,
+        explanation: "Removing a wire breaks the complete loop, so current can’t flow.",
+      },
+      {
+        question: "A motor is a component that converts electrical energy mainly into:",
+        options: ["motion (kinetic energy)", "sound waves", "heat only", "chemical energy storage"],
+        correctIndex: 0,
+        explanation: "Motors turn electrical energy into motion.",
+      },
+      {
+        question: "Which statement is correct?",
+        options: ["Electricity can flow through insulators easily", "Electricity needs a complete circuit to flow", "A circuit always works even if it is open", "Only batteries store electricity, not cells"],
+        correctIndex: 1,
+        explanation: "If the circuit is open, it is not a complete path, so current cannot flow.",
+      },
+      {
+        question: "The purpose of insulation around a wire is to:",
+        options: ["help current flow faster", "prevent unwanted current flow and shocks", "replace the battery", "increase friction"],
+        correctIndex: 1,
+        explanation: "Insulation prevents electric current from flowing where it shouldn’t, improving safety.",
+      },
+    ];
+  }
+
+  if (t.includes("energy")) {
+    return [
+      {
+        question: "Kinetic energy is energy of:",
+        options: ["motion", "height", "chemical bonds", "sound waves only"],
+        correctIndex: 0,
+        explanation: "Kinetic energy is the energy an object has because it is moving.",
+      },
+      {
+        question: "Gravitational potential energy depends on:",
+        options: ["mass only", "height (and gravity)", "speed", "colour of the object"],
+        correctIndex: 1,
+        explanation: "Higher objects have greater gravitational potential energy.",
+      },
+      {
+        question: "Chemical energy is stored in:",
+        options: ["fuels and food", "moving objects only", "light bulbs", "wires only"],
+        correctIndex: 0,
+        explanation: "Chemical energy is stored in substances such as fuels and food.",
+      },
+      {
+        question: "Electrical energy is associated with:",
+        options: ["charge and current", "temperature only", "motion only", "angle measurements"],
+        correctIndex: 0,
+        explanation: "Electrical energy comes from electricity in circuits.",
+      },
+      {
+        question: "When a ball falls, which energy transfer usually happens?",
+        options: ["thermal -> kinetic only", "gravitational potential -> kinetic", "kinetic -> gravitational potential only", "chemical -> sound"],
+        correctIndex: 1,
+        explanation: "As the ball falls, gravitational potential energy decreases and kinetic energy increases.",
+      },
+      {
+        question: "Energy transfer means:",
+        options: ["energy disappears", "energy moves from one place/store to another", "energy is created", "only occurs as heat"],
+        correctIndex: 1,
+        explanation: "Energy transfer is the movement of energy between objects/places/stores.",
+      },
+      {
+        question: "Conservation of energy means:",
+        options: ["energy can be created from nothing", "energy cannot be created or destroyed, only changed/transferred", "energy always increases", "energy only exists in one form"],
+        correctIndex: 1,
+        explanation: "Energy is conserved: total energy stays the same even if forms change.",
+      },
+      {
+        question: "In most real devices, some energy is transferred to the surroundings as:",
+        options: ["light only", "heat", "sound only", "frictionless work"],
+        correctIndex: 1,
+        explanation: "Some energy is not useful and becomes heat in the surroundings.",
+      },
+      {
+        question: "Useful energy is:",
+        options: ["energy you don't want", "the output you are aiming for", "energy stored in air only", "energy that can't be measured"],
+        correctIndex: 1,
+        explanation: "Useful energy is the type of energy that the device is designed to produce.",
+      },
+      {
+        question: "Wasted energy is usually:",
+        options: ["transferred to surroundings in unwanted ways (often heat)", "never transferred", "only chemical energy", "always zero"],
+        correctIndex: 0,
+        explanation: "Wasted energy still exists; it just ends up where it’s not useful (commonly as heat).",
+      },
+      {
+        question: "A torch battery mainly stores:",
+        options: ["chemical energy", "light energy", "sound energy", "only kinetic energy"],
+        correctIndex: 0,
+        explanation: "The battery stores chemical energy.",
+      },
+      {
+        question: "When the torch is switched on, energy transfers as:",
+        options: ["chemical -> electrical -> light and heat", "light -> chemical", "kinetic -> chemical only", "heat -> electrical only"],
+        correctIndex: 0,
+        explanation: "Chemical energy becomes electrical energy, then produces light and heat in the bulb.",
+      },
+      {
+        question: "If energy is conserved, then in a system:",
+        options: ["the total energy increases", "the total energy stays the same even if forms change", "only one form is allowed", "energy is destroyed each step"],
+        correctIndex: 1,
+        explanation: "Conservation means total energy is constant; it changes form and is transferred.",
+      },
+      {
+        question: "Which example best illustrates energy transfer?",
+        options: ["A ball falling", "A picture becoming blurry", "A number shrinking to zero", "A chair gaining mass"],
+        correctIndex: 0,
+        explanation: "A falling ball transfers energy between stores (gravitational potential to kinetic).",
+      },
+      {
+        question: "In a lamp, energy changes type when it is transferred. Which is correct?",
+        options: ["electrical -> light (and heat)", "gravitational -> light only", "chemical -> electrical only", "sound -> electrical"],
+        correctIndex: 0,
+        explanation: "Electrical energy is transferred to light and heat in a lamp.",
+      },
+      {
+        question: "Thermal energy is:",
+        options: ["energy due to temperature", "energy due to height", "energy due to motion", "energy due to electricity only"],
+        correctIndex: 0,
+        explanation: "Thermal energy is heat energy related to temperature.",
+      },
+      {
+        question: "Electrical appliances are not 100% efficient because:",
+        options: ["some energy becomes heat in the surroundings", "energy conservation is false", "they create extra energy", "they stop energy transfer"],
+        correctIndex: 0,
+        explanation: "Efficiency is limited because some energy becomes unwanted heat.",
+      },
+      {
+        question: "If you double a ball’s height (same conditions), gravitational potential energy generally:",
+        options: ["decreases", "stays the same", "increases", "becomes zero"],
+        correctIndex: 2,
+        explanation: "More height means more gravitational potential energy.",
+      },
+      {
+        question: "Sound energy mainly comes from:",
+        options: ["vibrations", "fixed shapes", "static electricity only", "a lack of air"],
+        correctIndex: 0,
+        explanation: "Sound is produced by vibrations, which create sound waves.",
+      },
+      {
+        question: "Which statement is always true?",
+        options: ["Energy is created and destroyed", "Total energy in a closed system is conserved", "Energy can vanish into nothing", "Only light energy is conserved"],
+        correctIndex: 1,
+        explanation: "Energy is conserved: the total energy doesn’t disappear; it changes form/transfers.",
+      },
+    ];
+  }
+
+  if (t.includes("motion")) {
+    return [
+      {
+        question: "Speed tells you:",
+        options: ["how far something moves per unit time", "how much time passes", "how heavy something is", "how much heat is present"],
+        correctIndex: 0,
+        explanation: "Speed describes how distance changes with time.",
+      },
+      {
+        question: "The formula for speed is:",
+        options: ["speed = distance ÷ time", "speed = time ÷ distance", "speed = distance × time", "speed = 1 ÷ (d + t)"],
+        correctIndex: 0,
+        explanation: "Speed = distance ÷ time.",
+      },
+      {
+        question: "If distance is in metres and time is in seconds, speed is in:",
+        options: ["m/s", "m²", "s²", "km/h only"],
+        correctIndex: 0,
+        explanation: "Using m and s gives speed in metres per second (m/s).",
+      },
+      {
+        question: "A runner covers 120 m in 30 s. What is the speed?",
+        options: ["3 m/s", "4 m/s", "5 m/s", "6 m/s"],
+        correctIndex: 1,
+        explanation: "Speed = 120 ÷ 30 = 4 m/s.",
+      },
+      {
+        question: "If you double the time for the same distance, speed generally:",
+        options: ["doubles", "halves", "stays the same", "becomes zero"],
+        correctIndex: 1,
+        explanation: "With the same distance, a larger time means a smaller speed.",
+      },
+      {
+        question: "Distance-time graphs show:",
+        options: ["distance on the y-axis and time on the x-axis", "time on the y-axis and distance on the x-axis", "only speed on one axis", "temperature over time"],
+        correctIndex: 0,
+        explanation: "On a distance-time graph: y-axis = distance, x-axis = time.",
+      },
+      {
+        question: "On a distance-time graph, a steeper line indicates:",
+        options: ["slower speed", "constant speed only", "faster speed", "no movement"],
+        correctIndex: 2,
+        explanation: "Steeper gradient means bigger distance change per unit time → faster speed.",
+      },
+      {
+        question: "A horizontal line on a distance-time graph means:",
+        options: ["speed is greatest", "the object is not moving", "the object is moving with changing distance", "time is zero"],
+        correctIndex: 1,
+        explanation: "Horizontal line means distance is constant, so speed is zero.",
+      },
+      {
+        question: "A straight line on a distance-time graph usually indicates:",
+        options: ["speed is changing", "speed is constant", "the object is moving backwards only", "distance is negative"],
+        correctIndex: 1,
+        explanation: "Straight line means the gradient is constant, so speed is constant.",
+      },
+      {
+        question: "The gradient of a distance-time graph is:",
+        options: ["distance", "time", "speed", "acceleration (always)"],
+        correctIndex: 2,
+        explanation: "Gradient is speed: how much distance changes for each unit of time.",
+      },
+      {
+        question: "If a car travels 3 km in 300 s, speed is:",
+        options: ["5 m/s", "10 m/s", "15 m/s", "20 m/s"],
+        correctIndex: 1,
+        explanation: "3 km = 3000 m. Speed = 3000 ÷ 300 = 10 m/s.",
+      },
+      {
+        question: "Speed can be measured in:",
+        options: ["km/h", "degrees", "litres", "newtons (N)"],
+        correctIndex: 0,
+        explanation: "km/h is a common unit for speed.",
+      },
+      {
+        question: "Time is measured in units such as:",
+        options: ["seconds (s)", "metres (m)", "kilograms (kg)", "watts (W)"],
+        correctIndex: 0,
+        explanation: "Time is measured in seconds (s).",
+      },
+      {
+        question: "Distance is measured in units such as:",
+        options: ["metres (m)", "seconds (s)", "newtons (N)", "square metres (m²)"],
+        correctIndex: 0,
+        explanation: "Distance is usually measured in metres (m).",
+      },
+      {
+        question: "If distance increases (with the same time), speed:",
+        options: ["decreases", "increases", "stays the same", "becomes negative"],
+        correctIndex: 1,
+        explanation: "Speed = distance ÷ time, so a larger distance gives a larger speed.",
+      },
+      {
+        question: "If a distance-time graph curves upward, that suggests:",
+        options: ["speed is increasing", "speed is decreasing", "speed is zero", "time is going backwards"],
+        correctIndex: 0,
+        explanation: "An upward curve often means the gradient increases with time → speed increases.",
+      },
+      {
+        question: "A cyclist travels 600 m in 120 s. Speed is:",
+        options: ["4 m/s", "5 m/s", "6 m/s", "7 m/s"],
+        correctIndex: 1,
+        explanation: "Speed = 600 ÷ 120 = 5 m/s.",
+      },
+      {
+        question: "If an object starts at rest, the speed at the first point on the graph is:",
+        options: ["zero", "maximum", "negative", "undefined"],
+        correctIndex: 0,
+        explanation: "At rest means no change in distance at that moment, so speed is zero.",
+      },
+      {
+        question: "If the distance-time graph shows distance decreasing towards zero, the object is:",
+        options: ["staying still", "moving back towards the start", "moving faster forwards", "teleporting"],
+        correctIndex: 1,
+        explanation: "Decreasing distance indicates the object is moving back towards the starting position.",
+      },
+      {
+        question: "Which expression correctly calculates speed?",
+        options: ["s = d ÷ t", "s = d × t", "s = t ÷ d", "s = d + t"],
+        correctIndex: 0,
+        explanation: "Correct relationship: speed = distance ÷ time.",
+      },
+    ];
+  }
 
   if (t.includes("geometry") || t.includes("measure")) {
     return [
