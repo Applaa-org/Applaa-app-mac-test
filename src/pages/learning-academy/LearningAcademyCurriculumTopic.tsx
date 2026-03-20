@@ -5482,13 +5482,25 @@ export function LearningAcademyCurriculumTopic() {
   const nextTopic =
     topicIndex >= 0 && topicIndex < orderedTopics.length - 1 ? orderedTopics[topicIndex + 1] : null;
 
+  const handleBackToSubject = () => {
+    if (subjectId) {
+      const year = topic?.years?.[0];
+      router.navigate({
+        to: "/learning-academy/curriculum",
+        search: year ? { subjectId, year } : { subjectId },
+      });
+    } else {
+      router.navigate({ to: "/learning-academy/curriculum" });
+    }
+  };
+
   if (!subject || !topic) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <p className="text-gray-500">Topic not found.</p>
         <button
           type="button"
-          onClick={() => router.history.back()}
+          onClick={handleBackToSubject}
           className="text-teal-600 dark:text-teal-400 mt-2 inline-flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -5504,7 +5516,7 @@ export function LearningAcademyCurriculumTopic() {
         <div className="flex items-center gap-4 mb-4">
           <button
             type="button"
-            onClick={() => router.history.back()}
+            onClick={handleBackToSubject}
             className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />

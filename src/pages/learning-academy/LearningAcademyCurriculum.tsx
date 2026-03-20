@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import {
   LEARNING_ACADEMY_SUBJECTS,
   UK_YEARS,
@@ -13,9 +13,26 @@ import { BookOpen, ChevronRight, CheckSquare, Square } from "lucide-react";
 const DEFAULT_SELECTED_SUBJECT_IDS = new Set(LEARNING_ACADEMY_SUBJECTS.map((s) => s.id));
 
 export function LearningAcademyCurriculum() {
-  const [selectedYear, setSelectedYear] = useState<UKYear | "all" | "gcse">(9);
-  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(DEFAULT_SELECTED_SUBJECT_IDS);
+  const search = useSearch({ from: "/learning-academy/curriculum" }) as {
+    subjectId?: string;
+    year?: number;
+  };
+
+  const initialSubjectId =
+    search.subjectId && LEARNING_ACADEMY_SUBJECTS.some((s) => s.id === search.subjectId)
+      ? search.subjectId
+      : undefined;
+
+  const initialYear: UKYear | "all" | "gcse" =
+    search.year && UK_YEARS.some((y) => y.value === search.year)
+      ? (search.year as UKYear)
+      : 9;
+
+  const [selectedYear, setSelectedYear] = useState<UKYear | "all" | "gcse">(initialYear);
+  const [expandedSubject, setExpandedSubject] = useState<string | null>(initialSubjectId ?? null);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(() =>
+    initialSubjectId ? new Set([initialSubjectId]) : new Set(DEFAULT_SELECTED_SUBJECT_IDS)
+  );
 
   const visibleSubjects = useMemo(
     () => LEARNING_ACADEMY_SUBJECTS.filter((s) => selectedSubjectIds.has(s.id)),
