@@ -44,6 +44,7 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
   lessonSummary: string;
 } {
   const t = lessonTitle.toLowerCase();
+  const topicLower = topicTitle.toLowerCase();
   if (t.includes("place value")) {
     return {
       intro: "Place value is one of the most important ideas in maths: the value of a digit depends on where it sits in the number. The 3 in 34 means 3 tens (30), but the 3 in 304 means 3 hundreds (300). This lesson explains how ones, tens, hundreds and thousands work, and why we use zero as a placeholder. Everything we do with larger numbers and decimals builds on place value.",
@@ -1267,116 +1268,375 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
         "You now know the particle model and how it explains solids, liquids, gases and changes of state.",
     };
   }
-  // Biology
-  if (t.includes("living") || t.includes("life process") || t.includes("classification") || t.includes("habitat")) {
-    return {
-      intro: "Living things carry out life processes (e.g. feeding, breathing, moving, growing). We can group (classify) them and look at where they live (habitats). This lesson introduces what makes something living and how we group living things.",
-      coreConcepts: [
-        { name: "Life processes", explanation: "Living things do certain things: they feed (get nutrition), respire (release energy), grow, move, get rid of waste, respond to their surroundings, and reproduce. We use the acronym MRS GREN to remember: Movement, Respiration, Sensitivity, Growth, Reproduction, Excretion, Nutrition." },
-        { name: "Classification", explanation: "Classification is grouping living things by their features. We group into kingdoms (e.g. animals, plants), then into smaller groups. Similar features suggest related species." },
-        { name: "Habitats", explanation: "A habitat is where an organism lives. It provides food, water, shelter and the right conditions. Different habitats (e.g. pond, woodland, desert) have different living things adapted to them." },
-      ],
-      example: "A rabbit: it moves, eats plants (nutrition), breathes (respiration), grows, has young (reproduction), and responds to danger. So it is living. We classify it as an animal. Its habitat might be a field or woodland.",
-      lessonSummary: "You now know the life processes that characterise living things; how we classify living things into groups; and what a habitat is. Use this to describe and compare living things and their habitats.",
-    };
+  // Biology (split by sub-lesson focus)
+  if (topicLower === "living things") {
+    if (t.includes("life process")) {
+      return {
+        intro: "Life processes are the activities that living things carry out. This lesson focuses on the main life processes.",
+        coreConcepts: [
+          { name: "Nutrition (feeding)", explanation: "Living things need food to get energy and materials." },
+          { name: "Respiration", explanation: "Respiration releases energy from food so cells can function." },
+          { name: "Growth and movement", explanation: "Living things grow and can move, at least in some way." },
+          { name: "Response, excretion and reproduction", explanation: "Living things respond to their surroundings, remove waste and reproduce." },
+        ],
+        example: "A rabbit feeds, breathes (respiration), grows and reproduces, and responds to danger.",
+        lessonSummary: "You now know the main life processes that characterise living things.",
+      };
+    }
+    if (t.includes("classification")) {
+      return {
+        intro: "Classification groups living things so we can organise and compare them.",
+        coreConcepts: [
+          { name: "Group by features", explanation: "We classify based on observable features and characteristics." },
+          { name: "Broad to specific", explanation: "Start with bigger groups, then split into smaller groups using more specific features." },
+          { name: "Similar features mean related", explanation: "Organisms in the same group usually share more features and are more closely related." },
+          { name: "Purpose of classification", explanation: "It helps scientists identify patterns and understand relationships between organisms." },
+        ],
+        example: "Mammals share features like giving milk to their young, so they can be classified together.",
+        lessonSummary: "You now know that classification is about grouping living things using features.",
+      };
+    }
+    if (t.includes("habitat")) {
+      return {
+        intro: "A habitat is where an organism lives and the conditions it needs to survive.",
+        coreConcepts: [
+          { name: "What habitats provide", explanation: "Habitats provide food, water, shelter and the right environmental conditions." },
+          { name: "Different habitats, different organisms", explanation: "Different conditions lead to different types of living things." },
+          { name: "Adaptations", explanation: "Living things may be adapted to their habitat to survive and reproduce." },
+          { name: "Comparing habitats", explanation: "You can compare habitats by describing the conditions and the organisms found there." },
+        ],
+        example: "A desert habitat has dry conditions, so plants and animals are adapted to conserve water.",
+        lessonSummary: "You now know what a habitat is and why habitats influence which organisms live there.",
+      };
+    }
   }
-  if (t.includes("human") || t.includes("body") || t.includes("nutrition") || t.includes("health") || t.includes("exercise")) {
-    return {
-      intro: "Humans have body systems that work together (e.g. digestive, circulatory, respiratory). Eating a balanced diet (nutrition), drinking water, and exercise help keep the body healthy. This lesson covers the main ideas.",
-      coreConcepts: [
-        { name: "Body systems", explanation: "Our body has several systems: the digestive system breaks down food; the circulatory system carries blood and nutrients; the respiratory system takes in oxygen and releases carbon dioxide. They work together." },
-        { name: "Nutrition", explanation: "A balanced diet includes carbohydrates, proteins, fats, vitamins, minerals and fibre, and enough water. Different foods give us different nutrients. Too much or too little of something can affect health." },
-        { name: "Exercise and health", explanation: "Exercise helps keep the heart, lungs and muscles healthy. It also helps us maintain a healthy weight and feel good. Rest and sleep are important too." },
-      ],
-      example: "When we eat a sandwich, the digestive system breaks it down. Nutrients are absorbed into the blood and the circulatory system carries them around the body. The respiratory system supplies oxygen so our cells can use the nutrients for energy.",
-      lessonSummary: "You now know that the body has several systems working together; what a balanced diet and good nutrition mean; and how exercise and rest support health. Use this to describe how we stay healthy.",
-    };
+  if (topicLower === "humans & health") {
+    if (t.includes("body systems")) {
+      return {
+        intro: "Body systems work together to keep humans alive. This lesson focuses on the digestive, circulatory and respiratory systems.",
+        coreConcepts: [
+          { name: "Digestive system", explanation: "Breaks down food into nutrients." },
+          { name: "Circulatory system", explanation: "Carries nutrients in the blood around the body." },
+          { name: "Respiratory system", explanation: "Supplies oxygen and removes carbon dioxide." },
+          { name: "Systems are linked", explanation: "Nutrients and oxygen are used by cells to release energy." },
+        ],
+        example: "After eating, digestion produces nutrients, blood transports them, and respiration supplies oxygen for energy release.",
+        lessonSummary: "You now know how body systems connect to support life.",
+      };
+    }
+    if (t.includes("nutrition")) {
+      return {
+        intro: "Nutrition is about the food and nutrients the body needs. This lesson focuses on balanced diets.",
+        coreConcepts: [
+          { name: "Balanced diet", explanation: "Includes carbohydrates, proteins, fats, vitamins, minerals, fibre and enough water." },
+          { name: "Different nutrients do different jobs", explanation: "Foods support growth, repair and energy release." },
+          { name: "Too much or too little", explanation: "Imbalance can affect health and wellbeing." },
+          { name: "Hydration matters", explanation: "Water supports digestion and normal body function." },
+        ],
+        example: "A balanced meal with protein and vegetables helps provide nutrients for energy and growth.",
+        lessonSummary: "You now know what nutrition means and why balanced eating helps keep you healthy.",
+      };
+    }
+    if (t.includes("exercise")) {
+      return {
+        intro: "Exercise supports health by strengthening your body and improving fitness. This lesson focuses on key benefits.",
+        coreConcepts: [
+          { name: "Heart and lungs", explanation: "Exercise can improve how well your heart and lungs work." },
+          { name: "Muscles and movement", explanation: "Activity strengthens muscles and improves coordination." },
+          { name: "Healthy weight", explanation: "Exercise helps maintain a healthier balance of energy in your body." },
+          { name: "Rest and recovery", explanation: "Sleep and rest help your body repair and stay healthy." },
+        ],
+        example: "Regular exercise can make you feel fitter, stronger and better able to concentrate.",
+        lessonSummary: "You now know how exercise supports health and why rest is part of staying well.",
+      };
+    }
+    if (t.includes("health")) {
+      return {
+        intro: "Health is about how well your body works and how you feel day to day. This lesson focuses on healthy habits.",
+        coreConcepts: [
+          { name: "Healthy routines", explanation: "Good routines include eating well, being active and getting enough sleep." },
+          { name: "Prevention", explanation: "Healthy choices can reduce the risk of some illnesses and improve wellbeing." },
+          { name: "Listening and getting help", explanation: "If something feels wrong, you should tell an adult and get advice." },
+          { name: "Balance", explanation: "Health is not just one habit; it is a balance of many behaviours." },
+        ],
+        example: "A student who eats well, exercises and sleeps enough is more likely to feel energetic and focused.",
+        lessonSummary: "You now understand health as a combination of nutrition, activity, rest and good habits.",
+      };
+    }
   }
-  if (t.includes("plant") || t.includes("photosynthesis") || t.includes("life cycle")) {
-    return {
-      intro: "Plants make their own food using sunlight, water and carbon dioxide—this is photosynthesis. They have roots, stems and leaves, and many reproduce with seeds. This lesson covers the main parts of a plant and how they grow.",
-      coreConcepts: [
-        { name: "Parts of a plant", explanation: "Roots anchor the plant and take in water and minerals from the soil. The stem supports the plant and carries water and nutrients. Leaves make food by photosynthesis. Flowers are involved in reproduction and produce seeds." },
-        { name: "Photosynthesis", explanation: "Photosynthesis is the process in leaves where plants use light energy, water (from the roots) and carbon dioxide (from the air) to make sugar (glucose) and release oxygen. Chlorophyll in the leaves captures the light." },
-        { name: "Life cycle", explanation: "Many plants grow from seeds. The seed germinates (starts to grow), the plant grows and may produce flowers, then seeds. The seeds can spread and grow into new plants. This is the plant life cycle." },
-      ],
-      example: "A sunflower: roots take in water; the stem holds it up and carries water to the leaves; leaves use sunlight, water and carbon dioxide to make food; the flower produces seeds. When the seeds fall, they can grow into new sunflowers.",
-      lessonSummary: "You now know the main parts of a plant and their jobs; what photosynthesis is and what plants need; and how many plants have a life cycle involving seeds. Use this to describe how plants grow and survive.",
-    };
+  if (topicLower === "plants") {
+    if (t.includes("parts of a plant")) {
+      return {
+        intro: "Plants have parts with different jobs. This lesson focuses on roots, stems, leaves and flowers.",
+        coreConcepts: [
+          { name: "Roots", explanation: "Anchor the plant and take in water and minerals from the soil." },
+          { name: "Stem", explanation: "Supports the plant and transports water and nutrients." },
+          { name: "Leaves", explanation: "Leaves make food using photosynthesis." },
+          { name: "Flowers", explanation: "Flowers support reproduction and help produce seeds." },
+        ],
+        example: "In a sunflower, roots absorb water, the stem holds it up, and leaves make food.",
+        lessonSummary: "You now know what the main plant parts do.",
+      };
+    }
+    if (t.includes("photosynthesis")) {
+      return {
+        intro: "Photosynthesis is how plants make their own food. This lesson focuses on what plants need and what they make.",
+        coreConcepts: [
+          { name: "Inputs", explanation: "Plants need light energy, water and carbon dioxide." },
+          { name: "Making sugar", explanation: "Plants make sugar (glucose) which stores energy." },
+          { name: "Oxygen released", explanation: "Photosynthesis releases oxygen into the air." },
+          { name: "Chlorophyll", explanation: "Chlorophyll in leaves captures light energy." },
+        ],
+        example: "A leaf uses sunlight, water and carbon dioxide to make glucose and release oxygen.",
+        lessonSummary: "You now know the key idea of photosynthesis and its inputs/outputs.",
+      };
+    }
+    if (t.includes("life cycle")) {
+      return {
+        intro: "The plant life cycle shows how a plant grows from a seed to producing more seeds. This lesson focuses on stages.",
+        coreConcepts: [
+          { name: "Germination", explanation: "Seeds germinate and start to grow." },
+          { name: "Growth", explanation: "The plant grows into roots, stems and leaves." },
+          { name: "Flowering and seeds", explanation: "Many plants produce flowers, then seeds." },
+          { name: "Spreading", explanation: "Seeds spread and can grow into new plants when conditions are suitable." },
+        ],
+        example: "A sunflower grows from a seed, produces flowers and then produces seeds for the next cycle.",
+        lessonSummary: "You now know the stages of a plant life cycle.",
+      };
+    }
   }
-  if (t.includes("evolution") || t.includes("inheritance") || t.includes("variation") || t.includes("adaptation")) {
-    return {
-      intro: "Living things vary (they are not all the same). Some variation is inherited from parents. Over long periods, species can change (evolve) and become better suited to their environment—this is adaptation. This lesson introduces these ideas.",
-      coreConcepts: [
-        { name: "Variation", explanation: "Variation means differences between individuals. Some variation is inherited (passed from parents, e.g. eye colour). Some is due to the environment (e.g. scars, fitness). Both can affect how well an organism survives." },
-        { name: "Inheritance", explanation: "Inheritance is when characteristics are passed from parents to offspring. Offspring get information from both parents, so they are similar but not identical. We use this to explain family resemblance." },
-        { name: "Adaptation and evolution", explanation: "Adaptations are features that help an organism survive in its environment. Over very long times, species can change (evolve) so that better-adapted individuals are more likely to survive and reproduce. This can lead to new species." },
-      ],
-      example: "Rabbits in a cold climate might have thicker fur. If fur thickness is inherited, rabbits with thicker fur are more likely to survive winter and have offspring. Over many generations, the population may have thicker fur on average—an adaptation.",
-      lessonSummary: "You now know what variation and inheritance are; how adaptation helps organisms survive; and that evolution is the change in species over time. Use this to describe why living things look and behave the way they do.",
-    };
+  if (topicLower === "evolution & inheritance") {
+    if (t.includes("variation")) {
+      return {
+        intro: "Variation means individuals in a species are not all identical. This lesson focuses on what causes variation.",
+        coreConcepts: [
+          { name: "Differences", explanation: "Variation is the differences between individuals in a population." },
+          { name: "Inherited variation", explanation: "Some variation is passed from parents to offspring." },
+          { name: "Environmental variation", explanation: "Some variation happens due to the environment." },
+          { name: "Survival effects", explanation: "Some differences can help organisms survive better in certain conditions." },
+        ],
+        example: "Fur thickness can vary between rabbits, and some inherited traits help survival in cold conditions.",
+        lessonSummary: "You now know variation and where it can come from.",
+      };
+    }
+    if (t.includes("inheritance")) {
+      return {
+        intro: "Inheritance is how characteristics are passed from parents to offspring. This lesson focuses on inherited traits.",
+        coreConcepts: [
+          { name: "Passed traits", explanation: "Offspring inherit characteristics from parents." },
+          { name: "Not identical", explanation: "Offspring are similar but not exactly the same because traits still vary." },
+          { name: "Why it matters", explanation: "Inherited variation can be passed on if it helps survival." },
+          { name: "Generations", explanation: "Over many generations, inherited traits can become more common in a population." },
+        ],
+        example: "If a trait is inherited, offspring can show it even if parents are slightly different.",
+        lessonSummary: "You now understand inheritance as the passing of traits to offspring across generations.",
+      };
+    }
+    if (t.includes("adaptation")) {
+      return {
+        intro: "Adaptations are features that help organisms survive in their environment. This lesson focuses on the survival advantage.",
+        coreConcepts: [
+          { name: "Better suited", explanation: "Adaptations make it easier for organisms to survive and reproduce." },
+          { name: "Inherited advantage", explanation: "If the adaptation is inherited, it can spread through populations over generations." },
+          { name: "Over long time", explanation: "Adaptations build over long periods, leading to evolution." },
+          { name: "Environment link", explanation: "Adaptations depend on the conditions in an environment." },
+        ],
+        example: "Rabbits with thicker fur can survive colder winters better and pass on the trait.",
+        lessonSummary: "You now know what adaptations are and how they link to survival and evolution over time.",
+      };
+    }
   }
   // Computer Science
-  if (t.includes("algorithm") || t.includes("step") || t.includes("sequence") || t.includes("decomposition") || t.includes("debug")) {
-    return {
-      intro: "An algorithm is a clear set of steps to solve a problem or do a task. We break big problems into smaller steps (decomposition) and put steps in the right order (sequence). When something goes wrong, we debug (find and fix the error).",
-      coreConcepts: [
-        { name: "Algorithm", explanation: "An algorithm is a step-by-step method to do something. Recipes and instructions are algorithms. In computing, we give algorithms to computers so they can carry out tasks." },
-        { name: "Sequence", explanation: "Sequence means the order of steps matters. Doing step 2 before step 1 might give the wrong result. We write algorithms in a logical order." },
-        { name: "Decomposition", explanation: "Decomposition is breaking a big problem into smaller, easier parts. Each part can be solved or coded separately. Then we combine the parts to solve the whole problem." },
-        { name: "Debugging", explanation: "Debugging is finding and fixing mistakes (bugs) in an algorithm or program. We check each step, test with examples, and correct any step that does the wrong thing." },
-      ],
-      example: "Algorithm for making toast: 1) Get bread. 2) Put bread in toaster. 3) Turn toaster on. 4) Wait until it pops. 5) Put butter on toast. If we did step 5 before step 2, we would be putting butter on bread that isn't toast yet—wrong sequence.",
-      lessonSummary: "You now know what an algorithm is; why sequence matters; how decomposition helps with big problems; and how to debug by finding and fixing errors. Use this when designing and improving instructions and programs.",
-    };
+  if (topicLower === "algorithms") {
+    if (t.includes("decomposition")) {
+      return {
+        intro: "Decomposition means breaking a large problem into smaller parts so it is easier to solve.",
+        coreConcepts: [
+          { name: "Split the problem", explanation: "Take a big task and divide it into smaller steps or parts." },
+          { name: "Solve separately", explanation: "Work on each part on its own before combining them." },
+          { name: "Combine results", explanation: "Put the solutions for the parts together to form the full answer." },
+        ],
+        example: "Designing a game: create the layout, rules and scoring as separate pieces, then combine them.",
+        lessonSummary: "You now know decomposition as a way to handle complexity by working in manageable parts.",
+      };
+    }
+    if (t.includes("debug")) {
+      return {
+        intro: "Debugging is finding and fixing mistakes (bugs) in an algorithm or program.",
+        coreConcepts: [
+          { name: "Test with examples", explanation: "Run your algorithm and check what happens for test cases." },
+          { name: "Find the cause", explanation: "Identify the step that leads to incorrect results." },
+          { name: "Fix and re-test", explanation: "Correct the issue and test again to confirm it works." },
+        ],
+        example: "If a loop runs the wrong number of times, debugging finds where the condition or counter is wrong.",
+        lessonSummary: "You now know debugging as a cycle: test, find, fix, and re-test.",
+      };
+    }
+    if (t.includes("sequence") || t.includes("step")) {
+      return {
+        intro: "Sequence means the order of steps. In algorithms, the correct order is essential for the right result.",
+        coreConcepts: [
+          { name: "Order matters", explanation: "Doing steps out of order can change the meaning or outcome." },
+          { name: "Follow the rules", explanation: "Algorithms are instructions where each step follows on from the previous step." },
+          { name: "Real-life sequences", explanation: "Recipes and instructions are examples of sequences." },
+        ],
+        example: "If you butter toast before it pops, you get the wrong result because the sequence was incorrect.",
+        lessonSummary: "You now know why sequence matters in algorithms and instructions.",
+      };
+    }
   }
-  if (t.includes("programming") || t.includes("variable") || t.includes("loop") || t.includes("code") || t.includes("block")) {
-    return {
-      intro: "Programming is giving a computer instructions (code) to do a task. We can use block-based coding (dragging blocks) or text-based code. Programs use variables to store data and loops to repeat steps.",
-      coreConcepts: [
-        { name: "Program and code", explanation: "A program is a set of instructions for a computer. Code is the actual instructions we write. The computer follows the code step by step to produce the result we want." },
-        { name: "Variables", explanation: "A variable is a named place to store a value (e.g. a number or text). We can change the value and use it in our program. For example, a variable called score might hold the number 10." },
-        { name: "Loops", explanation: "A loop repeats a set of instructions. Instead of writing the same instructions many times, we use a loop (e.g. 'repeat 5 times' or 'repeat until something is true'). This makes programs shorter and clearer." },
-      ],
-      example: "In a game, we might have a variable called score. When the player scores a point we add 1 to score. We might use a loop to move an enemy 10 times. Variables and loops help us build games and useful programs.",
-      lessonSummary: "You now know what a program and code are; how variables store and use data; and how loops repeat instructions. Use this when writing block-based or text-based programs.",
-    };
+
+  if (topicLower === "programming") {
+    if (t.includes("block") || t.includes("text-based") || t.includes("coding")) {
+      return {
+        intro: "Programming gives computers instructions. You can build programs using block-based coding or text-based code.",
+        coreConcepts: [
+          { name: "Program and code", explanation: "A program is a set of instructions; code is the instructions written for the computer." },
+          { name: "Block-based coding", explanation: "Blocks make it easy to assemble correct instructions visually." },
+          { name: "Text-based coding", explanation: "Text code uses the rules (syntax) of a programming language." },
+        ],
+        example: "A block program might say: when button pressed, then add to a score variable.",
+        lessonSummary: "You now know two ways to code and what programming means in this curriculum.",
+      };
+    }
+    if (t.includes("variable")) {
+      return {
+        intro: "Variables store data so your program can use and update values.",
+        coreConcepts: [
+          { name: "Named storage", explanation: "A variable is a name for a place that holds a value." },
+          { name: "Use values", explanation: "Programs read variables to decide what to do next." },
+          { name: "Update values", explanation: "Variables can change when something in the program happens (like scoring points)." },
+        ],
+        example: "If `score = 10`, a game can change it to `score + 1` when a player earns a point.",
+        lessonSummary: "You now know variables as storage that supports decisions and updates in programs.",
+      };
+    }
+    if (t.includes("loop")) {
+      return {
+        intro: "Loops repeat instructions, so you don’t have to write the same steps many times.",
+        coreConcepts: [
+          { name: "Repeat actions", explanation: "A loop repeats a set of instructions." },
+          { name: "Count or condition", explanation: "Loops can repeat a set number of times or until a condition is met." },
+          { name: "More efficient code", explanation: "Loops make programs shorter and clearer." },
+        ],
+        example: "Instead of writing 10 move commands, use a loop to move 10 times.",
+        lessonSummary: "You now know loops as a tool to repeat actions in programming.",
+      };
+    }
   }
-  if (t.includes("data") && (t.includes("information") || t.includes("collect") || t.includes("present"))) {
-    return {
-      intro: "Data is information we collect, store and use. We can present data in tables and charts so it is easier to understand. Computers help us collect, sort and display data.",
-      coreConcepts: [
-        { name: "Data and information", explanation: "Data is raw facts or figures (e.g. numbers, words). When we organise and use data to answer questions, it becomes information. For example, a list of scores is data; the average score is information." },
-        { name: "Collecting data", explanation: "We collect data by measuring, surveying or recording. We need to decide what to collect and how to store it (e.g. in a table or spreadsheet) so we can use it later." },
-        { name: "Presenting data", explanation: "We present data using tables, bar charts, pie charts or other graphs. The right choice makes patterns and comparisons clear. Labels and titles help others understand." },
-      ],
-      example: "We survey the class's favourite fruit. We collect the data in a table (e.g. apple: 5, banana: 8). We then draw a bar chart so we can quickly see that banana is the most popular. The chart presents the data clearly.",
-      lessonSummary: "You now know the difference between data and information; how we collect and store data; and how to present data in tables and charts. Use this when handling data in computing and other subjects.",
-    };
+
+  if (topicLower === "data & information") {
+    if (t.includes("collect")) {
+      return {
+        intro: "Collecting data means gathering raw information that you can later analyse.",
+        coreConcepts: [
+          { name: "Decide your question", explanation: "Choose what you want to find out before collecting data." },
+          { name: "Gather data", explanation: "Use measuring, surveys or recording to collect values." },
+          { name: "Organise and store", explanation: "Keep data organised (for example, in a table) to make it easier to use." },
+        ],
+        example: "Collect how many students like different fruits and store the counts in a table.",
+        lessonSummary: "You now know that collecting data starts the process of turning numbers into information.",
+      };
+    }
+    if (t.includes("present")) {
+      return {
+        intro: "Presenting data shows information clearly so patterns and comparisons are easy to understand.",
+        coreConcepts: [
+          { name: "Choose an appropriate chart", explanation: "Different charts show different patterns well." },
+          { name: "Add labels and titles", explanation: "Labels help the reader understand what the data means." },
+          { name: "Interpret results", explanation: "Presentation includes explaining what the data shows." },
+        ],
+        example: "A bar chart can quickly show which fruit is most popular.",
+        lessonSummary: "You now know how to present data and interpret patterns from charts.",
+      };
+    }
+    if (t.includes("using") && t.includes("data")) {
+      return {
+        intro: "Using data means turning it into answers and decisions.",
+        coreConcepts: [
+          { name: "From data to information", explanation: "Analyse and organise data to create useful information." },
+          { name: "Make conclusions", explanation: "Use evidence from the data to support your conclusion." },
+          { name: "Compare and justify", explanation: "Compare values (highest/lowest, more/less) and explain reasoning." },
+        ],
+        example: "Use the survey data to decide which fruit is the most popular and justify your answer.",
+        lessonSummary: "You now know how to use data to answer questions and justify conclusions.",
+      };
+    }
   }
-  if (t.includes("network") || t.includes("internet") || t.includes("connect") || t.includes("communicate")) {
-    return {
-      intro: "Computers can be connected in networks to share information and resources. The internet is a huge network of networks. This lesson covers how computers connect and how information is sent and received.",
-      coreConcepts: [
-        { name: "Network", explanation: "A network is when two or more computers (or devices) are connected so they can share data and resources. A school or home might have a local network (LAN)." },
-        { name: "The internet", explanation: "The internet is a worldwide network of networks. It allows computers everywhere to communicate. We use it for the web, email, video calls and much more." },
-        { name: "Sending information", explanation: "When we send a message or load a webpage, data is split into small packets, sent across the network, and put back together at the destination. This happens very quickly." },
-      ],
-      example: "When you open a website, your computer sends a request across the internet. The server that holds the website sends the web page back in packets. Your computer puts the packets together and displays the page. All of this uses networks.",
-      lessonSummary: "You now know what a network is; what the internet is; and how information is sent in packets across networks. Use this to describe how devices connect and communicate.",
-    };
+
+  if (topicLower === "networks & the internet") {
+    if (t.includes("introduction")) {
+      return {
+        intro: "Networks connect devices so they can share information. The internet is a network of networks.",
+        coreConcepts: [
+          { name: "Network", explanation: "A network connects devices so they can share data and resources." },
+          { name: "Internet", explanation: "The internet connects networks around the world." },
+          { name: "Everyday examples", explanation: "Websites, messaging and video calls rely on networks." },
+        ],
+        example: "Your phone and laptop can both connect to the same home Wi‑Fi network.",
+        lessonSummary: "You now know what networks are and what the internet connects.",
+      };
+    }
+    if (t.includes("key concepts")) {
+      return {
+        intro: "Networks send information using packets. Packets are sent between devices and rebuilt at the destination.",
+        coreConcepts: [
+          { name: "Packets", explanation: "Information is split into small packets for sending." },
+          { name: "Delivery", explanation: "Packets travel through networks and are routed to their destination." },
+          { name: "Reassembly", explanation: "The destination device rebuilds the message from the packets." },
+        ],
+        example: "When you open a site, packets arrive and your device puts them together to display the page.",
+        lessonSummary: "You now know the key idea of packets and delivery in networks.",
+      };
+    }
+    if (t.includes("applying")) {
+      return {
+        intro: "In real life, networks let devices request and receive information from services such as websites.",
+        coreConcepts: [
+          { name: "Request/response", explanation: "A device sends a request; a server sends back data." },
+          { name: "Protocols (idea)", explanation: "Communication follows agreed rules so devices can understand each other." },
+          { name: "Online services", explanation: "Email, browsing and messaging all depend on network communication." },
+        ],
+        example: "Typing a web address sends a request across the internet, then the page loads.",
+        lessonSummary: "You now know how networking supports everyday online tasks.",
+      };
+    }
   }
   // Business
-  if (t.includes("enterprise") || t.includes("business") || t.includes("product")) {
+  if (topicLower === "enterprise") {
+    if (t.includes("ideas")) {
+      return {
+        intro: "Enterprise is about turning ideas into opportunities. This lesson focuses on coming up with business ideas.",
+        coreConcepts: [
+          { name: "Spot a need or problem", explanation: "An enterprise idea often starts when you notice something people want or need." },
+          { name: "Take initiative", explanation: "Enterprise means acting on your idea, not just thinking about it." },
+          { name: "Test and improve", explanation: "You can learn by trying ideas and refining them based on results." },
+        ],
+        example: "If students struggle to find cheap snacks, an idea might be to sell snacks at school.",
+        lessonSummary: "You now know enterprise as the process of spotting opportunities and acting on ideas.",
+      };
+    }
+    if (t.includes("product")) {
+      return {
+        intro: "A product is something you make or provide to customers. This lesson focuses on products and what makes a good product.",
+        coreConcepts: [
+          { name: "What a product is", explanation: "A product is something you can touch (for example, a snack or a toy)." },
+          { name: "Matches customer needs", explanation: "Products should meet what customers want or need." },
+          { name: "Costs and selling price (idea)", explanation: "Businesses consider costs and set a price so they can earn money." },
+        ],
+        example: "Homemade biscuits are a product sold to customers.",
+        lessonSummary: "You now know that products are built around customer needs and linked to costs and pricing.",
+      };
+    }
     return {
-      intro: "Enterprise is about having ideas and turning them into products or services that people want. Businesses are organisations that provide goods or services, often to make a profit. This lesson introduces these ideas.",
+      intro: "Businesses provide goods and services. This lesson focuses on what businesses do and the idea of profit.",
       coreConcepts: [
-        { name: "Enterprise", explanation: "Enterprise means being willing to take on new ideas and projects. Entrepreneurs spot opportunities, take risks and try to create something people want—a product or a service." },
-        { name: "Product and service", explanation: "A product is something you can touch (e.g. a toy, a loaf of bread). A service is something done for someone (e.g. cutting hair, delivering post). Businesses sell products, services, or both." },
-        { name: "What businesses do", explanation: "Businesses often need to design or choose a product, work out the cost, set a price, and find customers. They may need to advertise and deliver. Profit is when money from sales is more than the costs." },
+        { name: "Goods vs services", explanation: "Goods/products are tangible, while services are activities done for customers." },
+        { name: "Costs and revenue", explanation: "Businesses track costs and earn revenue from selling to customers." },
+        { name: "Profit meaning", explanation: "Profit is what remains when revenue is more than costs." },
       ],
-      example: "Someone has an idea to sell homemade biscuits. They are being enterprising. The biscuits are the product. They might sell them at a school fair. If they take more money than they spent on ingredients, they make a profit.",
-      lessonSummary: "You now know what enterprise is; the difference between products and services; and what businesses do. Use this to describe simple business ideas and how they work.",
+      example: "A gardening service charges for work, covers costs, and earns profit if sales are higher than costs.",
+      lessonSummary: "You now know what businesses do and how profit links to costs and income from sales.",
     };
   }
   if (t.includes("money") || t.includes("budget") || t.includes("saving") || t.includes("income") || t.includes("spending")) {
@@ -1403,6 +1663,513 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
       lessonSummary: "You now know the difference between needs and wants; what a customer is; and how marketing is used to reach customers. Use this to describe how businesses and customers interact.",
     };
   }
+
+  // English
+  if (topicLower === "reading") {
+    if (t.includes("comprehension")) {
+      return {
+        intro: "Comprehension means understanding the meaning of what you read. This lesson focuses on extracting main ideas and key details.",
+        coreConcepts: [
+          { name: "Main idea", explanation: "Identify the purpose or central message of a paragraph or text." },
+          { name: "Key details", explanation: "Find important facts, events and descriptions that support the main idea." },
+          { name: "Vocabulary clues", explanation: "Use surrounding words to infer meanings of unfamiliar words." },
+          { name: "Check your understanding", explanation: "Ask yourself what happened, why it happened, and what it shows." },
+        ],
+        example: "After reading, summarise the paragraph in one or two sentences in your own words.",
+        lessonSummary: "You now know comprehension as the skill of understanding meaning using main ideas, details and vocabulary clues.",
+      };
+    }
+    if (t.includes("analysis")) {
+      return {
+        intro: "Analysis breaks down how a writer creates effects and meaning using language and structure.",
+        coreConcepts: [
+          { name: "Language choices", explanation: "Notice words and techniques (like imagery or repetition) and think why they’re used." },
+          { name: "Structure", explanation: "Consider how ideas are organised (paragraphing, shifts in tone, pacing)." },
+          { name: "Effect", explanation: "Explain what a technique makes the reader feel or understand." },
+          { name: "Evidence", explanation: "Use quotes or specific references to support your explanation." },
+        ],
+        example: "If a writer uses short sentences to describe tension, explain how that speeds up the pace for the reader.",
+        lessonSummary: "You now know how to analyse by linking writer choices to meaning and effect using evidence.",
+      };
+    }
+    if (t.includes("inference")) {
+      return {
+        intro: "Inference means making an educated guess about what is implied. You use evidence from the text to support your answer.",
+        coreConcepts: [
+          { name: "Clues in the text", explanation: "Find evidence that suggests a conclusion." },
+          { name: "Writers imply", explanation: "Writers often don’t state everything directly, so you read between the lines." },
+          { name: "Reasoning", explanation: "Explain how the evidence leads to your inference." },
+          { name: "Support", explanation: "Your inference should be based on the text, not just opinion." },
+        ],
+        example: "If a character’s actions show fear, you can infer they are worried about what will happen next.",
+        lessonSummary: "You now know inference as using text evidence to explain what a writer implies.",
+      };
+    }
+    if (t.includes("writer") || t.includes("craft")) {
+      return {
+        intro: "Writer’s craft is how writers choose language and style to shape meaning. This lesson focuses on noticing deliberate choices.",
+        coreConcepts: [
+          { name: "Purpose and audience", explanation: "Writers pick techniques that fit why they’re writing and who will read it." },
+          { name: "Word choice", explanation: "Good writers choose precise words and sometimes figurative language." },
+          { name: "Sentence control", explanation: "Sentence length and type can change tone and emphasis." },
+          { name: "Patterns", explanation: "Look for repeated ideas or images that build themes." },
+        ],
+        example: "A vivid adjective can help the reader “see” the scene, which builds atmosphere.",
+        lessonSummary: "You now know writer’s craft as deliberate choices that create impact for the reader.",
+      };
+    }
+  }
+
+  if (topicLower === "writing") {
+    if (t.includes("stories")) {
+      return {
+        intro: "Story writing creates a narrative with characters, events and a setting. This lesson focuses on basic story elements.",
+        coreConcepts: [
+          { name: "Characters", explanation: "Think about traits, motivations and how characters change." },
+          { name: "Setting", explanation: "Where and when the story happens builds atmosphere." },
+          { name: "Structure", explanation: "Use a beginning, middle and ending (often with a turning point)." },
+          { name: "Engaging details", explanation: "Use description to interest the reader and show action clearly." },
+        ],
+        example: "Start with a problem, build tension in the middle, and resolve it in the ending.",
+        lessonSummary: "You now know story writing basics: characters, setting, structure and engaging details.",
+      };
+    }
+    if (t.includes("non-fiction")) {
+      return {
+        intro: "Non-fiction writing informs, explains or persuades. This lesson focuses on writing for a purpose and audience.",
+        coreConcepts: [
+          { name: "Purpose", explanation: "Decide what you want the reader to learn or think." },
+          { name: "Audience", explanation: "Use language and examples that match your reader." },
+          { name: "Clarity", explanation: "Use facts and clear explanations so your writing is easy to follow." },
+          { name: "Organisation", explanation: "Arrange information logically with paragraphs or headings." },
+        ],
+        example: "A guide about recycling should explain steps clearly with simple headings and examples.",
+        lessonSummary: "You now know non-fiction as writing for purpose, audience, clarity and organisation.",
+      };
+    }
+    if (t.includes("structure")) {
+      return {
+        intro: "Structure is how your ideas are organised so the reader can follow your writing.",
+        coreConcepts: [
+          { name: "Paragraph focus", explanation: "Each paragraph should discuss one main idea." },
+          { name: "Connectives", explanation: "Use linking words to show relationships between ideas." },
+          { name: "Topic sentences", explanation: "Start paragraphs with sentences that explain what the paragraph covers." },
+          { name: "Flow", explanation: "Keep sentences connected so ideas build step by step." },
+        ],
+        example: "Use a topic sentence at the start of each paragraph, then add supporting explanation.",
+        lessonSummary: "You now know how structure helps readers understand your writing.",
+      };
+    }
+    if (t.includes("grammar") || t.includes("vocabulary")) {
+      return {
+        intro: "Grammar and vocabulary make writing clear and effective. This lesson focuses on accuracy and word choice.",
+        coreConcepts: [
+          { name: "Accurate grammar", explanation: "Use correct tense, punctuation and sentence types." },
+          { name: "Precise vocabulary", explanation: "Choose words that match meaning instead of vague alternatives." },
+          { name: "Variety", explanation: "Vary sentence length for emphasis and pacing." },
+          { name: "Editing", explanation: "Improve your writing by checking and refining it." },
+        ],
+        example: "Replace vague words with specific ones that better match what you want to say.",
+        lessonSummary: "You now know grammar and vocabulary as key tools for clear and stronger writing.",
+      };
+    }
+  }
+
+  if (topicLower === "spoken language") {
+    if (t.includes("presentations")) {
+      return {
+        intro: "Presentations are planned spoken talks. This lesson focuses on preparation and delivery.",
+        coreConcepts: [
+          { name: "Plan main points", explanation: "Organise your talk so the audience can follow." },
+          { name: "Speak clearly", explanation: "Use suitable pace, volume and articulation." },
+          { name: "Engage the audience", explanation: "Use examples and appropriate tone." },
+          { name: "Practise", explanation: "Rehearse to improve confidence and timing." },
+        ],
+        example: "Introduce the topic, give 2-3 key points, and end with a short summary.",
+        lessonSummary: "You now know how to deliver effective presentations.",
+      };
+    }
+    if (t.includes("discussion")) {
+      return {
+        intro: "Discussion is sharing ideas and responding to others. This lesson focuses on discussion skills.",
+        coreConcepts: [
+          { name: "Listen", explanation: "Pay attention and respond to what others actually say." },
+          { name: "Questions", explanation: "Ask questions to clarify and explore further." },
+          { name: "Build ideas", explanation: "Agree, disagree or extend ideas using evidence or reasoning." },
+          { name: "Stay on topic", explanation: "Keep the conversation linked to the question or theme." },
+        ],
+        example: "Ask “Why do you think that?” and explain your own viewpoint.",
+        lessonSummary: "You now know how to take part in discussions respectfully and effectively.",
+      };
+    }
+    if (t.includes("formal speech")) {
+      return {
+        intro: "Formal speech is used for more serious speaking situations. This lesson focuses on how formal speech sounds and works.",
+        coreConcepts: [
+          { name: "Appropriate tone", explanation: "Use respectful language for the audience and purpose." },
+          { name: "Clear structure", explanation: "Organise your speech into introduction, main points and conclusion." },
+          { name: "Careful wording", explanation: "Avoid slang and use appropriate vocabulary." },
+          { name: "Rehearsal", explanation: "Practise to improve clarity, confidence and timing." },
+        ],
+        example: "A speech for a school event uses formal language and a structured set of points.",
+        lessonSummary: "You now know key features of formal speech: tone, structure and careful wording.",
+      };
+    }
+  }
+
+  if (topicLower === "literature") {
+    if (t.includes("poetry")) {
+      return {
+        intro: "Poetry uses language and form to create meaning and emotion. This lesson focuses on reading poetry effectively.",
+        coreConcepts: [
+          { name: "Themes", explanation: "Think about big ideas the poem explores." },
+          { name: "Imagery and language", explanation: "Poets use vivid descriptions and figurative language." },
+          { name: "Form and structure", explanation: "Rhyme, rhythm and stanzas can affect pace and emphasis." },
+          { name: "Evidence", explanation: "Support ideas with quotations or specific references." },
+        ],
+        example: "If a poem describes “dark skies,” you might infer it suggests sadness or worry.",
+        lessonSummary: "You now know how to approach poetry by focusing on themes, language and evidence.",
+      };
+    }
+    if (t.includes("drama")) {
+      return {
+        intro: "Drama is written for performance. This lesson focuses on understanding characters, dialogue and stage directions.",
+        coreConcepts: [
+          { name: "Characters", explanation: "Characters make choices and reveal personalities through dialogue." },
+          { name: "Conflict", explanation: "Plays often build tension through disagreement or challenges." },
+          { name: "Stage directions", explanation: "Stage directions show actions and can add meaning." },
+          { name: "Language in dialogue", explanation: "How characters speak can show power and emotion." },
+        ],
+        example: "Short, quick replies in a scene can suggest anger or tension.",
+        lessonSummary: "You now know how to read drama through characters, conflict and stage directions.",
+      };
+    }
+    if (t.includes("prose")) {
+      return {
+        intro: "Prose includes novels and stories. This lesson focuses on set texts and unseen extracts.",
+        coreConcepts: [
+          { name: "Plot and events", explanation: "Understand the sequence of events and key moments." },
+          { name: "Themes", explanation: "Identify recurring big ideas across the text." },
+          { name: "Unseen reading", explanation: "For unseen extracts, use key moments and evidence to explain meaning." },
+          { name: "Quotes as evidence", explanation: "Use short references to support interpretations." },
+        ],
+        example: "In an unseen extract, identify a turning point and explain how language shapes effect.",
+        lessonSummary: "You now know how to understand prose using plot, themes and evidence.",
+      };
+    }
+  }
+
+  // History
+  if (topicLower === "medieval and early modern") {
+    if (t.includes("key events")) {
+      return {
+        intro: "Key events are major happenings that shaped power, society and everyday life in the period.",
+        coreConcepts: [
+          { name: "Timeline", explanation: "Place events on a timeline so you can see change over time." },
+          { name: "Cause and effect", explanation: "Explain what led to events and what changed afterwards." },
+          { name: "Wider impact", explanation: "Think about how events affected different groups of people." },
+        ],
+        example: "A political conflict can lead to changes in rules and everyday life.",
+        lessonSummary: "You now know how to approach key events with cause, effect and impact.",
+      };
+    }
+    if (t.includes("society")) {
+      return {
+        intro: "Society describes how people lived, worked and organised their communities in the past.",
+        coreConcepts: [
+          { name: "Groups and roles", explanation: "Identify major social groups and what their roles were." },
+          { name: "Everyday life", explanation: "Describe daily life: work, food, housing and routines." },
+          { name: "Beliefs and culture", explanation: "Consider religion and culture and how they influenced society." },
+        ],
+        example: "A change in farming can affect food supply and daily routines.",
+        lessonSummary: "You now know how to describe society by focusing on daily life and social structure.",
+      };
+    }
+    if (t.includes("change")) {
+      return {
+        intro: "Change in history means events and developments that alter society, politics or everyday life.",
+        coreConcepts: [
+          { name: "Continuity and change", explanation: "Compare what changed with what stayed the same." },
+          { name: "Evidence of change", explanation: "Use sources or examples to show that change happened." },
+          { name: "Explain the impact", explanation: "Link change to consequences for people’s lives." },
+        ],
+        example: "New laws can change rights and responsibilities for ordinary people.",
+        lessonSummary: "You now know how to explain historical change using evidence and impact.",
+      };
+    }
+  }
+
+  if (topicLower === "empire, industry, and reform") {
+    if (t.includes("industrial")) {
+      return {
+        intro: "Industrial Britain is the period of major industrial growth and change in work and technology.",
+        coreConcepts: [
+          { name: "New technology", explanation: "Machines and new methods changed how goods were produced." },
+          { name: "Work and living conditions", explanation: "Industrial growth affected jobs, wages and daily life." },
+          { name: "Urban growth", explanation: "More factories can lead to more people moving into cities." },
+        ],
+        example: "Factory work might bring pay but can also involve long hours and unsafe conditions.",
+        lessonSummary: "You now know key industrial ideas about technology, work and urban growth.",
+      };
+    }
+    if (t.includes("empire")) {
+      return {
+        intro: "Empire connects territories through rule, trade and resources. This lesson focuses on empire and its effects.",
+        coreConcepts: [
+          { name: "Trade links", explanation: "Empires created connections through exchanging goods and resources." },
+          { name: "Control and governance", explanation: "A central power influenced laws and administration in territories." },
+          { name: "Different experiences", explanation: "People across an empire experienced life differently, so consider multiple perspectives." },
+        ],
+        example: "Trade can create wealth for some groups while causing hardship for others.",
+        lessonSummary: "You now know what empire involved and why it mattered through trade and governance.",
+      };
+    }
+    if (t.includes("democracy") || t.includes("reform")) {
+      return {
+        intro: "Reform and democracy connect to changes in rights and how people participate in government.",
+        coreConcepts: [
+          { name: "What reform is", explanation: "Reform means changes made to improve rules or rights." },
+          { name: "Representation", explanation: "Democracy includes people having a voice through voting or participation." },
+          { name: "Why it happens", explanation: "Pressure from people and events can lead to reform." },
+        ],
+        example: "Voting rights reforms can allow more people to take part in government.",
+        lessonSummary: "You now know how reform and democracy relate to rights and representation.",
+      };
+    }
+  }
+
+  if (topicLower === "twentieth century") {
+    if (t.includes("world war")) {
+      return {
+        intro: "World wars were major global conflicts with huge impacts on countries and civilians.",
+        coreConcepts: [
+          { name: "Complex causes", explanation: "World wars involve political tensions and multiple factors." },
+          { name: "Impact on society", explanation: "Wars affect economies, governments and everyday life." },
+          { name: "Long-term effects", explanation: "After wars, new challenges and changes shape the future." },
+        ],
+        example: "A war can reshape borders and lead to new international relationships.",
+        lessonSummary: "You now know how to describe world wars using causes, impact and consequences.",
+      };
+    }
+    if (t.includes("cold war")) {
+      return {
+        intro: "The Cold War was a period of rivalry and tension between major powers.",
+        coreConcepts: [
+          { name: "Rival superpowers", explanation: "Major powers competed for influence across the world." },
+          { name: "Nuclear threat", explanation: "The possibility of nuclear conflict influenced decisions." },
+          { name: "Proxy conflicts", explanation: "Competition sometimes happened through conflicts in other places." },
+        ],
+        example: "Different groups in another country may receive support from rival powers.",
+        lessonSummary: "You now know the main ideas of the Cold War: rivalry, nuclear threat and proxy conflicts.",
+      };
+    }
+    if (t.includes("modern britain")) {
+      return {
+        intro: "Modern Britain includes changes after major conflicts that shaped society and services.",
+        coreConcepts: [
+          { name: "Rebuilding and change", explanation: "After war, countries focused on rebuilding and improving services." },
+          { name: "Social changes", explanation: "Policies and attitudes changed how society worked." },
+          { name: "Use examples", explanation: "Support explanations with specific post-war changes." },
+        ],
+        example: "Reforms to healthcare or education show how modern Britain developed after the war.",
+        lessonSummary: "You now know how modern Britain was shaped by post-war priorities and reforms.",
+      };
+    }
+  }
+
+  if (topicLower === "historical skills") {
+    if (t.includes("sources")) {
+      return {
+        intro: "Historical sources are evidence historians use to understand the past.",
+        coreConcepts: [
+          { name: "Primary and secondary", explanation: "Primary sources come from the time; secondary sources interpret events later." },
+          { name: "Reliability", explanation: "Sources may be biased or incomplete, so consider reliability." },
+          { name: "Context", explanation: "Think about when and why the source was created." },
+        ],
+        example: "A document from the time is likely a primary source.",
+        lessonSummary: "You now know what sources are and why reliability and context matter.",
+      };
+    }
+    if (t.includes("evidence")) {
+      return {
+        intro: "Evidence supports your historical explanations and arguments.",
+        coreConcepts: [
+          { name: "Choose relevant evidence", explanation: "Use evidence that directly supports your point." },
+          { name: "Explain evidence", explanation: "Don’t just list facts—explain what they show and why they matter." },
+          { name: "Build an argument", explanation: "Use evidence across paragraphs to show a clear line of reasoning." },
+        ],
+        example: "If you claim change happened, use dates and examples to show how it happened and why it mattered.",
+        lessonSummary: "You now know how to use evidence to create clear, supported historical arguments.",
+      };
+    }
+    if (t.includes("essay")) {
+      return {
+        intro: "Writing a history essay is about structure and argument supported by evidence.",
+        coreConcepts: [
+          { name: "Paragraph structure", explanation: "Each paragraph should cover one main idea and include explanation." },
+          { name: "Introduction and conclusion", explanation: "Set up your argument and summarise your main points at the end." },
+          { name: "Use evidence", explanation: "Support claims with sources or facts and explain their meaning." },
+        ],
+        example: "In each paragraph: claim, evidence, explain, then link to the overall argument.",
+        lessonSummary: "You now know the basics of strong history essay writing.",
+      };
+    }
+  }
+
+  // Geography
+  if (topicLower === "physical geography") {
+    if (t.includes("rivers")) {
+      return {
+        intro: "Rivers shape landscapes through erosion, transport and deposition. This lesson focuses on those processes.",
+        coreConcepts: [
+          { name: "Erosion", explanation: "Moving water wears away land and rocks." },
+          { name: "Transport", explanation: "Rivers carry sediment and materials downstream." },
+          { name: "Deposition", explanation: "When energy decreases, sediment is dropped and deposited." },
+        ],
+        example: "Fast water can erode banks, while slow water deposits sand and gravel.",
+        lessonSummary: "You now know how rivers change landscapes through erosion, transport and deposition.",
+      };
+    }
+    if (t.includes("coast")) {
+      return {
+        intro: "Coasts are shaped by waves and weathering. This lesson focuses on erosion and deposition along coastlines.",
+        coreConcepts: [
+          { name: "Wave erosion", explanation: "Waves break down rocks and move material along the coast." },
+          { name: "Weathering", explanation: "Rocks weaken over time due to wind, water and temperature changes." },
+          { name: "Deposition", explanation: "When wave energy drops, material is deposited and beaches can build up." },
+        ],
+        example: "Strong waves can cause cliffs to retreat, while calmer conditions build beaches.",
+        lessonSummary: "You now know key coastal processes and the landforms they create.",
+      };
+    }
+    if (t.includes("weather")) {
+      return {
+        intro: "Weather is short-term conditions in the atmosphere. This lesson focuses on what weather includes.",
+        coreConcepts: [
+          { name: "Short-term changes", explanation: "Weather can change quickly from day to day." },
+          { name: "Weather factors", explanation: "Weather describes conditions like rainfall, temperature, wind and cloud." },
+          { name: "Measured and forecast", explanation: "Weather uses observations and forecasts to inform people." },
+        ],
+        example: "A rainy afternoon is an example of weather at a specific time.",
+        lessonSummary: "You now know what weather means and how it can change over short time periods.",
+      };
+    }
+    if (t.includes("climate")) {
+      return {
+        intro: "Climate is long-term patterns of weather. This lesson focuses on how climate differs from weather.",
+        coreConcepts: [
+          { name: "Long-term averages", explanation: "Climate is based on averages over many years." },
+          { name: "Patterns of temperature and rainfall", explanation: "Climate describes how warm/cold and wet/dry an area tends to be." },
+          { name: "Ecosystem links", explanation: "Plants and animals adapt to climate conditions." },
+        ],
+        example: "A desert climate is typically very dry over long periods.",
+        lessonSummary: "You now know climate as long-term weather patterns and why it matters for ecosystems.",
+      };
+    }
+    if (t.includes("ecosystem")) {
+      return {
+        intro: "An ecosystem is living things interacting with their environment. This lesson focuses on how ecosystems work.",
+        coreConcepts: [
+          { name: "Living and non-living parts", explanation: "Ecosystems include organisms and environmental factors like water and air." },
+          { name: "Food chains", explanation: "Energy transfers through feeding relationships." },
+          { name: "Balance and change", explanation: "Changes in conditions can affect how the ecosystem works." },
+        ],
+        example: "A pond ecosystem includes plants, animals and water conditions that affect each other.",
+        lessonSummary: "You now know what ecosystems are and how living things link to their environment.",
+      };
+    }
+  }
+
+  if (topicLower === "human geography") {
+    if (t.includes("population")) {
+      return {
+        intro: "Population geography studies how the number of people in a place changes and what affects it.",
+        coreConcepts: [
+          { name: "Growth", explanation: "Population changes through births, deaths and migration." },
+          { name: "Density", explanation: "Population density compares people to land area." },
+          { name: "Impacts", explanation: "Population changes affect services, housing and resources." },
+        ],
+        example: "If more people move to an area, transport and schools may need to expand.",
+        lessonSummary: "You now know key ideas about population: growth, density and impacts.",
+      };
+    }
+    if (t.includes("urban")) {
+      return {
+        intro: "Urban geography looks at cities and how they develop. This lesson focuses on city needs and challenges.",
+        coreConcepts: [
+          { name: "City growth", explanation: "Cities grow as more people move in." },
+          { name: "Services and land use", explanation: "Cities need housing, transport, utilities and planning." },
+          { name: "Challenges", explanation: "Urban problems can include traffic, pollution and inequality." },
+        ],
+        example: "New housing might require new roads and expanded public services.",
+        lessonSummary: "You now know how cities develop and what challenges they can face.",
+      };
+    }
+    if (t.includes("development")) {
+      return {
+        intro: "Development is about improving quality of life. This lesson focuses on what development includes.",
+        coreConcepts: [
+          { name: "Quality of life indicators", explanation: "Development can be measured using things like health and education." },
+          { name: "Sustainability", explanation: "Development should not harm future generations or exhaust resources." },
+          { name: "Challenges", explanation: "Some places face difficulties like limited resources or conflict." },
+        ],
+        example: "Improving schools increases access to education and supports development.",
+        lessonSummary: "You now know development as improved quality of life with sustainability.",
+      };
+    }
+    if (t.includes("resources")) {
+      return {
+        intro: "Resources are things people use. This lesson focuses on using resources wisely.",
+        coreConcepts: [
+          { name: "Renewable vs non-renewable", explanation: "Renewable resources replenish; non-renewable resources take a very long time to form." },
+          { name: "Sustainable use", explanation: "Sustainability means meeting needs without damaging ecosystems." },
+          { name: "Environmental impacts", explanation: "Using resources can affect land, water and habitats." },
+        ],
+        example: "Solar energy is a renewable resource that can reduce fossil fuel use.",
+        lessonSummary: "You now know resources and how sustainable use helps protect the environment.",
+      };
+    }
+  }
+
+  if (topicLower === "uk and the world") {
+    if (t.includes("uk landscapes")) {
+      return {
+        intro: "UK landscapes vary across regions. This lesson focuses on describing landforms and features in the UK.",
+        coreConcepts: [
+          { name: "Regional landforms", explanation: "Different areas have different landforms shaped by geography processes." },
+          { name: "Physical features", explanation: "Coasts, rivers and hills create different features." },
+          { name: "Human impact", explanation: "People change landscapes through building and land use." },
+        ],
+        example: "Coastal areas are shaped by waves, while inland valleys can be shaped by rivers.",
+        lessonSummary: "You now know how UK landscapes differ and how to describe physical features.",
+      };
+    }
+    if (t.includes("global links")) {
+      return {
+        intro: "Global links are connections between places around the world. This lesson focuses on trade, people and shared impacts.",
+        coreConcepts: [
+          { name: "Trade", explanation: "Countries exchange goods and services, creating economic links." },
+          { name: "Movement of people", explanation: "Migration and travel create connections between places." },
+          { name: "Shared impacts", explanation: "Events and decisions in one place can affect others." },
+        ],
+        example: "A product sold in the UK might depend on resources from other countries.",
+        lessonSummary: "You now know how global links connect places through trade and movement.",
+      };
+    }
+    if (t.includes("fieldwork")) {
+      return {
+        intro: "Fieldwork is collecting data in the real world. This lesson focuses on planning and recording.",
+        coreConcepts: [
+          { name: "Plan your investigation", explanation: "Decide your question, methods and safety before collecting data." },
+          { name: "Collect data systematically", explanation: "Use tools to measure and record results clearly." },
+          { name: "Present findings", explanation: "Use tables, charts or written explanations to show what you found." },
+        ],
+        example: "Count plants in an area and present your results using a simple table or graph.",
+        lessonSummary: "You now know what fieldwork is and why careful planning and recording matter.",
+      };
+    }
+  }
+
   const focus = lessonTitle.replace(/^Lesson \d+:\s*/i, "").trim() || topicTitle;
   return {
     intro: `This lesson is part of ${topicTitle} and focuses on ${focus}. You will learn the main ideas, key terms and how to use them in problems. Work through each core concept below, then try the example. Use the Practice and Assessment tabs afterwards to check your understanding.`,
@@ -1534,6 +2301,649 @@ function getPracticeQuestionsForTopic(topic: { title: string }): { question: str
         question: "On a distance-time graph, what does a flat (horizontal) line mean?",
         hint: "Distance isn’t changing.",
         explanation: "A flat line means distance is not changing, so the object is not moving.",
+      },
+    ];
+  }
+  if (t.includes("living things")) {
+    return [
+      {
+        question: "In your own words, what are “life processes”?",
+        hint: "Think feeding, respiration, growth, movement, response, excretion, reproduction.",
+        explanation: "Life processes are the activities living things carry out to stay alive, including nutrition/feeding, respiration (releasing energy), growth, response, waste removal and reproduction.",
+      },
+      {
+        question: "What does it mean to classify living things?",
+        hint: "Look for the idea of grouping by features.",
+        explanation: "Classification means grouping living things based on their features (characteristics) so we can organise and compare them.",
+      },
+      {
+        question: "What is a habitat?",
+        hint: "Think conditions + where an organism lives.",
+        explanation: "A habitat is where an organism lives and the conditions it needs to survive, such as food, water, shelter and appropriate environment.",
+      },
+      {
+        question: "Give one example of how a habitat links to an organism’s survival.",
+        hint: "Example: desert conserving water, pond oxygen access.",
+        explanation: "A good answer links habitat conditions to adaptations (for example, desert plants conserving water because water is scarce).",
+      },
+      {
+        question: "Why do scientists classify organisms instead of just listing them?",
+        hint: "Think patterns/relationships.",
+        explanation: "Classifying helps scientists see patterns and relationships by grouping similar organisms together, making information easier to organise and compare.",
+      },
+    ];
+  }
+  if (t.includes("humans & health")) {
+    return [
+      {
+        question: "What is the purpose of body systems working together?",
+        hint: "Think digestive -> circulatory -> respiratory -> energy.",
+        explanation: "Body systems work together so the body can break down food, transport nutrients, supply oxygen and release energy for life functions.",
+      },
+      {
+        question: "What does a balanced diet mean?",
+        hint: "Include nutrients like carbs, proteins, fats, vitamins, minerals, fibre and water.",
+        explanation: "A balanced diet includes the main nutrients your body needs in appropriate amounts, plus enough water.",
+      },
+      {
+        question: "Name one way exercise supports health.",
+        hint: "Heart/lungs/muscles/fitness.",
+        explanation: "Exercise can strengthen the heart and lungs, improve fitness and help muscles and overall wellbeing.",
+      },
+      {
+        question: "Why is rest (sleep/recovery) part of staying healthy?",
+        hint: "Think repair and recovery.",
+        explanation: "Rest helps the body recover and repair, supporting long-term health and wellbeing.",
+      },
+      {
+        question: "Give a healthy habit and explain why it helps your body.",
+        hint: "Example: sleep, healthy eating, staying active.",
+        explanation: "A strong answer links the habit to body functions such as energy, growth/repair, and wellbeing.",
+      },
+    ];
+  }
+  if (t.includes("plants")) {
+    return [
+      {
+        question: "Describe what roots do for a plant.",
+        hint: "Think water/minerals and anchoring.",
+        explanation: "Roots anchor the plant and absorb water and minerals from the soil.",
+      },
+      {
+        question: "What do leaves do in a plant?",
+        hint: "Photosynthesis.",
+        explanation: "Leaves make food by photosynthesis, using light energy, water and carbon dioxide.",
+      },
+      {
+        question: "What is photosynthesis?",
+        hint: "Inputs: light, water, carbon dioxide. Outputs: sugar and oxygen.",
+        explanation: "Photosynthesis is how plants make sugar (glucose) using light energy, water and carbon dioxide, and it releases oxygen.",
+      },
+      {
+        question: "Explain the plant life cycle in order (seed -> growth -> reproduction -> new seeds).",
+        hint: "Use terms like germination/seed spread.",
+        explanation: "A correct sequence includes seeds germinating, the plant growing and producing flowers, and then seeds that spread to grow new plants.",
+      },
+      {
+        question: "Why do flowers matter to plant survival?",
+        hint: "Reproduction + seeds.",
+        explanation: "Flowers support reproduction and help produce seeds, which become new plants.",
+      },
+    ];
+  }
+  if (t.includes("evolution & inheritance") || t.includes("evolution")) {
+    return [
+      {
+        question: "What is variation?",
+        hint: "Differences between individuals in a species.",
+        explanation: "Variation means differences between individuals, such as physical traits, and it can be inherited or influenced by the environment.",
+      },
+      {
+        question: "What is inheritance?",
+        hint: "Traits passed from parents to offspring.",
+        explanation: "Inheritance is when characteristics are passed from parents to offspring, helping explain why traits appear in future generations.",
+      },
+      {
+        question: "How can inherited traits help survival?",
+        hint: "Adaptations and better survival in certain environments.",
+        explanation: "If an inherited trait helps an organism survive and reproduce in a particular environment, it can become more common over many generations.",
+      },
+      {
+        question: "Explain what an adaptation is.",
+        hint: "A feature that helps survival in an environment.",
+        explanation: "An adaptation is a feature that helps an organism survive in its environment, often increasing the chance of reproduction.",
+      },
+      {
+        question: "Why does evolution happen over a long time?",
+        hint: "Population changes across generations.",
+        explanation: "Evolution happens over many generations because traits that help survival and reproduction spread through a population gradually.",
+      },
+    ];
+  }
+
+  if (t.includes("algorithms")) {
+    return [
+      {
+        question: "What is a sequence in an algorithm?",
+        hint: "Order of steps.",
+        explanation: "A sequence is the order of steps. In algorithms, the correct order matters because it affects the outcome.",
+      },
+      {
+        question: "What does decomposition mean?",
+        hint: "Break a big problem into smaller parts.",
+        explanation: "Decomposition means splitting a large problem into smaller, easier parts that can be solved separately and combined.",
+      },
+      {
+        question: "What is debugging?",
+        hint: "Find and fix mistakes.",
+        explanation: "Debugging is identifying and fixing errors so your algorithm or program works correctly.",
+      },
+      {
+        question: "Give a real example where the order of steps matters.",
+        hint: "A recipe, instructions or game actions.",
+        explanation: "Any correct example where step order affects results is acceptable (e.g. toast then butter).",
+      },
+      {
+        question: "Explain why decomposition makes problems easier.",
+        hint: "Smaller parts are more manageable.",
+        explanation: "Smaller parts are easier to understand, test and improve, before combining them into the full solution.",
+      },
+    ];
+  }
+  if (t.includes("programming")) {
+    return [
+      {
+        question: "What is programming?",
+        hint: "Giving a computer instructions/code to do a task.",
+        explanation: "Programming is giving a computer instructions (code) so it can perform a task.",
+      },
+      {
+        question: "What is the difference between block-based and text-based coding?",
+        hint: "Visual blocks vs written code with syntax.",
+        explanation: "Block-based coding uses visual blocks to assemble instructions, while text-based coding uses written syntax rules in a programming language.",
+      },
+      {
+        question: "What is a variable?",
+        hint: "A named storage for a value.",
+        explanation: "A variable is a named place that stores a value such as a number or text.",
+      },
+      {
+        question: "Why do we use loops?",
+        hint: "Repeat instructions efficiently.",
+        explanation: "Loops repeat instructions so you can do the same action multiple times without writing it again and again.",
+      },
+      {
+        question: "Give one example of how variables and loops could help in a game.",
+        hint: "Score and repeating actions.",
+        explanation: "A strong answer includes a variable for something like score and a loop to repeat actions such as moving enemies or scoring.",
+      },
+    ];
+  }
+  if (t.includes("data & information")) {
+    return [
+      {
+        question: "What is data?",
+        hint: "Raw facts or figures.",
+        explanation: "Data is raw facts or figures collected for analysis (e.g. numbers, words, counts).",
+      },
+      {
+        question: "What is “collecting data”?",
+        hint: "Measuring/surveying/recording.",
+        explanation: "Collecting data means gathering information through measurements, surveys or recording and organising it for later.",
+      },
+      {
+        question: "Why do we present data using charts/tables?",
+        hint: "Make patterns and comparisons clear.",
+        explanation: "Presentation makes data easier to understand by showing patterns and comparisons clearly, with appropriate labels and charts.",
+      },
+      {
+        question: "What does using data mean in practice?",
+        hint: "Use it to answer a question or make decisions.",
+        explanation: "Using data means analysing the data to create information and using it to support conclusions or decisions.",
+      },
+      {
+        question: "Give an example of a question you could answer using data you collected.",
+        hint: "Most popular, average, comparison.",
+        explanation: "Any reasonable question tied to a realistic example is acceptable (e.g. which fruit is most popular based on survey counts).",
+      },
+    ];
+  }
+  if (t.includes("networks & the internet")) {
+    return [
+      {
+        question: "What is a network?",
+        hint: "Connected devices sharing data/resources.",
+        explanation: "A network connects two or more devices so they can share data and resources.",
+      },
+      {
+        question: "What is the internet?",
+        hint: "Network of networks.",
+        explanation: "The internet is a worldwide network of networks that allows devices to communicate.",
+      },
+      {
+        question: "How does information travel across a network (basic idea)?",
+        hint: "Packets split and reassembled.",
+        explanation: "Information is split into packets sent across the network and put back together at the destination device.",
+      },
+      {
+        question: "What happens when you open a website?",
+        hint: "Request + response.",
+        explanation: "Your device sends a request, a server responds with data, and your device rebuilds it so you can see the page.",
+      },
+      {
+        question: "Why do online activities need networks?",
+        hint: "They rely on sending/receiving data.",
+        explanation: "Online activities require network communication because data has to be transferred between devices and services.",
+      },
+    ];
+  }
+
+  if (t.includes("enterprise")) {
+    return [
+      {
+        question: "What does enterprise mean in business?",
+        hint: "Turning ideas into opportunities.",
+        explanation: "Enterprise means spotting opportunities and taking action on ideas so you can create a product or service people want.",
+      },
+      {
+        question: "Give an example of an enterprise idea and what need it solves.",
+        hint: "Think: problem or need for customers.",
+        explanation: "A good answer states the idea and clearly links it to a need or problem.",
+      },
+      {
+        question: "What is a product?",
+        hint: "Something you can touch/provide to customers.",
+        explanation: "A product is something you make or provide that customers can use or buy.",
+      },
+      {
+        question: "What does profit mean?",
+        hint: "Revenue minus costs.",
+        explanation: "Profit is what remains when money made from sales is more than the costs of running the business.",
+      },
+      {
+        question: "Explain one thing businesses must do to sell successfully.",
+        hint: "Find customers, set price, advertising.",
+        explanation: "Any correct point such as setting a fair price, finding customers or advertising is acceptable.",
+      },
+    ];
+  }
+  if (t.includes("money") || t.includes("budget")) {
+    return [
+      {
+        question: "What is income?",
+        hint: "Money coming in.",
+        explanation: "Income is money you receive, such as wages, pocket money or money from selling something.",
+      },
+      {
+        question: "What is spending?",
+        hint: "Money going out.",
+        explanation: "Spending is money you pay out on items or services.",
+      },
+      {
+        question: "What does saving mean?",
+        hint: "Keep some money for later.",
+        explanation: "Saving means keeping some money for the future instead of spending it all now.",
+      },
+      {
+        question: "What is a budget?",
+        hint: "A plan for income and spending.",
+        explanation: "A budget is a plan that shows expected income and how you plan to spend it, helping you avoid running out.",
+      },
+      {
+        question: "Why is budgeting useful?",
+        hint: "Helps you plan and afford needs.",
+        explanation: "Budgeting helps you make choices and manage money so you can afford what you need and save.",
+      },
+    ];
+  }
+  if (t.includes("markets") || t.includes("customers") || t.includes("marketing")) {
+    return [
+      {
+        question: "What is the difference between a need and a want?",
+        hint: "Need is necessary; want is desirable.",
+        explanation: "A need is something you must have (like food or safety). A want is something you would like but don’t strictly need.",
+      },
+      {
+        question: "What is a customer?",
+        hint: "Who buys a product or service.",
+        explanation: "A customer is a person or organisation that buys goods or services.",
+      },
+      {
+        question: "What is marketing?",
+        hint: "How businesses tell people about products.",
+        explanation: "Marketing is how businesses advertise and persuade people to buy their products and services.",
+      },
+      {
+        question: "Give an example of marketing you’ve seen (ad/social media/packaging).",
+        hint: "Pick one you remember.",
+        explanation: "Any real example is acceptable; you should mention what it promotes and how it encourages buying.",
+      },
+      {
+        question: "How can a business learn what customers want?",
+        hint: "Research/surveys/observing behaviour.",
+        explanation: "A business can learn through research like surveys, feedback, and observing which products are most popular.",
+      },
+    ];
+  }
+
+  if (t.includes("reading")) {
+    return [
+      {
+        question: "What does comprehension mean when reading?",
+        hint: "Understanding meaning + main ideas/details.",
+        explanation: "Comprehension is understanding meaning from a text, including main ideas and key details.",
+      },
+      {
+        question: "What is inference in reading?",
+        hint: "Meaning implied, supported by evidence.",
+        explanation: "Inference means guessing what is implied using clues and evidence from the text.",
+      },
+      {
+        question: "What is analysis in reading?",
+        hint: "Explain how choices create effect.",
+        explanation: "Analysis means breaking down how a writer uses language and structure and explaining the effect on the reader.",
+      },
+      {
+        question: "What does writer’s craft mean?",
+        hint: "Deliberate choices of language/style.",
+        explanation: "Writer’s craft means how writers choose words, structure and style to shape meaning and impact.",
+      },
+      {
+        question: "Give one way you can use evidence from a text to support an answer.",
+        hint: "Quote or reference a specific part of the text.",
+        explanation: "Using evidence means pointing to words/phrases from the text and explaining how they support your claim.",
+      },
+    ];
+  }
+  if (t.includes("writing")) {
+    return [
+      {
+        question: "What is story writing mostly trying to do?",
+        hint: "Create a narrative with characters and events.",
+        explanation: "Story writing aims to create a narrative with characters, events and a setting, usually with a beginning, middle and ending.",
+      },
+      {
+        question: "What is non-fiction writing?",
+        hint: "Inform/explain/persuade using facts.",
+        explanation: "Non-fiction writing uses factual information to inform, explain or persuade an audience.",
+      },
+      {
+        question: "Why does structure matter in writing?",
+        hint: "Make ideas clear and easy to follow.",
+        explanation: "Structure matters because it helps the reader follow your ideas logically using paragraphs and linking words.",
+      },
+      {
+        question: "How can vocabulary improve your writing?",
+        hint: "More precise word choice.",
+        explanation: "Using precise vocabulary makes your writing clearer and more engaging by matching the exact meaning you want.",
+      },
+      {
+        question: "Give one editing step you could do before finishing a piece of writing.",
+        hint: "Check grammar/punctuation or improve clarity.",
+        explanation: "A good editing step is checking grammar, punctuation and clarity, then improving sentences where needed.",
+      },
+    ];
+  }
+  if (t.includes("spoken language")) {
+    return [
+      {
+        question: "What should you do when preparing a presentation?",
+        hint: "Plan points and organise them.",
+        explanation: "Prepare by planning main points, organising them, and rehearsing so your talk is clear and timed well.",
+      },
+      {
+        question: "What makes discussion effective?",
+        hint: "Listen, respond, ask questions.",
+        explanation: "Effective discussion involves listening, responding respectfully, asking questions and building on others’ ideas.",
+      },
+      {
+        question: "What is formal speech?",
+        hint: "Appropriate tone and careful wording.",
+        explanation: "Formal speech uses respectful tone and careful vocabulary appropriate for the audience and purpose.",
+      },
+      {
+        question: "Give one example of a situation where you would use formal speech.",
+        hint: "Assembly/speech/interview.",
+        explanation: "Any realistic example is acceptable, such as a school assembly speech or an interview answer.",
+      },
+      {
+        question: "Why is rehearsing helpful for spoken tasks?",
+        hint: "Clarity/timing/confidence.",
+        explanation: "Rehearsing improves clarity, timing and confidence, helping you deliver your ideas effectively.",
+      },
+    ];
+  }
+  if (t.includes("literature")) {
+    return [
+      {
+        question: "How do you start thinking about a poem?",
+        hint: "Themes and language techniques.",
+        explanation: "Start by identifying themes and noticing how language and form create meaning and emotion.",
+      },
+      {
+        question: "In drama, why are stage directions important?",
+        hint: "They describe actions and meaning.",
+        explanation: "Stage directions help describe how scenes are performed, including actions and tone, which adds meaning.",
+      },
+      {
+        question: "What is prose in literature?",
+        hint: "Stories/novels; events and themes.",
+        explanation: "Prose includes novels and stories where you follow plot events and identify themes and ideas.",
+      },
+      {
+        question: "What does it mean to use evidence in literature answers?",
+        hint: "Quoting or referencing parts of the text.",
+        explanation: "Evidence means referring to specific parts of the text (quotes/phrases) to support your interpretation.",
+      },
+      {
+        question: "Give one reason unseen extracts require careful reading.",
+        hint: "You don’t know the story yet.",
+        explanation: "Unseen extracts require careful reading to identify key moments and use evidence to explain meaning even without prior knowledge.",
+      },
+    ];
+  }
+
+  if (t.includes("medieval and early modern")) {
+    return [
+      {
+        question: "What is a key event in history?",
+        hint: "Major happening that shaped the period.",
+        explanation: "A key event is a major happening that influences political power, society or everyday life during a historical period.",
+      },
+      {
+        question: "What does “society” mean in a history topic?",
+        hint: "How people lived and organised life.",
+        explanation: "Society refers to how people live and organise daily life, including roles, beliefs and everyday routines.",
+      },
+      {
+        question: "How can you explain historical change?",
+        hint: "Compare continuity and change + impact.",
+        explanation: "To explain change, compare what changed with what stayed the same, then describe the impact on people’s lives.",
+      },
+      {
+        question: "Give an example of how a past event could affect everyday life.",
+        hint: "Use cause/effect.",
+        explanation: "A strong answer links an event to consequences, such as new rules, economic impacts or changes in work.",
+      },
+      {
+        question: "Why is it useful to use a timeline?",
+        hint: "Order and cause/effect.",
+        explanation: "Timelines help you see when events happen and understand cause-and-effect relationships over time.",
+      },
+    ];
+  }
+  if (t.includes("empire, industry, and reform")) {
+    return [
+      {
+        question: "What is industrial Britain about in this topic?",
+        hint: "Industry, technology and working/living changes.",
+        explanation: "Industrial Britain focuses on changes from industrialisation: new technology, work conditions and how cities/communities developed.",
+      },
+      {
+        question: "What is an empire?",
+        hint: "Rule over territories + connections.",
+        explanation: "An empire is a central power that rules territories, creating trade and political links, and affecting people in different ways.",
+      },
+      {
+        question: "How does reform connect to democracy?",
+        hint: "Changing rights and representation.",
+        explanation: "Reform can expand rights and representation, helping more people participate in democratic decisions.",
+      },
+      {
+        question: "Give one way industry can change a country.",
+        hint: "Factories/cities/work.",
+        explanation: "A good answer links industry to changes in work, technology and urban growth, and how it affects everyday life.",
+      },
+      {
+        question: "Why should you consider different perspectives when studying empire?",
+        hint: "Not everyone experienced it the same way.",
+        explanation: "Different groups experienced empire differently, so considering multiple perspectives helps you build a fair understanding.",
+      },
+    ];
+  }
+  if (t.includes("twentieth century")) {
+    return [
+      {
+        question: "What does “world war” mean in a history topic?",
+        hint: "Global conflict + major effects.",
+        explanation: "A world war is a major global conflict that affects many countries and causes large changes in society and government.",
+      },
+      {
+        question: "How would you describe the Cold War in basic terms?",
+        hint: "Rivalry and tension between major powers.",
+        explanation: "The Cold War was a period of rivalry and tension, with major powers competing for influence rather than direct full-scale war.",
+      },
+      {
+        question: "What is meant by “modern Britain” in this topic?",
+        hint: "Post-war changes and developments.",
+        explanation: "Modern Britain refers to developments after major conflicts that shaped society and public services in later years.",
+      },
+      {
+        question: "What is one long-term effect wars can have?",
+        hint: "New challenges/changes afterwards.",
+        explanation: "Wars can lead to political changes, new international relationships, and long-term social and economic effects.",
+      },
+      {
+        question: "Why is cause and effect important in history answers?",
+        hint: "Explain what led to what.",
+        explanation: "Cause and effect helps you explain how events happened and why they led to changes in the world.",
+      },
+    ];
+  }
+  if (t.includes("historical skills")) {
+    return [
+      {
+        question: "What is a historical source?",
+        hint: "Evidence for the past.",
+        explanation: "A historical source is evidence historians use, such as documents, photos or artefacts, to understand and interpret the past.",
+      },
+      {
+        question: "Why do you need to check the reliability of a source?",
+        hint: "Bias/incompleteness/context.",
+        explanation: "Sources can be biased or incomplete, so evaluating reliability and context helps you use evidence accurately.",
+      },
+      {
+        question: "What is historical evidence used for in answers?",
+        hint: "Support claims + explain impact.",
+        explanation: "Evidence supports your claims and helps explain what you think happened and why it matters.",
+      },
+      {
+        question: "What makes a good history essay paragraph?",
+        hint: "Claim + evidence + explanation.",
+        explanation: "A good paragraph has a main point, supported evidence, and explanation linking evidence to the argument.",
+      },
+      {
+        question: "Why should conclusions summarise your argument?",
+        hint: "Connect back to question.",
+        explanation: "A conclusion should summarise how your evidence supports your overall argument and answer the question.",
+      },
+    ];
+  }
+
+  if (t.includes("physical geography")) {
+    return [
+      {
+        question: "Name three processes that shape rivers.",
+        hint: "Erosion, transport, deposition.",
+        explanation: "Rivers shape landscapes through erosion (wearing away), transport (moving sediment) and deposition (dropping sediment).",
+      },
+      {
+        question: "How do coastlines change over time?",
+        hint: "Waves/erosion/weathering/deposition.",
+        explanation: "Coasts change due to waves causing erosion, weathering weakening rocks, and deposition building features like beaches.",
+      },
+      {
+        question: "What is the difference between weather and climate?",
+        hint: "Short-term vs long-term averages.",
+        explanation: "Weather is short-term conditions, while climate describes long-term patterns of weather over many years.",
+      },
+      {
+        question: "What is an ecosystem?",
+        hint: "Living things + environment interacting.",
+        explanation: "An ecosystem includes living organisms and the non-living environment, interacting in a system (often including food chains).",
+      },
+      {
+        question: "Explain one reason climate matters for ecosystems.",
+        hint: "Conditions affect what can live there.",
+        explanation: "Climate influences temperature and rainfall, which affects what plants and animals can survive there.",
+      },
+    ];
+  }
+  if (t.includes("human geography")) {
+    return [
+      {
+        question: "How does population change happen?",
+        hint: "Births, deaths and migration.",
+        explanation: "Population changes through births, deaths and migration (people moving in or out).",
+      },
+      {
+        question: "What does density mean?",
+        hint: "People per area.",
+        explanation: "Population density describes how many people live in a certain area (people per land area).",
+      },
+      {
+        question: "What are cities usually like in terms of land use and services?",
+        hint: "Housing, transport, utilities.",
+        explanation: "Cities have significant land use changes and require services like transport, housing, water and waste management.",
+      },
+      {
+        question: "What does development mean in human geography?",
+        hint: "Improving quality of life.",
+        explanation: "Development means improving quality of life, often measured through health, education and income, while considering sustainability.",
+      },
+      {
+        question: "Why is sustainable resource use important?",
+        hint: "Protect environment and avoid exhaustion.",
+        explanation: "Sustainable use helps meet needs without destroying ecosystems or running out of important resources.",
+      },
+    ];
+  }
+  if (t.includes("uk and the world")) {
+    return [
+      {
+        question: "How can UK landscapes differ from place to place?",
+        hint: "Landforms shaped by processes + geology.",
+        explanation: "UK landscapes differ because physical processes and geology create different landforms, such as coasts, rivers and hills.",
+      },
+      {
+        question: "What are global links?",
+        hint: "Trade, people, shared impacts.",
+        explanation: "Global links are connections between places worldwide, including trade, movement of people and shared impacts.",
+      },
+      {
+        question: "What is fieldwork?",
+        hint: "Collecting data in the real world.",
+        explanation: "Fieldwork is collecting data and observations in real locations to answer a question and present findings.",
+      },
+      {
+        question: "Give one example of how fieldwork results could be presented.",
+        hint: "Table, chart, map, written explanation.",
+        explanation: "Results can be presented using tables, graphs, maps or clear written summaries showing what was found.",
+      },
+      {
+        question: "Why do plans and safety matter in fieldwork?",
+        hint: "Avoid problems and keep data organised.",
+        explanation: "Planning helps you collect consistent data, and safety reduces risks while you carry out the investigation.",
       },
     ];
   }
@@ -1729,6 +3139,914 @@ function getAssessmentQuestionsForTopic(topic: { title: string }): {
   explanation: string;
 }[] {
   const t = topic.title.toLowerCase();
+
+  // Biology
+  if (t.includes("living things")) {
+    return [
+      {
+        question: "Which is a life process?",
+        options: ["classification into groups", "growing and moving", "changing into a new substance", "measuring in metres"],
+        correctIndex: 1,
+        explanation: "Life processes are activities living things carry out, such as growth and movement.",
+      },
+      {
+        question: "Classification is mainly about:",
+        options: ["grouping living things by features", "making new habitats", "changing an organism’s DNA", "measuring speed"],
+        correctIndex: 0,
+        explanation: "Classification groups organisms by observable features to organise and compare them.",
+      },
+      {
+        question: "What does a habitat provide?",
+        options: ["food, water, shelter and suitable conditions", "only air and water", "only plants and animals", "a guaranteed way to survive forever"],
+        correctIndex: 0,
+        explanation: "A habitat supports living by providing the resources and conditions an organism needs.",
+      },
+      {
+        question: "Why do scientists classify organisms?",
+        options: ["to see patterns and relationships", "to prevent organisms changing", "to make habitats bigger", "to remove the need for evidence"],
+        correctIndex: 0,
+        explanation: "Classification helps scientists see patterns by grouping similar organisms together.",
+      },
+      {
+        question: "Which could be an example of a habitat?",
+        options: ["a pond", "a recipe", "a worksheet", "a map scale bar"],
+        correctIndex: 0,
+        explanation: "Habitats are places where organisms live, such as ponds.",
+      },
+      {
+        question: "A good habitat-linked answer should mention:",
+        options: ["conditions + how an organism is suited", "only an organism’s name", "only the location name", "how quickly speed changes"],
+        correctIndex: 0,
+        explanation: "To link habitats to survival, you explain how conditions match the organism’s adaptations.",
+      },
+    ];
+  }
+
+  if (t.includes("humans & health")) {
+    return [
+      {
+        question: "Body systems work together because:",
+        options: ["they are all the same shape", "they help nutrients and oxygen support energy release", "they never need rest", "they only affect muscles"],
+        correctIndex: 1,
+        explanation: "Digestive systems provide nutrients, circulatory transports them, and respiration supplies oxygen for energy use.",
+      },
+      {
+        question: "A balanced diet means:",
+        options: ["eating only one food type", "the right mix of nutrients and enough water", "no need for fibre", "only drinking water"],
+        correctIndex: 1,
+        explanation: "Balanced diets include the main nutrients in appropriate amounts plus enough water.",
+      },
+      {
+        question: "Exercise mainly supports health by:",
+        options: ["weakening heart and lungs", "improving fitness and strengthening systems", "making sleep unnecessary", "removing all need for eating"],
+        correctIndex: 1,
+        explanation: "Exercise improves fitness and strengthens key body systems while supporting wellbeing.",
+      },
+      {
+        question: "Why is rest (sleep/recovery) important?",
+        options: ["it helps the body repair and recover", "it increases the need for more exercise", "it stops digestion", "it makes nutrients appear in the blood automatically"],
+        correctIndex: 0,
+        explanation: "Rest supports repair and recovery, which helps you stay healthy long-term.",
+      },
+      {
+        question: "Which is part of nutrition?",
+        options: ["only vitamins", "carbohydrates, proteins, fats, vitamins, minerals, fibre and water", "only sweet drinks", "only energy drinks"],
+        correctIndex: 1,
+        explanation: "Nutrition covers the main nutrient types and includes enough water.",
+      },
+      {
+        question: "A strong “healthy habit” explanation links to:",
+        options: ["how the habit supports body functions", "how it tastes", "how long you watched a video", "how many songs you listen to"],
+        correctIndex: 0,
+        explanation: "Health answers should explain the link between the habit and body function or wellbeing.",
+      },
+    ];
+  }
+
+  if (t.includes("plants")) {
+    return [
+      {
+        question: "What is the main job of roots?",
+        options: ["make sugar by photosynthesis", "absorb water and minerals and anchor the plant", "produce seeds only", "move oxygen around the plant"],
+        correctIndex: 1,
+        explanation: "Roots anchor plants and absorb water and minerals.",
+      },
+      {
+        question: "Leaves are important because they:",
+        options: ["carry blood through the plant", "make food via photosynthesis", "only grow flowers", "turn gas into solid"],
+        correctIndex: 1,
+        explanation: "Leaves make food (sugar) using photosynthesis.",
+      },
+      {
+        question: "Photosynthesis uses:",
+        options: ["light energy, water and carbon dioxide", "oil, salt and oxygen", "sound, heat and friction", "only water and oxygen"],
+        correctIndex: 0,
+        explanation: "Plants use light, water and carbon dioxide to make sugar and release oxygen.",
+      },
+      {
+        question: "A plant life cycle often includes:",
+        options: ["germination from a seed and producing new seeds", "only leaves falling off", "never producing seeds", "no growth stage"],
+        correctIndex: 0,
+        explanation: "Many plant life cycles involve seeds germinating, growth, and reproduction producing new seeds.",
+      },
+      {
+        question: "What do flowers mainly help with?",
+        options: ["photosynthesis only", "reproduction (seed production)", "transport of blood", "changing the rock type"],
+        correctIndex: 1,
+        explanation: "Flowers support reproduction and help form seeds for the next generation.",
+      },
+      {
+        question: "In a sunflower, the leaf’s job is mainly to:",
+        options: ["absorb minerals", "make food by photosynthesis", "hold the plant up only", "break down soil"],
+        correctIndex: 1,
+        explanation: "Leaves make food through photosynthesis.",
+      },
+    ];
+  }
+
+  if (t.includes("evolution & inheritance") || t.includes("evolution")) {
+    return [
+      {
+        question: "Variation means:",
+        options: ["all individuals are identical", "individuals differ in features", "plants always survive", "evidence is not needed"],
+        correctIndex: 1,
+        explanation: "Variation is differences between individuals in a population.",
+      },
+      {
+        question: "Inheritance is when:",
+        options: ["features are passed from parents to offspring", "habitats are changed overnight", "energy is created from nothing", "all organisms become the same"],
+        correctIndex: 0,
+        explanation: "Offspring receive characteristics from their parents.",
+      },
+      {
+        question: "Adaptations help organisms by:",
+        options: ["making survival worse", "increasing survival in a particular environment", "stopping reproduction", "changing rocks into soil"],
+        correctIndex: 1,
+        explanation: "Adaptations are features that help organisms survive and reproduce in their environment.",
+      },
+      {
+        question: "Evolution happens over:",
+        options: ["many generations", "one day only", "a single hour", "only during childhood"],
+        correctIndex: 0,
+        explanation: "Evolution is change in populations over long time periods across generations.",
+      },
+      {
+        question: "Which could be an example of inherited variation?",
+        options: ["eye colour differences between family members", "a new scar you got today", "a storm changing rainfall", "a temperature changing season"],
+        correctIndex: 0,
+        explanation: "Eye colour is inherited from parents, whereas scars from today are not inherited in that way.",
+      },
+      {
+        question: "A helpful adaptation tends to:",
+        options: ["become less common immediately", "increase the chance of survival and reproduction", "stop all offspring being born", "prevent all future variation"],
+        correctIndex: 1,
+        explanation: "If an adaptation improves survival/reproduction, it can spread over generations.",
+      },
+    ];
+  }
+
+  // Computer Science
+  if (t.includes("algorithms")) {
+    return [
+      {
+        question: "A sequence in an algorithm is best described as:",
+        options: ["the order of steps", "the speed of running", "a type of battery", "a graph shape"],
+        correctIndex: 0,
+        explanation: "Sequence means the order of steps matters for the outcome.",
+      },
+      {
+        question: "Decomposition means:",
+        options: ["making the code longer", "breaking a big problem into smaller parts", "removing all errors", "measuring data in charts"],
+        correctIndex: 1,
+        explanation: "Decomposition splits a large problem into smaller parts that can be handled separately.",
+      },
+      {
+        question: "Debugging is:",
+        options: ["choosing the best colour", "finding and fixing mistakes", "guessing without testing", "copying without understanding"],
+        correctIndex: 1,
+        explanation: "Debugging involves identifying bugs and correcting them.",
+      },
+      {
+        question: "Why can the wrong order of steps give the wrong answer?",
+        options: ["because computers only follow text", "because each step depends on what came before", "because sequence never matters", "because errors disappear automatically"],
+        correctIndex: 1,
+        explanation: "If steps happen in the wrong order, later steps may be based on the wrong earlier state.",
+      },
+      {
+        question: "Which is a correct statement about algorithms?",
+        options: ["they are random", "they are step-by-step instructions to solve a task", "they always use only loops", "they stop errors forever"],
+        correctIndex: 1,
+        explanation: "Algorithms are clear step-by-step instructions to solve a problem.",
+      },
+      {
+        question: "A good debugging strategy is to:",
+        options: ["ignore test results", "test with examples, find the cause, then fix", "only change random lines", "never re-test"],
+        correctIndex: 1,
+        explanation: "Test, identify the cause, fix, and re-test is the usual debugging approach.",
+      },
+    ];
+  }
+
+  if (t.includes("programming")) {
+    return [
+      {
+        question: "Programming is mainly about:",
+        options: ["giving a computer instructions", "changing habitats", "measuring with rulers only", "writing essays"],
+        correctIndex: 0,
+        explanation: "Programming creates instructions (code) for a computer to do a task.",
+      },
+      {
+        question: "Block-based coding uses:",
+        options: ["drag-and-drop visual blocks", "only handwritten equations", "only spreadsheets", "paper folding"],
+        correctIndex: 0,
+        explanation: "Blocks are assembled visually rather than typed as full text code.",
+      },
+      {
+        question: "A variable is:",
+        options: ["a named place to store a value", "a type of robot", "a chart label", "a kind of keyboard"],
+        correctIndex: 0,
+        explanation: "Variables store values that a program can use and update.",
+      },
+      {
+        question: "Loops are used to:",
+        options: ["repeat instructions", "store data only", "stop programs", "remove all errors"],
+        correctIndex: 0,
+        explanation: "Loops repeat instructions, making programs shorter and more efficient.",
+      },
+      {
+        question: "A program is:",
+        options: ["one line of random text", "a set of instructions", "a single picture", "always the same for every task"],
+        correctIndex: 1,
+        explanation: "A program is a set of instructions for the computer.",
+      },
+      {
+        question: "Which is a good reason to use a loop?",
+        options: ["to avoid repeating the same code many times", "because variables never change", "because debugging is unnecessary", "so everything happens instantly"],
+        correctIndex: 0,
+        explanation: "Loops let you repeat actions without writing the same instructions over and over.",
+      },
+    ];
+  }
+
+  if (t.includes("data & information")) {
+    return [
+      {
+        question: "Data is best described as:",
+        options: ["raw facts/figures", "final decisions only", "a single graph title", "a type of network"],
+        correctIndex: 0,
+        explanation: "Data is raw facts or figures collected for analysis.",
+      },
+      {
+        question: "Collecting data involves:",
+        options: ["recording/measuring/surveying", "only drawing graphs", "only making opinions", "only guessing"],
+        correctIndex: 0,
+        explanation: "Collecting data means gathering information using measurements, surveys or recording.",
+      },
+      {
+        question: "Presenting data helps because it:",
+        options: ["hides patterns", "makes patterns/comparisons easier to understand", "removes the need for labels", "turns data into random ideas"],
+        correctIndex: 1,
+        explanation: "Presentation makes it easier to see patterns and compare values.",
+      },
+      {
+        question: "Using data means you:",
+        options: ["use data to support conclusions/decisions", "ignore the evidence", "only change the title", "avoid comparing values"],
+        correctIndex: 0,
+        explanation: "Using data means analysing and using it to support an answer or decision.",
+      },
+      {
+        question: "A table is useful for presenting data because it can:",
+        options: ["only show feelings", "organise values clearly", "remove all numbers", "replace all evidence"],
+        correctIndex: 1,
+        explanation: "Tables organise values clearly and make patterns easier to read.",
+      },
+      {
+        question: "An example of presenting data is:",
+        options: ["a bar chart", "an unexplained opinion", "a random story", "an unrelated quote"],
+        correctIndex: 0,
+        explanation: "A bar chart is a common way to present data so patterns are clear.",
+      },
+    ];
+  }
+
+  if (t.includes("networks & the internet")) {
+    return [
+      {
+        question: "A network is:",
+        options: ["one computer alone", "connected devices that share data/resources", "a type of power socket", "only a website"],
+        correctIndex: 1,
+        explanation: "Networks connect two or more devices to share data and resources.",
+      },
+      {
+        question: "The internet is:",
+        options: ["a single computer", "a worldwide network of networks", "a kind of battery", "a type of document format"],
+        correctIndex: 1,
+        explanation: "The internet is a worldwide network of networks.",
+      },
+      {
+        question: "Information is sent across networks using:",
+        options: ["packets", "single huge files only", "only paper", "sound waves only"],
+        correctIndex: 0,
+        explanation: "Data is split into packets to travel across networks.",
+      },
+      {
+        question: "When you open a website, your device typically:",
+        options: ["sends a request and receives data", "stops all communication", "prints paper instantly", "changes the device into a router"],
+        correctIndex: 0,
+        explanation: "Your device requests a webpage and receives data back to display it.",
+      },
+      {
+        question: "Why do online activities need networks?",
+        options: ["because they need network communication to transfer data", "because they cannot use devices", "because they do not send data", "because they only use heat"],
+        correctIndex: 0,
+        explanation: "Online activities require sending/receiving data across networks.",
+      },
+      {
+        question: "Routers help networks by:",
+        options: ["creating new computers", "routing packets to their destination", "measuring time", "editing photos"],
+        correctIndex: 1,
+        explanation: "Routers route packets so they reach the correct destination.",
+      },
+    ];
+  }
+
+  // Business Studies
+  if (t.includes("enterprise")) {
+    return [
+      {
+        question: "Enterprise in business is about:",
+        options: ["turning ideas into opportunities", "only following rules", "avoiding risk completely", "not needing customers"],
+        correctIndex: 0,
+        explanation: "Enterprise means spotting opportunities and acting on ideas to create something people want.",
+      },
+      {
+        question: "A product is:",
+        options: ["something customers can touch or buy", "only a service", "a type of spreadsheet", "a type of graph"],
+        correctIndex: 0,
+        explanation: "A product is something you make/provide that customers use or buy.",
+      },
+      {
+        question: "A service is best described as:",
+        options: ["something you can touch", "an activity done for customers", "an electricity circuit", "only money you receive"],
+        correctIndex: 1,
+        explanation: "Services are activities provided to customers.",
+      },
+      {
+        question: "Profit is:",
+        options: ["revenue minus costs", "always zero", "money from borrowing", "only the price of the product"],
+        correctIndex: 0,
+        explanation: "Profit is what remains when revenue is more than costs.",
+      },
+      {
+        question: "A business must find:",
+        options: ["customers", "only furniture", "only new habitats", "only posters with no content"],
+        correctIndex: 0,
+        explanation: "Customers are needed because businesses sell goods and services to them.",
+      },
+      {
+        question: "Which is a realistic enterprise idea?",
+        options: ["a product/service that solves a need", "ignoring costs completely", "making something without thinking about customers", "choosing random prices with no purpose"],
+        correctIndex: 0,
+        explanation: "Enterprise ideas are usually linked to meeting a need or solving a problem for customers.",
+      },
+    ];
+  }
+
+  if (t.includes("money") && t.includes("budget")) {
+    return [
+      {
+        question: "Income is:",
+        options: ["money coming in", "money going out", "only money saved", "a unit of time"],
+        correctIndex: 0,
+        explanation: "Income is money you receive.",
+      },
+      {
+        question: "Spending is:",
+        options: ["money you pay out", "only the amount you save", "money earned by borrowing", "a type of measurement"],
+        correctIndex: 0,
+        explanation: "Spending is money you pay out on things and services.",
+      },
+      {
+        question: "Saving means:",
+        options: ["spending all money now", "keeping money for later", "changing the budget", "only buying food"],
+        correctIndex: 1,
+        explanation: "Saving is keeping money for later rather than spending it straight away.",
+      },
+      {
+        question: "A budget is:",
+        options: ["a plan for income and spending", "a list of only debts", "a device for measuring", "a map of the town"],
+        correctIndex: 0,
+        explanation: "A budget is a plan showing expected income and spending.",
+      },
+      {
+        question: "Budgeting helps you avoid:",
+        options: ["running out of money", "all exercise", "finding customers", "writing reports"],
+        correctIndex: 0,
+        explanation: "A budget helps you manage choices so you don’t run out of money.",
+      },
+      {
+        question: "If income is greater than spending, you can:",
+        options: ["save some money", "increase spending forever", "delete the budget", "make profit without any costs"],
+        correctIndex: 0,
+        explanation: "When income exceeds spending, the difference can be saved.",
+      },
+    ];
+  }
+
+  if (t.includes("markets") || (t.includes("customers") && t.includes("marketing"))) {
+    return [
+      {
+        question: "A need is:",
+        options: ["something you must have to be safe or live", "something you want but don’t need", "only money", "a type of network"],
+        correctIndex: 0,
+        explanation: "Needs are required to live or stay safe.",
+      },
+      {
+        question: "A want is:",
+        options: ["something desirable but not essential", "something required to breathe", "always the same for everyone", "an amount of rainfall"],
+        correctIndex: 0,
+        explanation: "Wants are desirable but not strictly necessary.",
+      },
+      {
+        question: "Customers are:",
+        options: ["people or organisations that buy", "only businesses that sell", "only delivery vans", "types of rocks"],
+        correctIndex: 0,
+        explanation: "Customers buy goods or services.",
+      },
+      {
+        question: "Marketing is:",
+        options: ["telling people about products to persuade them", "only charging a high price", "hiding information from customers", "measuring data in graphs"],
+        correctIndex: 0,
+        explanation: "Marketing includes advertising and ways of communicating a product’s value.",
+      },
+      {
+        question: "A business can learn what customers want by:",
+        options: ["researching and gathering feedback", "ignoring opinions", "never observing behaviour", "never changing products"],
+        correctIndex: 0,
+        explanation: "Businesses learn through research like surveys, feedback and observation.",
+      },
+      {
+        question: "A simple marketing aim is to:",
+        options: ["increase customers’ awareness and interest", "avoid all selling", "stop customers buying", "ensure profit always happens automatically"],
+        correctIndex: 0,
+        explanation: "Marketing aims to reach customers and encourage buying.",
+      },
+    ];
+  }
+
+  // English
+  if (t.includes("reading")) {
+    return [
+      {
+        question: "Comprehension mainly means:",
+        options: ["guessing without evidence", "understanding the meaning of what you read", "only reading difficult words", "ignoring main ideas"],
+        correctIndex: 1,
+        explanation: "Comprehension is understanding the meaning using main ideas and details.",
+      },
+      {
+        question: "Inference is:",
+        options: ["stating only what is directly written", "making a conclusion using evidence", "guessing randomly", "changing the topic"],
+        correctIndex: 1,
+        explanation: "Inferences use evidence and reasoning to explain what is implied.",
+      },
+      {
+        question: "Analysis in reading involves:",
+        options: ["explaining the effect of writer choices", "only copying sentences", "ignoring structure", "only matching synonyms"],
+        correctIndex: 0,
+        explanation: "Analysis breaks down techniques and explains the meaning/effect for the reader.",
+      },
+      {
+        question: "Main idea means:",
+        options: ["the central message or purpose", "a single random word", "the length of the text", "the number of pages"],
+        correctIndex: 0,
+        explanation: "Main idea is the central message of a paragraph or text.",
+      },
+      {
+        question: "Evidence is used to:",
+        options: ["support answers with references to the text", "remove the need for reading", "only add opinions", "replace structure"],
+        correctIndex: 0,
+        explanation: "Evidence supports interpretations by referencing specific parts of the text.",
+      },
+      {
+        question: "Writer’s craft is mainly about:",
+        options: ["how writers choose words and techniques to shape meaning", "printing the text in a book", "choosing random punctuation", "ignoring audience"],
+        correctIndex: 0,
+        explanation: "Writer’s craft refers to deliberate choices in language and style.",
+      },
+    ];
+  }
+
+  if (t.includes("writing")) {
+    return [
+      {
+        question: "Story writing focuses on creating a narrative with:",
+        options: ["characters, events and a setting", "only numbers and charts", "only maps", "only vocabulary lists"],
+        correctIndex: 0,
+        explanation: "Stories are built from narrative elements: characters, events and setting.",
+      },
+      {
+        question: "Non-fiction writing is mainly for:",
+        options: ["informing, explaining or persuading with facts", "making up fantasy characters only", "creating music", "doing lab experiments"],
+        correctIndex: 0,
+        explanation: "Non-fiction uses factual information to achieve a purpose.",
+      },
+      {
+        question: "Structure in writing helps because it:",
+        options: ["makes ideas flow logically and helps the reader follow", "stops the reader from understanding", "removes the need for paragraphs", "only affects handwriting"],
+        correctIndex: 0,
+        explanation: "Good structure makes writing easier to follow.",
+      },
+      {
+        question: "Grammar and punctuation are important for:",
+        options: ["clarity and accurate meaning", "making writing longer", "choosing different fonts only", "avoiding editing"],
+        correctIndex: 0,
+        explanation: "Grammar and punctuation support correct and clear meaning.",
+      },
+      {
+        question: "Precise vocabulary means:",
+        options: ["using vague words only", "using words that match the exact meaning you want", "avoiding descriptive words", "repeating the same word always"],
+        correctIndex: 1,
+        explanation: "Precise vocabulary matches intended meaning and improves writing quality.",
+      },
+      {
+        question: "Editing before finishing a piece of writing is about:",
+        options: ["checking and improving things like grammar, clarity and punctuation", "copying it without checking", "never rereading", "removing paragraphs"],
+        correctIndex: 0,
+        explanation: "Editing is reviewing and improving your writing before submitting.",
+      },
+    ];
+  }
+
+  if (t.includes("spoken language")) {
+    return [
+      {
+        question: "A presentation is typically:",
+        options: ["a planned spoken talk", "only a written document", "a map drawing", "a science experiment"],
+        correctIndex: 0,
+        explanation: "Presentations are planned spoken talks delivered to an audience.",
+      },
+      {
+        question: "Effective discussion includes:",
+        options: ["listening and responding respectfully", "interrupting without listening", "ignoring others’ points", "talking only to yourself"],
+        correctIndex: 0,
+        explanation: "Discussion skills include listening, responding and building on others’ ideas.",
+      },
+      {
+        question: "Formal speech is characterised by:",
+        options: ["appropriate tone and careful wording", "lots of slang in every sentence", "no structure at all", "only texting language"],
+        correctIndex: 0,
+        explanation: "Formal speech uses respectful tone and carefully chosen vocabulary.",
+      },
+      {
+        question: "Rehearsal helps you:",
+        options: ["improve clarity, timing and confidence", "avoid all preparation", "make your speech random", "stop nerves from existing completely"],
+        correctIndex: 0,
+        explanation: "Practise improves how you deliver and organise what you say.",
+      },
+      {
+        question: "In discussion, questions help by:",
+        options: ["clarifying meaning and exploring ideas", "changing the topic randomly", "stopping the conversation", "avoiding evidence"],
+        correctIndex: 0,
+        explanation: "Questions clarify and explore, helping discussion stay meaningful.",
+      },
+      {
+        question: "You can build on others’ ideas by:",
+        options: ["agreeing/disagreeing and extending respectfully", "only ignoring them", "copying them without thinking", "never responding"],
+        correctIndex: 0,
+        explanation: "A good discussion extends ideas respectfully using what others said.",
+      },
+    ];
+  }
+
+  if (t.includes("literature")) {
+    return [
+      {
+        question: "Poetry is often used to explore:",
+        options: ["themes and emotions", "only maths facts", "only weather measurements", "only bus routes"],
+        correctIndex: 0,
+        explanation: "Poetry uses language and form to create meaning and emotion.",
+      },
+      {
+        question: "In drama, stage directions are useful because they:",
+        options: ["only show the theme", "describe actions and delivery", "are always random", "replace character dialogue"],
+        correctIndex: 1,
+        explanation: "Stage directions guide how actions and scenes should be performed.",
+      },
+      {
+        question: "Prose includes:",
+        options: ["novels and stories", "only poetry", "only speeches", "only diagrams"],
+        correctIndex: 0,
+        explanation: "Prose refers to narrative writing such as novels and stories.",
+      },
+      {
+        question: "Using evidence in literature answers means:",
+        options: ["referencing specific parts of the text", "guessing with no support", "only using your own feelings", "writing a random ending"],
+        correctIndex: 0,
+        explanation: "Evidence means using quotations or references to support your interpretation.",
+      },
+      {
+        question: "Unseen prose extracts require careful reading because:",
+        options: ["you may not know the text already", "you can ignore evidence", "they never include key moments", "they always have cartoons"],
+        correctIndex: 0,
+        explanation: "You don’t have background knowledge, so you must focus on key moments and evidence.",
+      },
+      {
+        question: "A theme is:",
+        options: ["a big idea repeated across a text", "a colour of a page", "a measurement unit", "a type of calculator"],
+        correctIndex: 0,
+        explanation: "Themes are big ideas explored throughout a text.",
+      },
+    ];
+  }
+
+  // History
+  if (t.includes("medieval and early modern")) {
+    return [
+      {
+        question: "Key events are important because they:",
+        options: ["changed power, society or everyday life", "are always small details only", "cannot be linked to cause and effect", "only affect maps"],
+        correctIndex: 0,
+        explanation: "Key events shape the period and can link to wider changes and impacts.",
+      },
+      {
+        question: "“Society” in history mainly refers to:",
+        options: ["how people lived and were organised", "only the weather", "only battles", "only the length of time"],
+        correctIndex: 0,
+        explanation: "Society describes everyday life and social organisation in the past.",
+      },
+      {
+        question: "Historical change usually means:",
+        options: ["things getting worse in one room", "developments that alter life over time", "random events with no impact", "no differences between periods"],
+        correctIndex: 1,
+        explanation: "Change describes developments that alter society, politics or everyday life.",
+      },
+      {
+        question: "Continuity and change means:",
+        options: ["everything changed", "everything stayed the same", "some changed while some stayed similar", "time travel only"],
+        correctIndex: 2,
+        explanation: "Continuity and change compares what stayed the same and what changed.",
+      },
+      {
+        question: "A timeline helps you:",
+        options: ["see when things happened and cause/effect", "ignore dates", "guess without evidence", "remove historical context"],
+        correctIndex: 0,
+        explanation: "Timelines show order and help you explain how events influence each other.",
+      },
+      {
+        question: "A strong history explanation should include:",
+        options: ["evidence and impact on people", "only opinions with no examples", "just the date", "no comparison"],
+        correctIndex: 0,
+        explanation: "High-quality answers use evidence and explain consequences for people.",
+      },
+    ];
+  }
+
+  if (t.includes("empire") && t.includes("industry")) {
+    return [
+      {
+        question: "Industrial Britain mainly refers to:",
+        options: ["changes linked to industry and technology", "only oceans and weather", "only poetry", "only sports"],
+        correctIndex: 0,
+        explanation: "Industrial Britain focuses on industrialisation and its effects on work and society.",
+      },
+      {
+        question: "An empire is:",
+        options: ["a central power ruling territories", "a single town only", "a type of graph", "a type of weather pattern"],
+        correctIndex: 0,
+        explanation: "Empires are groups of territories ruled by a central power.",
+      },
+      {
+        question: "Reform means:",
+        options: ["making things better through change", "ignoring problems", "keeping everything exactly the same", "stopping all voting forever"],
+        correctIndex: 0,
+        explanation: "Reform is change intended to improve rules, rights or systems.",
+      },
+      {
+        question: "Democracy is linked to:",
+        options: ["representation and people having a voice", "only one person making all decisions", "no voting ever", "only sport teams voting"],
+        correctIndex: 0,
+        explanation: "Democracy involves representation and participation.",
+      },
+      {
+        question: "One impact of industrialisation could be:",
+        options: ["urban growth and changing work conditions", "no change in work", "only changes in oceans", "no effect on people’s lives"],
+        correctIndex: 0,
+        explanation: "Industrialisation changed work and often increased people living in cities.",
+      },
+      {
+        question: "When studying empire, it helps to consider:",
+        options: ["more than one perspective", "only one opinion", "ignoring sources", "only maps and dates with no context"],
+        correctIndex: 0,
+        explanation: "Different groups experienced empire differently, so multiple perspectives improve understanding.",
+      },
+    ];
+  }
+
+  if (t.includes("twentieth century")) {
+    return [
+      {
+        question: "A world war is:",
+        options: ["a major global conflict", "a local argument", "only a short football tournament", "a type of weather event"],
+        correctIndex: 0,
+        explanation: "World wars involve major global conflicts with wide impacts.",
+      },
+      {
+        question: "The Cold War was mainly about:",
+        options: ["rivalry and tension between major powers", "only travelling to space", "only school rules", "only local sport"],
+        correctIndex: 0,
+        explanation: "The Cold War was a period of rivalry and tension rather than full-scale direct war.",
+      },
+      {
+        question: "Cold War “proxy conflicts” means:",
+        options: ["fighting directly between superpowers only", "competition through conflicts in other places", "no conflict at all", "nobody supports anything"],
+        correctIndex: 1,
+        explanation: "Proxy conflicts happen when rivals support different groups in other countries.",
+      },
+      {
+        question: "Modern Britain in this topic refers to:",
+        options: ["post-war changes and developments", "only ancient times", "only medieval buildings", "only geography of rivers"],
+        correctIndex: 0,
+        explanation: "Modern Britain focuses on developments after major conflicts shaping later society.",
+      },
+      {
+        question: "A cause-and-effect skill means you:",
+        options: ["explain what led to what", "ignore what happened first", "choose random options", "remove all evidence"],
+        correctIndex: 0,
+        explanation: "Cause and effect explains how earlier events lead to later changes.",
+      },
+      {
+        question: "History answers should use:",
+        options: ["evidence and specific examples", "only general guesses", "no dates at all", "no explanation"],
+        correctIndex: 0,
+        explanation: "Evidence and examples make explanations convincing and linked to the past.",
+      },
+    ];
+  }
+
+  if (t.includes("historical skills")) {
+    return [
+      {
+        question: "A primary source is:",
+        options: ["made at the time being studied", "made hundreds of years later to summarise", "a random opinion", "a cartoon-only image"],
+        correctIndex: 0,
+        explanation: "Primary sources come from the time period itself.",
+      },
+      {
+        question: "Reliability means you should consider:",
+        options: ["bias, missing info and context", "only how colourful the source is", "whether it is a poster", "whether the date is missing"],
+        correctIndex: 0,
+        explanation: "Reliability involves judging trustworthiness, including bias and incomplete information.",
+      },
+      {
+        question: "Evidence is used to:",
+        options: ["support claims and explain meaning", "replace all reading", "avoid explanation", "make arguments random"],
+        correctIndex: 0,
+        explanation: "Evidence supports your claims and helps explain what it shows.",
+      },
+      {
+        question: "In an essay, each paragraph should include:",
+        options: ["a clear main point plus evidence and explanation", "only a list of facts", "no evidence", "only opinions without reasons"],
+        correctIndex: 0,
+        explanation: "Good paragraphs have structure: point, evidence, then explanation linking back to the question.",
+      },
+      {
+        question: "A good introduction should:",
+        options: ["set up the argument you will build", "contain no focus", "skip the question", "avoid using any plan"],
+        correctIndex: 0,
+        explanation: "Introductions set the argument and direction for the essay.",
+      },
+      {
+        question: "Why are conclusions important?",
+        options: ["they summarise the argument and answer the question", "they add new unrelated facts only", "they remove evidence", "they avoid links to the question"],
+        correctIndex: 0,
+        explanation: "Conclusions summarise the argument and bring the essay back to the question.",
+      },
+    ];
+  }
+
+  // Geography
+  if (t.includes("physical geography")) {
+    return [
+      {
+        question: "Erosion is mainly about:",
+        options: ["wearing away land by moving water/waves", "building up land only", "making land disappear instantly", "only measuring weather"],
+        correctIndex: 0,
+        explanation: "Erosion is the wearing away of land by processes like running water or waves.",
+      },
+      {
+        question: "Transportation in rivers is when:",
+        options: ["the river carries sediment downstream", "the river stops flowing", "sediment becomes a fossil instantly", "only rain changes"],
+        correctIndex: 0,
+        explanation: "Transport means moving material such as sand and pebbles along the river.",
+      },
+      {
+        question: "Deposition is when:",
+        options: ["sediment is dropped/laid down", "sediment is erased forever", "the river becomes empty", "no energy is involved"],
+        correctIndex: 0,
+        explanation: "Deposition happens when the river’s energy decreases and sediment is laid down.",
+      },
+      {
+        question: "Weather is:",
+        options: ["short-term conditions", "long-term averages", "a type of ecosystem", "a river feature only"],
+        correctIndex: 0,
+        explanation: "Weather refers to short-term atmospheric conditions at a particular time.",
+      },
+      {
+        question: "Climate is:",
+        options: ["long-term patterns of weather", "only wind direction", "a single day of rain", "a type of soil"],
+        correctIndex: 0,
+        explanation: "Climate describes average patterns over many years.",
+      },
+      {
+        question: "An ecosystem includes:",
+        options: ["living things interacting with the environment", "only rocks", "only weather", "only roads and buildings"],
+        correctIndex: 0,
+        explanation: "Ecosystems are living communities interacting with their surroundings.",
+      },
+    ];
+  }
+
+  if (t.includes("human geography")) {
+    return [
+      {
+        question: "Population density means:",
+        options: ["number of people per land area", "total area measured in metres", "how fast cities grow overnight", "a type of river"],
+        correctIndex: 0,
+        explanation: "Density compares the number of people to the area they live in.",
+      },
+      {
+        question: "Urban geography is about:",
+        options: ["cities and how they develop", "only forests", "only oceans", "only planets"],
+        correctIndex: 0,
+        explanation: "Urban geography looks at cities, land use and how urban areas develop.",
+      },
+      {
+        question: "Development in geography is mainly about:",
+        options: ["improving quality of life", "making cities bigger only", "ignoring education and health", "only changing rivers"],
+        correctIndex: 0,
+        explanation: "Development focuses on improving wellbeing/quality of life indicators.",
+      },
+      {
+        question: "Renewable resources are:",
+        options: ["resources that can be replenished", "resources that run out immediately", "resources that never renew", "only metals"],
+        correctIndex: 0,
+        explanation: "Renewables can be replenished on human timescales (like wind).",
+      },
+      {
+        question: "Sustainable resource use means:",
+        options: ["meeting needs without harming future generations", "using until everything disappears tomorrow", "ignoring the environment", "only using non-renewables"],
+        correctIndex: 0,
+        explanation: "Sustainable use meets needs while protecting resources and the environment.",
+      },
+      {
+        question: "A city might face challenges like:",
+        options: ["traffic and pollution", "no people living there", "no services needed", "no housing"],
+        correctIndex: 0,
+        explanation: "Urban challenges can include traffic, pollution and inequality.",
+      },
+    ];
+  }
+
+  if (t.includes("uk and the world")) {
+    return [
+      {
+        question: "UK landscapes are shaped by factors like:",
+        options: ["physical processes and geology", "only cartoons", "only the internet", "only human names"],
+        correctIndex: 0,
+        explanation: "Physical processes and geology shape landforms such as coasts and valleys.",
+      },
+      {
+        question: "Global links include:",
+        options: ["trade and movement of people", "only local friendships", "only rainfall amounts", "only school timetables"],
+        correctIndex: 0,
+        explanation: "Global links are connections between places through trade, movement and influence.",
+      },
+      {
+        question: "Fieldwork means:",
+        options: ["collecting data in the real world", "only reading a textbook", "printing a worksheet", "doing a software update"],
+        correctIndex: 0,
+        explanation: "Fieldwork is collecting real-world data and observations to answer a question.",
+      },
+      {
+        question: "When presenting fieldwork results, you should:",
+        options: ["use clear methods like tables/charts/maps", "hide all measurements", "only write random sentences", "avoid labels and units always"],
+        correctIndex: 0,
+        explanation: "Clear presentation with labels and suitable methods makes results understandable.",
+      },
+      {
+        question: "Planning is important in fieldwork because it helps you:",
+        options: ["collect consistent data and manage safety", "avoid all tools", "do only one measurement", "guarantee perfect results"],
+        correctIndex: 0,
+        explanation: "Planning keeps the investigation safe and the data collection consistent.",
+      },
+      {
+        question: "A change in one place can affect other places because of:",
+        options: ["global interdependence", "random luck only", "no connections exist", "time travel rules"],
+        correctIndex: 0,
+        explanation: "Places are linked through trade, people and shared impacts, so changes can spread.",
+      },
+    ];
+  }
 
   if (t.includes("forces")) {
     return [
