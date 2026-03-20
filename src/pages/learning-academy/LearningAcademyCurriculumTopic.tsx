@@ -891,53 +891,380 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
     };
   }
   // Chemistry
-  if (t.includes("solid") || t.includes("liquid") || t.includes("gas") || t.includes("states of matter") || t.includes("materials")) {
+  if (t.includes("solids")) {
     return {
-      intro: "Materials can be solids, liquids or gases. These are the three states of matter. Solids keep their shape; liquids flow and take the shape of the container; gases spread out to fill the space. Heating or cooling can change the state.",
+      intro: "A solid has a fixed shape and a fixed volume. In the particle model, the particles are packed close together and only vibrate in place.",
       coreConcepts: [
-        { name: "Solids", explanation: "In a solid, particles are packed close together and vibrate in place. Solids have a fixed shape and volume. Examples: wood, ice, metal." },
-        { name: "Liquids", explanation: "In a liquid, particles are close but can move past each other. Liquids flow and take the shape of the container. They have a fixed volume but not a fixed shape. Examples: water, oil." },
-        { name: "Gases", explanation: "In a gas, particles are far apart and move quickly. Gases spread out to fill the container. They have no fixed shape or volume. Examples: air, steam." },
-        { name: "Changing state", explanation: "Heating can melt a solid to a liquid, or boil a liquid to a gas. Cooling can condense a gas to a liquid, or freeze a liquid to a solid. The particles gain or lose energy." },
+        {
+          name: "Shape and volume",
+          explanation:
+            "Solids keep their shape and also keep the same volume, even if you put them in a different container.",
+        },
+        {
+          name: "Particles in solids",
+          explanation:
+            "In a solid, particles are tightly packed. They mainly vibrate but do not slide past each other.",
+        },
+        {
+          name: "Examples",
+          explanation: "Common examples of solids include wood, ice and metal.",
+        },
       ],
-      example: "Water: as ice it is a solid; when we heat it it melts to liquid water; when we heat it more it boils to steam (gas). Cooling steam condenses it back to water; cooling water freezes it back to ice.",
-      lessonSummary: "You now know the three states of matter (solid, liquid, gas) and how the arrangement and movement of particles differ; and how heating and cooling can change state. Use this to describe everyday materials and changes.",
+      example:
+        "Ice is a solid: it keeps its shape. If you heat it, it can melt to become a liquid.",
+      lessonSummary:
+        "You now know that solids have fixed shape and volume, and that their particles are packed close and vibrate in place.",
     };
   }
-  if (t.includes("rock") || t.includes("soil") || t.includes("fossil")) {
+  if (t.includes("liquids")) {
     return {
-      intro: "Rocks are made of minerals and form in different ways. Soils are a mixture of broken rock, dead plants and animals, air and water. Fossils are the remains or traces of living things preserved in rock.",
+      intro: "A liquid has a fixed volume but no fixed shape. In the particle model, particles are close together but can move past each other.",
       coreConcepts: [
-        { name: "Types of rocks", explanation: "Sedimentary rocks form when layers of sediment are squashed (e.g. sandstone). Igneous rocks form when molten rock cools (e.g. granite). Metamorphic rocks form when existing rocks are changed by heat and pressure (e.g. marble)." },
-        { name: "Soil", explanation: "Soil is a mixture of weathered rock, humus (decayed plants and animals), water and air. Different soils have different amounts of these. Soil is important for plants to grow." },
-        { name: "Fossils", explanation: "Fossils are remains or impressions of living things from long ago, preserved in rock. They tell us about past life and environments. They usually form in sedimentary rock." },
+        {
+          name: "Shape and volume",
+          explanation:
+            "A liquid flows, so it takes the shape of the container. But it still has the same volume.",
+        },
+        {
+          name: "Particles in liquids",
+          explanation:
+            "Particles in liquids can slide past each other, which is why liquids flow.",
+        },
+        {
+          name: "Examples",
+          explanation: "Common examples include water and oil.",
+        },
       ],
-      example: "Sandstone is a sedimentary rock: sand grains were laid down in layers and over time were squashed and stuck together. Fossils of sea creatures are often found in sedimentary rocks that formed under the sea.",
-      lessonSummary: "You now know the main types of rocks and how they form; what soil is made of; and what fossils are and how they help us understand the past. Use this to describe rocks and soils in the environment.",
+      example:
+        "Water is a liquid: it takes the shape of a glass, but the amount (volume) stays the same.",
+      lessonSummary:
+        "You now know that liquids have fixed volume but flow to match the container shape because particles can move past each other.",
     };
   }
-  if (t.includes("reaction") || t.includes("acid") || t.includes("alkali") || t.includes("indicator")) {
+  if (t.includes("gases")) {
     return {
-      intro: "Chemical reactions change substances into new ones. Some substances are acids (e.g. lemon juice, vinegar) and some are alkalis (e.g. soap). We use indicators to tell if something is acid or alkali.",
+      intro: "A gas has no fixed shape and no fixed volume. In the particle model, particles are far apart and move quickly.",
       coreConcepts: [
-        { name: "Chemical reaction", explanation: "In a chemical reaction, one or more substances (reactants) change into new substances (products). There may be a colour change, fizzing, or a temperature change. The new substances have different properties." },
-        { name: "Acids and alkalis", explanation: "Acids taste sour (don't taste in the lab!) and can be corrosive. Alkalis feel soapy and can be corrosive too. We use a scale called pH: acids have pH less than 7, alkalis more than 7, and 7 is neutral." },
-        { name: "Indicators", explanation: "An indicator is a substance that changes colour in acid or alkali. Universal indicator turns red in strong acids, green in neutral, and blue/purple in alkalis. Litmus is red in acids and blue in alkalis." },
+        {
+          name: "Shape and volume",
+          explanation:
+            "Gases spread out to fill the space available, so they have no fixed shape or volume.",
+        },
+        {
+          name: "Particles in gases",
+          explanation:
+            "In a gas, particles are much further apart. They move rapidly in all directions.",
+        },
+        {
+          name: "Examples",
+          explanation: "Examples include air and steam.",
+        },
       ],
-      example: "Vinegar is an acid. If you add universal indicator to vinegar, it turns red. Adding baking soda (an alkali) can neutralise the acid; the indicator may turn green when the mixture is neutral.",
-      lessonSummary: "You now know what a chemical reaction is; the difference between acids and alkalis and the pH scale; and how indicators are used to test for acids and alkalis. Use this to describe safe, simple tests.",
+      example:
+        "Steam is a gas: it spreads out in the room and does not keep the same shape.",
+      lessonSummary:
+        "You now know that gases spread to fill space because particles are far apart and move quickly.",
     };
   }
-  if (t.includes("particle") || t.includes("atom") || t.includes("molecule")) {
+  if (t.includes("properties")) {
     return {
-      intro: "All matter is made of tiny particles: atoms and molecules. The particle model helps us explain the properties of solids, liquids and gases and how they change state.",
+      intro: "Properties describe how a substance behaves. Solids, liquids and gases have different key properties that come from how their particles are arranged and moving.",
       coreConcepts: [
-        { name: "Particle model", explanation: "We imagine materials are made of very small particles. In a solid they are close and vibrate; in a liquid they are close but can move; in a gas they are far apart and move quickly. This model explains many properties." },
-        { name: "Atoms", explanation: "Atoms are the smallest particles of an element that still have the properties of that element. Different elements have different types of atom (e.g. hydrogen, carbon, oxygen)." },
-        { name: "Molecules", explanation: "Molecules are groups of atoms joined together. Water is a molecule made of two hydrogen atoms and one oxygen atom (H₂O). Many gases and liquids are made of molecules." },
+        {
+          name: "Solids: fixed shape and volume",
+          explanation:
+            "Solids do not flow. They keep the same shape and volume because particles are packed close together.",
+        },
+        {
+          name: "Liquids: flow, fixed volume",
+          explanation:
+            "Liquids flow and take the container shape, but keep the same volume because particles can move past each other.",
+        },
+        {
+          name: "Gases: spread out, no fixed volume",
+          explanation:
+            "Gases spread out to fill space because particles are far apart and move freely.",
+        },
+        {
+          name: "Temperature and energy",
+          explanation:
+            "Heating increases the energy of particles, which can change how a substance behaves and which state it is in.",
+        },
       ],
-      example: "When we heat a solid, the particles gain energy and vibrate more. Eventually they can overcome the forces holding them in place and the solid melts to a liquid. The particle model explains why heating causes melting.",
-      lessonSummary: "You now know the particle model for solids, liquids and gases; what atoms and molecules are; and how the model helps explain states of matter and changes of state. Use this to describe matter at a simple level.",
+      example:
+        "A substance can be solid, liquid or gas depending on conditions. Its properties (flowing, compressing, shape) match its state.",
+      lessonSummary:
+        "You now know the main properties of solids, liquids and gases and how these come from particle arrangement and movement.",
+    };
+  }
+  if (t.includes("changes")) {
+    return {
+      intro: "Changes of state happen when a substance gains or loses energy. Heating can melt or boil; cooling can freeze or condense.",
+      coreConcepts: [
+        {
+          name: "Melting",
+          explanation:
+            "Melting is a change of state from solid to liquid (usually by heating).",
+        },
+        {
+          name: "Boiling",
+          explanation:
+            "Boiling is a change of state from liquid to gas (usually by heating).",
+        },
+        {
+          name: "Condensation",
+          explanation:
+            "Condensation is a change of state from gas to liquid (usually by cooling).",
+        },
+        {
+          name: "Freezing",
+          explanation:
+            "Freezing is a change of state from liquid to solid (usually by cooling).",
+        },
+        {
+          name: "Particles and energy",
+          explanation:
+            "As energy increases, particles move more. As energy decreases, particles move less and come closer together.",
+        },
+      ],
+      example:
+        "Water: ice (solid) melts to water (liquid). If heated more, water boils to steam (gas). Cooling steam condenses back to liquid water, and cooling further can freeze it to ice.",
+      lessonSummary:
+        "You now know the names of the main changes of state and that heating/cooling changes particle energy, leading to a different state.",
+    };
+  }
+  if (t.includes("rock")) {
+    return {
+      intro: "Rocks are made in different ways. Scientists often group rocks into three main types: sedimentary, igneous and metamorphic.",
+      coreConcepts: [
+        {
+          name: "Sedimentary rocks",
+          explanation:
+            "These form when sediments are laid down in layers and squashed over time (for example, sandstone).",
+        },
+        {
+          name: "Igneous rocks",
+          explanation:
+            "These form when molten rock cools and solidifies (for example, granite).",
+        },
+        {
+          name: "Metamorphic rocks",
+          explanation:
+            "These form when existing rocks are changed by heat and pressure (for example, marble).",
+        },
+      ],
+      example:
+        "Sandstone forms from sand grains laid down in layers and pressed together. Over time it becomes solid rock.",
+      lessonSummary:
+        "You now know the three main rock types and the basic idea of how each one forms.",
+    };
+  }
+  if (t.includes("fossil")) {
+    return {
+      intro: "Fossils are traces or remains of living things from long ago, preserved in rock. They help us learn about past life and environments.",
+      coreConcepts: [
+        {
+          name: "What a fossil is",
+          explanation:
+            "A fossil can be a body part, an imprint or other evidence left behind by a living thing.",
+        },
+        {
+          name: "How fossils form",
+          explanation:
+            "Fossils usually form when organisms are buried in sediment and preserved over long periods.",
+        },
+        {
+          name: "Where fossils are found",
+          explanation:
+            "Many fossils are found in sedimentary rocks because these rocks form from layers of sediment.",
+        },
+      ],
+      example:
+        "Sea creature fossils are often found in sedimentary rocks that formed under the sea.",
+      lessonSummary:
+        "You now know what fossils are, how they generally form, and why they are often found in sedimentary rock.",
+    };
+  }
+  if (t.includes("soil")) {
+    return {
+      intro: "Soil is a mixture that supports plant growth. It is made from broken rock, decayed matter, and also includes water and air between particles.",
+      coreConcepts: [
+        {
+          name: "What soil is made of",
+          explanation:
+            "Soil contains weathered rock, humus (decayed plants and animals), water and air.",
+        },
+        {
+          name: "Different soils",
+          explanation:
+            "Soils can have different amounts of these components, which affects how well they support different plants.",
+        },
+        {
+          name: "Why soil matters",
+          explanation:
+            "Soil provides a place for roots to grow and supplies water, nutrients and conditions for plants.",
+        },
+      ],
+      example:
+        "Healthy garden soil contains enough humus and water to help plants grow well.",
+      lessonSummary:
+        "You now know what soil is made of and why soil is important for plant growth.",
+    };
+  }
+  if (t.includes("indicator")) {
+    return {
+      intro: "Indicators are substances that change colour in acids and alkalis, helping you test which type a solution is.",
+      coreConcepts: [
+        {
+          name: "Indicators detect acidity",
+          explanation:
+            "An indicator changes colour depending on whether a solution is acidic, neutral or alkaline.",
+        },
+        {
+          name: "Universal indicator",
+          explanation:
+            "Universal indicator changes colour across the pH range: strong acids turn it red, neutral solutions turn it green, and alkalis turn it blue/purple.",
+        },
+        {
+          name: "Litmus paper",
+          explanation:
+            "Litmus paper turns red in acids and blue in alkalis.",
+        },
+      ],
+      example:
+        "If you add universal indicator to lemon juice (an acid), it turns red. If you test soap solution (an alkali), it turns blue/purple.",
+      lessonSummary:
+        "You now know what indicators do and how universal indicator and litmus show acid/alkali using different colours.",
+    };
+  }
+  if (t.includes("alkali") || t.includes("acid")) {
+    return {
+      intro: "Acids and alkalis are different types of substances. We use pH to describe how acidic or alkaline something is.",
+      coreConcepts: [
+        {
+          name: "Acids vs alkalis",
+          explanation:
+            "Acids are solutions with pH below 7 and alkalis have pH above 7.",
+        },
+        {
+          name: "The pH scale",
+          explanation:
+            "pH values: less than 7 means acidic, 7 means neutral, and more than 7 means alkaline.",
+        },
+        {
+          name: "Examples",
+          explanation:
+            "Examples of acids include vinegar or lemon juice; examples of alkalis include soap and some cleaning products.",
+        },
+      ],
+      example:
+        "Vinegar is an acid so it has pH below 7. Baking soda solution is an alkali so it has pH above 7.",
+      lessonSummary:
+        "You now know how acids and alkalis differ using the pH scale and you can recognise typical examples.",
+    };
+  }
+  if (t.includes("reaction")) {
+    return {
+      intro: "A chemical reaction changes substances into new substances with different properties. The substances you start with are reactants; the new substances are products.",
+      coreConcepts: [
+        {
+          name: "Reactants and products",
+          explanation:
+            "Reactants change into products during a chemical reaction.",
+        },
+        {
+          name: "Signs of a reaction",
+          explanation:
+            "Some reactions show signs such as a colour change, fizzing (gas), a temperature change, or a new solid forming.",
+        },
+        {
+          name: "New properties",
+          explanation:
+            "Products have different properties from the reactants.",
+        },
+      ],
+      example:
+        "Mixing an acid and an alkali can cause neutralisation, producing new substances (and often a change you can detect using indicators).",
+      lessonSummary:
+        "You now know what chemical reactions do: reactants turn into new products, often with observable signs and new properties.",
+    };
+  }
+  if (t.includes("atoms") || t.includes("atom")) {
+    return {
+      intro: "Atoms are the smallest particles of an element that still keep the element's properties.",
+      coreConcepts: [
+        {
+          name: "Element properties",
+          explanation:
+            "Each element has a different type of atom. Changing the atom means the element changes.",
+        },
+        {
+          name: "Examples of atoms",
+          explanation:
+            "Atoms include hydrogen, carbon and oxygen.",
+        },
+        {
+          name: "Atoms link to molecules",
+          explanation:
+            "Atoms can join together to form molecules.",
+        },
+      ],
+      example:
+        "A water molecule contains atoms of hydrogen and oxygen joined together.",
+      lessonSummary:
+        "You now know what atoms are and that atoms of different elements have different types.",
+    };
+  }
+  if (t.includes("molecules") || t.includes("molecule")) {
+    return {
+      intro: "Molecules are groups of atoms joined together. Many everyday substances are made from molecules.",
+      coreConcepts: [
+        {
+          name: "Groups of atoms",
+          explanation:
+            "A molecule forms when atoms bond together in fixed combinations.",
+        },
+        {
+          name: "Water molecule",
+          explanation:
+            "Water is a molecule with two hydrogen atoms and one oxygen atom (H2O).",
+        },
+        {
+          name: "Molecules move in states",
+          explanation:
+            "Whether a substance is solid, liquid or gas depends on how particles (atoms/molecules) are arranged and how much energy they have.",
+        },
+      ],
+      example:
+        "In steam, the water molecules are far apart and can move freely.",
+      lessonSummary:
+        "You now know what molecules are and that molecules can exist in different states depending on particle behaviour.",
+    };
+  }
+  if (t.includes("particle")) {
+    return {
+      intro: "The particle model explains states of matter by describing how particles are arranged and how they move.",
+      coreConcepts: [
+        {
+          name: "Particles everywhere",
+          explanation:
+            "All matter is made of tiny particles.",
+        },
+        {
+          name: "Arrangement and movement",
+          explanation:
+            "In solids, particles are close and vibrate. In liquids, particles are close and can move past each other. In gases, particles are far apart and move quickly.",
+        },
+        {
+          name: "Changes of state",
+          explanation:
+            "Heating usually gives particles more energy, so solids can melt and liquids can boil.",
+        },
+      ],
+      example:
+        "If you heat a solid, particles gain energy and can eventually overcome the forces holding them in place, so the solid melts to a liquid.",
+      lessonSummary:
+        "You now know the particle model and how it explains solids, liquids, gases and changes of state.",
     };
   }
   // Biology
@@ -1207,6 +1534,142 @@ function getPracticeQuestionsForTopic(topic: { title: string }): { question: str
         question: "On a distance-time graph, what does a flat (horizontal) line mean?",
         hint: "Distance isn’t changing.",
         explanation: "A flat line means distance is not changing, so the object is not moving.",
+      },
+    ];
+  }
+  if (t.includes("materials")) {
+    return [
+      {
+        question: "Explain what makes a substance a solid.",
+        hint: "Think fixed shape and fixed volume, plus particles.",
+        explanation:
+          "A solid has a fixed shape and fixed volume. In the particle model, particles are packed close and mainly vibrate in place.",
+      },
+      {
+        question: "Explain what makes a substance a liquid.",
+        hint: "Think fixed volume but not fixed shape.",
+        explanation:
+          "A liquid has a fixed volume but no fixed shape. Particles are close together but can move past each other, so the liquid flows.",
+      },
+      {
+        question: "Explain what makes a substance a gas.",
+        hint: "Think no fixed shape or volume and particles moving quickly.",
+        explanation:
+          "A gas has no fixed shape and no fixed volume. Particles are far apart and move quickly, so the gas spreads to fill space.",
+      },
+      {
+        question: "Choose one property for each state (solid, liquid, gas) and explain it.",
+        hint: "Examples: shape, volume, flow, spreading.",
+        explanation:
+          "Any correct property comparison is acceptable, for example: solids have fixed shape; liquids flow and take container shape; gases spread out and are compressible because particles are far apart.",
+      },
+      {
+        question: "Describe one change of state and what happens to the particles.",
+        hint: "Example: melting, boiling, freezing or condensation.",
+        explanation:
+          "Change of state happens when particles gain or lose energy. For example, melting (solid -> liquid) happens when a solid gains enough energy for particles to move more.",
+      },
+    ];
+  }
+  if (t.includes("chemical")) {
+    return [
+      {
+        question: "In your own words, what is a chemical reaction?",
+        hint: "Reactants become products.",
+        explanation:
+          "A chemical reaction changes substances into new substances. The starting substances are reactants and the new substances formed are products.",
+      },
+      {
+        question: "What is the difference between an acid and an alkali? Use pH in your answer.",
+        hint: "Acids are below 7; alkalis above 7.",
+        explanation:
+          "Acids have pH less than 7, alkalis have pH greater than 7, and neutral solutions have pH 7.",
+      },
+      {
+        question: "What is an indicator and how does it help you?",
+        hint: "Indicators change colour.",
+        explanation:
+          "An indicator is a substance that changes colour in acids and alkalis, helping you decide whether a solution is acidic, neutral or alkaline.",
+      },
+      {
+        question: "Give an example of an acid and an example of an alkali.",
+        hint: "Examples can be everyday household items.",
+        explanation:
+          "Any correct examples are acceptable, such as vinegar or lemon juice (acids) and soap or baking soda solutions (alkalis).",
+      },
+      {
+        question: "Describe neutralisation using an acid and an alkali.",
+        hint: "What new substances are formed?",
+        explanation:
+          "Neutralisation is when an acid and an alkali react to form new substances, typically a salt and water, and can be detected using indicators and pH changes.",
+      },
+    ];
+  }
+  if (t.includes("rocks")) {
+    return [
+      {
+        question: "Explain the three main types of rocks (just the idea of how they form).",
+        hint: "Look for sedimentary, igneous, metamorphic.",
+        explanation:
+          "Sedimentary rocks form from layers of sediment being pressed together. Igneous rocks form when molten rock cools. Metamorphic rocks form when rocks are changed by heat and pressure.",
+      },
+      {
+        question: "What is a fossil and what does it tell us?",
+        hint: "Traces or remains of living things.",
+        explanation:
+          "Fossils are remains or traces of living things from long ago. They help scientists learn about past life and environments.",
+      },
+      {
+        question: "Explain what soil is made of.",
+        hint: "Think broken rock, humus, air and water.",
+        explanation:
+          "Soil is a mixture of broken rock, humus (decayed plants and animals), air and water.",
+      },
+      {
+        question: "Describe how fossils often form in rocks.",
+        hint: "Buried in sediment and preserved over time.",
+        explanation:
+          "Many fossils form when organisms are buried in sediment and preserved over very long periods.",
+      },
+      {
+        question: "Why is soil important for plants?",
+        hint: "Roots need conditions and nutrients.",
+        explanation:
+          "Soil helps plants grow by providing roots a place to grow and by holding water and nutrients.",
+      },
+    ];
+  }
+  if (t.includes("particle")) {
+    return [
+      {
+        question: "Explain the particle model in your own words.",
+        hint: "Matter is made of tiny particles.",
+        explanation:
+          "The particle model says all matter is made of tiny particles. It explains states of matter by describing how particles are arranged and how they move.",
+      },
+      {
+        question: "What is an atom?",
+        hint: "Smallest particle of an element that still has its properties.",
+        explanation:
+          "Atoms are the smallest particles of an element that still have the element's properties.",
+      },
+      {
+        question: "What is a molecule?",
+        hint: "Groups of atoms joined together.",
+        explanation:
+          "Molecules are groups of atoms joined together.",
+      },
+      {
+        question: "Use the particle model to explain solids, liquids and gases.",
+        hint: "Arrangement and movement.",
+        explanation:
+          "Solids: particles close and vibrate; liquids: close and slide past each other; gases: far apart and move quickly.",
+      },
+      {
+        question: "Explain what happens to particles when you heat a solid.",
+        hint: "Energy increases, vibration increases, can change state.",
+        explanation:
+          "Heating gives particles more energy. They vibrate more and can eventually overcome forces, causing a change of state such as melting.",
       },
     ];
   }
@@ -1763,6 +2226,506 @@ function getAssessmentQuestionsForTopic(topic: { title: string }): {
         options: ["s = d ÷ t", "s = d × t", "s = t ÷ d", "s = d + t"],
         correctIndex: 0,
         explanation: "Correct relationship: speed = distance ÷ time.",
+      },
+    ];
+  }
+
+  if (t.includes("materials")) {
+    return [
+      {
+        question: "A solid is best described as having:",
+        options: ["no fixed volume and no fixed shape", "fixed shape but no fixed volume", "fixed shape and fixed volume", "no volume at all"],
+        correctIndex: 2,
+        explanation: "Solids have a fixed shape and fixed volume.",
+      },
+      {
+        question: "A liquid is best described as having:",
+        options: ["fixed volume but no fixed shape", "fixed shape but no fixed volume", "no fixed shape and no fixed volume", "zero volume when poured"],
+        correctIndex: 0,
+        explanation: "Liquids have a fixed volume but take the container shape, so they do not have a fixed shape.",
+      },
+      {
+        question: "A gas is best described as having:",
+        options: ["fixed shape and fixed volume", "fixed volume but not fixed shape", "no fixed shape or fixed volume", "only fixed volume and no shape change"],
+        correctIndex: 2,
+        explanation: "Gases have no fixed shape and no fixed volume; they spread out to fill space.",
+      },
+      {
+        question: "In the particle model, particles in a solid are:",
+        options: ["far apart and move freely", "close together and mainly vibrate", "close but slide past easily", "only moving when heated"],
+        correctIndex: 1,
+        explanation: "In solids, particles are packed close and vibrate in place.",
+      },
+      {
+        question: "In the particle model, particles in a gas are:",
+        options: ["packed close together", "close and can only vibrate", "far apart and move quickly", "fixed in one position"],
+        correctIndex: 2,
+        explanation: "Gases have particles far apart that move quickly in all directions.",
+      },
+      {
+        question: "Changing state usually happens because particles:",
+        options: ["gain or lose energy", "disappear completely", "become new substances", "only move in solids"],
+        correctIndex: 0,
+        explanation: "Heating or cooling changes particle energy, leading to state changes.",
+      },
+      {
+        question: "Melting is the change of state from:",
+        options: ["solid to liquid", "liquid to solid", "liquid to gas", "gas to liquid"],
+        correctIndex: 0,
+        explanation: "Melting is solid -> liquid.",
+      },
+      {
+        question: "Boiling is the change of state from:",
+        options: ["solid to liquid", "liquid to gas", "gas to liquid", "liquid to solid"],
+        correctIndex: 1,
+        explanation: "Boiling is liquid -> gas.",
+      },
+      {
+        question: "Condensation is the change of state from:",
+        options: ["gas to liquid", "liquid to gas", "solid to gas", "liquid to solid"],
+        correctIndex: 0,
+        explanation: "Condensation is gas -> liquid.",
+      },
+      {
+        question: "Freezing is the change of state from:",
+        options: ["solid to liquid", "liquid to solid", "gas to liquid", "solid to gas"],
+        correctIndex: 1,
+        explanation: "Freezing is liquid -> solid.",
+      },
+      {
+        question: "If you heat a substance, particles generally:",
+        options: ["lose energy and slow down", "gain energy and move more", "stay the same and do not vibrate", "turn into a new element"],
+        correctIndex: 1,
+        explanation: "Heating increases particle energy, so they move more.",
+      },
+      {
+        question: "Which changes most during a change of state?",
+        options: ["particle arrangement and movement", "the number of atoms", "the element identity", "mass always becomes zero"],
+        correctIndex: 0,
+        explanation: "State changes come from particles rearranging and changing how they move.",
+      },
+      {
+        question: "Cooling a gas can cause:",
+        options: ["melting", "condensation", "boiling", "evaporation only without change"],
+        correctIndex: 1,
+        explanation: "Cooling a gas usually causes condensation to liquid.",
+      },
+      {
+        question: "Temperature is linked to:",
+        options: ["particle energy", "particle shape only", "mass of the container", "electric charge only"],
+        correctIndex: 0,
+        explanation: "In the particle model, temperature relates to the energy of particles.",
+      },
+      {
+        question: "Ice changing to water at room temperature is usually:",
+        options: ["freezing", "melting", "boiling", "condensation"],
+        correctIndex: 1,
+        explanation: "Ice (solid) -> water (liquid) is melting.",
+      },
+      {
+        question: "Water vapour is:",
+        options: ["a solid", "a liquid", "a gas", "a type of soil"],
+        correctIndex: 2,
+        explanation: "Water vapour is water in the gas state.",
+      },
+      {
+        question: "Liquids can be poured and take container shape because their particles can:",
+        options: ["slide past each other", "vibrate in only one spot", "never move", "separate into different elements"],
+        correctIndex: 0,
+        explanation: "In liquids, particles can move past each other, so the liquid flows.",
+      },
+      {
+        question: "Solids are not easy to compress because particles are:",
+        options: ["far apart and free to spread", "packed close together", "moving at random with empty space", "made of zero volume"],
+        correctIndex: 1,
+        explanation: "Particles in solids are already packed close together.",
+      },
+      {
+        question: "Gases are easy to compress because they have:",
+        options: ["very little space between particles", "lots of space between particles", "fixed shape", "no particles at all"],
+        correctIndex: 1,
+        explanation: "In gases, particles are far apart, so there is space to compress.",
+      },
+      {
+        question: "A change of state like melting ice is usually a:",
+        options: ["chemical reaction", "physical change", "electrical change", "nuclear change"],
+        correctIndex: 1,
+        explanation: "Change of state is a physical change (no new substance is formed).",
+      },
+    ];
+  }
+
+  if (t.includes("chemical")) {
+    return [
+      {
+        question: "A chemical reaction is when:",
+        options: ["new substances are formed", "only the container changes", "the matter disappears", "no change happens at all"],
+        correctIndex: 0,
+        explanation: "In a chemical reaction, reactants change into new substances.",
+      },
+      {
+        question: "The starting substances in a reaction are called:",
+        options: ["products", "reactants", "indicators", "solvents only"],
+        correctIndex: 1,
+        explanation: "Reactants are the starting substances.",
+      },
+      {
+        question: "The new substances formed are called:",
+        options: ["reactants", "products", "particles", "elements only"],
+        correctIndex: 1,
+        explanation: "Products are the new substances.",
+      },
+      {
+        question: "A sign of a chemical reaction can be:",
+        options: ["a colour change", "the mixture staying exactly the same", "no new substances ever", "only temperature stays constant"],
+        correctIndex: 0,
+        explanation: "Chemical reactions can show colour change, fizzing (gas), temperature change or new solids.",
+      },
+      {
+        question: "Acids have a pH of:",
+        options: ["more than 7", "less than 7", "exactly 7 only", "equal to the number of particles"],
+        correctIndex: 1,
+        explanation: "Acids have pH < 7.",
+      },
+      {
+        question: "Alkalis have a pH of:",
+        options: ["less than 7", "more than 7", "exactly 7 only", "always 0"],
+        correctIndex: 1,
+        explanation: "Alkalis have pH > 7.",
+      },
+      {
+        question: "A neutral solution has a pH of:",
+        options: ["0", "3", "7", "14"],
+        correctIndex: 2,
+        explanation: "Neutral is pH 7.",
+      },
+      {
+        question: "Universal indicator turns red in:",
+        options: ["alkalis", "neutral solutions", "strong acids", "very cold liquids"],
+        correctIndex: 2,
+        explanation: "Strong acids turn universal indicator red.",
+      },
+      {
+        question: "Universal indicator turns green in:",
+        options: ["strong acids", "neutral solutions", "alkalis", "hot gases"],
+        correctIndex: 1,
+        explanation: "Universal indicator is green at neutral pH.",
+      },
+      {
+        question: "Universal indicator turns blue/purple in:",
+        options: ["neutral solutions", "strong acids", "alkalis", "only water"],
+        correctIndex: 2,
+        explanation: "Alkalis turn universal indicator blue/purple.",
+      },
+      {
+        question: "Litmus paper turns red in:",
+        options: ["alkalis", "acids", "neutral solutions", "gases only"],
+        correctIndex: 1,
+        explanation: "Litmus is red in acids.",
+      },
+      {
+        question: "Litmus paper turns blue in:",
+        options: ["acids", "alkalis", "neutral solutions", "metals"],
+        correctIndex: 1,
+        explanation: "Litmus is blue in alkalis.",
+      },
+      {
+        question: "Indicators are used mainly to:",
+        options: ["measure mass", "tell whether something is acid or alkali", "make new substances instantly", "change electricity to heat"],
+        correctIndex: 1,
+        explanation: "Indicators help you test for acid/alkali (and neutral).",
+      },
+      {
+        question: "Which is an example of an acid?",
+        options: ["vinegar", "soap", "baking soda", "salt only"],
+        correctIndex: 0,
+        explanation: "Vinegar is an acid.",
+      },
+      {
+        question: "Which is an example of an alkali?",
+        options: ["lemon juice", "soap", "vinegar", "orange juice"],
+        correctIndex: 1,
+        explanation: "Soap is an alkali.",
+      },
+      {
+        question: "Neutralisation is usually a reaction between:",
+        options: ["a solid and a gas", "an acid and an alkali", "two metals only", "two identical acids"],
+        correctIndex: 1,
+        explanation: "Neutralisation is acid + alkali.",
+      },
+      {
+        question: "When an acid and an alkali neutralise, you get (typically):",
+        options: ["salt and water", "only heat with no new substances", "only gas bubbles", "a new element"],
+        correctIndex: 0,
+        explanation: "Acid + alkali neutralise to form salt and water (plus indicator/pH changes).",
+      },
+      {
+        question: "If bubbles form in a test, it may mean:",
+        options: ["a gas has been produced", "no reaction happened", "the solution became a metal", "the pH must be 14"],
+        correctIndex: 0,
+        explanation: "Fizzing/bubbles often indicate gas produced in the reaction.",
+      },
+      {
+        question: "If litmus turns blue, the solution is likely:",
+        options: ["acidic", "alkaline", "neutral", "a gas with no liquid"],
+        correctIndex: 1,
+        explanation: "Litmus turns blue in alkalis, so the solution is alkaline.",
+      },
+      {
+        question: "Is melting ice a chemical reaction?",
+        options: ["Yes, because it makes new substances", "No, it is usually a physical change", "Only if it changes colour", "Only if it makes gas"],
+        correctIndex: 1,
+        explanation: "Melting ice is a physical change (state change), not a chemical reaction.",
+      },
+    ];
+  }
+
+  if (t.includes("rocks")) {
+    return [
+      {
+        question: "Sedimentary rocks usually form when:",
+        options: ["molten rock cools", "layers of sediment are squashed and pressed together", "rocks are changed by extreme pressure and heat", "plants become fossil fuel"],
+        correctIndex: 1,
+        explanation: "Sedimentary rocks form from layers of sediment being pressed together over time.",
+      },
+      {
+        question: "Igneous rocks usually form when:",
+        options: ["molten rock cools", "sediments grow into plants", "rocks are broken down into soil only", "only oceans evaporate"],
+        correctIndex: 0,
+        explanation: "Igneous rocks form when molten rock cools and solidifies.",
+      },
+      {
+        question: "Metamorphic rocks usually form when:",
+        options: ["existing rocks are changed by heat and pressure", "molten rock cools quickly in water", "sediment layers are dissolved", "fossils form instantly"],
+        correctIndex: 0,
+        explanation: "Metamorphic rocks form from existing rocks altered by heat and pressure.",
+      },
+      {
+        question: "A fossil is best described as:",
+        options: ["a mineral type", "the remains or traces of a living thing from long ago", "a type of soil", "a new chemical substance"],
+        correctIndex: 1,
+        explanation: "Fossils are remains/traces of living things preserved in rock.",
+      },
+      {
+        question: "Fossils usually form in rocks like:",
+        options: ["sedimentary rocks", "only igneous rocks", "only volcanic ash", "only sand that is still loose"],
+        correctIndex: 0,
+        explanation: "Many fossils are found in sedimentary rocks because they form from layers of sediment.",
+      },
+      {
+        question: "Soil is a mixture of:",
+        options: ["only rocks with no water", "broken rock, humus, air and water", "only dead plants without minerals", "pure chemicals with no mixture"],
+        correctIndex: 1,
+        explanation: "Soil is made from broken rock, humus, air and water.",
+      },
+      {
+        question: "Humus is:",
+        options: ["liquid water in soil", "decayed plants and animals", "a type of gas in soil", "molten rock"],
+        correctIndex: 1,
+        explanation: "Humus is decayed plants and animals.",
+      },
+      {
+        question: "Why is soil important for plants?",
+        options: ["It provides conditions and nutrients for growth", "It stops roots working", "Plants cannot use water from soil", "It removes all air from roots"],
+        correctIndex: 0,
+        explanation: "Soil supports plant growth by holding water and nutrients and giving roots space to grow.",
+      },
+      {
+        question: "Soils differ because they can have different amounts of:",
+        options: ["humus, air, water and rock", "only one mineral", "only ice", "no particles at all"],
+        correctIndex: 0,
+        explanation: "Different soils have different proportions of components like rock, humus, water and air.",
+      },
+      {
+        question: "Which process best describes how many fossils form?",
+        options: ["buried in sediment and preserved over a long time", "burned into rock instantly", "formed by electricity in the ground", "created by melting metals"],
+        correctIndex: 0,
+        explanation: "Many fossils form when organisms are buried in sediment and preserved over long periods.",
+      },
+      {
+        question: "Sandstone is an example of a:",
+        options: ["sedimentary rock", "metamorphic rock", "igneous rock", "space rock only"],
+        correctIndex: 0,
+        explanation: "Sandstone is typically a sedimentary rock.",
+      },
+      {
+        question: "Granite is typically a(n):",
+        options: ["igneous rock", "sedimentary rock", "metamorphic rock", "soil type"],
+        correctIndex: 0,
+        explanation: "Granite is an igneous rock formed from cooled molten rock.",
+      },
+      {
+        question: "Marble is typically a(n):",
+        options: ["metamorphic rock", "sedimentary rock", "igneous rock", "only a fossil"],
+        correctIndex: 0,
+        explanation: "Marble is usually a metamorphic rock.",
+      },
+      {
+        question: "A reason fossils help scientists is that they can:",
+        options: ["tell us about past life and environments", "prove that electricity exists underground", "change the pH of soil", "create new elements"],
+        correctIndex: 0,
+        explanation: "Fossils provide evidence about past organisms and habitats.",
+      },
+      {
+        question: "Soil contains air because:",
+        options: ["roots need oxygen", "it is made only of gas", "air is added by electricity", "plants do not need oxygen"],
+        correctIndex: 0,
+        explanation: "Roots need oxygen and air spaces in soil provide it.",
+      },
+      {
+        question: "Weathered rock in soil mainly provides:",
+        options: ["mineral material and structure", "only salt water", "only electricity", "zero solids"],
+        correctIndex: 0,
+        explanation: "Broken/weathered rock forms the mineral part of soil.",
+      },
+      {
+        question: "Which is most likely found in sedimentary rocks?",
+        options: ["many fossils", "only gemstones with no layers", "only molten rock with no sediment", "no evidence of organisms"],
+        correctIndex: 0,
+        explanation: "Sedimentary rocks are good at preserving fossils.",
+      },
+      {
+        question: "Soil is important because it:",
+        options: ["helps plants grow", "stops water from being stored", "has no nutrients", "turns into gas"],
+        correctIndex: 0,
+        explanation: "Soil supports plant growth and stores water and nutrients.",
+      },
+      {
+        question: "Fossils are best described as:",
+        options: ["new materials made during experiments", "remains or traces from long ago", "only footprints in sand today", "chemical indicators"],
+        correctIndex: 1,
+        explanation: "Fossils record life from long ago.",
+      },
+      {
+        question: "A mixture like soil is considered:",
+        options: ["a pure substance", "a mixture", "a single chemical element", "a type of gas"],
+        correctIndex: 1,
+        explanation: "Soil is a mixture of different components.",
+      },
+    ];
+  }
+
+  if (t.includes("particle")) {
+    return [
+      {
+        question: "The particle model is based on the idea that:",
+        options: ["matter has no particles", "all matter is made of tiny particles", "only solids have particles", "particles are imaginary in science"],
+        correctIndex: 1,
+        explanation: "The particle model says all matter is made of tiny particles.",
+      },
+      {
+        question: "Atoms are the smallest particles of an:",
+        options: ["element that still has that element's properties", "molecule only", "solution", "rock only"],
+        correctIndex: 0,
+        explanation: "Atoms are the smallest particles of an element that still keep its properties.",
+      },
+      {
+        question: "A molecule is:",
+        options: ["an individual atom only", "a group of atoms joined together", "a type of soil", "a rock type"],
+        correctIndex: 1,
+        explanation: "Molecules are groups of atoms joined together.",
+      },
+      {
+        question: "In a solid, particles are:",
+        options: ["far apart and moving freely", "close together and mainly vibrate", "close together and freely moving past each other", "only moving as gases"],
+        correctIndex: 1,
+        explanation: "Solids have particles close together and mainly vibrating.",
+      },
+      {
+        question: "In a liquid, particles are:",
+        options: ["far apart", "close and can move past each other", "fixed in place", "only vibrating with no movement"],
+        correctIndex: 1,
+        explanation: "Liquids have particles close together that can move past each other, so they flow.",
+      },
+      {
+        question: "In a gas, particles are:",
+        options: ["close and still", "far apart and moving quickly", "fixed in one place", "made of only one atom always"],
+        correctIndex: 1,
+        explanation: "Gas particles are far apart and move quickly.",
+      },
+      {
+        question: "The particle model helps explain:",
+        options: ["states of matter and changes of state", "only colours of objects", "only the weather", "only forces"],
+        correctIndex: 0,
+        explanation: "The particle model explains solids, liquids, gases and how they change.",
+      },
+      {
+        question: "Heating usually causes particles to:",
+        options: ["lose energy and slow down", "gain energy and move more", "disappear", "become a new element"],
+        correctIndex: 1,
+        explanation: "Heating increases particle energy so they move more.",
+      },
+      {
+        question: "When a solid melts, particles usually:",
+        options: ["are pulled closer and slow down", "gain energy and can move more", "stop existing", "change element type"],
+        correctIndex: 1,
+        explanation: "Melting occurs when particles gain energy and can move more.",
+      },
+      {
+        question: "Water is a molecule with formula:",
+        options: ["O2", "H2O", "CO2", "NaCl"],
+        correctIndex: 1,
+        explanation: "Water is H2O: two hydrogen atoms and one oxygen atom.",
+      },
+      {
+        question: "Different elements have different:",
+        options: ["types of atom", "only one type of molecule", "only one state of matter", "no particle arrangement"],
+        correctIndex: 0,
+        explanation: "Each element has its own type of atom.",
+      },
+      {
+        question: "Molecules form when atoms:",
+        options: ["bond together in groups", "break apart instantly", "only vibrate and never join", "turn into heat energy only"],
+        correctIndex: 0,
+        explanation: "Molecules are made when atoms bond and join together.",
+      },
+      {
+        question: "Why are solids not easily compressed?",
+        options: ["particles are far apart", "particles are already packed close together", "solids have no particles", "temperature is always zero"],
+        correctIndex: 1,
+        explanation: "In solids, particles are packed close together, leaving less space to compress.",
+      },
+      {
+        question: "Why do liquids take the shape of the container?",
+        options: ["particles can slide past each other", "particles are fixed to one point", "there are no particles", "gravity is turned off"],
+        correctIndex: 0,
+        explanation: "Particles in liquids can move past each other, so liquids flow into the container shape.",
+      },
+      {
+        question: "Why do gases spread out quickly?",
+        options: ["particles are trapped in a fixed pattern", "particles are far apart and move freely", "gases have fixed shape", "gases have no energy"],
+        correctIndex: 1,
+        explanation: "Gas particles are far apart and move freely, so gases spread out.",
+      },
+      {
+        question: "If particles are far apart and moving quickly, the state is most likely:",
+        options: ["solid", "liquid", "gas", "always ice"],
+        correctIndex: 2,
+        explanation: "Far apart and fast motion indicates a gas.",
+      },
+      {
+        question: "In a solid, particles cannot easily:",
+        options: ["move past each other", "vibrate", "change state", "be arranged in layers"],
+        correctIndex: 0,
+        explanation: "Particles in solids stay in fixed positions and mainly vibrate.",
+      },
+      {
+        question: "In a liquid, particles can move past each other, so the liquid:",
+        options: ["does not flow", "flows and takes container shape", "stays in place forever", "turns into solid immediately"],
+        correctIndex: 1,
+        explanation: "Ability to move past each other is what makes liquids flow.",
+      },
+      {
+        question: "A change from gas to liquid is explained by particles:",
+        options: ["coming closer and moving less", "getting further apart and moving more", "turning into a new element", "disappearing"],
+        correctIndex: 0,
+        explanation: "Condensation (gas to liquid) involves particles coming closer and losing energy.",
+      },
+      {
+        question: "Which statement best matches the particle model?",
+        options: ["Particles do not explain behaviour", "Energy affects particle motion and state", "States happen without any particle changes", "Only temperature matters and not particle arrangement"],
+        correctIndex: 1,
+        explanation: "The particle model connects energy to particle motion and state changes.",
       },
     ];
   }
