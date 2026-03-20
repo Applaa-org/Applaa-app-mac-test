@@ -580,7 +580,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 relative">
+    <div className="w-full space-y-8 relative px-4 sm:px-6 lg:px-8">
       {/* Top Right Building Status Message - Show when input is disabled (streaming) */}
       {isStreaming && (
         <div className="fixed top-6 right-4 z-50 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
@@ -593,7 +593,7 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
       {!selectedAppType && (
         <div className="text-center space-y-4 mb-8">
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Turn your ideas into real apps with Applaa
+            Learn, Build and Earn. Turn your Idea to real Apps with Applaa
           </p>
 
           {/* Pro Status Indicator */}
@@ -637,13 +637,6 @@ export function SimpleHomeInterface({ onChatSubmit }: SimpleHomeInterfaceProps) 
               Check out awesome games and applications built by Applaa
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button
-                onClick={() => navigate({ to: "/hub" })}
-                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-lg rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                <Sparkles className="w-6 h-6" />
-                Explore Hub
-              </button>
               <button
                 onClick={() => navigate({ to: "/docs" })}
                 className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold text-lg rounded-lg hover:from-green-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
