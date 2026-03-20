@@ -219,6 +219,11 @@ export function LearningAcademyCurriculum() {
                           to="/learning-academy/curriculum/$subjectId/$topicId"
                           params={{ subjectId: subject.id, topicId: topic.id }}
                           className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-teal-300 dark:hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-colors group"
+                          search={
+                            selectedYear !== "all" && selectedYear !== "gcse"
+                              ? { year: selectedYear }
+                              : undefined
+                          }
                         >
                           <BookOpen className="h-4 w-4 text-teal-500 shrink-0" />
                           <div className="flex-1 min-w-0">

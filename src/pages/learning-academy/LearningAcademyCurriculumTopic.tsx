@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, useParams, useRouter } from "@tanstack/react-router";
+import React, { useEffect, useState } from "react";
+import { Link, useParams, useRouter, useSearch } from "@tanstack/react-router";
 import { getSubject, getTopic } from "@/data/learningAcademyCurriculum";
 import {
   BookOpen,
@@ -24,10 +24,35 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "assessment", label: "Assessment", icon: ClipboardCheck },
 ];
 
-/** Derive lesson titles from topic description (e.g. "Place value, four operations, fractions" -> 3 lessons) */
-function getLessonTitlesForTopic(topic: { title: string; description: string }): string[] {
+/** Derive lesson titles from topic description (varies slightly by year for progression) */
+function getLessonTitlesForTopic(
+  topic: { title: string; description: string },
+  year?: number,
+): string[] {
   const parts = topic.description.split(/[,.]/).map((s) => s.trim()).filter(Boolean);
-  if (parts.length >= 2) return parts.map((p, i) => `Lesson ${i + 1}: ${p}`);
+  const yearNum = year ?? 7;
+
+  if (parts.length >= 2) {
+    return parts.map((p, i) => {
+      const pLower = p.toLowerCase();
+
+      // Add a small year-focused suffix so the lesson list isn't identical across years.
+      let suffix = "";
+      if (pLower.includes("place value")) {
+        suffix = yearNum === 7 ? " (foundations)" : yearNum === 8 ? " (compare bigger numbers)" : " (larger place values)";
+      } else if (pLower.includes("four operations") || pLower.includes("operations")) {
+        suffix = yearNum === 7 ? " (core skills)" : yearNum === 8 ? " (harder calculations)" : " (multi-step problems)";
+      } else if (pLower.includes("fraction")) {
+        suffix = yearNum === 7 ? " (parts of a whole)" : yearNum === 8 ? " (equivalent fractions)" : " (fraction problems)";
+      } else if (pLower.includes("decimal")) {
+        suffix = yearNum === 7 ? " (tenths + hundredths)" : yearNum === 8 ? " (ordering decimals)" : " (decimals in calculations)";
+      } else if (pLower.includes("percentage") || pLower.includes("percent")) {
+        suffix = yearNum === 7 ? " (simple percentages)" : yearNum === 8 ? " (discounts + scores)" : " (real-world percentage)";
+      }
+
+      return `Lesson ${i + 1}: ${p}${suffix}`;
+    });
+  }
   return [
     `Lesson 1: Introduction to ${topic.title}`,
     `Lesson 2: Key concepts`,
@@ -36,7 +61,11 @@ function getLessonTitlesForTopic(topic: { title: string; description: string }):
 }
 
 /** Lesson detail: intro, optional learning objectives, core concepts, example, lesson summary */
-function getLessonDetail(lessonTitle: string, topicTitle: string): {
+function getLessonDetail(
+  lessonTitle: string,
+  topicTitle: string,
+  year?: number,
+): {
   intro: string;
   learningObjectives?: string[];
   coreConcepts: { name: string; explanation: string }[];
@@ -45,9 +74,18 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
 } {
   const t = lessonTitle.toLowerCase();
   const topicLower = topicTitle.toLowerCase();
+  const yearNum = year ?? 7;
+  const yearLeadIn =
+    yearNum === 7
+      ? "In Year 7, you’ll build strong foundations. "
+      : yearNum === 8
+        ? "In Year 8, you’ll build on those foundations with deeper thinking. "
+        : "In Year 9, you’ll use these skills for more challenging questions. ";
   if (t.includes("place value")) {
     return {
-      intro: "Place value is one of the most important ideas in maths: the value of a digit depends on where it sits in the number. The 3 in 34 means 3 tens (30), but the 3 in 304 means 3 hundreds (300). This lesson explains how ones, tens, hundreds and thousands work, and why we use zero as a placeholder. Everything we do with larger numbers and decimals builds on place value.",
+      intro:
+        yearLeadIn +
+        "Place value is one of the most important ideas in maths: the value of a digit depends on where it sits in the number. The 3 in 34 means 3 tens (30), but the 3 in 304 means 3 hundreds (300). This lesson explains how ones, tens, hundreds and thousands work, and why we use zero as a placeholder. Everything we do with larger numbers and decimals builds on place value.",
       learningObjectives: [
         "Understand that each position in a number is a 'place' (ones, tens, hundreds, thousands).",
         "Work out the value of a digit using its place (digit × place value).",
@@ -61,12 +99,16 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
         { name: "Zero as placeholder", explanation: "When a place has no amount, we write 0 so that the other digits stay in the right places. In 2,507 the 0 means 'no tens'. Without the zero we would write 257, which is a different number. Zero is essential for writing numbers like 105, 2,007 and 30 correctly." },
       ],
       example: "In 2,507: 2 thousands (2 × 1000 = 2000), 5 hundreds (5 × 100 = 500), 0 tens (0 × 10 = 0), 7 ones (7 × 1 = 7). So 2,507 = 2000 + 500 + 0 + 7. We read it as 'two thousand, five hundred and seven'. The zero keeps the 5 in the hundreds place and the 7 in the ones place.",
-      lessonSummary: "You now know that each digit's value depends on its place; that we use base 10 (each place is 10× the one to the right); and that zero holds a place when there are no tens, hundreds, etc. Use this to read, write, compare and calculate with numbers confidently.",
+      lessonSummary:
+        yearLeadIn +
+        "You now know that each digit's value depends on its place; that we use base 10 (each place is 10× the one to the right); and that zero holds a place when there are no tens, hundreds, etc. Use this to read, write, compare and calculate with numbers confidently.",
     };
   }
   if (t.includes("four operations") || t.includes("operations")) {
     return {
-      intro: "The four operations—add, subtract, multiply and divide—are the building blocks of arithmetic. We use them to combine amounts, find differences, make equal groups, and share fairly.",
+      intro:
+        yearLeadIn +
+        "The four operations—add, subtract, multiply and divide—are the building blocks of arithmetic. We use them to combine amounts, find differences, make equal groups, and share fairly.",
       coreConcepts: [
         { name: "Addition (+)", explanation: "Putting amounts together. We add when we combine two or more groups or numbers to find the total." },
         { name: "Subtraction (−)", explanation: "Taking away or finding the difference. We subtract when we remove some or compare how much more or less one number is than another." },
@@ -74,12 +116,16 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
         { name: "Division (÷)", explanation: "Sharing equally or grouping. We divide when we split an amount into equal parts or put items into equal-sized groups." },
       ],
       example: "If you have 24 sweets and share them among 6 friends: 24 ÷ 6 = 4 sweets each.",
-      lessonSummary: "You have learned the four operations: add (combine), subtract (take away or difference), multiply (equal groups), and divide (share or group). Use them to solve real problems and always check your answer makes sense.",
+      lessonSummary:
+        yearLeadIn +
+        "You have learned the four operations: add (combine), subtract (take away or difference), multiply (equal groups), and divide (share or group). Use them to solve real problems and always check your answer makes sense.",
     };
   }
   if (t.includes("fraction")) {
     return {
-      intro: "Fractions are how we describe parts of a whole: half a pizza, a quarter of an hour, three fifths of the class. In this lesson we learn what the top and bottom numbers mean, how to find equivalent fractions, and why we need the same denominator when we add or subtract. These ideas are used in measuring, sharing and later in percentages and algebra.",
+      intro:
+        yearLeadIn +
+        "Fractions are how we describe parts of a whole: half a pizza, a quarter of an hour, three fifths of the class. In this lesson we learn what the top and bottom numbers mean, how to find equivalent fractions, and why we need the same denominator when we add or subtract. These ideas are used in measuring, sharing and later in percentages and algebra.",
       learningObjectives: [
         "Name and use the numerator and denominator correctly.",
         "Understand that a fraction is part of a whole split into equal parts.",
@@ -93,12 +139,16 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
         { name: "Same denominator", explanation: "To add or subtract fractions, we need the same denominator so we are comparing the same-sized parts. We can't add ½ and ⅓ directly until we write them with a common denominator (e.g. 3/6 + 2/6 = 5/6). Finding a common denominator is a key skill for fraction arithmetic." },
       ],
       example: "A pizza is cut into 4 equal slices. You eat 2 slices. You have eaten 2/4 of the pizza. 2/4 = ½ (divide numerator and denominator by 2), so we say you ate half the pizza. To add ½ + ¼: write ½ as 2/4, then 2/4 + ¼ = 3/4.",
-      lessonSummary: "You now know that the numerator is the number of parts we have and the denominator is the number of equal parts in the whole; that equivalent fractions represent the same amount; and that we need the same denominator to add or subtract fractions. Use this when sharing, measuring and in later topics like percentages.",
+      lessonSummary:
+        yearLeadIn +
+        "You now know that the numerator is the number of parts we have and the denominator is the number of equal parts in the whole; that equivalent fractions represent the same amount; and that we need the same denominator to add or subtract fractions. Use this when sharing, measuring and in later topics like percentages.",
     };
   }
   if (t.includes("decimal")) {
     return {
-      intro: "Decimals let us write numbers that are not whole: amounts between 0 and 1, or a mix of whole and parts (like 3.45). We use them for money (£3.45), measures (2.5 kg), and in almost every calculation. This lesson covers what the decimal point means, how tenths and hundredths work, and how to read, order and use decimals.",
+      intro:
+        yearLeadIn +
+        "Decimals let us write numbers that are not whole: amounts between 0 and 1, or a mix of whole and parts (like 3.45). We use them for money (£3.45), measures (2.5 kg), and in almost every calculation. This lesson covers what the decimal point means, how tenths and hundredths work, and how to read, order and use decimals.",
       learningObjectives: [
         "Understand that the decimal point separates whole numbers from parts of one.",
         "Read and write tenths and hundredths (0.1, 0.01, 0.25, etc.).",
@@ -112,12 +162,16 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
         { name: "Ordering and calculating", explanation: "To compare decimals, compare the digits in the same place (tenths with tenths, etc.). To add or subtract, align the decimal points so we are adding tenths to tenths and hundredths to hundredths. This keeps the place value correct." },
       ],
       example: "£3.45 means 3 pounds and 45 pence: 3 whole, 4 tenths and 5 hundredths of a pound. To add £1.30 + £2.45: align the decimals, add column by column: 1.30 + 2.45 = 3.75, so £3.75.",
-      lessonSummary: "You now know how the decimal point separates wholes from parts of one; how tenths and hundredths work and link to fractions; and how to read, order and use decimals in money and measures. Use this whenever you see numbers with a decimal point.",
+      lessonSummary:
+        yearLeadIn +
+        "You now know how the decimal point separates wholes from parts of one; how tenths and hundredths work and link to fractions; and how to read, order and use decimals in money and measures. Use this whenever you see numbers with a decimal point.",
     };
   }
   if (t.includes("percentage")) {
     return {
-      intro: "Percentages are everywhere: in shops (25% off), in tests (you got 80%), and in the news (e.g. 30% of people said yes). In this lesson we learn what a percentage really is, how it links to fractions and decimals, and how to work out simple percentages so you can use them in real life.",
+      intro:
+        yearLeadIn +
+        "Percentages are everywhere: in shops (25% off), in tests (you got 80%), and in the news (e.g. 30% of people said yes). In this lesson we learn what a percentage really is, how it links to fractions and decimals, and how to work out simple percentages so you can use them in real life.",
       learningObjectives: [
         "Understand that a percentage is a number out of 100 and what the % symbol means.",
         "Convert between percentages, fractions and decimals (e.g. 25% = ¼ = 0.25).",
@@ -131,7 +185,9 @@ function getLessonDetail(lessonTitle: string, topicTitle: string): {
         { name: "Real-life use", explanation: "We use percentages for discounts (e.g. 25% off means you pay 75% of the price), test scores (e.g. 18 out of 20 = 90%), and statistics (e.g. 60% of the class likes football). Understanding percentages helps you compare offers and interpret numbers correctly." },
       ],
       example: "A coat costs £20 and is 25% off. 25% of £20 = ¼ of 20 = £5, so you save £5 and pay £15. Alternatively: 10% of 20 = £2, so 20% = £4 and 5% = £1; 25% = 20% + 5% = £4 + £1 = £5. Same answer.",
-      lessonSummary: "You now know that a percentage is a number out of 100; how to convert between percentages, fractions and decimals; how to find 10% by dividing by 10 and use it to find other percentages; and how to use percentages in real situations like discounts and scores. Practise with the Practice and Assessment tabs.",
+      lessonSummary:
+        yearLeadIn +
+        "You now know that a percentage is a number out of 100; how to convert between percentages, fractions and decimals; how to find 10% by dividing by 10 and use it to find other percentages; and how to use percentages in real situations like discounts and scores. Practise with the Practice and Assessment tabs.",
     };
   }
   // Algebra — individual lessons matched specifically (most specific first)
@@ -5198,14 +5254,60 @@ function getAssessmentQuestionsForTopic(topic: { title: string }): {
   return base;
 }
 
-function LessonsTab({ topic }: { topic: { title: string; description: string } }) {
-  const lessons = getLessonTitlesForTopic(topic);
+function LessonsTab({
+  subjectId,
+  topicId,
+  topic,
+  year,
+}: {
+  subjectId?: string;
+  topicId?: string;
+  topic: { title: string; description: string; years: number[] };
+  year?: number;
+}) {
+  const yearNum = year ?? topic.years?.[0];
+  const lessons = getLessonTitlesForTopic(topic, yearNum);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(0);
   const selectedLesson = selectedIndex !== null ? lessons[selectedIndex] : null;
-  const detail = selectedLesson ? getLessonDetail(selectedLesson, topic.title) : null;
+  const detail = selectedLesson
+    ? getLessonDetail(selectedLesson, topic.title, yearNum)
+    : null;
   const canPrev = selectedIndex !== null && selectedIndex > 0;
   const canNext =
     selectedIndex !== null && selectedIndex >= 0 && selectedIndex < lessons.length - 1;
+
+  // Persist completion locally (renderer-side). This mirrors the “tick” UX of AI Academy,
+  // but uses localStorage since Learning Academy doesn't have a DB progress table yet.
+  const completionStorageKey = `learning-academy:lesson-complete:${subjectId ?? "unknown"}:${topicId ?? "unknown"}:${topic.title}:year:${yearNum ?? "unknown"}`;
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(completionStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setCompletedLessons(new Set(parsed.filter((v) => typeof v === "string")));
+    } catch (err) {
+      console.warn("[LearningAcademy] Failed to load lesson completion:", err);
+    }
+  }, [completionStorageKey]);
+
+  const toggleLessonComplete = (lessonTitle: string) => {
+    setCompletedLessons((prev) => {
+      const next = new Set(prev);
+      if (next.has(lessonTitle)) next.delete(lessonTitle);
+      else next.add(lessonTitle);
+      try {
+        localStorage.setItem(completionStorageKey, JSON.stringify(Array.from(next)));
+      } catch (err) {
+        console.warn("[LearningAcademy] Failed to persist lesson completion:", err);
+      }
+      return next;
+    });
+  };
+
+  const selectedIsComplete = selectedLesson ? completedLessons.has(selectedLesson) : false;
+  const yearLabel = yearNum ? `Year ${yearNum}` : "";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -5229,7 +5331,11 @@ function LessonsTab({ topic }: { topic: { title: string; description: string } }
                   {i + 1}
                 </span>
                 <p className="font-medium text-gray-900 dark:text-gray-100 text-sm break-words min-w-0">{title}</p>
-                <PlayCircle className="h-4 w-4 text-teal-500 shrink-0 ml-auto flex-shrink-0" />
+                {completedLessons.has(title) ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0 ml-auto flex-shrink-0" />
+                ) : (
+                  <PlayCircle className="h-4 w-4 text-teal-500 shrink-0 ml-auto flex-shrink-0" />
+                )}
               </button>
             </li>
           ))}
@@ -5238,6 +5344,9 @@ function LessonsTab({ topic }: { topic: { title: string; description: string } }
       <div className="lg:col-span-4 min-w-0 max-h-[calc(100vh-10rem)] overflow-y-auto overflow-x-hidden">
         {detail ? (
           <div className="p-8 pb-16 rounded-2xl bg-white dark:bg-gray-900 shadow-lg space-y-8 w-full">
+            <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+              {yearLabel}
+            </div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-3">
               {selectedLesson}
             </h2>
@@ -5260,6 +5369,35 @@ function LessonsTab({ topic }: { topic: { title: string; description: string } }
               >
                 Next
                 <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-start pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!selectedLesson) return;
+                  if (selectedIsComplete) return;
+                  toggleLessonComplete(selectedLesson);
+                }}
+                disabled={selectedIsComplete}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold shadow-md ${
+                  selectedIsComplete
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-teal-50 text-teal-800 hover:bg-teal-100 dark:bg-teal-900/20 dark:text-teal-200 dark:hover:bg-teal-900/30"
+                } ${selectedIsComplete ? "opacity-90 cursor-not-allowed" : ""}`}
+              >
+                {selectedIsComplete ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Completed
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Mark as Complete
+                  </>
+                )}
               </button>
             </div>
 
@@ -5470,6 +5608,9 @@ function AssessmentTab({
 
 export function LearningAcademyCurriculumTopic() {
   const { subjectId, topicId } = useParams({ from: "/learning-academy/curriculum/$subjectId/$topicId" });
+  const search = useSearch({ from: "/learning-academy/curriculum/$subjectId/$topicId" }) as {
+    year?: number;
+  };
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("explain");
 
@@ -5482,9 +5623,14 @@ export function LearningAcademyCurriculumTopic() {
   const nextTopic =
     topicIndex >= 0 && topicIndex < orderedTopics.length - 1 ? orderedTopics[topicIndex + 1] : null;
 
+  const selectedYear =
+    topic && search.year && topic.years.includes(search.year as any)
+      ? search.year
+      : topic?.years?.[0] ?? 7;
+
   const handleBackToSubject = () => {
     if (subjectId) {
-      const year = topic?.years?.[0];
+      const year = selectedYear;
       router.navigate({
         to: "/learning-academy/curriculum",
         search: year ? { subjectId, year } : { subjectId },
@@ -5529,7 +5675,7 @@ export function LearningAcademyCurriculumTopic() {
               {topic.title}
             </h1>
             <span className="text-gray-500 dark:text-gray-400 text-sm shrink-0">
-              {subject.title} · Year {topic.years.join(", ")}
+              Year {selectedYear}
             </span>
           </div>
         </div>
@@ -5596,7 +5742,7 @@ export function LearningAcademyCurriculumTopic() {
       )}
 
       {activeTab === "lessons" && (
-        <LessonsTab topic={topic} />
+        <LessonsTab subjectId={subjectId} topicId={topicId} topic={topic} year={selectedYear} />
       )}
 
       {activeTab === "practice" && (

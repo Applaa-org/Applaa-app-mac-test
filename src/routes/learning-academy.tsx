@@ -35,6 +35,10 @@ export const learningAcademyCurriculumTopicRoute = createRoute({
   getParentRoute: () => learningAcademyRoute,
   path: "curriculum/$subjectId/$topicId",
   component: LearningAcademyCurriculumTopic,
+  validateSearch: z.object({
+    // Used to render the correct "Year X" lesson content variant.
+    year: z.coerce.number().optional(),
+  }),
 });
 
 export const learningAcademyScheduleRoute = createRoute({
