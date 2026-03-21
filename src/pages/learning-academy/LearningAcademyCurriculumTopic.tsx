@@ -24,94 +24,239 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
   { id: "assessment", label: "Assessment", icon: ClipboardCheck },
 ];
 
-/** Derive lesson titles from topic description (varies slightly by year for progression) */
+/** Tier word shifts with the year filter so titles never look copy-pasted across levels. */
+function getYearLessonTierWord(yearNum: number): string {
+  if (yearNum <= 7) return "soft";
+  if (yearNum === 8) return "growing";
+  if (yearNum === 9) return "firm";
+  if (yearNum === 10) return "sharp";
+  if (yearNum === 11) return "peak";
+  return "core";
+}
+
+/** Cycles per lesson index so adjacent lessons read distinct at the same tier. */
+const LESSON_ANGLE_WORDS = ["spotlight", "deepening", "lab", "synthesis", "checkpoint"] as const;
+
+function getLessonAngleWord(lessonIndex: number): string {
+  return LESSON_ANGLE_WORDS[lessonIndex % LESSON_ANGLE_WORDS.length];
+}
+
+/**
+ * Strip "Lesson N:" and trailing " · {tier} · {angle}" so matching logic and generic lesson copy
+ * still use the curriculum phrase (e.g. "Place value (foundations)").
+ */
+function lessonTitleCorePhrase(lessonTitle: string): string {
+  const withoutLesson = lessonTitle.replace(/^Lesson \d+:\s*/i, "").trim();
+  const parts = withoutLesson.split(/\s·\s/);
+  if (parts.length >= 3) return parts.slice(0, -2).join(" · ").trim();
+  return withoutLesson;
+}
+
+/** Keyword-specific progression hint in the title (still no year number in the string). */
+function getTopicPhraseTitleSuffix(pLower: string, yearNum: number): string {
+  const y = yearNum;
+  const pick = (a7: string, a8: string, a9: string, a10: string, a11: string) =>
+    y <= 7 ? a7 : y === 8 ? a8 : y === 9 ? a9 : y === 10 ? a10 : a11;
+
+  if (pLower.includes("place value")) {
+    return pick(
+      "(foundations)",
+      "(compare bigger numbers)",
+      "(multi-step number sense)",
+      "(extended calculations)",
+      "(formal accuracy focus)",
+    );
+  }
+  if (pLower.includes("four operations") || (pLower.includes("operations") && !pLower.includes("transformation"))) {
+    return pick("(core skills)", "(harder calculations)", "(multi-step problems)", "(formal methods & accuracy)", "(timed working practice)");
+  }
+  if (pLower.includes("fraction")) {
+    return pick("(parts of a whole)", "(equivalent fractions)", "(fraction arithmetic)", "(advanced fraction skills)", "(fraction problem focus)");
+  }
+  if (pLower.includes("decimal")) {
+    return pick("(tenths + hundredths)", "(ordering decimals)", "(decimals in calculations)", "(formal decimal methods)", "(decimal problem focus)");
+  }
+  if (pLower.includes("percentage") || pLower.includes("percent")) {
+    return pick("(simple percentages)", "(discounts + scores)", "(percentage problems)", "(formal percentage methods)", "(percentage problem focus)");
+  }
+  if (pLower.includes("expression")) {
+    return pick("(first symbols)", "(simplify & substitute)", "(mixed expressions)", "(formal notation)", "(precise manipulation)");
+  }
+  if (pLower.includes("equation")) {
+    return pick("(balance idea)", "(two-step flows)", "(harder unknowns)", "(multi-step linear)", "(advanced rearranging)");
+  }
+  if (pLower.includes("sequence")) {
+    return pick("(spot the pattern)", "(term rules)", "(nth-term intro)", "(nth-term fluency)", "(sequence problems)");
+  }
+  if (pLower.includes("formulae") || pLower.includes("formula")) {
+    return pick("(rules in words)", "(substitute values)", "(rearrange intro)", "(rearrange fluency)", "(formulae in context)");
+  }
+  if (pLower.includes("shape")) {
+    return pick("(name & sort)", "(properties)", "(compare shapes)", "(reason about properties)", "(proof-style reasoning)");
+  }
+  if (pLower.includes("angle")) {
+    return pick("(meet angles)", "(measure & estimate)", "(angle rules)", "(multi-step angles)", "(angle chains)");
+  }
+  if (pLower.includes("area") || pLower.includes("perimeter")) {
+    return pick("(count squares)", "(formulae intro)", "(compound shapes)", "(multi-step measure)", "(measure problems)");
+  }
+  if (pLower.includes("volume")) {
+    return pick("(packing cubes)", "(cuboid rule)", "(capacity links)", "(complex solids)", "(volume problems)");
+  }
+  if (pLower.includes("unit") && pLower.includes("measure")) {
+    return pick("(choose units)", "(convert intro)", "(convert fluency)", "(compound units)", "(accuracy focus)");
+  }
+  if (pLower.includes("average") || pLower.includes("chart") || pLower.includes("table")) {
+    return pick("(read charts)", "(summarise data)", "(compare datasets)", "(interpret trends)", "(evaluate claims)");
+  }
+  if (pLower.includes("probability")) {
+    return pick("(fair & unfair)", "(scale 0–1)", "(combined events intro)", "(tree & tables)", "(harder chance)");
+  }
+  if (pLower.includes("ratio") || pLower.includes("proportion") || pLower.includes("scale")) {
+    return pick("(share fairly)", "(equivalent ratios)", "(unitary method)", "(direct proportion)", "(multi-step ratio)");
+  }
+  if (
+    pLower.includes("trigonometry") ||
+    pLower.includes("sin") ||
+    pLower.includes("cos") ||
+    pLower.includes("tan") ||
+    pLower.includes("right-angled") ||
+    pLower.includes("right angled")
+  ) {
+    return pick("(right-angle recap)", "(name sides)", "(ratio idea)", "(calculate lengths)", "(solve triangles)");
+  }
+  if (
+    pLower.includes("gradient") ||
+    pLower.includes("rate of change") ||
+    pLower.includes("rates of change") ||
+    pLower.includes("calculus")
+  ) {
+    return pick("(steepness stories)", "(from graph to meaning)", "(average change)", "(instant ideas)", "(interpret graphs)");
+  }
+  if (pLower.includes("force") || pLower.includes("push") || pLower.includes("pull")) {
+    return pick("(feel forces)", "(name effects)", "(resultant intro)", "(free-body thinking)", "(quantify forces)");
+  }
+  if (pLower.includes("gravity")) {
+    return pick("(things fall)", "(weight vs mass idea)", "(gravity daily)", "(gravity & motion)", "(gravity calculations)");
+  }
+  if (pLower.includes("friction")) {
+    return pick("(grip & slide)", "(where friction helps)", "(speed & friction)", "(heat from friction)", "(friction in design)");
+  }
+  if (pLower.includes("light") || pLower.includes("shadow") || pLower.includes("reflection")) {
+    return pick("(sources & shadows)", "(straight-line travel)", "(reflect & refract)", "(diagram skills)", "(explain phenomena)");
+  }
+  if (pLower.includes("sound") || pLower.includes("vibrat")) {
+    return pick("(hear & feel)", "(pitch & volume)", "(sound travel)", "(waves idea)", "(sound applications)");
+  }
+  if (pLower.includes("circuit") || pLower.includes("electric") || pLower.includes("conductor") || pLower.includes("insulator")) {
+    return pick("(make a loop)", "(components)", "(conductors vs insulators)", "(series ideas)", "(circuit reasoning)");
+  }
+  if (pLower.includes("energy") || pLower.includes("conservation")) {
+    return pick("(energy stories)", "(stores & transfers)", "(pathways)", "(sankey thinking)", "(quantify transfers)");
+  }
+  if (pLower.includes("speed") || pLower.includes("distance") || pLower.includes("motion") || pLower.includes("graph")) {
+    return pick("(fast vs slow)", "(measure motion)", "(speed calc)", "(graphs of motion)", "(interpret graphs)");
+  }
+  if (pLower.includes("solid") || pLower.includes("liquid") || pLower.includes("gas") || pLower.includes("particle")) {
+    return pick("(observe states)", "(particle pictures)", "(changes of state)", "(model explanations)", "(predict behaviour)");
+  }
+  if (pLower.includes("rock") || pLower.includes("fossil") || pLower.includes("soil")) {
+    return pick("(sort materials)", "(how rocks form)", "(evidence in rock)", "(soil & life)", "(Earth processes)");
+  }
+  if (pLower.includes("acid") || pLower.includes("alkali") || pLower.includes("indicator") || pLower.includes("reaction")) {
+    return pick("(safe observations)", "(sort substances)", "(word equations)", "(symbol equations)", "(explain patterns)");
+  }
+  if (pLower.includes("plant") || pLower.includes("photosynthesis")) {
+    return pick("(parts & jobs)", "(what plants need)", "(photosynthesis story)", "(factors & rate)", "(evaluate models)");
+  }
+  if (pLower.includes("living") || pLower.includes("habitat") || pLower.includes("classif")) {
+    return pick("(life signs)", "(sort organisms)", "(adaptations)", "(food webs)", "(evaluate evidence)");
+  }
+  if (pLower.includes("evolution") || pLower.includes("inheritance") || pLower.includes("variation")) {
+    return pick("(differences)", "(traits)", "(adaptation)", "(selection idea)", "(genetics link)");
+  }
+  if (pLower.includes("nutrition") || pLower.includes("exercise") || pLower.includes("health")) {
+    return pick("(fuel for life)", "(balanced living)", "(body systems)", "(lifestyle & risk)", "(evaluate health claims)");
+  }
+  if (pLower.includes("algorithm") || pLower.includes("decomposition")) {
+    return pick("(precise steps)", "(patterns)", "(debug logic)", "(efficiency idea)", "(compare approaches)");
+  }
+  if (pLower.includes("program") || pLower.includes("coding") || pLower.includes("loop")) {
+    return pick("(first program)", "(variables)", "(branch & repeat)", "(structure code)", "(test & refactor)");
+  }
+  if (
+    pLower.includes("comprehension") ||
+    pLower.includes("inference") ||
+    pLower.includes("reading") ||
+    pLower.includes("writer") ||
+    pLower.includes("analysis")
+  ) {
+    return pick("(literal meaning)", "(read between lines)", "(writer’s purpose)", "(compare texts)", "(evaluate craft)");
+  }
+  if (pLower.includes("writing") || pLower.includes("grammar") || pLower.includes("vocabulary")) {
+    return pick("(clear sentences)", "(paragraph flow)", "(tone & audience)", "(structure pieces)", "(edit for impact)");
+  }
+  if (pLower.includes("presentation") || pLower.includes("spoken") || pLower.includes("discussion")) {
+    return pick("(speak clearly)", "(listen well)", "(build arguments)", "(formal talk)", "(debate with respect)");
+  }
+  if (pLower.includes("poetry") || pLower.includes("drama") || pLower.includes("prose") || pLower.includes("literature")) {
+    return pick("(enjoy the text)", "(key techniques)", "(compare extracts)", "(context & meaning)", "(timed analysis)");
+  }
+  if (pLower.includes("source") || pLower.includes("evidence") || pLower.includes("historical")) {
+    return pick("(what is a source)", "(bias intro)", "(weigh evidence)", "(support a claim)", "(essay planning)");
+  }
+  if (pLower.includes("river") || pLower.includes("coast") || pLower.includes("weather") || pLower.includes("climate")) {
+    return pick("(observe processes)", "(name features)", "(explain formation)", "(human interaction)", "(evaluate change)");
+  }
+  if (pLower.includes("population") || pLower.includes("urban") || pLower.includes("development")) {
+    return pick("(where people live)", "(push & pull)", "(city growth)", "(development stories)", "(evaluate policies)");
+  }
+  if (pLower.includes("fieldwork")) {
+    return pick("(observe safely)", "(record data)", "(simple graphs)", "(draw conclusions)", "(evaluate method)");
+  }
+  if (pLower.includes("belief") || pLower.includes("worship") || pLower.includes("religion")) {
+    return pick("(respect & listen)", "(key ideas)", "(compare practices)", "(deep questions)", "(dialogue skills)");
+  }
+  if (pLower.includes("ethic") || pLower.includes("moral") || pLower.includes("philosophy")) {
+    return pick("(fairness)", "(arguments)", "(counterpoints)", "(case studies)", "(balanced judgement)");
+  }
+  if (pLower.includes("listening") || pLower.includes("french") || pLower.includes("spanish") || pLower.includes("german")) {
+    return pick("(key words)", "(short texts)", "(gist & detail)", "(opinions)", "(authentic speed)");
+  }
+  if (pLower.includes("budget") || pLower.includes("money") || pLower.includes("income")) {
+    return pick("(needs vs wants)", "(simple budgets)", "(saving habit)", "(interest idea)", "(plan a project)");
+  }
+  if (pLower.includes("customer") || pLower.includes("market")) {
+    return pick("(who buys)", "(value idea)", "(simple research)", "(position a product)", "(evaluate a pitch)");
+  }
+  return "";
+}
+
+/** Derive lesson titles from topic description (varies by year + lesson slot) */
 function getLessonTitlesForTopic(
   topic: { title: string; description: string },
   year?: number,
 ): string[] {
   const parts = topic.description.split(/[,.]/).map((s) => s.trim()).filter(Boolean);
   const yearNum = year ?? 7;
+  const tier = getYearLessonTierWord(yearNum);
 
   if (parts.length >= 2) {
     return parts.map((p, i) => {
       const pLower = p.toLowerCase();
-
-      // Add a small year-focused suffix so the lesson list isn't identical across years.
-      let suffix = "";
-      if (pLower.includes("place value")) {
-        suffix =
-          yearNum === 7
-            ? " (foundations)"
-            : yearNum === 8
-              ? " (compare bigger numbers)"
-              : yearNum === 9
-                ? " (multi-step number sense)"
-                : yearNum === 10
-                  ? " (extended calculations)"
-                  : yearNum === 11
-                    ? " (formal accuracy focus)"
-                    : " (place value extension)";
-      } else if (pLower.includes("four operations") || pLower.includes("operations")) {
-        suffix =
-          yearNum === 7
-            ? " (core skills)"
-            : yearNum === 8
-              ? " (harder calculations)"
-              : yearNum === 9
-                ? " (multi-step problems)"
-                : yearNum === 10
-                  ? " (formal methods & accuracy)"
-                  : yearNum === 11
-                    ? " (timed working practice)"
-                    : " (arithmetic extension)";
-      } else if (pLower.includes("fraction")) {
-        suffix =
-          yearNum === 7
-            ? " (parts of a whole)"
-            : yearNum === 8
-              ? " (equivalent fractions)"
-              : yearNum === 9
-                ? " (fraction arithmetic)"
-                : yearNum === 10
-                  ? " (advanced fraction skills)"
-                  : yearNum === 11
-                    ? " (fraction problem focus)"
-                    : " (fraction extension)";
-      } else if (pLower.includes("decimal")) {
-        suffix =
-          yearNum === 7
-            ? " (tenths + hundredths)"
-            : yearNum === 8
-              ? " (ordering decimals)"
-              : yearNum === 9
-                ? " (decimals in calculations)"
-                : yearNum === 10
-                  ? " (formal decimal methods)"
-                  : yearNum === 11
-                    ? " (decimal problem focus)"
-                    : " (decimal extension)";
-      } else if (pLower.includes("percentage") || pLower.includes("percent")) {
-        suffix =
-          yearNum === 7
-            ? " (simple percentages)"
-            : yearNum === 8
-              ? " (discounts + scores)"
-              : yearNum === 9
-                ? " (percentage problems)"
-                : yearNum === 10
-                  ? " (formal percentage methods)"
-                  : yearNum === 11
-                    ? " (percentage problem focus)"
-                    : " (percentage extension)";
-      }
-
-      return `Lesson ${i + 1}: ${p}${suffix}`;
+      const kw = getTopicPhraseTitleSuffix(pLower, yearNum);
+      const suffix = kw ? ` ${kw}` : "";
+      const angle = getLessonAngleWord(i);
+      return `Lesson ${i + 1}: ${p}${suffix} · ${tier} · ${angle}`;
     });
   }
+  const a0 = getLessonAngleWord(0);
+  const a1 = getLessonAngleWord(1);
+  const a2 = getLessonAngleWord(2);
   return [
-    `Lesson 1: Introduction to ${topic.title}`,
-    `Lesson 2: Key concepts`,
-    `Lesson 3: Applying ${topic.title}`,
+    `Lesson 1: Introduction to ${topic.title} · ${tier} · ${a0}`,
+    `Lesson 2: Key concepts for ${topic.title} · ${tier} · ${a1}`,
+    `Lesson 3: Applying ${topic.title} · ${tier} · ${a2}`,
   ];
 }
 
@@ -2608,7 +2753,7 @@ function getLessonDetail(
     }
   }
 
-  const focus = lessonTitle.replace(/^Lesson \d+:\s*/i, "").trim() || topicTitle;
+  const focus = lessonTitleCorePhrase(lessonTitle) || topicTitle;
   const generic = pickLessonBand(yearNum, {
     y7: {
       intro: `This lesson is about ${focus} inside the topic ${topicTitle}. You’ll meet the idea in plain language first: what it is, one picture or story that helps you remember it, and a very short example. Don’t worry about formal wording yet — aim to explain it to a friend in simple words.`,
@@ -2681,6 +2826,47 @@ function getLessonDetail(
     coreConcepts: generic.core,
     example: generic.example,
     lessonSummary: yearLeadIn + generic.summary,
+  };
+}
+
+type LessonDetailPayload = {
+  intro: string;
+  learningObjectives?: string[];
+  coreConcepts: { name: string; explanation: string }[];
+  example: string;
+  lessonSummary: string;
+};
+
+/** Extra band-specific guidance so every lesson feels a step harder/softer with the year filter (no year label in text). */
+function deepenLessonByYear(detail: LessonDetailPayload, yearNum: number): LessonDetailPayload {
+  const band = lessonYearBand(yearNum);
+  const introExtra =
+    band === "y7"
+      ? " Take a moment to connect each new idea to something you can sketch, act out, or point at before moving on."
+      : band === "y89"
+        ? " After each core concept, add one sentence that links it to another idea you already know (here or in another topic)."
+        : " Aim for tight vocabulary, explicit intermediate steps, and a quick sanity-check on every numeric or logical result.";
+  const summaryExtra =
+    band === "y7"
+      ? " Try teaching the lesson aloud in under a minute—note any phrase that still feels vague and reread just that part."
+      : band === "y89"
+        ? " Write one follow-up question of your own that needs two ideas from this lesson in the same answer."
+        : " Redo the hardest step without notes, then align your working and wording with the lesson line by line.";
+  const objectivePush =
+    band === "y7"
+      ? "Say each new term aloud with a picture or action that fits its meaning."
+      : band === "y89"
+        ? "Name one link between this lesson and a different part of the same topic."
+        : "Produce one line of working that would clearly earn credit in a formal mark scheme.";
+
+  return {
+    ...detail,
+    intro: detail.intro + introExtra,
+    lessonSummary: detail.lessonSummary + summaryExtra,
+    learningObjectives:
+      detail.learningObjectives && detail.learningObjectives.length > 0
+        ? [...detail.learningObjectives, objectivePush]
+        : detail.learningObjectives,
   };
 }
 
@@ -5755,7 +5941,7 @@ function LessonsTab({
   const [selectedIndex, setSelectedIndex] = useState<number | null>(0);
   const selectedLesson = selectedIndex !== null ? lessons[selectedIndex] : null;
   const detail = selectedLesson
-    ? getLessonDetail(selectedLesson, topic.title, yearNum)
+    ? deepenLessonByYear(getLessonDetail(selectedLesson, topic.title, yearNum), yearNum)
     : null;
   const canPrev = selectedIndex !== null && selectedIndex > 0;
   const canNext =
