@@ -77,11 +77,24 @@ const ignore = (file: string) => {
 
 const isEndToEndTestBuild = process.env.E2E_TEST_BUILD === "true";
 
-// GitHub Actions: cert script creates this keychain; pass it to osx-sign so codesign finds Developer ID
+// GitHub Actions: cert script creates this keychain; pass it to osx-sign so codesign finds the cert
 const ciMacosKeychainPath =
   process.env.RUNNER_TEMP
     ? path.join(process.env.RUNNER_TEMP, "app-signing.keychain-db")
     : undefined;
+
+// CI: APPLE_SIGNING_IDENTITY should match the cert (e.g. "Apple Development: Name (TEAMID)" or "Developer ID Application: …").
+// Apple Development ≠ Developer ID: dev certs cannot use hardened runtime + notarization the same way as distribution.
+const signingIdentityRaw = process.env.APPLE_SIGNING_IDENTITY?.trim();
+const signingIdentity =
+  signingIdentityRaw && signingIdentityRaw.length > 0
+    ? signingIdentityRaw
+    : process.env.CI
+      ? undefined
+      : "Developer ID Application: Applaa Ltd (P7VCYRVVPQ)";
+const isAppleDevelopmentLike =
+  Boolean(signingIdentity?.includes("Apple Development")) ||
+  Boolean(signingIdentity?.includes("Mac Developer:"));
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -96,10 +109,9 @@ const config: ForgeConfig = {
     asar: true,
     // Code signing (do not use signature-flags "library" on the main app — it breaks sealing / Resources)
     osxSign: {
-      identity:
-        process.env.APPLE_SIGNING_IDENTITY ||
-        "Developer ID Application: Applaa Ltd (P7VCYRVVPQ)",
-      hardenedRuntime: true,
+      ...(signingIdentity ? { identity: signingIdentity } : {}),
+      // Apple Development certs + hardened runtime often fail with "no resources but signature indicates…"
+      hardenedRuntime: !isAppleDevelopmentLike,
       entitlements: "entitlements.plist",
       "entitlements-inherit": "entitlements.plist",
       "gatekeeper-assess": false,
@@ -107,9 +119,12 @@ const config: ForgeConfig = {
         ? { keychain: ciMacosKeychainPath }
         : {}),
     } as any,
-    // Notarization
+    // Notarization (requires Developer ID distribution cert; not for Apple Development)
     osxNotarize:
-      process.platform === 'darwin' && process.env.APPLE_ID && (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD)
+      process.platform === "darwin" &&
+      !isAppleDevelopmentLike &&
+      process.env.APPLE_ID &&
+      (process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_PASSWORD)
         ? {
           tool: "notarytool",
           appleId: process.env.APPLE_ID as string,

@@ -89,11 +89,6 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - name: Rebuild native modules for Electron
-        run: |
-          echo "Rebuilding native modules for Electron..."
-          npx electron-rebuild --only=better-sqlite3 --force
-        shell: bash
       - name: Set up certificate
         run: |
           echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
@@ -145,6 +140,8 @@ jobs:
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          # Optional override; if unset we auto-pick the first codesign identity from the keychain (must match .p12)
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           NODE_OPTIONS: "--max-old-space-size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
@@ -156,6 +153,11 @@ jobs:
           chmod +x tools/add-macos-cert.sh
           . ./tools/add-macos-cert.sh
           security find-identity -v -p codesigning || true
+          if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            export APPLE_SIGNING_IDENTITY
+            APPLE_SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(.*\)"/\1/p' | head -1)
+          fi
+          echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
           npm run publish
 
   verify-assets:
