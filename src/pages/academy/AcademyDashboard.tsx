@@ -2,9 +2,10 @@ import React from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { IpcClient } from "@/ipc/ipc_client";
-import { BookOpen, Code2, FolderKanban, ArrowRight, Trophy, Sparkles } from "lucide-react";
+import { BookOpen, Code2, FolderKanban, ArrowRight, Trophy, Sparkles, Flame } from "lucide-react";
 import { ACADEMY_LESSONS } from "@/data/academyLessons";
 import { ACADEMY_MEDALS, getUnlockedMedals } from "@/data/academyMedals";
+import { getAcademyStreakStats } from "@/lib/academyStreak";
 
 // Order: Web, Python, JS, React, TypeScript, AI (next after TypeScript). Single source: lessons in Learn only.
 const TRACKS: { id: keyof typeof ACADEMY_LESSONS; label: string; emoji: string; color: string }[] = [
@@ -28,6 +29,7 @@ export function AcademyDashboard() {
   const pythonDone = progress?.pythonCompleted?.length ?? 0;
   const jsDone = progress?.javascriptCompleted?.length ?? 0;
   const projectCount = progress?.projectCount ?? 0;
+  const streakStats = getAcademyStreakStats();
 
   const stats = {
     pythonCompleted: pythonDone,
@@ -35,6 +37,7 @@ export function AcademyDashboard() {
     projectCount,
     pythonTotal,
     jsTotal,
+    streakBest: streakStats.best,
   };
   const unlockedMedals = getUnlockedMedals(stats);
 
@@ -46,7 +49,7 @@ export function AcademyDashboard() {
   const getTotal = (track: keyof typeof ACADEMY_LESSONS) => ACADEMY_LESSONS[track]?.length ?? 0;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 w-full max-w-[1600px] mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
         <Sparkles className="h-7 w-7 text-amber-500" />
         Your Progress
@@ -54,6 +57,16 @@ export function AcademyDashboard() {
       <p className="text-gray-600 dark:text-gray-400 mb-6">
         Start with Web, then Python, JavaScript, React, and TypeScript. Basics to expert – all lessons live in Learn (no duplication).
       </p>
+
+      {(streakStats.current > 0 || streakStats.best > 0) && (
+        <div className="rounded-xl border border-orange-200 dark:border-orange-900/40 bg-orange-50/80 dark:bg-orange-950/25 px-4 py-3 mb-6 flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
+          <Flame className="h-5 w-5 text-orange-500 shrink-0" />
+          <span>
+            Learning streak: <strong>{streakStats.current}</strong> day
+            {streakStats.current === 1 ? "" : "s"} (best: {streakStats.best})
+          </span>
+        </div>
+      )}
 
       {unlockedMedals.length > 0 && (
         <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-4 mb-8">

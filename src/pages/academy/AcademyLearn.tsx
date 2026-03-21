@@ -15,12 +15,20 @@ import {
 } from "@/data/academyBlocks";
 import { AcademyCodeEditor } from "@/components/academy/AcademyCodeEditor";
 import { AcademyAiTutor } from "@/components/academy/AcademyAiTutor";
+import { AcademyLessonInteractiveQuiz } from "@/components/academy/AcademyLessonInteractiveQuiz";
 import { CopyableCodeBlock } from "@/components/academy/CopyableCodeBlock";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, BookOpen, Code2, Sparkles, Lightbulb } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, BookOpen, Code2, Sparkles, Lightbulb, ClipboardCheck, GraduationCap, Printer } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+import { recordAcademyLessonComplete, getAcademyStreakStats } from "@/lib/academyStreak";
+import { printAcademyRevisionSheet } from "@/lib/academyRevisionPrint";
 
 type LearnTrack = AcademyTrack | "basics" | ConceptBlockId;
+
+/** Match Learning Academy topic pages: use horizontal space in the main pane (not a narrow centered column). */
+const ACADEMY_MAIN_MAX =
+  "w-full max-w-[1600px] mx-auto";
 
 // Order: Web first, then Python, JS, React, TypeScript, C++ (basics to expert). No duplication – single source in Learn.
 const TRACKS: { id: LearnTrack; label: string }[] = [
@@ -63,7 +71,7 @@ function BlockSubTopicDetail({
   const nextSub = conceptBlock && idx >= 0 && idx < conceptBlock.subTopics.length - 1 ? conceptBlock.subTopics[idx + 1] : null;
 
   return (
-    <div className="p-6 w-full max-w-7xl mx-auto space-y-8">
+    <div className={cn("p-6 space-y-8", ACADEMY_MAIN_MAX)}>
       <button
         type="button"
         onClick={() =>
@@ -184,6 +192,7 @@ export function AcademyLearn() {
   const subTopicId = search.subTopicId;
   const [challengeCode, setChallengeCode] = useState<Record<string, string>>({});
   const [showMoreExamples, setShowMoreExamples] = useState(false);
+  const [streakDays, setStreakDays] = useState(() => getAcademyStreakStats().current);
   const queryClient = useQueryClient();
   const ipc = IpcClient.getInstance();
 
@@ -195,7 +204,11 @@ export function AcademyLearn() {
   const completeLesson = useMutation({
     mutationFn: (params: { track: AcademyTrack; lessonId: string }) =>
       ipc.academyCompleteLesson(params),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["academy-progress"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["academy-progress"] });
+      recordAcademyLessonComplete();
+      setStreakDays(getAcademyStreakStats().current);
+    },
   });
 
   const isBasics = track === "basics";
@@ -233,7 +246,7 @@ export function AcademyLearn() {
       idx >= 0 && idx < ACADEMY_BASICS.length - 1 ? ACADEMY_BASICS[idx + 1] : null;
 
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className={cn("p-6 space-y-6", ACADEMY_MAIN_MAX)}>
         <button
           type="button"
           onClick={() =>
@@ -337,7 +350,7 @@ export function AcademyLearn() {
     const code = challengeCode[codeKey] ?? starter;
     const hasExtraExamples = lesson.extraExamples && lesson.extraExamples.length > 0;
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-8">
+      <div className={cn("p-6 space-y-8", ACADEMY_MAIN_MAX)}>
         <button
           type="button"
           onClick={() =>
@@ -353,15 +366,109 @@ export function AcademyLearn() {
         </button>
 
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            {lesson.title}
-          </h1>
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {lesson.title}
+            </h1>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0"
+              title="Prints the full lesson revision: summary, all code examples, mini challenge (and starter if any), and quiz with answers. Long lessons print on multiple pages."
+              onClick={() =>
+                printAcademyRevisionSheet({
+                  lessonTitle: lesson.title,
+                  trackLabel: TRACK_LABELS[track],
+                  explanation: lesson.explanation,
+                  miniChallenge: lesson.miniChallenge,
+                  quiz: lesson.quiz,
+                  exampleCode: lesson.exampleCode,
+                  extraExamples: lesson.extraExamples,
+                  challengeStarterCode: lesson.challengeStarterCode,
+                })
+              }
+            >
+              <Printer className="h-4 w-4" />
+              Print lesson sheet
+            </Button>
+          </div>
+          {canMarkComplete && streakDays > 0 && (
+            <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+              Learning streak: {streakDays} day{streakDays === 1 ? "" : "s"}
+            </p>
+          )}
           <div className="prose dark:prose-invert max-w-none">
             <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
               {lesson.explanation}
             </p>
           </div>
         </div>
+
+        <nav
+          className={cn(
+            "sticky top-0 z-20 mb-4 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 shadow-sm backdrop-blur",
+            "border-indigo-200 bg-white/95 dark:border-indigo-900/50 dark:bg-gray-950/90",
+          )}
+          aria-label="Jump to lesson sections"
+        >
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400 mr-1">
+            Jump to
+          </span>
+          {[
+            { href: "#lesson-example", label: "Example", icon: Code2 },
+            { href: "#lesson-challenge", label: "Challenge", icon: Sparkles },
+            { href: "#lesson-quiz", label: "Quiz", icon: ClipboardCheck },
+            { href: "#lesson-revision", label: "Revision", icon: GraduationCap },
+          ].map(({ href, label, icon: Icon }) => (
+            <a
+              key={href}
+              href={href}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-100 px-2.5 py-1.5 text-xs font-semibold text-indigo-900 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-100 dark:hover:bg-indigo-800/80"
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              {label}
+            </a>
+          ))}
+        </nav>
+
+        <section
+          id="lesson-revision"
+          className="scroll-mt-28 rounded-2xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 dark:border-amber-800/40 dark:from-amber-950/35 dark:to-orange-950/25"
+        >
+          <h2 className="text-sm font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2 mb-2">
+            <Lightbulb className="h-4 w-4 text-amber-600" />
+            How to learn this lesson (for kids)
+          </h2>
+          <ul className="text-sm text-amber-950/90 dark:text-amber-100/90 space-y-1.5 list-disc pl-5">
+            <li>Read the lesson once, then try the example in your head.</li>
+            <li>Type the code yourself in the challenge — it sticks better than only reading.</li>
+            <li>Take the quiz at the end to check what you remember.</li>
+            <li>
+              Stuck? Tap <strong>Appy</strong> at the top-right (or the tutor tab on the edge) and ask a question.
+            </li>
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a
+              href="#lesson-example"
+              className="inline-flex items-center rounded-lg bg-white/80 px-3 py-1.5 text-xs font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-white dark:bg-gray-900/80 dark:text-amber-100 dark:ring-amber-800"
+            >
+              Jump to example
+            </a>
+            <a
+              href="#lesson-challenge"
+              className="inline-flex items-center rounded-lg bg-white/80 px-3 py-1.5 text-xs font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-white dark:bg-gray-900/80 dark:text-amber-100 dark:ring-amber-800"
+            >
+              Jump to code challenge
+            </a>
+            <a
+              href="#lesson-quiz"
+              className="inline-flex items-center rounded-lg bg-white/80 px-3 py-1.5 text-xs font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-white dark:bg-gray-900/80 dark:text-amber-100 dark:ring-amber-800"
+            >
+              Jump to quiz
+            </a>
+          </div>
+        </section>
 
         <div className="flex flex-col gap-3">
           <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap items-center gap-2">
@@ -415,7 +522,7 @@ export function AcademyLearn() {
           </details>
         </div>
 
-        <section className="space-y-3">
+        <section id="lesson-example" className="space-y-3 scroll-mt-28">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Code2 className="h-5 w-5 text-indigo-500" />
             Example – try it in the editor below
@@ -452,7 +559,7 @@ export function AcademyLearn() {
           )}
         </section>
 
-        <section className="space-y-3">
+        <section id="lesson-challenge" className="space-y-3 scroll-mt-28">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Mini challenge
           </h2>
@@ -481,22 +588,18 @@ export function AcademyLearn() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4 space-y-3">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Quiz
+        <section
+          id="lesson-quiz"
+          className="scroll-mt-28 rounded-xl border-2 border-indigo-200 dark:border-indigo-800/60 bg-gray-50 dark:bg-gray-900/50 p-4 space-y-4"
+        >
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5 text-indigo-500" />
+            Quiz — tap the right answer
           </h2>
-          <ul className="space-y-3">
-            {lesson.quiz.map((q, i) => (
-              <li key={i} className="text-gray-700 dark:text-gray-300">
-                <strong>Q: {q.question}</strong>
-                <ul className="list-disc list-inside ml-2 text-sm mt-1">
-                  {q.options.map((opt, j) => (
-                    <li key={j}>{opt}</li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            No pressure — you can try again. Green shows the correct answer.
+          </p>
+          <AcademyLessonInteractiveQuiz questions={lesson.quiz} />
         </section>
 
         {canMarkComplete && (
@@ -589,7 +692,7 @@ export function AcademyLearn() {
   }
 
   return (
-    <div className="p-6 w-full max-w-7xl mx-auto">
+    <div className={cn("p-6", ACADEMY_MAIN_MAX)}>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
         <Sparkles className="h-7 w-7 text-amber-500" />
         Learning modules

@@ -10,6 +10,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { VanillaMarkdownParser } from "@/components/chat/DyadMarkdownParser";
+import { useRouterState } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
+import { useSettings } from "@/hooks/useSettings";
+import { AppyTutorModelPicker, DEFAULT_TUTOR_MODEL } from "@/components/academy/AppyTutorModelPicker";
 
 interface AcademyAiTutorProps {
   code: string;
@@ -19,10 +24,20 @@ interface AcademyAiTutorProps {
 export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { settings } = useSettings();
   const ipc = IpcClient.getInstance();
+  const tutorModel = settings?.appyTutorModel ?? DEFAULT_TUTOR_MODEL;
 
   const tutorMutation = useMutation({
-    mutationFn: () => ipc.academyAiTutor({ code, question }),
+    mutationFn: () =>
+      ipc.academyAppyTutor({
+        question,
+        code: `Language/context: ${language}\n\n${code}`,
+        pageContext: pathname,
+        academy: "ai",
+        model: tutorModel,
+      }),
   });
 
   const handleAsk = () => {
@@ -35,19 +50,23 @@ export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Bot className="h-4 w-4" />
-          Ask AI Tutor
+          Ask Appy Tutor
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            AI Tutor (offline)
+            Appy Tutor
           </DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          I know about variables, loops, functions, errors, and debugging. Ask e.g. &quot;Why is my code not working?&quot; or &quot;Explain this code.&quot; No internet needed.
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Your editor code is included with each question. You can also chat
+            with Appy Tutor in the right panel anytime.
+          </p>
+          <AppyTutorModelPicker fullWidth />
+        </div>
         <textarea
           className="w-full min-h-[80px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm resize-y"
           placeholder="Your question..."
@@ -67,8 +86,22 @@ export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
           Ask
         </Button>
         {tutorMutation.data && (
-          <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-3 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700">
-            {tutorMutation.data.answer}
+          <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-3 text-sm text-gray-800 dark:text-gray-200 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 space-y-2">
+            <span
+              className={cn(
+                "inline-block text-[10px] font-medium px-1.5 py-0.5 rounded",
+                tutorMutation.data.source === "local"
+                  ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200"
+                  : "bg-indigo-200/80 text-indigo-900 dark:bg-indigo-800/80 dark:text-indigo-100"
+              )}
+            >
+              {tutorMutation.data.source === "local"
+                ? "Offline tip"
+                : "Appy Tutor"}
+            </span>
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              <VanillaMarkdownParser content={tutorMutation.data.answer} />
+            </div>
           </div>
         )}
       </DialogContent>

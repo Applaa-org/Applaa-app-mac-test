@@ -76,7 +76,7 @@ export function AcademyProjectDetail() {
   const lang = project.language as "python" | "javascript" | "react" | "typescript";
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 w-full max-w-[1600px] mx-auto">
       <button
         type="button"
         onClick={() => router.history.back()}

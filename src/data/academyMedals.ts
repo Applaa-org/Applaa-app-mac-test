@@ -8,7 +8,15 @@ export interface AcademyMedal {
   emoji: string;
   description: string;
   /** Unlocked when this condition is true */
-  check: (stats: { pythonCompleted: number; javascriptCompleted: number; projectCount: number; pythonTotal: number; jsTotal: number }) => boolean;
+  check: (stats: {
+    pythonCompleted: number;
+    javascriptCompleted: number;
+    projectCount: number;
+    pythonTotal: number;
+    jsTotal: number;
+    /** Best consecutive-day streak (local, from marking lessons complete). */
+    streakBest: number;
+  }) => boolean;
 }
 
 export const ACADEMY_MEDALS: AcademyMedal[] = [
@@ -68,6 +76,20 @@ export const ACADEMY_MEDALS: AcademyMedal[] = [
     description: "Build 5 projects",
     check: (s) => s.projectCount >= 5,
   },
+  {
+    id: "streak-3",
+    name: "On a roll",
+    emoji: "🔥",
+    description: "Reach a 3-day learning streak",
+    check: (s) => s.streakBest >= 3,
+  },
+  {
+    id: "streak-7",
+    name: "Week warrior",
+    emoji: "📅",
+    description: "Reach a 7-day learning streak",
+    check: (s) => s.streakBest >= 7,
+  },
 ];
 
 export function getUnlockedMedals(stats: {
@@ -76,6 +98,7 @@ export function getUnlockedMedals(stats: {
   projectCount: number;
   pythonTotal: number;
   jsTotal: number;
+  streakBest: number;
 }) {
   return ACADEMY_MEDALS.filter((m) => m.check(stats));
 }

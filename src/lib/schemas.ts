@@ -325,6 +325,9 @@ export const UserSettingsSchema = z.object({
   dyadProBudget: DyadProBudgetSchema.optional(),
   runtimeMode: RuntimeModeSchema.optional(),
   planningModel: LargeLanguageModelSchema.optional(),
+
+  /** Appy Tutor (academies) — default Azure GPT-5 Nano; user can switch in the tutor panel */
+  appyTutorModel: LargeLanguageModelSchema.optional(),
 });
 
 /**

@@ -70,7 +70,7 @@ export function AcademyPlayground() {
   ];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 w-full max-w-[1600px] mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
         Coding Playground
       </h1>

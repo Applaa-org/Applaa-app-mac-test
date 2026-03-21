@@ -2,6 +2,12 @@ import React from "react";
 import { Link, useRouterState, Outlet } from "@tanstack/react-router";
 import { BookMarked, LayoutDashboard, Calendar, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  AppyTutorOpenTab,
+  AppyTutorPanel,
+  useAppyTutorPanelVisibility,
+} from "@/components/academy/AppyTutorPanel";
+import { AppyTutorFloatingLauncher } from "@/components/academy/AppyTutorLauncher";
 
 const navItems = [
   { to: "/learning-academy", label: "Dashboard", icon: LayoutDashboard },
@@ -12,6 +18,7 @@ const navItems = [
 export function LearningAcademyLayout() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
+  const [tutorOpen, setTutorOpen] = useAppyTutorPanelVisibility("learning");
 
   return (
     <div className="flex h-full min-h-0 bg-gray-50 dark:bg-gray-950">
@@ -60,9 +67,29 @@ export function LearningAcademyLayout() {
           </Link>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
+      <div className="flex flex-1 min-h-0 min-w-0">
+        <main className="relative flex-1 min-w-0 overflow-auto">
+          {!tutorOpen && (
+            <AppyTutorFloatingLauncher
+              variant="teal"
+              onOpen={() => setTutorOpen(true)}
+            />
+          )}
+          <Outlet />
+        </main>
+        {tutorOpen ? (
+          <AppyTutorPanel
+            variant="teal"
+            academy="learning"
+            onDismiss={() => setTutorOpen(false)}
+          />
+        ) : (
+          <AppyTutorOpenTab
+            variant="teal"
+            onOpen={() => setTutorOpen(true)}
+          />
+        )}
+      </div>
     </div>
   );
 }

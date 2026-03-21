@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useRouter, useSearch } from "@tanstack/react-router";
 import { getSubject, getTopic } from "@/data/learningAcademyCurriculum";
 import {
@@ -14,6 +14,7 @@ import {
   Trophy,
   RotateCcw,
 } from "lucide-react";
+import { AcademyLessonInteractiveQuiz } from "@/components/academy/AcademyLessonInteractiveQuiz";
 
 type TabId = "explain" | "lessons" | "practice" | "assessment";
 
@@ -6165,6 +6166,33 @@ function LessonsTab({
   );
 }
 
+function LearningAcademyQuickQuiz({ topic }: { topic: { title: string } }) {
+  const questions = useMemo(() => {
+    return getAssessmentQuestionsForTopic(topic)
+      .slice(0, 5)
+      .map(({ question, options, correctIndex, explanation }) => ({
+        question,
+        options,
+        correctIndex,
+        ...(explanation.trim() ? { explanation } : {}),
+      }));
+  }, [topic.title]);
+
+  if (questions.length === 0) return null;
+
+  return (
+    <div className="mb-10 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-950/20 p-5">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+        Quick check
+      </h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        Tap the best answer for each question. Open-ended practice is below.
+      </p>
+      <AcademyLessonInteractiveQuiz questions={questions} variant="teal" />
+    </div>
+  );
+}
+
 function AssessmentTab({
   topic,
 }: {
@@ -6464,6 +6492,7 @@ export function LearningAcademyCurriculumTopic() {
 
       {activeTab === "practice" && (
         <div>
+          <LearningAcademyQuickQuiz topic={topic} />
           <p className="text-gray-700 dark:text-gray-300 mb-6">
             Answer in your own words. Use the hint if stuck; read the explanation to see what we’re looking for.
           </p>

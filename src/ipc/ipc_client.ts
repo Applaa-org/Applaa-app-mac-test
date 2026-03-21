@@ -2366,6 +2366,17 @@ export class IpcClient {
     return this.ipcRenderer.invoke("academy:ai-tutor", params);
   }
 
+  public async academyAppyTutor(params: {
+    question: string;
+    code?: string;
+    pageContext?: string;
+    academy: "ai" | "learning";
+    history?: { role: "user" | "assistant"; content: string }[];
+    model?: { name: string; provider: string; customModelId?: number };
+  }): Promise<{ answer: string; source: "local" | "cloud" }> {
+    return this.ipcRenderer.invoke("academy:appy-tutor", params);
+  }
+
   public async subscriptionCreateCheckout(params: {
     priceId: string;
     trialDays?: number;

@@ -71,6 +71,11 @@ const DEFAULT_SETTINGS: UserSettings = {
 
   // UI State defaults (expanded by default)
   deployedAppsSectionExpanded: true,
+
+  appyTutorModel: {
+    name: "gpt-5-nano",
+    provider: "azure-openai",
+  },
 };
 
 // Use different settings file for packaged apps to avoid loading dev settings

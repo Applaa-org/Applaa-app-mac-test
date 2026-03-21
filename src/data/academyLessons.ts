@@ -9,6 +9,10 @@ export interface QuizQuestion {
   question: string;
   options: string[];
   correctIndex: number;
+  /** Optional nudge after a wrong first try (see interactive quiz). */
+  hint?: string;
+  /** Optional extra copy after the answer is revealed. */
+  explanation?: string;
 }
 
 export interface CodeExample {
@@ -43,7 +47,12 @@ const PYTHON_LESSONS: AcademyLesson[] = [
     miniChallenge: "Write a line of code that prints your name.",
     challengeStarterCode: "# Print your name below\n",
     quiz: [
-      { question: "What is code?", options: ["A secret password", "Instructions for the computer", "A type of game"], correctIndex: 1 },
+      {
+        question: "What is code?",
+        options: ["A secret password", "Instructions for the computer", "A type of game"],
+        correctIndex: 1,
+        hint: "Code is what you write so the machine can follow steps — it’s not a game by itself.",
+      },
       { question: "What does print() do?", options: ["Deletes text", "Shows text on screen", "Saves a file"], correctIndex: 1 },
     ],
   },
@@ -61,7 +70,12 @@ const PYTHON_LESSONS: AcademyLesson[] = [
     miniChallenge: "Create a variable called score and set it to 100. Then print it.",
     challengeStarterCode: "# Create a variable score = 100 and print it\n",
     quiz: [
-      { question: "What is a variable?", options: ["A math equation", "A named container for a value", "A type of loop"], correctIndex: 1 },
+      {
+        question: "What is a variable?",
+        options: ["A math equation", "A named container for a value", "A type of loop"],
+        correctIndex: 1,
+        hint: "Variables store values under a name you choose — like a labeled box.",
+      },
       { question: "Which line creates a variable?", options: ["print(x)", "x = 5", "if x:"], correctIndex: 1 },
     ],
   },

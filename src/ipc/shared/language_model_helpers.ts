@@ -478,14 +478,14 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     //   contextWindow: 128_000,
     //   temperature: 0,
     // },
-    // {
-    //   name: "gpt-4o",
-    //   displayName: "GPT-4o (Azure)",
-    //   description: "Azure OpenAI GPT-4o deployment",
-    //   maxOutputTokens: 16_384,
-    //   contextWindow: 128_000,
-    //   temperature: 0,
-    // },
+    {
+      name: "gpt-4o",
+      displayName: "GPT-4o (Azure)",
+      description: "Azure OpenAI GPT-4o deployment — default for Appy Tutor when configured",
+      maxOutputTokens: 16_384,
+      contextWindow: 128_000,
+      temperature: 0,
+    },
     // {
     //   name: "gpt-4o-mini",
     //   displayName: "GPT-4o Mini (Azure)",

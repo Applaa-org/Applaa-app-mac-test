@@ -10,6 +10,12 @@ import {
   Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  AppyTutorOpenTab,
+  AppyTutorPanel,
+  useAppyTutorPanelVisibility,
+} from "@/components/academy/AppyTutorPanel";
+import { AppyTutorFloatingLauncher } from "@/components/academy/AppyTutorLauncher";
 
 const navItems = [
   { to: "/academy", label: "Dashboard", icon: LayoutDashboard },
@@ -22,6 +28,7 @@ const navItems = [
 export function AcademyLayout() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
+  const [tutorOpen, setTutorOpen] = useAppyTutorPanelVisibility("ai");
 
   return (
     <div className="flex h-full min-h-0 bg-gray-50 dark:bg-gray-950">
@@ -71,10 +78,30 @@ export function AcademyLayout() {
           </Link>
         </div>
       </aside>
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
+      {/* Main + Appy Tutor */}
+      <div className="flex flex-1 min-h-0 min-w-0">
+        <main className="relative flex-1 min-w-0 overflow-auto">
+          {!tutorOpen && (
+            <AppyTutorFloatingLauncher
+              variant="indigo"
+              onOpen={() => setTutorOpen(true)}
+            />
+          )}
+          <Outlet />
+        </main>
+        {tutorOpen ? (
+          <AppyTutorPanel
+            variant="indigo"
+            academy="ai"
+            onDismiss={() => setTutorOpen(false)}
+          />
+        ) : (
+          <AppyTutorOpenTab
+            variant="indigo"
+            onOpen={() => setTutorOpen(true)}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -6,11 +6,69 @@ import {
   academyChallengeAttempts,
 } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { generateText } from "ai";
+import type { CoreMessage } from "ai";
 import { getUserId } from "./credit_handlers";
-import { getTutorAnswer } from "@/data/academyTutorKnowledge";
+import {
+  getTutorAnswer,
+  getLocalTutorMatch,
+  APPY_TUTOR_LOCAL_STRONG_SCORE,
+} from "@/data/academyTutorKnowledge";
 import log from "electron-log";
+import { readSettings } from "../../main/settings";
+import { getModelClient } from "../utils/get_model_client";
+import type { LargeLanguageModel, UserSettings } from "../../lib/schemas";
 
 const logger = log.scope("academy-handlers");
+
+const APPY_TUTOR_ALLOWED_PROVIDERS = new Set([
+  "anthropic",
+  "azure-openai",
+  "openrouter",
+]);
+
+const DEFAULT_APPY_TUTOR_MODEL: LargeLanguageModel = {
+  provider: "azure-openai",
+  name: "gpt-5-nano",
+};
+
+function resolveAppyTutorModel(
+  params: AppyTutorParams,
+  settings: UserSettings,
+): LargeLanguageModel {
+  const candidate =
+    params.model ?? settings.appyTutorModel ?? DEFAULT_APPY_TUTOR_MODEL;
+  if (!APPY_TUTOR_ALLOWED_PROVIDERS.has(candidate.provider)) {
+    return DEFAULT_APPY_TUTOR_MODEL;
+  }
+  return candidate;
+}
+
+/** User-selected model first; Azure gets a generic router fallback if the deployment fails. */
+function appyTutorModelChain(primary: LargeLanguageModel): LargeLanguageModel[] {
+  const chain: LargeLanguageModel[] = [primary];
+  if (
+    primary.provider === "azure-openai" &&
+    primary.name !== "model-router"
+  ) {
+    chain.push({ provider: "azure-openai", name: "model-router" });
+  }
+  return chain;
+}
+
+export type AppyTutorParams = {
+  question: string;
+  code?: string;
+  pageContext?: string;
+  academy: "ai" | "learning";
+  history?: { role: "user" | "assistant"; content: string }[];
+  model?: LargeLanguageModel;
+};
+
+export type AppyTutorResult = {
+  answer: string;
+  source: "local" | "cloud";
+};
 
 async function getUserIdOrNull(): Promise<string | null> {
   try {
@@ -227,6 +285,102 @@ export function registerAcademyHandlers() {
     ): Promise<{ answer: string }> => {
       const answer = getTutorAnswer(question, code);
       return { answer };
+    }
+  );
+
+  // Appy Tutor: strong local match skips API; else cloud using Settings / panel model
+  ipcMain.handle(
+    "academy:appy-tutor",
+    async (_, params: AppyTutorParams): Promise<AppyTutorResult> => {
+      const question = params.question?.trim() ?? "";
+      if (!question) {
+        throw new Error("Ask a question to get help.");
+      }
+
+      const local = getLocalTutorMatch(question);
+      if (local.score >= APPY_TUTOR_LOCAL_STRONG_SCORE) {
+        return { answer: local.answer, source: "local" };
+      }
+
+      const settings = readSettings();
+      const primaryModel = resolveAppyTutorModel(params, settings);
+      const modelChain = appyTutorModelChain(primaryModel);
+      const systemAi =
+        "You are Appy Tutor, a friendly tutor inside Applaa AI Academy. Help with coding (Python, JavaScript, HTML/CSS, React, TypeScript), debugging, and CS/AI concepts. Be concise, use markdown for structure, and give examples when helpful. Do not invent file paths or pretend to run code.";
+      const systemLearning =
+        "You are Appy Tutor, a friendly tutor inside Applaa Learning Academy. Help with study skills, curriculum topics, and general school subjects (e.g. maths, science, English). Be accurate, concise, and use markdown. If a question is beyond general guidance, suggest how the student might check with their teacher or textbook.";
+
+      const system = params.academy === "learning" ? systemLearning : systemAi;
+      const ctxParts: string[] = [];
+      if (params.pageContext) {
+        ctxParts.push(`Current page/path: ${params.pageContext}`);
+      }
+      if (params.code?.trim()) {
+        ctxParts.push(
+          `Optional code from the learner (may be empty):\n\`\`\`\n${params.code.trim().slice(0, 12_000)}\n\`\`\``
+        );
+      }
+      if (local.score >= 1) {
+        ctxParts.push(
+          `Related offline tip (may be partial — expand or correct as needed):\n${local.answer}`
+        );
+      }
+      const contextBlock =
+        ctxParts.length > 0 ? `\n\nContext:\n${ctxParts.join("\n\n")}` : "";
+
+      const history = (params.history ?? []).filter(
+        (m) =>
+          (m.role === "user" || m.role === "assistant") &&
+          typeof m.content === "string" &&
+          m.content.trim()
+      );
+      const recent = history.slice(-10);
+      const messages: CoreMessage[] = [
+        ...recent.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content.trim(),
+        })),
+        {
+          role: "user" as const,
+          content: `${question}${contextBlock}`,
+        },
+      ];
+
+      let lastError: unknown;
+      for (const model of modelChain) {
+        try {
+          const { modelClient } = await getModelClient(model, settings);
+          const result = await generateText({
+            model: modelClient.model,
+            system,
+            messages,
+            maxTokens: 2048,
+            temperature: 0.4,
+          });
+          const text = result.text?.trim();
+          if (text) {
+            logger.info(
+              `academy:appy-tutor cloud ok model=${model.provider}/${model.name}`,
+            );
+            return { answer: text, source: "cloud" };
+          }
+        } catch (e) {
+          lastError = e;
+          logger.warn(
+            `academy:appy-tutor model ${model.provider}/${model.name} failed`,
+            e,
+          );
+        }
+      }
+
+      logger.error("academy:appy-tutor all cloud models failed", lastError);
+      return {
+        answer:
+          local.score > 0
+            ? `${local.answer}\n\n---\n*(Appy Tutor couldn’t reach the cloud — check **Settings → Providers** for API keys and model names. Showing the closest offline tip above.)*`
+            : `Appy Tutor couldn’t reach the cloud. Add your API keys in **Settings → Providers** and pick a model in the tutor panel.\n\n**Tip:** Many common questions match offline tips; try words like “explain”, “loop”, or “study”.`,
+        source: "local",
+      };
     }
   );
 }

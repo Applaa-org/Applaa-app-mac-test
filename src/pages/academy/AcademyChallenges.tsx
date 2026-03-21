@@ -104,7 +104,7 @@ export function AcademyChallenges() {
     TRACKS.find((t) => t.id === safeChallenge.track)?.label ?? safeChallenge.track;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto h-full flex flex-col">
+    <div className="p-6 w-full max-w-[1600px] mx-auto h-full flex flex-col">
       <div className="mb-4 flex items-center gap-3 justify-between">
         <Link
           to="/academy/learn"

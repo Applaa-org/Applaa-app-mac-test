@@ -74,27 +74,61 @@ export const TUTOR_KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ["hello", "hi", "help", "start", "beginner"],
     answer: "Welcome! I’m your offline coding tutor. I can help you with:\n\n• **Why code isn’t working** – errors, bugs, wrong output\n• **Explaining code** – what a piece of code does\n• **Variables, loops, functions** – basics in Python and JavaScript\n• **Lists/arrays and objects/dictionaries**\n• **Syntax and common errors** – indentation, undefined, index out of range\n\nAsk in your own words (e.g. “Why is my code not working?” or “Explain this code”) and I’ll answer from my built‑in knowledge. No internet or AI service needed.",
   },
+  // Learning Academy – short offline tips (deeper questions go to Appy Tutor cloud)
+  {
+    keywords: ["study", "studying", "revision", "revise", "memorize"],
+    answer: "**Studying effectively**\n\n• **Short sessions** – 25–45 minutes with a break beats one long cram.\n• **Active recall** – Close the book and write or say what you remember; then check.\n• **Spaced repetition** – Review again tomorrow, then in a few days.\n• **Mix subjects** – Alternate topics so you don’t burn out on one thing.\n\nFor a specific topic or exam question, ask Appy Tutor in the panel — it can explain in more detail when you’re online.",
+  },
+  {
+    keywords: ["exam", "test", "assessment", "nervous", "anxiety"],
+    answer: "**Before exams**\n\n• **Sleep** – One extra hour of sleep often helps more than one extra hour of cramming.\n• **Plan** – Skim the whole paper first; answer what you know, then return to harder parts.\n• **Show working** – In maths/science, partial credit often comes from clear steps.\n\nAsk Appy Tutor for help practicing a type of question or explaining a concept you’re stuck on.",
+  },
+  {
+    keywords: ["curriculum", "topic", "subject", "syllabus"],
+    answer: "Use the **Curriculum** section to move topic by topic. For each page, read the summary, try any exercises, then use **Appy Tutor** on the right if something is unclear — say which subject and topic you’re on.\n\nIf you tell me the exact concept (e.g. “photosynthesis” or “quadratic equations”), I can give a focused explanation when cloud help is available.",
+  },
+  {
+    keywords: ["schedule", "timetable", "organize", "time management"],
+    answer: "**Planning your time**\n\n• Block fixed times for homework and revision on a calendar.\n• Put the hardest task when you’re freshest.\n• **Year 11 schedule** in this app is a template — adapt it to your real school timetable.\n\nFor subject-specific planning (e.g. how to split maths vs English), ask Appy Tutor with your goals in mind.",
+  },
 ];
 
 /**
  * Find the best matching knowledge entry for a question (and optional code).
  * Returns the answer or a default if no good match.
  */
-export function getTutorAnswer(question: string, _code?: string): string {
+/** Minimum keyword score to answer from local knowledge only (skips cloud API). */
+export const APPY_TUTOR_LOCAL_STRONG_SCORE = 2;
+
+function scoreQuestionAgainstKnowledge(question: string): {
+  answer: string;
+  score: number;
+} {
   const q = question.trim().toLowerCase();
   if (!q) {
-    return "Ask me something about your code! For example: \"Why is my code not working?\" or \"Explain this code\".";
+    return {
+      answer:
+        'Ask me something about your code! For example: "Why is my code not working?" or "Explain this code".',
+      score: 0,
+    };
   }
 
   let bestScore = 0;
-  let bestAnswer = TUTOR_KNOWLEDGE[TUTOR_KNOWLEDGE.length - 1].answer; // default: welcome/help
+  let bestAnswer = TUTOR_KNOWLEDGE[TUTOR_KNOWLEDGE.length - 1].answer;
 
   for (const entry of TUTOR_KNOWLEDGE) {
     let score = 0;
     for (const kw of entry.keywords) {
-      if (q.includes(kw.toLowerCase())) {
+      const k = kw.toLowerCase();
+      if (q.includes(k)) {
         score += 1;
-        if (q.includes(" " + kw + " ") || q.startsWith(kw + " ") || q.endsWith(" " + kw)) score += 0.5;
+        if (
+          q.includes(" " + k + " ") ||
+          q.startsWith(k + " ") ||
+          q.endsWith(" " + k)
+        ) {
+          score += 0.5;
+        }
       }
     }
     if (score > bestScore) {
@@ -103,5 +137,17 @@ export function getTutorAnswer(question: string, _code?: string): string {
     }
   }
 
-  return bestAnswer;
+  return { answer: bestAnswer, score: bestScore };
+}
+
+/** Best local match and confidence score (higher = stronger keyword fit). */
+export function getLocalTutorMatch(question: string): {
+  answer: string;
+  score: number;
+} {
+  return scoreQuestionAgainstKnowledge(question);
+}
+
+export function getTutorAnswer(question: string, _code?: string): string {
+  return scoreQuestionAgainstKnowledge(question).answer;
 }
