@@ -5,6 +5,7 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
 import { config as loadDotenv } from "dotenv";
 import { execSync } from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 
 // Load environment variables from .env file
@@ -119,9 +120,8 @@ const config: ForgeConfig = {
       "node_modules/.bin/**",
       "drizzle/**"
     ],
-    extraResource: [
-      ".env"
-    ],
+    // CI and fresh clones often have no .env; electron-packager lstat fails if listed but missing
+    extraResource: fs.existsSync(path.join(__dirname, ".env")) ? [".env"] : [],
     ignore,
     // Explicitly copy native modules into packaged app so require('sqlite-vec') resolves
     // Note: Forge/Vite pass buildPath = the app directory (the one packed into asar), not the .app bundle path

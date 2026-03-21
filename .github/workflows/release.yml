@@ -12,36 +12,19 @@ on:
     branches:
       - master
 jobs:
-  build:
-    environment: release
-    strategy:
-      # Uncomment max-parallel to prevent race condition (where multiple releases are
-      # created concurrently). Typically though, we'll create a release manually ahead of time
-      # which prevents the race.
-      # max-parallel: 1
-      matrix:
-        os: [
-            { name: "windows", image: "windows-latest" },
-            { name: "macos", image: "macos-latest" },
-          ]
-    runs-on: ${{ matrix.os.image }}
+  # Run once first so matrix jobs do not race on tag/release creation
+  prepare-release:
+    runs-on: ubuntu-latest
     steps:
       - name: Github checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          fetch-depth: 0  # Fetch all history for tags
-          token: ${{ secrets.GITHUB_TOKEN }}  # Required to push tags
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Use Node.js
         uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
         with:
           node-version: 20
-      - run: npm install
-      - name: Rebuild native modules for Electron
-        if: contains(matrix.os.name, 'windows')
-        run: |
-          echo "Rebuilding native modules for Electron..."
-          npx electron-rebuild --only=better-sqlite3 --force
-        shell: bash
       - name: Create release tag if not exists
         run: |
           VERSION=$(node -p "require('./package.json').version")
@@ -68,7 +51,6 @@ jobs:
 
           echo "Checking for release: $TAG"
 
-          # Check if release exists
           RELEASE_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
@@ -91,6 +73,35 @@ jobs:
           else
             echo "Release $TAG already exists"
           fi
+        shell: bash
+
+  build:
+    needs: prepare-release
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [
+            { name: "windows", image: "windows-latest" },
+            { name: "macos", image: "macos-latest" },
+          ]
+    runs-on: ${{ matrix.os.image }}
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Use Node.js
+        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Rebuild native modules for Electron
+        if: contains(matrix.os.name, 'windows')
+        run: |
+          echo "Rebuilding native modules for Electron..."
+          npx electron-rebuild --only=better-sqlite3 --force
         shell: bash
       - name: add macos cert
         if: contains(matrix.os.name, 'macos')
