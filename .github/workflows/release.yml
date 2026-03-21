@@ -7,7 +7,8 @@
 #   APPLE_SIGNING_IDENTITY from secret or auto from keychain; dev certs skip hardened runtime + notarization.
 # - electron-rebuild -w better-sqlite3 still rebuilt optional deps (node-pty MSVC) → postinstall uses --only better-sqlite3.
 # - verify script pointed at dyad-sh/dyad → scripts/verify-release-assets.js uses applaa-releases + pattern checks.
-# - Publisher targets Applaa-Builder/applaa-releases: default GITHUB_TOKEN cannot write there → set secret RELEASE_TOKEN (PAT with repo access to applaa-releases).
+# - Publisher default is applaa-releases (local). CI sets GITHUB_RELEASE_PUBLISH_* to this repo so GITHUB_TOKEN can upload.
+#   To publish to applaa-releases from Actions, set those env vars to Applaa-Builder/applaa-releases and use secret RELEASE_TOKEN.
 # - Squirrel requires full SemVer (e.g. 1.1.0), not 1.1 — see package.json version.
 #
 # Need contents: write for tags / releases. Publisher: Applaa-Builder/applaa-releases (forge.config.ts).
@@ -122,8 +123,9 @@ jobs:
       - name: Publish app
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
-          # PAT for Applaa-Builder/applaa-releases (forge PublisherGithub). Set RELEASE_TOKEN; if unset, falls back to default token (same-repo publish only).
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RELEASE_PUBLISH_OWNER: ${{ github.repository_owner }}
+          GITHUB_RELEASE_PUBLISH_REPO: ${{ github.event.repository.name }}
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
           APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -154,7 +156,9 @@ jobs:
           # Optional override; if unset we auto-pick the first codesign identity from the keychain (must match .p12)
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           NODE_OPTIONS: "--max-old-space-size=4096"
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RELEASE_PUBLISH_OWNER: ${{ github.repository_owner }}
+          GITHUB_RELEASE_PUBLISH_REPO: ${{ github.event.repository.name }}
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
           APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -189,8 +193,6 @@ jobs:
       - name: Verify all release assets are uploaded
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional: PAT with read access to applaa-releases if default token cannot read cross-repo
-          RELEASE_VERIFY_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          RELEASE_ASSETS_OWNER: Applaa-Builder
-          RELEASE_ASSETS_REPO: applaa-releases
+          RELEASE_ASSETS_OWNER: ${{ github.repository_owner }}
+          RELEASE_ASSETS_REPO: ${{ github.event.repository.name }}
         run: node scripts/verify-release-assets.js

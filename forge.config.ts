@@ -527,14 +527,16 @@ const config: ForgeConfig = {
   ],
   publishers: [
     new PublisherGithub({
+      // CI: set GITHUB_RELEASE_PUBLISH_OWNER / GITHUB_RELEASE_PUBLISH_REPO to this repo so GITHUB_TOKEN works.
+      // Local default remains applaa-releases if you publish with a PAT (gh auth / GH_TOKEN).
       repository: {
-        owner: 'Applaa-Builder',
-        name: 'applaa-releases'
+        owner: process.env.GITHUB_RELEASE_PUBLISH_OWNER || "Applaa-Builder",
+        name: process.env.GITHUB_RELEASE_PUBLISH_REPO || "applaa-releases",
       },
       prerelease: false,
-      draft: true
-    })
-  ]
+      draft: true,
+    }),
+  ],
 };
 
 export default config;
