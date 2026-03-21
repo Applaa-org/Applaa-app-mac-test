@@ -4,38 +4,39 @@ const fs = require("fs");
 const path = require("path");
 
 /**
- * Verifies that all expected binary assets are present in the GitHub release
- * for the version specified in package.json
+ * Verifies that expected artifacts exist on the GitHub release used by PublisherGithub
+ * (see forge.config.ts publishers). Defaults to Applaa-Builder/applaa-releases.
+ *
+ * Env overrides:
+ *   RELEASE_ASSETS_OWNER — GitHub org/user (default Applaa-Builder)
+ *   RELEASE_ASSETS_REPO  — repo name (default applaa-releases)
+ *   RELEASE_VERIFY_TOKEN — PAT with repo read on applaa-releases if GITHUB_TOKEN cannot read that repo
  */
 async function verifyReleaseAssets() {
   try {
-    // Read version from package.json
     const packagePath = path.join(__dirname, "..", "package.json");
     const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
     const version = packageJson.version;
 
-    console.log(`🔍 Verifying release assets for version ${version}...`);
-
-    // GitHub API configuration
-    const owner = "dyad-sh";
-    const repo = "dyad";
-    const token = process.env.GITHUB_TOKEN;
+    const owner = process.env.RELEASE_ASSETS_OWNER || "Applaa-Builder";
+    const repo = process.env.RELEASE_ASSETS_REPO || "applaa-releases";
+    const token =
+      process.env.RELEASE_VERIFY_TOKEN || process.env.GITHUB_TOKEN;
 
     if (!token) {
       throw new Error("GITHUB_TOKEN environment variable is required");
     }
 
-    // Fetch all releases (including drafts)
     const tagName = `v${version}`;
 
-    console.log(`📡 Fetching all releases to find: ${tagName}`);
+    console.log(`🔍 Verifying release assets for ${owner}/${repo} @ ${tagName}...`);
 
     const allReleasesUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
     const response = await fetch(allReleasesUrl, {
       headers: {
         Authorization: `token ${token}`,
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "dyad-release-verifier",
+        "User-Agent": "applaa-release-verifier",
       },
     });
 
@@ -50,93 +51,54 @@ async function verifyReleaseAssets() {
 
     if (!release) {
       throw new Error(
-        `Release ${tagName} not found in published releases or drafts. Make sure the release exists.`,
+        `Release ${tagName} not found in ${owner}/${repo}. Ensure publish completed.`,
       );
     }
 
     const assets = release.assets || [];
+    const actualNames = assets.map((a) => a.name);
 
-    console.log(`📦 Found ${assets.length} assets in release ${tagName}`);
-    console.log(`📄 Release status: ${release.draft ? "DRAFT" : "PUBLISHED"}`);
+    console.log(`📦 Found ${assets.length} assets`);
+    console.log(`📄 Release: ${release.draft ? "DRAFT" : "PUBLISHED"}`);
 
-    // Handle different beta naming conventions across platforms
-    const normalizeVersionForPlatform = (version, platform) => {
-      if (!version.includes("beta")) {
-        return version;
-      }
-
-      switch (platform) {
-        case "rpm":
-        case "deb":
-          // RPM and DEB use dots: 0.14.0-beta.1 -> 0.14.0.beta.1
-          return version.replace("-beta.", ".beta.");
-        case "nupkg":
-          // NuGet removes the dot: 0.14.0-beta.1 -> 0.14.0-beta1
-          return version.replace("-beta.", "-beta");
-        default:
-          // Windows installer and macOS zips keep original format
-          return version;
-      }
-    };
-
-    // Define expected assets with platform-specific version handling
-    const expectedAssets = [
-      `dyad-${normalizeVersionForPlatform(version, "rpm")}-1.x86_64.rpm`,
-      `dyad-${normalizeVersionForPlatform(version, "nupkg")}-full.nupkg`,
-      `dyad-${version}.Setup.exe`,
-      `dyad-darwin-arm64-${version}.zip`,
-      `dyad-darwin-x64-${version}.zip`,
-      `dyad_${normalizeVersionForPlatform(version, "deb")}_amd64.deb`,
-      "RELEASES",
+    // Loose checks — exact Squirrel/zip names vary by forge version and platform
+    const checks = [
+      {
+        label: "Squirrel RELEASES manifest",
+        ok: actualNames.some((n) => n === "RELEASES"),
+      },
+      {
+        label: "Windows installer (.exe)",
+        ok: actualNames.some((n) => /\.exe$/i.test(n)),
+      },
+      {
+        label: "NuGet package (.nupkg)",
+        ok: actualNames.some((n) => /\.nupkg$/i.test(n)),
+      },
+      {
+        label: "macOS zip (darwin + .zip)",
+        ok: actualNames.some(
+          (n) => /\.zip$/i.test(n) && /darwin/i.test(n),
+        ),
+      },
     ];
 
-    console.log("📋 Expected assets:");
-    expectedAssets.forEach((asset) => console.log(`  - ${asset}`));
-    console.log("");
+    const failed = checks.filter((c) => !c.ok);
 
-    // Get actual asset names
-    const actualAssets = assets.map((asset) => asset.name);
-
-    console.log("📋 Actual assets:");
-    actualAssets.forEach((asset) => console.log(`  - ${asset}`));
-    console.log("");
-
-    // Check for missing assets
-    const missingAssets = expectedAssets.filter(
-      (expected) => !actualAssets.includes(expected),
+    console.log("\n📋 Checks:");
+    checks.forEach((c) =>
+      console.log(`  ${c.ok ? "✔" : "✖"} ${c.label}`),
     );
 
-    if (missingAssets.length > 0) {
-      console.error("❌ VERIFICATION FAILED!");
-      console.error("📭 Missing assets:");
-      missingAssets.forEach((asset) => console.error(`  - ${asset}`));
-      console.error("");
-      console.error(
-        "Please ensure all platforms have completed their builds and uploads.",
-      );
+    if (failed.length > 0) {
+      console.error("\n❌ VERIFICATION FAILED — missing artifact types:");
+      failed.forEach((c) => console.error(`  - ${c.label}`));
+      console.error("\nActual asset names:");
+      actualNames.forEach((n) => console.error(`  - ${n}`));
       process.exit(1);
     }
 
-    // Check for unexpected assets (optional warning)
-    const unexpectedAssets = actualAssets.filter(
-      (actual) => !expectedAssets.includes(actual),
-    );
-
-    if (unexpectedAssets.length > 0) {
-      console.warn("⚠️  Unexpected assets found:");
-      unexpectedAssets.forEach((asset) => console.warn(`  - ${asset}`));
-      console.warn("");
-    }
-
-    console.log("✅ VERIFICATION PASSED!");
-    console.log(
-      `🎉 All ${expectedAssets.length} expected assets are present in release ${tagName}`,
-    );
-    console.log("");
-    console.log("📊 Release Summary:");
-    console.log(`  Release: ${release.name || tagName}`);
-    console.log(`  Tag: ${release.tag_name}`);
-    console.log(`  Published: ${release.published_at}`);
+    console.log("\n✅ VERIFICATION PASSED!");
     console.log(`  URL: ${release.html_url}`);
   } catch (error) {
     console.error("❌ Error verifying release assets:", error.message);
@@ -144,5 +106,4 @@ async function verifyReleaseAssets() {
   }
 }
 
-// Run the verification
 verifyReleaseAssets();

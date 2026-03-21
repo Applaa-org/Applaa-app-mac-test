@@ -1,6 +1,14 @@
 # .github/workflows/release.yml
-
-# Need to write to repo contents to upload the app to GitHub Release
+#
+# Past failures & how this workflow avoids them:
+# - .env in packager extraResource → removed in forge (CI has no .env).
+# - Matrix cancelled sibling OS → separate build-windows / build-macos jobs.
+# - Wrong codesign identity (Apple Development vs hardcoded Developer ID) →
+#   APPLE_SIGNING_IDENTITY from secret or auto from keychain; dev certs skip hardened runtime + notarization.
+# - electron-rebuild -w better-sqlite3 still rebuilt optional deps (node-pty MSVC) → postinstall uses --only better-sqlite3.
+# - verify script pointed at dyad-sh/dyad → scripts/verify-release-assets.js uses applaa-releases + pattern checks.
+#
+# Need contents: write for tags / releases. Publisher: Applaa-Builder/applaa-releases (forge.config.ts).
 # See: https://www.electronforge.io/config/publishers/github#authentication
 permissions:
   contents: write
@@ -154,8 +162,12 @@ jobs:
           . ./tools/add-macos-cert.sh
           security find-identity -v -p codesigning || true
           if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
-            export APPLE_SIGNING_IDENTITY
             APPLE_SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(.*\)"/\1/p' | head -1)
+            export APPLE_SIGNING_IDENTITY
+          fi
+          if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            echo "No codesign identity: set repo secret APPLE_SIGNING_IDENTITY or fix MACOS_CERT_P12 import."
+            exit 1
           fi
           echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
           npm run publish
@@ -174,4 +186,8 @@ jobs:
       - name: Verify all release assets are uploaded
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: PAT with read access to applaa-releases if default token cannot read cross-repo
+          RELEASE_VERIFY_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          RELEASE_ASSETS_OWNER: Applaa-Builder
+          RELEASE_ASSETS_REPO: applaa-releases
         run: node scripts/verify-release-assets.js
