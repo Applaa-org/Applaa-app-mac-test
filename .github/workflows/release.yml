@@ -142,13 +142,11 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - name: add macos cert
+      # Install cert and publish in one step so the keychain/session matches what codesign uses
+      - name: Install signing cert and publish
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
-        run: chmod +x tools/add-macos-cert.sh && . ./tools/add-macos-cert.sh
-      - name: Publish app
-        env:
           NODE_OPTIONS: "--max-old-space-size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
@@ -156,7 +154,11 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-        run: npm run publish
+        run: |
+          chmod +x tools/add-macos-cert.sh
+          . ./tools/add-macos-cert.sh
+          security find-identity -v -p codesigning || true
+          npm run publish
 
   verify-assets:
     name: Verify Release Assets

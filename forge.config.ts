@@ -5,6 +5,7 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
 import { config as loadDotenv } from "dotenv";
 import { execSync } from "child_process";
+import * as fs from "node:fs";
 import * as path from "path";
 
 // Load environment variables from .env file
@@ -76,6 +77,12 @@ const ignore = (file: string) => {
 
 const isEndToEndTestBuild = process.env.E2E_TEST_BUILD === "true";
 
+// GitHub Actions: cert script creates this keychain; pass it to osx-sign so codesign finds Developer ID
+const ciMacosKeychainPath =
+  process.env.RUNNER_TEMP
+    ? path.join(process.env.RUNNER_TEMP, "app-signing.keychain-db")
+    : undefined;
+
 const config: ForgeConfig = {
   packagerConfig: {
     appBundleId: "com.applaa.app",
@@ -87,14 +94,18 @@ const config: ForgeConfig = {
     ],
     icon: "./assets/icon/logo.ico",
     asar: true,
-    // Code signing
+    // Code signing (do not use signature-flags "library" on the main app — it breaks sealing / Resources)
     osxSign: {
-      identity: "Developer ID Application: Applaa Ltd (P7VCYRVVPQ)",
+      identity:
+        process.env.APPLE_SIGNING_IDENTITY ||
+        "Developer ID Application: Applaa Ltd (P7VCYRVVPQ)",
       hardenedRuntime: true,
       entitlements: "entitlements.plist",
       "entitlements-inherit": "entitlements.plist",
       "gatekeeper-assess": false,
-      "signature-flags": "library",
+      ...(ciMacosKeychainPath && fs.existsSync(ciMacosKeychainPath)
+        ? { keychain: ciMacosKeychainPath }
+        : {}),
     } as any,
     // Notarization
     osxNotarize:
