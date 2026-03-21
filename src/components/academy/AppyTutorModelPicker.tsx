@@ -22,13 +22,16 @@ import type { LargeLanguageModel } from "@/lib/schemas";
 import type { LanguageModel } from "@/ipc/ipc_types";
 import { ChevronDown, Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_APPY_TUTOR_FALLBACK,
+  filterAppyTutorModelsForPicker,
+  getAppyTutorPrimaryModel,
+} from "@/lib/appyTutorModels";
 
 const TUTOR_PROVIDERS = ["anthropic", "azure-openai", "openrouter"] as const;
 
-const DEFAULT_TUTOR_MODEL: LargeLanguageModel = {
-  provider: "azure-openai",
-  name: "gpt-5-nano",
-};
+/** @deprecated use DEFAULT_APPY_TUTOR_FALLBACK or getAppyTutorPrimaryModel(settings) */
+export const DEFAULT_TUTOR_MODEL = DEFAULT_APPY_TUTOR_FALLBACK;
 
 /** Above dialogs and layout layers */
 const MENU_Z = "z-[400]";
@@ -56,9 +59,31 @@ export function AppyTutorModelPicker({
 
   const loading = modelsLoading || providersLoading;
 
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled
+        className={cn(
+          "h-8 gap-1.5 border-gray-300 bg-white text-gray-500 shadow-sm dark:border-gray-600 dark:bg-gray-900/50",
+          fullWidth
+            ? "w-full max-w-none justify-between px-2.5 text-xs font-normal"
+            : "max-w-[11rem] px-2 text-[10px] justify-start",
+          className,
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Brain className="h-3.5 w-3.5 shrink-0 opacity-80" />
+          <span className="truncate">Loading model…</span>
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-40" />
+      </Button>
+    );
+  }
 
-  const selectedModel = settings.appyTutorModel ?? DEFAULT_TUTOR_MODEL;
+  const selectedModel = getAppyTutorPrimaryModel(settings);
 
   const onModelSelect = (model: LargeLanguageModel) => {
     updateSettings({ appyTutorModel: model }).catch((err) => {
@@ -83,7 +108,10 @@ export function AppyTutorModelPicker({
   const displayName = getModelDisplayName();
 
   const providerEntries = TUTOR_PROVIDERS.map((id) => {
-    const models = modelsByProviders?.[id];
+    const raw = modelsByProviders?.[id];
+    const models = raw
+      ? filterAppyTutorModelsForPicker(raw, id)
+      : undefined;
     const provider = providers?.find((p) => p.id === id);
     return models && provider && models.length > 0
       ? { providerId: id, models, provider }
@@ -125,7 +153,7 @@ export function AppyTutorModelPicker({
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <DropdownMenuLabel className="flex items-center justify-between text-xs">
-          Appy Tutor model
+          Appy Buddy model
           <span className="text-[10px] font-normal text-muted-foreground uppercase">
             {tier}
           </span>
@@ -137,7 +165,9 @@ export function AppyTutorModelPicker({
           </div>
         ) : providerEntries.length === 0 ? (
           <div className="text-xs text-center py-2 text-muted-foreground px-2">
-            Configure API keys in Settings to see models.
+            No curated Appy Buddy models available. Add keys in Settings and
+            ensure deployments include the allowed models (OpenRouter: GLM / Kimi;
+            Anthropic: Claude Sonnet 4 / 4.5; Azure: GPT-5.2, 5.1 chat, Nano, Claude Sonnet 4.5).
           </div>
         ) : (
           providerEntries.map(({ providerId, models, provider }, idx) => {
@@ -214,5 +244,3 @@ export function AppyTutorModelPicker({
     </DropdownMenu>
   );
 }
-
-export { DEFAULT_TUTOR_MODEL };

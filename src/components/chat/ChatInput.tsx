@@ -19,9 +19,10 @@ import {
   Zap,
   Mic,
   MicOff,
+  RefreshCw,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch, useNavigate } from "@tanstack/react-router";
 import { aiBlockAssistant } from '@/services/AiBlockAssistant'; // Brain Import
 
@@ -82,6 +83,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   const posthog = usePostHog();
   const [inputValue, setInputValue] = useAtom(chatInputValueAtom);
   const { settings } = useSettings();
+  const lastPromptForRetryRef = useRef("");
   const appId = useAtomValue(selectedAppIdAtom);
   const { refreshVersions } = useVersions(appId);
   const { streamMessage, isStreaming, error, setError } =
@@ -248,6 +250,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     }
 
     const currentInput = inputValue;
+    lastPromptForRetryRef.current = currentInput;
     // Don't clear input immediately - wait for stream to start successfully
     (setLocalSelectedComponent as (val: ComponentSelection | null) => void)(null);
 
@@ -297,6 +300,32 @@ export function ChatInput({ chatId }: { chatId?: number }) {
   const dismissError = () => {
     setIsErrorVisible(false);
   };
+
+  const handleRetrySameChat = useCallback(async () => {
+    if (!chatId || isStreaming) return;
+    const prompt = (inputValue.trim() || lastPromptForRetryRef.current).trim();
+    if (!prompt) return;
+    setError(null);
+    setIsErrorVisible(true);
+    try {
+      await streamMessage({
+        prompt,
+        chatId,
+        attachments: [],
+        redo: false,
+        selectedComponent,
+      });
+    } catch {
+      /* error surfaced via chatErrorAtom */
+    }
+  }, [
+    chatId,
+    inputValue,
+    isStreaming,
+    selectedComponent,
+    setError,
+    streamMessage,
+  ]);
 
   const handleApprove = async () => {
     if (!chatId || !messageId || isApproving || isRejecting || isStreaming)
@@ -373,6 +402,24 @@ export function ChatInput({ chatId }: { chatId?: number }) {
           onDismiss={dismissError}
           error={error}
           isDyadProEnabled={settings.enableApplaaPro ?? false}
+          errorActions={
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={isStreaming}
+                onClick={() => void handleRetrySameChat()}
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                Retry
+              </Button>
+              <span className="text-xs text-red-600/90">
+                Change the model in the chat model menu above, then retry.
+              </span>
+            </div>
+          }
         />
       )}
       {/* Display loading or error state for proposal */}

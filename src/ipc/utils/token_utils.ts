@@ -31,9 +31,27 @@ export async function getMaxTokens(
   return modelOption?.maxOutputTokens ?? undefined;
 }
 
+/** When `findLanguageModel` misses (e.g. catalog not loaded), keep Azure GPT-5 defaults. */
+const AZURE_GPT5_DEFAULT_TEMP_ONE = new Set([
+  "gpt-5-nano",
+  "gpt-5-chat",
+  "gpt-5.1-chat",
+  "gpt-5.2",
+  "model-router",
+]);
+
 export async function getTemperature(
   model: LargeLanguageModel,
 ): Promise<number> {
   const modelOption = await findLanguageModel(model);
-  return modelOption?.temperature ?? 0;
+  if (modelOption?.temperature !== undefined) {
+    return modelOption.temperature;
+  }
+  if (
+    model.provider === "azure-openai" &&
+    AZURE_GPT5_DEFAULT_TEMP_ONE.has(model.name)
+  ) {
+    return 1;
+  }
+  return 0;
 }

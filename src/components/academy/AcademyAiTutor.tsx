@@ -1,4 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import {
+  addAppyTutorUsage,
+  loadAppyTutorUsageTotals,
+  type AppyTutorUsageTotals,
+} from "@/lib/appyTutorUsageStorage";
+import { AppyTutorTokensBadge } from "@/components/academy/AppyTutorTokensBadge";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { IpcClient } from "@/ipc/ipc_client";
@@ -14,7 +20,8 @@ import { VanillaMarkdownParser } from "@/components/chat/DyadMarkdownParser";
 import { useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/hooks/useSettings";
-import { AppyTutorModelPicker, DEFAULT_TUTOR_MODEL } from "@/components/academy/AppyTutorModelPicker";
+import { AppyTutorModelPicker } from "@/components/academy/AppyTutorModelPicker";
+import { getAppyTutorPrimaryModel } from "@/lib/appyTutorModels";
 
 interface AcademyAiTutorProps {
   code: string;
@@ -27,7 +34,10 @@ export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { settings } = useSettings();
   const ipc = IpcClient.getInstance();
-  const tutorModel = settings?.appyTutorModel ?? DEFAULT_TUTOR_MODEL;
+  const tutorModel = getAppyTutorPrimaryModel(settings ?? {});
+  const [usageTotals, setUsageTotals] = useState<AppyTutorUsageTotals>(() =>
+    loadAppyTutorUsageTotals("ai"),
+  );
 
   const tutorMutation = useMutation({
     mutationFn: () =>
@@ -38,7 +48,22 @@ export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
         academy: "ai",
         model: tutorModel,
       }),
+    onSuccess: (data) => {
+      if (data.source === "cloud" && data.usage) {
+        setUsageTotals(addAppyTutorUsage(data.usage, "ai"));
+      }
+    },
   });
+
+  useEffect(() => {
+    const sync = () => setUsageTotals(loadAppyTutorUsageTotals("ai"));
+    window.addEventListener("appy-tutor-usage-changed", sync);
+    return () => window.removeEventListener("appy-tutor-usage-changed", sync);
+  }, []);
+
+  useEffect(() => {
+    if (open) setUsageTotals(loadAppyTutorUsageTotals("ai"));
+  }, [open]);
 
   const handleAsk = () => {
     if (!question.trim()) return;
@@ -50,22 +75,27 @@ export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Bot className="h-4 w-4" />
-          Ask Appy Tutor
+          Ask Appy Buddy
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            Appy Tutor
+            Appy Buddy
           </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Your editor code is included with each question. You can also chat
-            with Appy Tutor in the right panel anytime.
+            with Appy Buddy in the right panel anytime.
           </p>
-          <AppyTutorModelPicker fullWidth />
+          <div className="flex items-center gap-2 w-full min-w-0">
+            <div className="min-w-0 flex-1">
+              <AppyTutorModelPicker fullWidth />
+            </div>
+            <AppyTutorTokensBadge totals={usageTotals} academyKind="ai" />
+          </div>
         </div>
         <textarea
           className="w-full min-h-[80px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm resize-y"
@@ -97,7 +127,7 @@ export function AcademyAiTutor({ code, language }: AcademyAiTutorProps) {
             >
               {tutorMutation.data.source === "local"
                 ? "Offline tip"
-                : "Appy Tutor"}
+                : "Appy Buddy"}
             </span>
             <div className="prose prose-sm max-w-none dark:prose-invert">
               <VanillaMarkdownParser content={tutorMutation.data.answer} />

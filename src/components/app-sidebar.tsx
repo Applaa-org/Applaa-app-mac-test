@@ -70,6 +70,18 @@ const items = [
   // }, // Disabled for MVP
 
   {
+    id: "ai-academy",
+    title: "AI Ac'dmy",
+    to: "/academy",
+    icon: GraduationCap,
+  },
+  {
+    id: "learning-academy",
+    title: "Learning",
+    to: "/learning-academy",
+    icon: BookMarked,
+  },
+  {
     id: "hub",
     title: "Hub",
     to: "/hub",
@@ -86,18 +98,6 @@ const items = [
     title: "Docs",
     to: "/docs",
     icon: BookOpenText,
-  },
-  {
-    id: "ai-academy",
-    title: "AI Ac'dmy",
-    to: "/academy",
-    icon: GraduationCap,
-  },
-  {
-    id: "learning-academy",
-    title: "Learning",
-    to: "/learning-academy",
-    icon: BookMarked,
   },
 ];
 

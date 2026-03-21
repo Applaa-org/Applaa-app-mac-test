@@ -4,6 +4,8 @@ export type TutorMessageStored = {
   role: "user" | "assistant";
   content: string;
   source?: "local" | "cloud";
+  /** True when assistant message is a failure / stopped — show Retry. */
+  retryable?: boolean;
 };
 
 export type SavedTutorChat = {

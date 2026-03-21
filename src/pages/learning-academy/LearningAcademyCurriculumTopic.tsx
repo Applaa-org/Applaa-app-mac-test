@@ -894,7 +894,12 @@ function getLessonDetail(
       lessonSummary: "You now know the sides of a right-angled triangle (hypotenuse, opposite, adjacent); the definitions of sin, cos and tan and SOH CAH TOA; and how to use one of the ratios to find a missing side or angle. Use this for simple applications like heights and distances.",
     };
   }
-  if (t.includes("calculus") || t.includes("rates of change") || t.includes("gradient")) {
+  // Only treat "gradient" as calculus when the topic is calculus — linear graphs lessons also say "gradient".
+  if (
+    t.includes("calculus") ||
+    t.includes("rates of change") ||
+    (t.includes("gradient") && topicLower.includes("calculus"))
+  ) {
     return {
       intro: "Calculus helps us understand how things change. Two big ideas are rates of change (how fast something changes) and gradients (how steep a graph is). These ideas lead to the calculus you will meet in advanced maths. This lesson introduces what 'rate of change' and 'gradient' mean in real and graphical contexts.",
       coreConcepts: [

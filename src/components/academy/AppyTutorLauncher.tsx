@@ -81,8 +81,8 @@ export function AppyTutorFloatingLauncher({
           ? "border-indigo-300 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-900 dark:border-indigo-600 dark:from-indigo-950/90 dark:to-purple-950/80 dark:text-indigo-100"
           : "border-teal-300 bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-900 dark:border-teal-600 dark:from-teal-950/90 dark:to-emerald-950/80 dark:text-teal-100",
       )}
-      title="Open Appy Tutor — ask questions anytime"
-      aria-label="Open Appy Tutor"
+      title="Open Appy Buddy — ask questions anytime"
+      aria-label="Open Appy Buddy"
     >
       {isIndigo ? (
         <AppyMascotIcon className="h-10 w-10" />

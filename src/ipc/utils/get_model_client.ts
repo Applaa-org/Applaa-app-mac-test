@@ -18,6 +18,102 @@ import { LM_STUDIO_BASE_URL } from "./lm_studio_utils";
 const dyadEngineUrl = process.env.DYAD_ENGINE_URL;
 const dyadGatewayUrl = process.env.DYAD_GATEWAY_URL;
 
+/**
+ * GPT-5 / newer Azure chat completions may return assistant `message.content` as an array of
+ * typed parts, nested objects, or leave the visible answer in `reasoning_content`. The
+ * OpenAI-compatible AI SDK only maps `message.content` (string) to `generateText().text`, not
+ * `reasoning_content`, so we must collapse everything into `content`.
+ */
+function flattenOpenAIAssistantMessageContent(content: unknown): string {
+  if (content == null) return "";
+  if (typeof content === "string") return content;
+  if (typeof content === "object" && !Array.isArray(content)) {
+    const o = content as Record<string, unknown>;
+    if (typeof o.text === "string") return o.text;
+    if (typeof o.content === "string") return o.content;
+    if (Array.isArray(o.output)) {
+      return o.output.map((p) => flattenOpenAIAssistantMessageContent(p)).join("");
+    }
+  }
+  if (Array.isArray(content)) {
+    let out = "";
+    for (const part of content) {
+      out += flattenOpenAIAssistantMessageContent(part);
+    }
+    return out;
+  }
+  return "";
+}
+
+/** Extract assistant-visible text from a chat completion `message` object (Azure / GPT-5). */
+function extractAssistantTextForSdk(message: Record<string, unknown>): string {
+  const fromContent = flattenOpenAIAssistantMessageContent(message.content);
+  if (fromContent.trim()) return fromContent;
+
+  const rc = message.reasoning_content;
+  if (typeof rc === "string" && rc.trim()) return rc;
+
+  // Some deployments nest text under output / annotations
+  const output = message.output;
+  if (Array.isArray(output)) {
+    const fromOutput = output
+      .map((item) => {
+        if (!item || typeof item !== "object") return "";
+        const o = item as Record<string, unknown>;
+        if (o.type === "message" && Array.isArray(o.content)) {
+          return flattenOpenAIAssistantMessageContent(o.content);
+        }
+        return flattenOpenAIAssistantMessageContent(item);
+      })
+      .join("");
+    if (fromOutput.trim()) return fromOutput;
+  }
+
+  return "";
+}
+
+function normalizeOpenAIChatCompletionJsonForSdk(json: unknown): unknown {
+  if (!json || typeof json !== "object") return json;
+  const root = json as Record<string, unknown>;
+  const choices = root.choices;
+  if (!Array.isArray(choices) || choices.length === 0) return json;
+  const first = choices[0] as Record<string, unknown>;
+  const message = first.message as Record<string, unknown> | undefined;
+  if (!message || typeof message !== "object") return json;
+
+  const fromContentOnly = flattenOpenAIAssistantMessageContent(
+    message.content,
+  ).trim();
+  const combined = extractAssistantTextForSdk(message);
+  if (!combined.trim()) return json;
+
+  const prev = message.content;
+  const hadStringContent = typeof prev === "string" && prev.trim().length > 0;
+  if (hadStringContent && prev === combined) return json;
+
+  const mergedReasoningIntoContent =
+    !fromContentOnly &&
+    typeof message.reasoning_content === "string" &&
+    message.reasoning_content.trim() === combined.trim();
+
+  return {
+    ...root,
+    choices: [
+      {
+        ...first,
+        message: {
+          ...message,
+          content: combined,
+          reasoning_content: mergedReasoningIntoContent
+            ? undefined
+            : message.reasoning_content,
+        },
+      },
+      ...choices.slice(1),
+    ],
+  };
+}
+
 const AUTO_MODELS = [
 
   {
@@ -826,15 +922,34 @@ function getRegularModelClient(
       // Models that require max_completion_tokens instead of max_tokens
       // Note: gpt-5.1-chat uses standard endpoint with max_completion_tokens (not Responses API)
       // gpt-5.2 (Azure OpenAI v1 endpoint) also requires max_completion_tokens
-      const modelsRequiringMaxCompletionTokens = ['gpt-5-nano', 'o1', 'o4-mini', 'gpt-5.1-chat', 'gpt-5.2', 'gpt-5.2-codex'];
+      // Azure chat completions with newer API versions expect `max_completion_tokens` for these deployments.
+      // Without conversion, requests can fail or return empty (gpt-4o / gpt-5-nano included).
+      const modelsRequiringMaxCompletionTokens = [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4",
+        "gpt-5-nano",
+        "o1",
+        "o4-mini",
+        "gpt-5.1-chat",
+        "gpt-5.2",
+        "gpt-5.2-codex",
+      ];
       const needsMaxCompletionTokens = modelsRequiringMaxCompletionTokens.includes(model.name);
 
       // Models that don't support temperature parameter (O1, gpt-5.2-codex)
       const modelsNotSupportingTemperature = ['o1', 'gpt-5.2-codex'];
       const shouldRemoveTemperature = modelsNotSupportingTemperature.includes(model.name);
 
-      // Models that only support temperature = 1 (O4 Mini)
-      const modelsRequiringTemperatureOne = ['o4-mini'];
+      // Models that only support temperature = 1 (O4 Mini, GPT-5 family on Azure)
+      const modelsRequiringTemperatureOne = [
+        "o4-mini",
+        "gpt-5-nano",
+        "gpt-5-chat",
+        "gpt-5.1-chat",
+        "gpt-5.2",
+        "model-router",
+      ];
       const needsTemperatureOne = modelsRequiringTemperatureOne.includes(model.name);
 
       // Use OpenAI compatible provider with Azure-specific headers and URL rewriting
@@ -1459,6 +1574,51 @@ function getRegularModelClient(
 
               logger.info(`  - ✅ Transformed response created for Responses API (streaming)`);
               return transformedResponse;
+            }
+
+            // Standard chat completions: normalize assistant content when it's not a plain string.
+            if (
+              !modelConfig.useResponsesEndpoint &&
+              response.ok &&
+              !requestWantsStream
+            ) {
+              const ct = (response.headers.get("content-type") || "").toLowerCase();
+              if (ct.includes("text/event-stream")) {
+                return response;
+              }
+              if (ct.includes("application/json")) {
+                const bodyText = await response.text();
+                try {
+                  const json = JSON.parse(bodyText) as unknown;
+                  const normalized = normalizeOpenAIChatCompletionJsonForSdk(json);
+                  const out = JSON.stringify(normalized);
+                  if (out !== bodyText) {
+                    logger.info(
+                      `  - 🔄 Normalized chat completion message.content to string for ${model.name} (SDK text extraction)`,
+                    );
+                  }
+                  return new Response(out, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: new Headers({
+                      ...Object.fromEntries(response.headers.entries()),
+                      "content-type": "application/json",
+                    }),
+                  });
+                } catch (e) {
+                  logger.warn(
+                    `  - ⚠️ Could not normalize standard chat completion JSON: ${e}`,
+                  );
+                  return new Response(bodyText, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: new Headers({
+                      ...Object.fromEntries(response.headers.entries()),
+                      "content-type": "application/json",
+                    }),
+                  });
+                }
+              }
             }
 
             return response;

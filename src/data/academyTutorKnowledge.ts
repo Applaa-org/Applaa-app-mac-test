@@ -74,22 +74,22 @@ export const TUTOR_KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ["hello", "hi", "help", "start", "beginner"],
     answer: "Welcome! I’m your offline coding tutor. I can help you with:\n\n• **Why code isn’t working** – errors, bugs, wrong output\n• **Explaining code** – what a piece of code does\n• **Variables, loops, functions** – basics in Python and JavaScript\n• **Lists/arrays and objects/dictionaries**\n• **Syntax and common errors** – indentation, undefined, index out of range\n\nAsk in your own words (e.g. “Why is my code not working?” or “Explain this code”) and I’ll answer from my built‑in knowledge. No internet or AI service needed.",
   },
-  // Learning Academy – short offline tips (deeper questions go to Appy Tutor cloud)
+  // Learning Academy – short offline tips (deeper questions go to Appy Buddy cloud)
   {
     keywords: ["study", "studying", "revision", "revise", "memorize"],
-    answer: "**Studying effectively**\n\n• **Short sessions** – 25–45 minutes with a break beats one long cram.\n• **Active recall** – Close the book and write or say what you remember; then check.\n• **Spaced repetition** – Review again tomorrow, then in a few days.\n• **Mix subjects** – Alternate topics so you don’t burn out on one thing.\n\nFor a specific topic or exam question, ask Appy Tutor in the panel — it can explain in more detail when you’re online.",
+    answer: "**Studying effectively**\n\n• **Short sessions** – 25–45 minutes with a break beats one long cram.\n• **Active recall** – Close the book and write or say what you remember; then check.\n• **Spaced repetition** – Review again tomorrow, then in a few days.\n• **Mix subjects** – Alternate topics so you don’t burn out on one thing.\n\nFor a specific topic or exam question, ask Appy Buddy in the panel — it can explain in more detail when you’re online.",
   },
   {
     keywords: ["exam", "test", "assessment", "nervous", "anxiety"],
-    answer: "**Before exams**\n\n• **Sleep** – One extra hour of sleep often helps more than one extra hour of cramming.\n• **Plan** – Skim the whole paper first; answer what you know, then return to harder parts.\n• **Show working** – In maths/science, partial credit often comes from clear steps.\n\nAsk Appy Tutor for help practicing a type of question or explaining a concept you’re stuck on.",
+    answer: "**Before exams**\n\n• **Sleep** – One extra hour of sleep often helps more than one extra hour of cramming.\n• **Plan** – Skim the whole paper first; answer what you know, then return to harder parts.\n• **Show working** – In maths/science, partial credit often comes from clear steps.\n\nAsk Appy Buddy for help practicing a type of question or explaining a concept you’re stuck on.",
   },
   {
     keywords: ["curriculum", "topic", "subject", "syllabus"],
-    answer: "Use the **Curriculum** section to move topic by topic. For each page, read the summary, try any exercises, then use **Appy Tutor** on the right if something is unclear — say which subject and topic you’re on.\n\nIf you tell me the exact concept (e.g. “photosynthesis” or “quadratic equations”), I can give a focused explanation when cloud help is available.",
+    answer: "Use the **Curriculum** section to move topic by topic. For each page, read the summary, try any exercises, then use **Appy Buddy** on the right if something is unclear — say which subject and topic you’re on.\n\nIf you tell me the exact concept (e.g. “photosynthesis” or “quadratic equations”), I can give a focused explanation when cloud help is available.",
   },
   {
     keywords: ["schedule", "timetable", "organize", "time management"],
-    answer: "**Planning your time**\n\n• Block fixed times for homework and revision on a calendar.\n• Put the hardest task when you’re freshest.\n• **Year 11 schedule** in this app is a template — adapt it to your real school timetable.\n\nFor subject-specific planning (e.g. how to split maths vs English), ask Appy Tutor with your goals in mind.",
+    answer: "**Planning your time**\n\n• Block fixed times for homework and revision on a calendar.\n• Put the hardest task when you’re freshest.\n• **Year 11 schedule** in this app is a template — adapt it to your real school timetable.\n\nFor subject-specific planning (e.g. how to split maths vs English), ask Appy Buddy with your goals in mind.",
   },
 ];
 

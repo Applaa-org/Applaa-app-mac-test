@@ -72,10 +72,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   // UI State defaults (expanded by default)
   deployedAppsSectionExpanded: true,
 
-  appyTutorModel: {
-    name: "gpt-5-nano",
-    provider: "azure-openai",
-  },
+  // appyTutorModel omitted — Appy Buddy uses main chat `selectedModel` when Buddy-specific model unset
 };
 
 // Use different settings file for packaged apps to avoid loading dev settings

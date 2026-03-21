@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import {
   LEARNING_ACADEMY_SUBJECTS,
@@ -8,9 +8,11 @@ import {
   getTopicsForGCSE,
   type UKYear,
 } from "@/data/learningAcademyCurriculum";
+import {
+  loadLearningAcademySubjectIds,
+  saveLearningAcademySubjectIds,
+} from "@/lib/learningAcademySubjectSelection";
 import { BookOpen, ChevronRight, CheckSquare, Square } from "lucide-react";
-
-const DEFAULT_SELECTED_SUBJECT_IDS = new Set(LEARNING_ACADEMY_SUBJECTS.map((s) => s.id));
 
 export function LearningAcademyCurriculum() {
   const search = useSearch({ from: "/learning-academy/curriculum" }) as {
@@ -30,9 +32,20 @@ export function LearningAcademyCurriculum() {
 
   const [selectedYear, setSelectedYear] = useState<UKYear | "all" | "gcse">(initialYear);
   const [expandedSubject, setExpandedSubject] = useState<string | null>(initialSubjectId ?? null);
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(() =>
-    initialSubjectId ? new Set([initialSubjectId]) : new Set(DEFAULT_SELECTED_SUBJECT_IDS)
-  );
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(() => {
+    const allIds = LEARNING_ACADEMY_SUBJECTS.map((s) => s.id);
+    const loaded = loadLearningAcademySubjectIds(allIds);
+    if (initialSubjectId) {
+      const next = new Set(loaded);
+      next.add(initialSubjectId);
+      return next;
+    }
+    return loaded;
+  });
+
+  useEffect(() => {
+    saveLearningAcademySubjectIds(selectedSubjectIds);
+  }, [selectedSubjectIds]);
 
   const visibleSubjects = useMemo(
     () => LEARNING_ACADEMY_SUBJECTS.filter((s) => selectedSubjectIds.has(s.id)),
@@ -85,25 +98,22 @@ export function LearningAcademyCurriculum() {
           {LEARNING_ACADEMY_SUBJECTS.map((subject) => {
             const checked = selectedSubjectIds.has(subject.id);
             return (
-              <label
+              <button
                 key={subject.id}
-                className="inline-flex items-center gap-2 cursor-pointer select-none"
+                type="button"
+                role="checkbox"
+                aria-checked={checked}
+                aria-label={`${checked ? "Deselect" : "Select"} ${subject.shortTitle}`}
+                onClick={() => toggleSubject(subject.id)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 hover:border-teal-400 dark:hover:border-teal-500 text-sm transition-colors select-none"
               >
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={checked}
-                  onClick={() => toggleSubject(subject.id)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 hover:border-teal-400 dark:hover:border-teal-500 text-sm"
-                >
-                  {checked ? (
-                    <CheckSquare className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0" />
-                  ) : (
-                    <Square className="h-4 w-4 text-gray-400 shrink-0" />
-                  )}
-                  <span className="text-gray-800 dark:text-gray-200">{subject.shortTitle}</span>
-                </button>
-              </label>
+                {checked ? (
+                  <CheckSquare className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                ) : (
+                  <Square className="h-4 w-4 text-gray-400 shrink-0" />
+                )}
+                <span className="text-gray-800 dark:text-gray-200">{subject.shortTitle}</span>
+              </button>
             );
           })}
         </div>

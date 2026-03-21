@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { IpcClient } from "@/ipc/ipc_client";
 import { X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -7,10 +8,13 @@ export function ChatErrorBox({
   onDismiss,
   error,
   isDyadProEnabled,
+  /** Retry / switch model actions (main chat) */
+  errorActions,
 }: {
   onDismiss: () => void;
   error: string;
   isDyadProEnabled: boolean;
+  errorActions?: ReactNode;
 }) {
   if (error.includes("doesn't have a free quota tier")) {
     return (
@@ -80,7 +84,11 @@ export function ChatErrorBox({
   if (error.includes("Fallbacks=")) {
     error = error.split("Fallbacks=")[0];
   }
-  return <ChatErrorContainer onDismiss={onDismiss}>{error}</ChatErrorContainer>;
+  return (
+    <ChatErrorContainer onDismiss={onDismiss} footer={errorActions}>
+      {error}
+    </ChatErrorContainer>
+  );
 }
 
 function ExternalLink({
@@ -103,9 +111,11 @@ function ExternalLink({
 function ChatErrorContainer({
   onDismiss,
   children,
+  footer,
 }: {
   onDismiss: () => void;
   children: React.ReactNode | string;
+  footer?: ReactNode;
 }) {
   return (
     <div className="relative mt-2 bg-red-50 border border-red-200 rounded-md shadow-sm p-2 mx-4">
@@ -143,6 +153,9 @@ function ChatErrorContainer({
             children
           )}
         </div>
+        {footer ? (
+          <div className="mt-2 flex flex-wrap gap-2 items-center">{footer}</div>
+        ) : null}
       </div>
     </div>
   );

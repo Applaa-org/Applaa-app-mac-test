@@ -326,7 +326,7 @@ export const UserSettingsSchema = z.object({
   runtimeMode: RuntimeModeSchema.optional(),
   planningModel: LargeLanguageModelSchema.optional(),
 
-  /** Appy Tutor (academies) — default Azure GPT-5 Nano; user can switch in the tutor panel */
+  /** Appy Buddy (academies) — optional override; otherwise uses main chat `selectedModel` when allowed */
   appyTutorModel: LargeLanguageModelSchema.optional(),
 });
 

@@ -2373,8 +2373,23 @@ export class IpcClient {
     academy: "ai" | "learning";
     history?: { role: "user" | "assistant"; content: string }[];
     model?: { name: string; provider: string; customModelId?: number };
-  }): Promise<{ answer: string; source: "local" | "cloud" }> {
+  }): Promise<{
+    answer: string;
+    source: "local" | "cloud";
+    usage?: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
+    /** When true, show Retry in the tutor UI. */
+    retryable?: boolean;
+  }> {
     return this.ipcRenderer.invoke("academy:appy-tutor", params);
+  }
+
+  /** Stop the in-flight Appy Buddy cloud request (same tab). */
+  public async academyAppyTutorAbort(): Promise<{ ok: true }> {
+    return this.ipcRenderer.invoke("academy:appy-tutor-abort");
   }
 
   public async subscriptionCreateCheckout(params: {

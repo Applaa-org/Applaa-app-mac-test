@@ -35,51 +35,121 @@ export interface CurriculumSubject {
   topics: CurriculumTopic[];
 }
 
-/** Math topics: from number basics through to GCSE (algebra, trigonometry, calculus, etc.) */
+/** Math topics: KS3–GCSE — year tags follow typical UK spiral (broad topics; schools vary). */
 const MATH_TOPICS: CurriculumTopic[] = [
-  { id: "number", title: "Number", description: "Place value, four operations, fractions, decimals, percentages.", years: [7, 8, 9, 10, 11], order: 1 },
-  { id: "algebra", title: "Algebra", description: "Expressions, equations, sequences, formulae.", years: [9, 10, 11], order: 2 },
-  { id: "geometry", title: "Geometry & Measures", description: "Shapes, angles, area, perimeter, volume, units.", years: [7, 8, 9, 10, 11], order: 3 },
-  { id: "statistics", title: "Statistics", description: "Tables, charts, averages, probability.", years: [8, 9, 10, 11], order: 4 },
-  { id: "ratio", title: "Ratio & Proportion", description: "Ratio, scale, direct proportion.", years: [9, 10, 11], order: 5 },
-  { id: "trigonometry", title: "Trigonometry", description: "Right-angled triangles, sin, cos, tan, applications.", years: [11], order: 6 },
-  { id: "calculus", title: "Calculus (intro)", description: "Rates of change, gradients, introduction to calculus for GCSE.", years: [11], order: 7 },
+  { id: "number", title: "Number", description: "Place value, four operations, fractions, decimals, percentages, standard form.", years: [7, 8, 9, 10, 11], order: 1 },
+  { id: "algebra", title: "Algebra", description: "Expressions, equations, sequences, formulae — from simple formulae in KS3 to GCSE.", years: [7, 8, 9, 10, 11], order: 2 },
+  {
+    id: "linear-graphs",
+    title: "Linear graphs & gradients",
+    description:
+      "Coordinates and plotting (from Year 8); straight-line graphs, gradient and intercept, y = mx + c, parallel and perpendicular lines (GCSE).",
+    years: [8, 9, 10, 11],
+    order: 3,
+  },
+  { id: "geometry", title: "Geometry & Measures", description: "Shapes, angles, constructions, area, perimeter, volume, similarity, Pythagoras.", years: [7, 8, 9, 10, 11], order: 4 },
+  {
+    id: "statistics",
+    title: "Statistics",
+    description: "Data tables, mean, median, mode, range, sampling, probability scale.",
+    years: [8, 9, 10, 11],
+    order: 5,
+  },
+  {
+    id: "statistical-diagrams",
+    title: "Histograms, cumulative frequency & diagrams",
+    description:
+      "Bar charts, pictograms, time series; histograms, cumulative frequency, box plots, scatter and correlation (building from KS3 to GCSE).",
+    years: [8, 9, 10, 11],
+    order: 6,
+  },
+  { id: "ratio", title: "Ratio & Proportion", description: "Ratio, scale, direct and inverse proportion, percentages of amounts.", years: [7, 8, 9, 10, 11], order: 7 },
+  {
+    id: "probability",
+    title: "Probability",
+    description: "Likelihood, combined events, tree diagrams, expectation, Venn diagrams (GCSE).",
+    years: [8, 9, 10, 11],
+    order: 8,
+  },
+  { id: "trigonometry", title: "Trigonometry", description: "Right-angled triangles, sin, cos, tan, sine/cosine rules, applications.", years: [10, 11], order: 9 },
+  { id: "calculus", title: "Calculus (intro)", description: "Rates of change, gradients of curves, introduction to calculus for GCSE.", years: [11], order: 10 },
 ];
 
 const PHYSICS_TOPICS: CurriculumTopic[] = [
-  { id: "forces", title: "Forces", description: "Push and pull, gravity, friction, balanced forces.", years: [7, 8, 9, 10, 11], order: 1 },
-  { id: "light", title: "Light", description: "How we see, shadows, reflection, refraction.", years: [7, 8, 9, 10], order: 2 },
-  { id: "sound", title: "Sound", description: "Vibrations, pitch, volume, how sound travels.", years: [8, 9, 10], order: 3 },
-  { id: "electricity", title: "Electricity", description: "Circuits, conductors, insulators, components.", years: [8, 9, 10, 11], order: 4 },
-  { id: "energy", title: "Energy", description: "Types of energy, energy transfer, conservation.", years: [9, 10, 11], order: 5 },
-  { id: "motion", title: "Motion", description: "Speed, distance, time, graphs (towards GCSE).", years: [10, 11], order: 6 },
+  { id: "forces", title: "Forces", description: "Push and pull, gravity, friction, balanced forces, pressure.", years: [7, 8, 9, 10, 11], order: 1 },
+  { id: "light", title: "Light", description: "How we see, shadows, reflection, refraction, lenses.", years: [7, 8, 9, 10, 11], order: 2 },
+  { id: "sound", title: "Sound", description: "Vibrations, pitch, volume, hearing, sound waves.", years: [8, 9, 10, 11], order: 3 },
+  { id: "electricity", title: "Electricity", description: "Circuits, current, voltage, resistance, mains and safety.", years: [8, 9, 10, 11], order: 4 },
+  { id: "energy", title: "Energy", description: "Energy stores and transfers, conservation, work and power.", years: [8, 9, 10, 11], order: 5 },
+  { id: "motion", title: "Motion", description: "Speed, velocity, distance–time graphs, acceleration (towards GCSE).", years: [9, 10, 11], order: 6 },
+  {
+    id: "thermal",
+    title: "Heat & temperature",
+    description: "Temperature scales, internal energy, conduction, convection, radiation, specific heat capacity.",
+    years: [8, 9, 10, 11],
+    order: 7,
+  },
+  {
+    id: "waves",
+    title: "Waves",
+    description: "Wave properties, sound and light as waves, electromagnetic spectrum and uses.",
+    years: [9, 10, 11],
+    order: 8,
+  },
 ];
 
 const CHEMISTRY_TOPICS: CurriculumTopic[] = [
-  { id: "materials", title: "Materials & States of Matter", description: "Solids, liquids, gases, properties, changes.", years: [7, 8, 9, 10, 11], order: 1 },
-  { id: "rocks", title: "Rocks & Soils", description: "Types of rocks, fossils, soil.", years: [7, 8, 9], order: 2 },
-  { id: "reactions", title: "Chemical Reactions", description: "Simple reactions, acids and alkalis, indicators.", years: [9, 10, 11], order: 3 },
-  { id: "particles", title: "Particle Model", description: "Atoms, molecules, particle theory.", years: [10, 11], order: 4 },
+  { id: "materials", title: "Materials & States of Matter", description: "Solids, liquids, gases, changes of state, separation techniques.", years: [7, 8, 9, 10, 11], order: 1 },
+  {
+    id: "structure-bonding",
+    title: "Atoms, elements & bonding",
+    description: "Atomic structure, periodic table, elements and compounds, ionic and covalent bonding, simple equations.",
+    years: [8, 9, 10, 11],
+    order: 2,
+  },
+  { id: "rocks", title: "Rocks & Soils", description: "Rock types, rock cycle, fossils, soil.", years: [7, 8, 9], order: 3 },
+  { id: "reactions", title: "Chemical Reactions", description: "Acids and alkalis, indicators, metals, rates of reaction, energy changes.", years: [9, 10, 11], order: 4 },
+  {
+    id: "particles",
+    title: "Particles & quantitative chemistry",
+    description: "Moles, masses, gas volumes, yields, titrations — building from particle model to GCSE calculations.",
+    years: [9, 10, 11],
+    order: 5,
+  },
 ];
 
 const BIOLOGY_TOPICS: CurriculumTopic[] = [
-  { id: "living-things", title: "Living Things", description: "Life processes, classification, habitats.", years: [7, 8, 9, 10], order: 1 },
-  { id: "humans", title: "Humans & Health", description: "Body systems, nutrition, exercise, health.", years: [7, 8, 9, 10, 11], order: 2 },
-  { id: "plants", title: "Plants", description: "Parts of a plant, life cycles, photosynthesis.", years: [7, 8, 9, 10], order: 3 },
-  { id: "evolution", title: "Evolution & Inheritance", description: "Variation, adaptation, inheritance (towards GCSE).", years: [10, 11], order: 4 },
+  { id: "living-things", title: "Living Things", description: "Life processes, classification, habitats, food chains.", years: [7, 8, 9, 10, 11], order: 1 },
+  {
+    id: "cells",
+    title: "Cells & organisation",
+    description: "Cell structure, microscopy, diffusion, osmosis, tissues, organs, organ systems.",
+    years: [7, 8, 9, 10, 11],
+    order: 2,
+  },
+  { id: "humans", title: "Humans & Health", description: "Body systems, nutrition, exercise, circulation, respiration, health.", years: [7, 8, 9, 10, 11], order: 3 },
+  { id: "plants", title: "Plants", description: "Structure, transport, photosynthesis, life cycles, reproduction.", years: [7, 8, 9, 10, 11], order: 4 },
+  { id: "evolution", title: "Evolution & Inheritance", description: "Variation, natural selection, genetics, inheritance, evidence for evolution.", years: [9, 10, 11], order: 5 },
+  {
+    id: "coordination",
+    title: "Coordination & homeostasis",
+    description: "Nervous system, reflexes, hormones, blood sugar, temperature and water balance.",
+    years: [10, 11],
+    order: 6,
+  },
 ];
 
 const COMPUTER_SCIENCE_TOPICS: CurriculumTopic[] = [
-  { id: "algorithms", title: "Algorithms", description: "Steps and sequences, decomposition, debugging.", years: [7, 8, 9, 10, 11], order: 1 },
-  { id: "programming", title: "Programming", description: "Block and text-based coding, variables, loops.", years: [8, 9, 10, 11], order: 2 },
-  { id: "data", title: "Data & Information", description: "Collecting, presenting, and using data.", years: [8, 9, 10, 11], order: 3 },
-  { id: "networks", title: "Networks & the Internet", description: "How computers connect and communicate.", years: [9, 10, 11], order: 4 },
+  { id: "algorithms", title: "Algorithms", description: "Steps and sequences, decomposition, debugging, searching and sorting ideas.", years: [7, 8, 9, 10, 11], order: 1 },
+  { id: "programming", title: "Programming", description: "Block and text-based coding, variables, selection, iteration, procedures.", years: [7, 8, 9, 10, 11], order: 2 },
+  { id: "data", title: "Data & Information", description: "Collecting, encoding, databases, presenting and using data.", years: [8, 9, 10, 11], order: 3 },
+  { id: "networks", title: "Networks & the Internet", description: "LAN/WAN, protocols, security, ethical and legal issues.", years: [9, 10, 11], order: 4 },
 ];
 
 const BUSINESS_TOPICS: CurriculumTopic[] = [
-  { id: "enterprise", title: "Enterprise", description: "Ideas, products, and what businesses do.", years: [9, 10, 11], order: 1 },
-  { id: "money", title: "Money & Budgeting", description: "Income, spending, saving, budgeting.", years: [8, 9, 10, 11], order: 2 },
-  { id: "markets", title: "Markets & Customers", description: "Needs and wants, customers, simple marketing.", years: [10, 11], order: 3 },
+  { id: "enterprise", title: "Enterprise", description: "Ideas, products, risk, and what businesses do.", years: [8, 9, 10, 11], order: 1 },
+  { id: "money", title: "Money & Budgeting", description: "Income, spending, saving, budgeting, interest basics.", years: [8, 9, 10, 11], order: 2 },
+  { id: "markets", title: "Markets & Customers", description: "Needs and wants, competition, customers, marketing.", years: [10, 11], order: 3 },
 ];
 
 const ENGLISH_TOPICS: CurriculumTopic[] = [
@@ -97,9 +167,16 @@ const HISTORY_TOPICS: CurriculumTopic[] = [
 ];
 
 const GEOGRAPHY_TOPICS: CurriculumTopic[] = [
-  { id: "physical", title: "Physical geography", description: "Rivers, coasts, weather, climate, ecosystems.", years: [7, 8, 9, 10, 11], order: 1 },
-  { id: "human", title: "Human geography", description: "Population, urban, development, resources.", years: [7, 8, 9, 10, 11], order: 2 },
-  { id: "uk-world", title: "UK and the world", description: "UK landscapes, global links, fieldwork.", years: [8, 9, 10, 11], order: 3 },
+  { id: "physical", title: "Physical geography", description: "Rivers, coasts, weather, climate, natural hazards, ecosystems.", years: [7, 8, 9, 10, 11], order: 1 },
+  { id: "human", title: "Human geography", description: "Population, urbanisation, development, resources, globalisation.", years: [7, 8, 9, 10, 11], order: 2 },
+  { id: "uk-world", title: "UK and the world", description: "UK landscapes, regional contrasts, global links.", years: [8, 9, 10, 11], order: 3 },
+  {
+    id: "fieldwork",
+    title: "Fieldwork & skills",
+    description: "Map skills, scales, enquiry questions, data collection, presentation, GIS awareness.",
+    years: [9, 10, 11],
+    order: 4,
+  },
 ];
 
 const RELIGIOUS_STUDIES_TOPICS: CurriculumTopic[] = [
@@ -163,7 +240,7 @@ export const LEARNING_ACADEMY_SUBJECTS: CurriculumSubject[] = [
     id: "physics",
     title: "Physics",
     shortTitle: "Physics",
-    description: "Forces, light, sound, electricity, energy, motion.",
+    description: "Forces, energy, motion, electricity, waves, heat, light and sound.",
     emoji: "⚡",
     color: "bg-blue-500",
     topics: PHYSICS_TOPICS,
@@ -172,7 +249,7 @@ export const LEARNING_ACADEMY_SUBJECTS: CurriculumSubject[] = [
     id: "chemistry",
     title: "Chemistry",
     shortTitle: "Chemistry",
-    description: "Materials, states of matter, reactions, particle model.",
+    description: "Materials, atoms and bonding, reactions, quantitative chemistry.",
     emoji: "🧪",
     color: "bg-emerald-500",
     topics: CHEMISTRY_TOPICS,
@@ -181,7 +258,7 @@ export const LEARNING_ACADEMY_SUBJECTS: CurriculumSubject[] = [
     id: "biology",
     title: "Biology",
     shortTitle: "Biology",
-    description: "Living things, humans and health, plants, evolution.",
+    description: "Cells, living things, body systems, plants, evolution, coordination.",
     emoji: "🌿",
     color: "bg-green-500",
     topics: BIOLOGY_TOPICS,

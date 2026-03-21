@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   LEARNING_ACADEMY_SUBJECTS,
@@ -6,12 +6,20 @@ import {
   getTopic,
 } from "@/data/learningAcademyCurriculum";
 import { YEAR_11_SCHEDULE } from "@/data/year11RevisionSchedule";
+import {
+  loadLearningAcademySubjectIds,
+  saveLearningAcademySubjectIds,
+} from "@/lib/learningAcademySubjectSelection";
 import { Calendar, BookOpen, ChevronRight, CheckSquare, Square } from "lucide-react";
 
-const DEFAULT_SELECTED_SUBJECT_IDS = new Set(LEARNING_ACADEMY_SUBJECTS.map((s) => s.id));
-
 export function LearningAcademySchedule() {
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(DEFAULT_SELECTED_SUBJECT_IDS);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(() =>
+    loadLearningAcademySubjectIds(LEARNING_ACADEMY_SUBJECTS.map((s) => s.id)),
+  );
+
+  useEffect(() => {
+    saveLearningAcademySubjectIds(selectedSubjectIds);
+  }, [selectedSubjectIds]);
 
   const toggleSubject = (id: string) => {
     setSelectedSubjectIds((prev) => {

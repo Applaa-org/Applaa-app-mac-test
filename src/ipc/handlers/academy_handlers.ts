@@ -27,10 +27,96 @@ const APPY_TUTOR_ALLOWED_PROVIDERS = new Set([
   "openrouter",
 ]);
 
+/** Default from e44852e — Azure nano + model-router fallback matched working setups. */
 const DEFAULT_APPY_TUTOR_MODEL: LargeLanguageModel = {
   provider: "azure-openai",
   name: "gpt-5-nano",
 };
+
+/** If the model call never completes, abort so the IPC handler always settles. */
+const APPY_TUTOR_STREAM_TIMEOUT_MS = 120_000;
+
+/** Building the client (DB/providers) must not hang the IPC forever. */
+const APPY_TUTOR_GET_CLIENT_TIMEOUT_MS = 45_000;
+
+/**
+ * Hard cap for the whole invoke — prevents Electron "reply was never sent" if something
+ * outside `streamResult.text` never settles (e.g. `reasoning` / `usage` promises on some Azure models).
+ */
+const APPY_TUTOR_IPC_TOTAL_TIMEOUT_MS = 8 * 60 * 1000;
+
+function promiseWithTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)),
+        ms,
+      ),
+    ),
+  ]);
+}
+
+/** Combine user Stop + stream timeout so either aborts the request. */
+function mergeAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+  const Any = (
+    AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }
+  ).any;
+  if (typeof Any === "function") {
+    return Any([a, b]);
+  }
+  const c = new AbortController();
+  if (a.aborted || b.aborted) {
+    c.abort();
+    return c.signal;
+  }
+  const onAbort = () => c.abort();
+  a.addEventListener("abort", onAbort, { once: true });
+  b.addEventListener("abort", onAbort, { once: true });
+  return c.signal;
+}
+
+/** Resolves/rejects with `promise`, or rejects on `signal` abort — always removes the abort listener. */
+function raceAbort<T>(signal: AbortSignal, promise: Promise<T>): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(new DOMException("Aborted", "AbortError"));
+  }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    const cleanup = () => {
+      signal.removeEventListener("abort", onAbort);
+    };
+    promise
+      .then((v) => {
+        cleanup();
+        resolve(v);
+      })
+      .catch((e) => {
+        cleanup();
+        reject(e);
+      });
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function isAbortError(e: unknown): boolean {
+  return (
+    e instanceof DOMException && e.name === "AbortError"
+  ) || (e instanceof Error && e.name === "AbortError");
+}
+
+let appyTutorInvokeAbort: AbortController | null = null;
+
+function abortCurrentAppyTutorInvoke(): void {
+  appyTutorInvokeAbort?.abort();
+}
 
 function resolveAppyTutorModel(
   params: AppyTutorParams,
@@ -44,7 +130,7 @@ function resolveAppyTutorModel(
   return candidate;
 }
 
-/** User-selected model first; Azure gets a generic router fallback if the deployment fails. */
+/** e44852e: user model first; Azure gets model-router fallback if the deployment fails. */
 function appyTutorModelChain(primary: LargeLanguageModel): LargeLanguageModel[] {
   const chain: LargeLanguageModel[] = [primary];
   if (
@@ -54,6 +140,44 @@ function appyTutorModelChain(primary: LargeLanguageModel): LargeLanguageModel[] 
     chain.push({ provider: "azure-openai", name: "model-router" });
   }
   return chain;
+}
+
+function firstDefinedNumber(
+  o: Record<string, unknown>,
+  keys: string[],
+): number | undefined {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
+
+function normalizeStreamUsage(u: unknown): AppyTutorResult["usage"] {
+  if (u == null || typeof u !== "object") return undefined;
+  const o = u as Record<string, unknown>;
+  const pt =
+    firstDefinedNumber(o, [
+      "promptTokens",
+      "inputTokens",
+      "prompt_token_count",
+      "inputTokenCount",
+    ]) ?? 0;
+  const ct =
+    firstDefinedNumber(o, [
+      "completionTokens",
+      "outputTokens",
+      "completion_token_count",
+      "outputTokenCount",
+    ]) ?? 0;
+  let tt = firstDefinedNumber(o, ["totalTokens", "total_token_count"]) ?? 0;
+  if (tt <= 0 && pt + ct > 0) tt = pt + ct;
+  if (tt <= 0 && pt <= 0 && ct <= 0) return undefined;
+  return {
+    promptTokens: Math.max(0, Math.round(pt)),
+    completionTokens: Math.max(0, Math.round(ct)),
+    totalTokens: Math.max(0, Math.round(tt > 0 ? tt : pt + ct)),
+  };
 }
 
 export type AppyTutorParams = {
@@ -68,7 +192,36 @@ export type AppyTutorParams = {
 export type AppyTutorResult = {
   answer: string;
   source: "local" | "cloud";
+  /** Present when source is cloud and the provider returned usage. */
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  /**
+   * When true, the UI should offer Retry (stopped, all models failed, IPC error, etc.).
+   * Successful offline tips and normal cloud replies omit this or set false.
+   */
+  retryable?: boolean;
 };
+
+function estimateTutorUsage(
+  messages: CoreMessage[],
+  assistantText: string,
+): NonNullable<AppyTutorResult["usage"]> {
+  let inputChars = 0;
+  for (const m of messages) {
+    if (typeof m.content === "string") inputChars += m.content.length;
+  }
+  const outChars = assistantText.length;
+  const promptTokens = Math.max(1, Math.ceil(inputChars / 4));
+  const completionTokens = Math.max(1, Math.ceil(outChars / 4));
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+  };
+}
 
 async function getUserIdOrNull(): Promise<string | null> {
   try {
@@ -288,10 +441,37 @@ export function registerAcademyHandlers() {
     }
   );
 
-  // Appy Tutor: strong local match skips API; else cloud using Settings / panel model
+  // Appy Buddy: strong local match skips API; else cloud using Settings / panel model
   ipcMain.handle(
     "academy:appy-tutor",
     async (_, params: AppyTutorParams): Promise<AppyTutorResult> => {
+      try {
+        return await promiseWithTimeout(
+          runAppyTutorCloud(params),
+          APPY_TUTOR_IPC_TOTAL_TIMEOUT_MS,
+          "academy:appy-tutor (overall)",
+        );
+      } catch (e) {
+        logger.error("academy:appy-tutor fatal", e);
+        const msg = e instanceof Error ? e.message : String(e);
+        return {
+          answer: `Something went wrong: ${msg}`,
+          source: "local",
+          retryable: true,
+        };
+      }
+    },
+  );
+
+  ipcMain.handle("academy:appy-tutor-abort", () => {
+    abortCurrentAppyTutorInvoke();
+    return { ok: true as const };
+  });
+}
+
+async function runAppyTutorCloud(
+  params: AppyTutorParams,
+): Promise<AppyTutorResult> {
       const question = params.question?.trim() ?? "";
       if (!question) {
         throw new Error("Ask a question to get help.");
@@ -299,16 +479,31 @@ export function registerAcademyHandlers() {
 
       const local = getLocalTutorMatch(question);
       if (local.score >= APPY_TUTOR_LOCAL_STRONG_SCORE) {
-        return { answer: local.answer, source: "local" };
+        return { answer: local.answer, source: "local" as const, retryable: false };
       }
 
+      const invokeAbort = new AbortController();
+      appyTutorInvokeAbort = invokeAbort;
+      try {
+        return await runAppyTutorCloudInner(params, question, local, invokeAbort);
+      } finally {
+        appyTutorInvokeAbort = null;
+      }
+}
+
+async function runAppyTutorCloudInner(
+  params: AppyTutorParams,
+  question: string,
+  local: ReturnType<typeof getLocalTutorMatch>,
+  invokeAbort: AbortController,
+): Promise<AppyTutorResult> {
       const settings = readSettings();
       const primaryModel = resolveAppyTutorModel(params, settings);
       const modelChain = appyTutorModelChain(primaryModel);
       const systemAi =
-        "You are Appy Tutor, a friendly tutor inside Applaa AI Academy. Help with coding (Python, JavaScript, HTML/CSS, React, TypeScript), debugging, and CS/AI concepts. Be concise, use markdown for structure, and give examples when helpful. Do not invent file paths or pretend to run code.";
+        "You are Appy Buddy, a friendly study buddy inside Applaa AI Academy. Help with coding (Python, JavaScript, HTML/CSS, React, TypeScript), debugging, and CS/AI concepts. Be concise, use markdown for structure, and give examples when helpful. Do not invent file paths or pretend to run code.";
       const systemLearning =
-        "You are Appy Tutor, a friendly tutor inside Applaa Learning Academy. Help with study skills, curriculum topics, and general school subjects (e.g. maths, science, English). Be accurate, concise, and use markdown. If a question is beyond general guidance, suggest how the student might check with their teacher or textbook.";
+        "You are Appy Buddy, a friendly study buddy inside Applaa Learning Academy. Help with study skills, curriculum topics, and general school subjects (e.g. maths, science, English). Be accurate, concise, and use markdown. If a question is beyond general guidance, suggest how the student might check with their teacher or textbook.";
 
       const system = params.academy === "learning" ? systemLearning : systemAi;
       const ctxParts: string[] = [];
@@ -348,23 +543,77 @@ export function registerAcademyHandlers() {
 
       let lastError: unknown;
       for (const model of modelChain) {
+        if (invokeAbort.signal.aborted) {
+          return {
+            answer: "Request stopped.",
+            source: "local" as const,
+            retryable: true,
+          };
+        }
         try {
-          const { modelClient } = await getModelClient(model, settings);
-          const result = await generateText({
-            model: modelClient.model,
-            system,
-            messages,
-            maxTokens: 2048,
-            temperature: 0.4,
-          });
-          const text = result.text?.trim();
-          if (text) {
-            logger.info(
-              `academy:appy-tutor cloud ok model=${model.provider}/${model.name}`,
+          const { modelClient } = await promiseWithTimeout(
+            getModelClient(model, settings),
+            APPY_TUTOR_GET_CLIENT_TIMEOUT_MS,
+            `getModelClient(${model.provider}/${model.name})`,
+          );
+          const timeoutAbort = new AbortController();
+          const timeoutId = setTimeout(() => {
+            timeoutAbort.abort();
+          }, APPY_TUTOR_STREAM_TIMEOUT_MS);
+          try {
+            // Restored from e44852e: simple generateText (was reliable). Stream + heavy
+            // providerOptions regressed some tutor setups.
+            const genPromise = generateText({
+              model: modelClient.model,
+              system,
+              messages,
+              maxTokens: 2048,
+              temperature: 0.4,
+              maxRetries:
+                modelClient.builtinProviderId === "openrouter" ? 5 : 2,
+              abortSignal: mergeAbortSignals(
+                invokeAbort.signal,
+                timeoutAbort.signal,
+              ),
+            });
+            const result = await raceAbort(invokeAbort.signal, genPromise);
+            const text =
+              result.text?.trim() ||
+              (typeof result.reasoning === "string"
+                ? result.reasoning.trim()
+                : "");
+            if (text) {
+              logger.info(
+                `academy:appy-tutor cloud ok model=${model.provider}/${model.name}`,
+              );
+              let usage = normalizeStreamUsage(result.usage);
+              if (!usage) {
+                usage = estimateTutorUsage(messages, text);
+              }
+              return {
+                answer: text,
+                source: "cloud" as const,
+                usage,
+                retryable: false,
+              };
+            }
+            lastError = new Error(
+              `Empty response from ${model.provider}/${model.name}`,
             );
-            return { answer: text, source: "cloud" };
+            logger.warn(
+              `academy:appy-tutor model ${model.provider}/${model.name} returned no text`,
+            );
+          } finally {
+            clearTimeout(timeoutId);
           }
         } catch (e) {
+          if (invokeAbort.signal.aborted || isAbortError(e)) {
+            return {
+              answer: "Request stopped.",
+              source: "local" as const,
+              retryable: true,
+            };
+          }
           lastError = e;
           logger.warn(
             `academy:appy-tutor model ${model.provider}/${model.name} failed`,
@@ -374,13 +623,19 @@ export function registerAcademyHandlers() {
       }
 
       logger.error("academy:appy-tutor all cloud models failed", lastError);
+      const detail =
+        lastError instanceof Error
+          ? lastError.message
+          : lastError != null
+            ? String(lastError)
+            : "";
+      const hint = detail ? `\n\n**Last error:** ${detail}` : "";
       return {
         answer:
           local.score > 0
-            ? `${local.answer}\n\n---\n*(Appy Tutor couldn’t reach the cloud — check **Settings → Providers** for API keys and model names. Showing the closest offline tip above.)*`
-            : `Appy Tutor couldn’t reach the cloud. Add your API keys in **Settings → Providers** and pick a model in the tutor panel.\n\n**Tip:** Many common questions match offline tips; try words like “explain”, “loop”, or “study”.`,
-        source: "local",
+            ? `${local.answer}\n\n---\n*(Appy Buddy couldn’t reach the cloud — check **Settings → Providers** for API keys and model names. Showing the closest offline tip above.)*${hint}`
+            : `Appy Buddy couldn’t reach the cloud. Add your API keys in **Settings → Providers** and pick a model in the Buddy panel.\n\n**Tip:** Many common questions match offline tips; try words like “explain”, “loop”, or “study”.${hint}`,
+        source: "local" as const,
+        retryable: true,
       };
-    }
-  );
 }

@@ -113,6 +113,14 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
   // https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
   anthropic: [
     {
+      name: "claude-sonnet-4-5-20250929",
+      displayName: "Claude 4.5 Sonnet",
+      description: "Excellent coder",
+      maxOutputTokens: 16_000,
+      contextWindow: 200_000,
+      temperature: 0,
+    },
+    {
       name: "claude-sonnet-4-20250514",
       displayName: "Claude 4 Sonnet",
       description: "Excellent coder",
@@ -481,7 +489,7 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     {
       name: "gpt-4o",
       displayName: "GPT-4o (Azure)",
-      description: "Azure OpenAI GPT-4o deployment — default for Appy Tutor when configured",
+      description: "Azure OpenAI GPT-4o deployment — default for Appy Buddy when configured",
       maxOutputTokens: 16_384,
       contextWindow: 128_000,
       temperature: 0,
@@ -543,14 +551,15 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     //   contextWindow: 400_000,
     //   temperature: 1,
     // },
-    // {
-    //   name: "claude-sonnet-4-5",
-    //   displayName: "Claude Sonnet 4.5 (Azure)",
-    //   description: "Azure OpenAI Claude Sonnet 4.5 deployment via Anthropic endpoint",
-    //   maxOutputTokens: 8192,
-    //   contextWindow: 200_000,
-    //   temperature: 1,
-    // },
+    {
+      name: "claude-sonnet-4-5",
+      displayName: "Claude Sonnet 4.5 (Azure)",
+      description:
+        "Azure Anthropic endpoint deployment — same id as in Settings when using Azure Sonnet 4.5",
+      maxOutputTokens: 8192,
+      contextWindow: 200_000,
+      temperature: 1,
+    },
     // {
     //   name: "claude-opus-4-5",
     //   displayName: "Claude Opus 4.5 (Azure)",

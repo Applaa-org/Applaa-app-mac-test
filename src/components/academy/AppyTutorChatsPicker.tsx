@@ -62,7 +62,7 @@ export function AppyTutorChatsPicker({
         <DropdownMenuLabel className="text-xs">Your chats</DropdownMenuLabel>
         <DropdownMenuItem
           className="gap-2 text-xs font-medium cursor-pointer"
-          onClick={() => onNewChat()}
+          onSelect={() => onNewChat()}
         >
           <Plus className="h-3.5 w-3.5" />
           New chat
@@ -80,7 +80,7 @@ export function AppyTutorChatsPicker({
                 "flex flex-col items-start gap-0.5 text-xs cursor-pointer",
                 c.id === activeChatId && "bg-secondary",
               )}
-              onClick={() => onSelectChat(c.id)}
+              onSelect={() => onSelectChat(c.id)}
             >
               <span className="font-medium truncate w-full">{c.title}</span>
               <span className="text-[10px] text-muted-foreground">

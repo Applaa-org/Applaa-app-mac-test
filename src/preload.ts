@@ -428,6 +428,7 @@ const validInvokeChannels = [
   "academy:delete-project",
   "academy:ai-tutor",
   "academy:appy-tutor",
+  "academy:appy-tutor-abort",
 ];
 
 // Add valid receive channels
