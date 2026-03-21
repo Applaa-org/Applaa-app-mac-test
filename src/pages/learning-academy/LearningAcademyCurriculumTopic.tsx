@@ -17,7 +17,7 @@ import {
 
 type TabId = "explain" | "lessons" | "practice" | "assessment";
 
-const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
+const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "explain", label: "Explain", icon: BookOpen },
   { id: "lessons", label: "Lessons", icon: ListOrdered },
   { id: "practice", label: "Practice", icon: PenLine },
@@ -39,15 +39,70 @@ function getLessonTitlesForTopic(
       // Add a small year-focused suffix so the lesson list isn't identical across years.
       let suffix = "";
       if (pLower.includes("place value")) {
-        suffix = yearNum === 7 ? " (foundations)" : yearNum === 8 ? " (compare bigger numbers)" : " (larger place values)";
+        suffix =
+          yearNum === 7
+            ? " (foundations)"
+            : yearNum === 8
+              ? " (compare bigger numbers)"
+              : yearNum === 9
+                ? " (multi-step number sense)"
+                : yearNum === 10
+                  ? " (extended calculations)"
+                  : yearNum === 11
+                    ? " (formal accuracy focus)"
+                    : " (place value extension)";
       } else if (pLower.includes("four operations") || pLower.includes("operations")) {
-        suffix = yearNum === 7 ? " (core skills)" : yearNum === 8 ? " (harder calculations)" : " (multi-step problems)";
+        suffix =
+          yearNum === 7
+            ? " (core skills)"
+            : yearNum === 8
+              ? " (harder calculations)"
+              : yearNum === 9
+                ? " (multi-step problems)"
+                : yearNum === 10
+                  ? " (formal methods & accuracy)"
+                  : yearNum === 11
+                    ? " (timed working practice)"
+                    : " (arithmetic extension)";
       } else if (pLower.includes("fraction")) {
-        suffix = yearNum === 7 ? " (parts of a whole)" : yearNum === 8 ? " (equivalent fractions)" : " (fraction problems)";
+        suffix =
+          yearNum === 7
+            ? " (parts of a whole)"
+            : yearNum === 8
+              ? " (equivalent fractions)"
+              : yearNum === 9
+                ? " (fraction arithmetic)"
+                : yearNum === 10
+                  ? " (advanced fraction skills)"
+                  : yearNum === 11
+                    ? " (fraction problem focus)"
+                    : " (fraction extension)";
       } else if (pLower.includes("decimal")) {
-        suffix = yearNum === 7 ? " (tenths + hundredths)" : yearNum === 8 ? " (ordering decimals)" : " (decimals in calculations)";
+        suffix =
+          yearNum === 7
+            ? " (tenths + hundredths)"
+            : yearNum === 8
+              ? " (ordering decimals)"
+              : yearNum === 9
+                ? " (decimals in calculations)"
+                : yearNum === 10
+                  ? " (formal decimal methods)"
+                  : yearNum === 11
+                    ? " (decimal problem focus)"
+                    : " (decimal extension)";
       } else if (pLower.includes("percentage") || pLower.includes("percent")) {
-        suffix = yearNum === 7 ? " (simple percentages)" : yearNum === 8 ? " (discounts + scores)" : " (real-world percentage)";
+        suffix =
+          yearNum === 7
+            ? " (simple percentages)"
+            : yearNum === 8
+              ? " (discounts + scores)"
+              : yearNum === 9
+                ? " (percentage problems)"
+                : yearNum === 10
+                  ? " (formal percentage methods)"
+                  : yearNum === 11
+                    ? " (percentage problem focus)"
+                    : " (percentage extension)";
       }
 
       return `Lesson ${i + 1}: ${p}${suffix}`;
@@ -58,6 +113,19 @@ function getLessonTitlesForTopic(
     `Lesson 2: Key concepts`,
     `Lesson 3: Applying ${topic.title}`,
   ];
+}
+
+/** Group years into three content tiers so lessons read clearly different (not just a one-line prefix). */
+type LessonYearBand = "y7" | "y89" | "y1011";
+
+function lessonYearBand(yearNum: number): LessonYearBand {
+  if (yearNum <= 7) return "y7";
+  if (yearNum <= 9) return "y89";
+  return "y1011";
+}
+
+function pickLessonBand<T>(yearNum: number, byBand: { y7: T; y89: T; y1011: T }): T {
+  return byBand[lessonYearBand(yearNum)];
 }
 
 /** Lesson detail: intro, optional learning objectives, core concepts, example, lesson summary */
@@ -75,50 +143,223 @@ function getLessonDetail(
   const t = lessonTitle.toLowerCase();
   const topicLower = topicTitle.toLowerCase();
   const yearNum = year ?? 7;
-  const yearLeadIn =
-    yearNum === 7
-      ? "In Year 7, you’ll build strong foundations. "
-      : yearNum === 8
-        ? "In Year 8, you’ll build on those foundations with deeper thinking. "
-        : "In Year 9, you’ll use these skills for more challenging questions. ";
+  /** Intentionally empty: lesson difficulty still follows `yearNum` via banded bodies and examples, without naming a year in the text. */
+  const yearLeadIn = "";
   if (t.includes("place value")) {
+    const placeValueBody = pickLessonBand(yearNum, {
+      y7: {
+        intro:
+          "Place value means each digit is worth a different amount depending on its position. You’ll work mostly with ones, tens and hundreds (and a little with thousands). The same digit can mean 3, 30 or 300 depending on where it sits — that idea is the heart of our number system.",
+        objectives: [
+          "Read and write 3- and 4-digit numbers using place value language.",
+          "Say the value of any digit in a number up to thousands.",
+          "See why 0 is needed as a placeholder (e.g. 305 vs 35).",
+        ],
+        core: [
+          {
+            name: "Ones, tens, hundreds",
+            explanation:
+              "Start from the right: the right-hand digit is ones (units), next is tens, next is hundreds. In 342, the 2 is 2 ones, the 4 is 4 tens (40), the 3 is 3 hundreds (300). Say it as ‘three hundred and forty-two’.",
+          },
+          {
+            name: "Digit × place",
+            explanation:
+              "The value of a digit = digit × the value of its column. So in 507, the 5 is worth 500, the 0 is worth 0 tens, the 7 is worth 7. Writing 507 without the zero would give a completely different number.",
+          },
+          {
+            name: "Comparing numbers",
+            explanation:
+              "To compare two whole numbers, look at the highest place first (hundreds before tens). If hundreds are equal, look at tens, then ones. Place value is why 419 is bigger than 391 even though both start with 4.",
+          },
+        ],
+        summary:
+          "You can now read small and medium numbers using place value, work out what each digit is worth, and explain why zero matters. Next you’ll use this for adding, subtracting and estimating.",
+      },
+      y89: {
+        intro:
+          "Place value extends to larger whole numbers and links directly to standard written methods. You’ll use powers of 10 (10, 100, 1000, …) fluently, compare and order big numbers, and see how regrouping in arithmetic depends on place value.",
+        objectives: [
+          "Work confidently with numbers into millions and use commas (or spacing) to group thousands.",
+          "Multiply and divide whole numbers by 10, 100, 1000 by moving digits (not ‘adding zeros’ blindly).",
+          "Use place value to estimate and to check whether an answer is sensible.",
+        ],
+        core: [
+          {
+            name: "Columns and powers of 10",
+            explanation:
+              "Each column to the left is worth 10 times more: … thousands, hundreds, tens, ones. Multiplying by 10 moves every digit one column left; dividing by 10 moves one column right. This is the same idea as ‘carrying’ and ‘borrowing’ in column addition and subtraction.",
+          },
+          {
+            name: "Expanded form and partitioning",
+            explanation:
+              "Any whole number can be split: e.g. 28,406 = 20,000 + 8,000 + 400 + 6. Partitioning helps mental maths and helps you spot errors in written work.",
+          },
+          {
+            name: "Ordering and rounding",
+            explanation:
+              "Order by comparing the largest place first. Rounding to the nearest 10, 100 or 1000 uses place value: look at the digit ‘next door’ to decide whether the digit you keep goes up or stays.",
+          },
+          {
+            name: "Zero as placeholder",
+            explanation:
+              "In 2,507 the 0 holds the tens place so the 5 stays in the hundreds and the 7 in the ones. Without it, 257 is a different number. This becomes even more important with decimals in later lessons.",
+          },
+        ],
+        summary:
+          "You can now explain place value for large whole numbers, use ×10 / ÷10 reasoning, partition numbers, and compare or round with confidence. This supports all harder number work that follows.",
+      },
+      y1011: {
+        intro:
+          "At this stage, place value underpins standard form (scientific notation), accuracy, bounds and error intervals, and working with very large or very small numbers. You must show clear working and interpret questions that mix units (e.g. km vs m) using consistent place value.",
+        objectives: [
+          "Relate place value to standard form a × 10ⁿ and interpret n for large and small magnitudes.",
+          "Use place value when converting units and when giving answers to a required degree of accuracy.",
+          "Apply place-value reasoning to check multi-step calculations and challenging applied problems.",
+        ],
+        core: [
+          {
+            name: "Structure of the number system",
+            explanation:
+              "The pattern continues left and right of the decimal point: … thousands, hundreds, tens, ones, tenths, hundredths, … Each step is a factor of 10. Mis-aligning the decimal point in calculation is one of the most common mistakes — place value prevents that.",
+          },
+          {
+            name: "Standard form link",
+            explanation:
+              "Writing 3.2 × 10⁶ means 3.2 × 1,000,000. The power tells you how many places the digits shift. Standard form is place value written compactly — essential for science and maths papers.",
+          },
+          {
+            name: "Accuracy and bounds",
+            explanation:
+              "If a value is given ‘to the nearest 10’, place value tells you the upper and lower limits (bounds). Half the size of that place gives the error interval. This is pure place-value thinking applied to real measurements.",
+          },
+          {
+            name: "Strong working habits",
+            explanation:
+              "Show each step: identify the place you are rounding to, line up decimals for addition, and state units. Always ask: ‘Does the magnitude make sense?’ — e.g. should the answer be in the hundreds or millions?",
+          },
+        ],
+        summary:
+          "You can now connect place value to advanced topics: large numbers, standard form, decimals, units and bounds. Use it to work accurately and to catch mistakes before you hand in your work.",
+      },
+    });
     return {
-      intro:
-        yearLeadIn +
-        "Place value is one of the most important ideas in maths: the value of a digit depends on where it sits in the number. The 3 in 34 means 3 tens (30), but the 3 in 304 means 3 hundreds (300). This lesson explains how ones, tens, hundreds and thousands work, and why we use zero as a placeholder. Everything we do with larger numbers and decimals builds on place value.",
-      learningObjectives: [
-        "Understand that each position in a number is a 'place' (ones, tens, hundreds, thousands).",
-        "Work out the value of a digit using its place (digit × place value).",
-        "Understand base 10: each place is 10 times the one to its right.",
-        "Use zero as a placeholder so other digits stay in the correct places.",
-      ],
-      coreConcepts: [
-        { name: "Place", explanation: "Each position in a number is a 'place'. Starting from the right: ones (1), tens (10), hundreds (100), thousands (1000), and so on. The ones place is for single items; the tens place is for groups of 10; the hundreds for groups of 100. Reading from left to right we go from the largest place to the smallest." },
-        { name: "Value", explanation: "The value of a digit equals the digit multiplied by the value of its place. In 342: the 3 is in the hundreds place, so 3 × 100 = 300; the 4 is in the tens place, so 4 × 10 = 40; the 2 is in the ones place, so 2 × 1 = 2. So 342 = 300 + 40 + 2. This is called expanded form." },
-        { name: "Base 10", explanation: "Our number system is base 10: each place is 10 times the one to its right. So 10 ones = 1 ten, 10 tens = 1 hundred, 10 hundreds = 1 thousand. We use this when we regroup in addition and subtraction (e.g. when we 'carry' or 'borrow') and when we read and write numbers." },
-        { name: "Zero as placeholder", explanation: "When a place has no amount, we write 0 so that the other digits stay in the right places. In 2,507 the 0 means 'no tens'. Without the zero we would write 257, which is a different number. Zero is essential for writing numbers like 105, 2,007 and 30 correctly." },
-      ],
-      example: "In 2,507: 2 thousands (2 × 1000 = 2000), 5 hundreds (5 × 100 = 500), 0 tens (0 × 10 = 0), 7 ones (7 × 1 = 7). So 2,507 = 2000 + 500 + 0 + 7. We read it as 'two thousand, five hundred and seven'. The zero keeps the 5 in the hundreds place and the 7 in the ones place.",
-      lessonSummary:
-        yearLeadIn +
-        "You now know that each digit's value depends on its place; that we use base 10 (each place is 10× the one to the right); and that zero holds a place when there are no tens, hundreds, etc. Use this to read, write, compare and calculate with numbers confidently.",
+      intro: yearLeadIn + placeValueBody.intro,
+      learningObjectives: placeValueBody.objectives,
+      coreConcepts: placeValueBody.core,
+      example:
+        yearNum === 7
+          ? "In 405: 4 hundreds (4 × 100 = 400), 0 tens (0 × 10 = 0), 5 ones (5 × 1 = 5). So 405 = 400 + 0 + 5."
+          : yearNum === 8
+            ? "In 2,407: 2 thousands (2 × 1000 = 2000), 4 hundreds (4 × 100 = 400), 0 tens (0 × 10 = 0), 7 ones (7 × 1 = 7). So 2,407 = 2000 + 400 + 0 + 7."
+            : yearNum === 9
+              ? "In 12,304: 1 ten-thousand (1 × 10,000 = 10,000), 2 thousands (2 × 1000 = 2000), 3 hundreds (3 × 100 = 300), 0 tens (0 × 10 = 0), 4 ones (4 × 1 = 4). So 12,304 = 10,000 + 2,000 + 300 + 4."
+              : yearNum === 10
+                ? "In 120,304: 1 hundred-thousand (1 × 100,000 = 100,000), 2 ten-thousands (2 × 10,000 = 20,000), 3 hundreds (3 × 100 = 300), 0 tens (0 × 10 = 0), 4 ones (4 × 1 = 4). So 120,304 = 100,000 + 20,000 + 300 + 4."
+                : "In 1,203,045: 1 million (1 × 1,000,000 = 1,000,000), 2 hundred-thousands (2 × 100,000 = 200,000), 3 thousands (3 × 1000 = 3,000), 4 tens (4 × 10 = 40), 5 ones (5 × 1 = 5). So 1,203,045 = 1,000,000 + 200,000 + 3,000 + 40 + 5.",
+      lessonSummary: yearLeadIn + placeValueBody.summary,
     };
   }
   if (t.includes("four operations") || t.includes("operations")) {
+    const fourOpsBody = pickLessonBand(yearNum, {
+      y7: {
+        intro:
+          "You’ll use adding, subtracting, multiplying and dividing with whole numbers in real contexts: shopping, sport scores, grouping objects and sharing fairly. The focus is on understanding what each operation means, not just pressing buttons on a calculator.",
+        core: [
+          {
+            name: "Add and subtract (whole numbers)",
+            explanation:
+              "Addition puts parts together to make a total. Subtraction finds what is left after you take away, or how much more one number is than another. Draw a bar model or use objects if it helps — the story behind the numbers matters.",
+          },
+          {
+            name: "Multiply as ‘groups of’",
+            explanation:
+              "3 × 4 means ‘3 groups of 4’ (or 4 + 4 + 4). It is faster than repeated adding. Link it to arrays and equal rows in real life (e.g. egg boxes, chairs in rows).",
+          },
+          {
+            name: "Divide as sharing or grouping",
+            explanation:
+              "12 ÷ 3 can mean ‘share 12 into 3 equal piles’ (how many in each pile?) or ‘how many groups of 3 in 12?’. Both views help you see why division and multiplication are linked.",
+          },
+          {
+            name: "Check it makes sense",
+            explanation:
+              "After any calculation, ask: is the answer roughly the right size? If you add two positive numbers, the total should be bigger; if you divide by a number bigger than 1, the result should be smaller than what you started with (for positive amounts).",
+          },
+        ],
+        summary:
+          "You can describe add, subtract, multiply and divide in words, use them in simple stories, and do a quick sanity-check on your answer. That prepares you for formal written methods next.",
+      },
+      y89: {
+        intro:
+          "You’ll combine the four operations with negative numbers, decimals and simple fractions in multi-step problems. Order of operations (BIDMAS/BODMAS) matters when a question mixes +, −, ×, ÷ and brackets. You’ll also interpret word problems and choose the correct operation.",
+        core: [
+          {
+            name: "Operation sense + word problems",
+            explanation:
+              "Read the question twice: are you combining, comparing, scaling or splitting? Write a mini-plan before calculating. Estimating first (rounding) tells you if your final answer is in the right ballpark.",
+          },
+          {
+            name: "BIDMAS / BODMAS",
+            explanation:
+              "Brackets first, then indices (if any), then divide and multiply (left to right), then add and subtract (left to right). A common mistake is doing addition before multiplication — always follow the order unless brackets say otherwise.",
+          },
+          {
+            name: "Decimals and negatives",
+            explanation:
+              "Use a number line: adding a negative is moving left; subtracting a negative can increase the value. With decimals, line up place value columns — the same rules as whole numbers, just with a decimal point.",
+          },
+          {
+            name: "Inverse operations",
+            explanation:
+              "Addition and subtraction undo each other; multiplication and division undo each other. This is how you check answers and how you’ll solve simple equations later (e.g. ‘what number times 3 gives 18?’).",
+          },
+        ],
+        summary:
+          "You can tackle multi-step calculations with correct order of operations, work with decimals and negatives carefully, and connect the four operations to problem-solving. Always show working so you can spot where a mistake happened.",
+      },
+      y1011: {
+        intro:
+          "You must execute mixed calculations accurately under timed conditions: fractions, decimals, percentages and standard form often appear in the same question. You will justify steps, use inverse operations to verify results, and interpret calculator output (including standard form and rounding).",
+        core: [
+          {
+            name: "Formal, step-by-step calculation",
+            explanation:
+              "Write one clear step per line. State intermediate results if the question asks for working. Use brackets on paper the same way you would on a calculator. Never skip a step that changes the meaning (especially with negatives and fractions).",
+          },
+          {
+            name: "Fractions, decimals and % in chains",
+            explanation:
+              "Convert to a single form when it makes the working clearer (e.g. change 25% to 0.25 or 1/4 before multiplying). For division by a fraction, multiply by its reciprocal — show that step explicitly in revision, then streamline in timed practice.",
+          },
+          {
+            name: "Estimation and error spotting",
+            explanation:
+              "Before you finish, estimate using rounded values: if your exact answer is orders of magnitude wrong, recheck place value or BIDMAS. In science contexts, watch unit consistency (e.g. don’t mix m and km without converting).",
+          },
+          {
+            name: "Using a calculator wisely",
+            explanation:
+              "Know when the syllabus expects an exact fractional answer vs a decimal. Understand how your calculator displays standard form and roots. Always rewrite the final answer in the form the question requests (surd, fraction, decimal to n d.p.).",
+          },
+        ],
+        summary:
+          "You can perform accurate multi-step arithmetic at an advanced level, explain your reasoning, convert between forms when needed, and use estimation and inverses to validate answers under time pressure.",
+      },
+    });
     return {
-      intro:
-        yearLeadIn +
-        "The four operations—add, subtract, multiply and divide—are the building blocks of arithmetic. We use them to combine amounts, find differences, make equal groups, and share fairly.",
-      coreConcepts: [
-        { name: "Addition (+)", explanation: "Putting amounts together. We add when we combine two or more groups or numbers to find the total." },
-        { name: "Subtraction (−)", explanation: "Taking away or finding the difference. We subtract when we remove some or compare how much more or less one number is than another." },
-        { name: "Multiplication (×)", explanation: "Equal groups or repeated addition. We multiply when we have several equal groups and want the total (e.g. 4 bags of 5 apples = 4 × 5 = 20)." },
-        { name: "Division (÷)", explanation: "Sharing equally or grouping. We divide when we split an amount into equal parts or put items into equal-sized groups." },
-      ],
-      example: "If you have 24 sweets and share them among 6 friends: 24 ÷ 6 = 4 sweets each.",
-      lessonSummary:
-        yearLeadIn +
-        "You have learned the four operations: add (combine), subtract (take away or difference), multiply (equal groups), and divide (share or group). Use them to solve real problems and always check your answer makes sense.",
+      intro: yearLeadIn + fourOpsBody.intro,
+      coreConcepts: fourOpsBody.core,
+      example:
+        yearNum === 7
+          ? "24 sweets shared among 6 friends: 24 ÷ 6 = 4 sweets each."
+          : yearNum === 8
+            ? "48 − 17 = 31, then 31 ÷ 7 = 4 remainder 3 (show the steps clearly)."
+            : yearNum === 9
+              ? "2.4 × 3 = 7.2 and 7.2 ÷ 0.6 = 12 (use place value and decimals carefully)."
+              : yearNum === 10
+                ? "Calculate carefully using BIDMAS: 4.8 × (7.2 − 3.6) = 4.8 × 3.6 = 17.28."
+                : "Multi-step working: (12.5 + 7.5) × 3 − 10 = 50 (write your working).",
+      lessonSummary: yearLeadIn + fourOpsBody.summary,
     };
   }
   if (t.includes("fraction")) {
@@ -138,7 +379,16 @@ function getLessonDetail(
         { name: "Equivalent fractions", explanation: "Different fractions can represent the same amount. ½ = 2/4 = 3/6 = 4/8. We get equivalent fractions by multiplying or dividing the numerator and denominator by the same number (like simplifying or expanding). So 2/4 = ½ (divide top and bottom by 2). Equivalent fractions help us compare, add and subtract." },
         { name: "Same denominator", explanation: "To add or subtract fractions, we need the same denominator so we are comparing the same-sized parts. We can't add ½ and ⅓ directly until we write them with a common denominator (e.g. 3/6 + 2/6 = 5/6). Finding a common denominator is a key skill for fraction arithmetic." },
       ],
-      example: "A pizza is cut into 4 equal slices. You eat 2 slices. You have eaten 2/4 of the pizza. 2/4 = ½ (divide numerator and denominator by 2), so we say you ate half the pizza. To add ½ + ¼: write ½ as 2/4, then 2/4 + ¼ = 3/4.",
+      example:
+        yearNum === 7
+          ? "A pizza is cut into 4 equal slices. You eat 2 slices: 2/4 of the pizza. 2/4 = 1/2, so you ate half the pizza."
+          : yearNum === 8
+            ? "Add fractions with the same denominator: 1/3 + 1/6 = 2/6 + 1/6 = 3/6 = 1/2."
+            : yearNum === 9
+              ? "Mixed number example: 1 1/2 + 2/3 = 3/2 + 2/3 = 9/6 + 4/6 = 13/6 = 2 1/6."
+              : yearNum === 10
+                ? "Advanced arithmetic: 3/4 − 5/6 = 9/12 − 10/12 = −1/12."
+                : "Technique: link to percentages. 25% = 25/100 = 1/4.",
       lessonSummary:
         yearLeadIn +
         "You now know that the numerator is the number of parts we have and the denominator is the number of equal parts in the whole; that equivalent fractions represent the same amount; and that we need the same denominator to add or subtract fractions. Use this when sharing, measuring and in later topics like percentages.",
@@ -161,7 +411,16 @@ function getLessonDetail(
         { name: "Place value", explanation: "Decimals follow the same place-value pattern as whole numbers: each place is 10 times the one to the right. So we have … tens, ones, tenths, hundredths, thousandths … The pattern continues to the right of the decimal point." },
         { name: "Ordering and calculating", explanation: "To compare decimals, compare the digits in the same place (tenths with tenths, etc.). To add or subtract, align the decimal points so we are adding tenths to tenths and hundredths to hundredths. This keeps the place value correct." },
       ],
-      example: "£3.45 means 3 pounds and 45 pence: 3 whole, 4 tenths and 5 hundredths of a pound. To add £1.30 + £2.45: align the decimals, add column by column: 1.30 + 2.45 = 3.75, so £3.75.",
+      example:
+        yearNum === 7
+          ? "0.5 + 0.3 = 0.8 (line up tenths, then add)."
+          : yearNum === 8
+            ? "Order decimals: 0.4, 0.12, 0.23. The order is 0.12, 0.23, 0.4."
+            : yearNum === 9
+              ? "Calculate with decimals: 2.4 × 3 = 7.2 and 7.2 ÷ 0.6 = 12."
+              : yearNum === 10
+                ? "Show working: 3.25 + 1.8 = 5.05 (align decimal places, then add)."
+                : "Show working: 0.06 ÷ 0.03 = 2 (show and then check).",
       lessonSummary:
         yearLeadIn +
         "You now know how the decimal point separates wholes from parts of one; how tenths and hundredths work and link to fractions; and how to read, order and use decimals in money and measures. Use this whenever you see numbers with a decimal point.",
@@ -184,7 +443,16 @@ function getLessonDetail(
         { name: "Finding 10%", explanation: "To find 10% of any number, divide it by 10. So 10% of 80 is 8, and 10% of 350 is 35. Once you have 10%, you can find 20% (double it), 30% (treble it), 5% (half of 10%), and so on. This is a very useful shortcut." },
         { name: "Real-life use", explanation: "We use percentages for discounts (e.g. 25% off means you pay 75% of the price), test scores (e.g. 18 out of 20 = 90%), and statistics (e.g. 60% of the class likes football). Understanding percentages helps you compare offers and interpret numbers correctly." },
       ],
-      example: "A coat costs £20 and is 25% off. 25% of £20 = ¼ of 20 = £5, so you save £5 and pay £15. Alternatively: 10% of 20 = £2, so 20% = £4 and 5% = £1; 25% = 20% + 5% = £4 + £1 = £5. Same answer.",
+      example:
+        yearNum === 7
+          ? "Find 10%: 10% of £80 is £8. Then 25% is 2.5 × £8 = £20."
+          : yearNum === 8
+            ? "Discount: £30 is 20% off. 20% of 30 is 6, so you pay 30 − 6 = £24."
+            : yearNum === 9
+              ? "Increase: £50 increases by 15%. 15% of 50 is 7.50, so new price is £57.50."
+              : yearNum === 10
+                ? "Show working for a multi-step percent change (increase then decrease) and state the final price."
+                : "Technique: reverse percentage. If a price becomes £72 after a 20% increase, divide by 1.2 to get the original.",
       lessonSummary:
         yearLeadIn +
         "You now know that a percentage is a number out of 100; how to convert between percentages, fractions and decimals; how to find 10% by dividing by 10 and use it to find other percentages; and how to use percentages in real situations like discounts and scores. Practise with the Practice and Assessment tabs.",
@@ -225,7 +493,16 @@ function getLessonDetail(
         { name: "One-step and two-step equations", explanation: "A one-step equation needs one inverse operation: x + 5 = 12 → x = 7. A two-step equation needs two steps — work in reverse order of BODMAS: first undo addition/subtraction, then undo multiplication/division. For 2x + 3 = 11: subtract 3 from both sides → 2x = 8; then divide by 2 → x = 4." },
         { name: "Checking the solution", explanation: "Always check: substitute your answer back into the original equation. If both sides are equal, the solution is correct. For x = 4 in 2x + 3 = 11: 2(4) + 3 = 8 + 3 = 11 ✓. This habit catches arithmetic errors and builds confidence." },
       ],
-      example: "Solve 3x − 4 = 11. Step 1: add 4 to both sides → 3x = 15. Step 2: divide both sides by 3 → x = 5. Check: 3(5) − 4 = 15 − 4 = 11 ✓. The solution is x = 5.",
+      example:
+        yearNum === 7
+          ? "One-step equation: x + 5 = 12. Subtract 5 → x = 7. Check: 7 + 5 = 12 ✓."
+          : yearNum === 8
+            ? "Two-step equation: 2x + 3 = 11. Subtract 3 → 2x = 8. Divide by 2 → x = 4. Check ✓."
+            : yearNum === 9
+              ? "With decimals: 0.5x + 1 = 3. Subtract 1 → 0.5x = 2. Divide by 0.5 → x = 4. Check ✓."
+              : yearNum === 10
+                ? "Linear equation: 3x + 2 = 2x + 9. Subtract 2x → x + 2 = 9. Subtract 2 → x = 7. Check ✓."
+                : "Full working: (x/2) + 3 = 7. Subtract 3 → x/2 = 4. Multiply by 2 → x = 8. Check ✓.",
       lessonSummary: "You now know what an equation is and how it differs from an expression; how to use inverse operations to isolate the unknown; how to solve one-step and two-step equations; and how to check by substituting back in. Practise with the Practice and Assessment tabs.",
     };
   }
@@ -244,8 +521,17 @@ function getLessonDetail(
         { name: "nth-term formula", explanation: "The nth-term formula gives us the value of any term directly, using its position number n. For an arithmetic sequence: nth term = a + (n − 1)d, where a is the first term and d is the common difference. For 5, 8, 11, 14, …: nth term = 5 + (n − 1) × 3 = 3n + 2. Check: n=1 gives 5 ✓, n=2 gives 8 ✓." },
         { name: "Is a number in the sequence?", explanation: "To check, set the nth-term formula equal to the number and solve for n. If n is a positive whole number, it is in the sequence. Example: is 50 in 3n + 2? Set 3n + 2 = 50 → 3n = 48 → n = 16. Yes — it is the 16th term. Is 45 a term? 3n + 2 = 45 → n = 14.3. No, n is not a whole number, so 45 is not a term." },
       ],
-      example: "Sequence: 2, 5, 8, 11, … First term a = 2, common difference d = 3. nth-term = 2 + (n − 1) × 3 = 3n − 1. 10th term = 3(10) − 1 = 29. Is 100 a term? 3n − 1 = 100 → n = 33.67 — no. Is 98 a term? 3n − 1 = 98 → n = 33 — yes, the 33rd term.",
-      lessonSummary: "You now know what an arithmetic sequence is and what the common difference means; how to describe the term-to-term rule; how to find and apply an nth-term formula; and how to check whether a number is in a sequence. Use this in pattern problems, predictions and GCSE exam questions.",
+      example:
+        yearNum === 7
+          ? "2, 5, 8, 11, …: common difference d = 3. 5th term = 2 + 4×3 = 14."
+          : yearNum === 8
+            ? "6, 10, 14, 18, …: d = 4. 4th term = 6 + 3×4 = 18."
+            : yearNum === 9
+              ? "Use nth-term to find a later term, then check your substitution into the rule."
+              : yearNum === 10
+                ? "Sequence working: if the first term is −2 and d = 5, find the 8th term from nth-term = −2 + (n − 1)d."
+                : "Membership check: solve the nth-term equation and ensure n is a whole number.",
+      lessonSummary: "You now know what an arithmetic sequence is and what the common difference means; how to describe the term-to-term rule; how to find and apply an nth-term formula; and how to check whether a number is in a sequence. Use this in pattern problems, predictions and formal assessments.",
     };
   }
   if (t.includes("formulae") || t.includes("formula")) {
@@ -261,10 +547,19 @@ function getLessonDetail(
         { name: "What a formula is", explanation: "A formula is an equation that shows a rule connecting two or more quantities, all written using letters. For example, the area of a rectangle: A = l × w. Here A, l and w are variables. Once we know any two values we can find the third. A formula is always true for all allowed values — not just one specific case." },
         { name: "Substituting into a formula", explanation: "To use a formula, replace each letter with its known value and then calculate. For example, with A = l × w, if l = 6 cm and w = 4 cm, then A = 6 × 4 = 24 cm². Follow BODMAS when calculating. Always include units in your answer." },
         { name: "Rearranging a formula (changing the subject)", explanation: "The 'subject' of a formula is the letter on its own on one side. We can rearrange to make a different letter the subject using inverse operations, just as in solving equations. For speed = distance ÷ time (s = d ÷ t), rearranging to find distance: d = s × t." },
-        { name: "Common formulae to know", explanation: "Important formulae include: Area of rectangle = length × width (A = lw); Perimeter of rectangle = 2(l + w); Area of triangle = ½ × base × height; Speed = distance ÷ time (s = d/t); Circumference of circle = 2πr; Area of circle = πr². Knowing these lets you tackle a wide range of GCSE problems." },
+        { name: "Common formulae to know", explanation: "Important formulae include: Area of rectangle = length × width (A = lw); Perimeter of rectangle = 2(l + w); Area of triangle = ½ × base × height; Speed = distance ÷ time (s = d/t); Circumference of circle = 2πr; Area of circle = πr². Knowing these lets you tackle a wide range of problems in maths and science." },
       ],
-      example: "Formula: speed = distance ÷ time. A car travels 120 km in 2 hours. Speed = 120 ÷ 2 = 60 km/h. Now rearrange to find distance: distance = speed × time. If speed = 60 km/h and time = 3 hours, distance = 60 × 3 = 180 km.",
-      lessonSummary: "You now know what a formula is and how it expresses a rule using letters; how to substitute values to calculate unknowns; how to rearrange a simple formula to change its subject; and several important common formulae. These skills are essential across maths, science and GCSE exams.",
+      example:
+        yearNum === 7
+          ? "Area formula: A = lw. If l = 6 cm and w = 4 cm, then A = 24 cm²."
+          : yearNum === 8
+            ? "Speed formula: s = d/t. If d = 30 km and t = 2 h, then s = 15 km/h."
+            : yearNum === 9
+              ? "Rearrange a formula: A = ½bh. If A = 30 cm² and b = 10 cm, then h = 6 cm."
+              : yearNum === 10
+                ? "Substitution: show working, then quote the final answer with units."
+                : "Technique: rearrange to make the subject, substitute carefully, and state a reasonable final answer.",
+      lessonSummary: "You now know what a formula is and how it expresses a rule using letters; how to substitute values to calculate unknowns; how to rearrange a simple formula to change its subject; and several important common formulae. These skills are essential across maths, science and formal assessments.",
     };
   }
   if (t.includes("algebra")) {
@@ -316,7 +611,7 @@ function getLessonDetail(
         { name: "Angles in quadrilaterals", explanation: "The four interior angles of any quadrilateral (4-sided shape) add to 360°. For a rectangle all four are 90° (4 × 90° = 360°). For irregular quadrilaterals, add the three known angles and subtract from 360° to find the unknown. Parallel lines also create equal alternate angles and co-interior angles that add to 180°." },
       ],
       example: "Two angles are on a straight line. One is 120°. The other = 180° − 120° = 60°. In a triangle, two angles are 45° and 85°. Third angle = 180° − 45° − 85° = 50°. In a quadrilateral, three angles are 90°, 110° and 75°. Fourth = 360° − 90° − 110° − 75° = 85°.",
-      lessonSummary: "You now know what an angle is; how to name types of angle; the rules for angles on a line, at a point, and in triangles and quadrilaterals; and how to calculate missing angles. These skills are used throughout geometry and are essential for GCSE.",
+      lessonSummary: "You now know what an angle is; how to name types of angle; the rules for angles on a line, at a point, and in triangles and quadrilaterals; and how to calculate missing angles. These skills are used throughout geometry and in later courses.",
     };
   }
   if (t.includes("area") && !t.includes("perimeter") && !t.includes("volume")) {
@@ -388,8 +683,8 @@ function getLessonDetail(
       coreConcepts: [
         { name: "Metric units of length", explanation: "The base unit is the metre (m). 1 km = 1000 m; 1 m = 100 cm; 1 cm = 10 mm. To convert from a larger unit to a smaller unit, multiply; to convert from smaller to larger, divide. For example: 3.5 km = 3.5 × 1000 = 3500 m; 250 cm = 250 ÷ 100 = 2.5 m." },
         { name: "Metric units of mass and capacity", explanation: "Mass: 1 kg = 1000 g; 1 tonne = 1000 kg. Capacity: 1 litre (l) = 1000 ml; 1 cl = 10 ml. These conversions are used in cooking (e.g. 250 ml of milk) and science (e.g. 2.5 kg of sand). Always check whether you need to multiply or divide, based on whether you are going to a smaller or larger unit." },
-        { name: "Units of area and volume", explanation: "Area is measured in square units: 1 m² = 10,000 cm² (because 100 × 100 = 10,000). Volume is measured in cubic units: 1 m³ = 1,000,000 cm³ (100 × 100 × 100). Also: 1 cm³ = 1 ml, so 1 litre = 1000 cm³. These links between area, volume and capacity are frequently tested at GCSE." },
-        { name: "Imperial units and conversions", explanation: "Imperial units are still used in everyday life in the UK. Key approximate conversions: 1 inch ≈ 2.54 cm; 1 foot = 12 inches ≈ 30 cm; 1 mile ≈ 1.6 km (or 5 miles ≈ 8 km); 1 pound (lb) ≈ 454 g; 1 stone = 14 lb; 1 pint ≈ 568 ml; 1 gallon ≈ 4.5 litres. Approximate conversions are enough for most GCSE questions." },
+        { name: "Units of area and volume", explanation: "Area is measured in square units: 1 m² = 10,000 cm² (because 100 × 100 = 10,000). Volume is measured in cubic units: 1 m³ = 1,000,000 cm³ (100 × 100 × 100). Also: 1 cm³ = 1 ml, so 1 litre = 1000 cm³. These links between area, volume and capacity come up often in tests and real-life problems." },
+        { name: "Imperial units and conversions", explanation: "Imperial units are still used in everyday life in the UK. Key approximate conversions: 1 inch ≈ 2.54 cm; 1 foot = 12 inches ≈ 30 cm; 1 mile ≈ 1.6 km (or 5 miles ≈ 8 km); 1 pound (lb) ≈ 454 g; 1 stone = 14 lb; 1 pint ≈ 568 ml; 1 gallon ≈ 4.5 litres. Approximate conversions are enough for most school and everyday problems." },
       ],
       example: "A recipe uses 0.75 litres of milk. In ml: 0.75 × 1000 = 750 ml. A road sign says 5 miles. In km: 5 × 1.6 = 8 km. A room is 4.5 m wide. In cm: 4.5 × 100 = 450 cm. These conversions are used every day.",
       lessonSummary: "You now know the key metric units for length, mass, capacity, area and volume; how to convert between them by multiplying or dividing; important imperial units and their metric equivalents; and how to choose the right unit. These skills run through all of maths, science and everyday life.",
@@ -417,7 +712,16 @@ function getLessonDetail(
         { name: "Proportion", explanation: "When we scale up or down (e.g. double a recipe), we keep the ratio the same. So if the ratio is 1 : 4, 50 ml and 200 ml is in the same proportion as 1 and 4." },
         { name: "Using ratio", explanation: "We use ratio in recipes, maps, and mixing. For example, squash might be 1 part cordial to 4 parts water—so 1 : 4." },
       ],
-      example: "Squash in ratio 1 : 4: 50 ml cordial needs 200 ml water (50×4). Same ratio as 1 and 4.",
+      example:
+        yearNum === 7
+          ? "Ratio 1 : 4. If 1 part is 20 g, then 4 parts makes 80 g total."
+          : yearNum === 8
+            ? "A mixture is 2 : 3. If the first part is 14 ml, the second part is 21 ml."
+            : yearNum === 9
+              ? "Proportion with a total: ratio 3 : 7, total 100 → 30 and 70."
+              : yearNum === 10
+                ? "Ratio 5 : 2, total 49 → parts are 35 and 14."
+                : "Problem: write ratio as parts, scale by the same factor, and show the working clearly.",
       lessonSummary: "You now know what a ratio is and how to write it; how to simplify ratios; what proportion means when scaling; and how to use ratio in real situations like recipes and mixtures.",
     };
   }
@@ -431,27 +735,45 @@ function getLessonDetail(
         { name: "Tangent (tan)", explanation: "tan(angle) = opposite ÷ adjacent. When the problem involves the opposite and adjacent sides (not the hypotenuse), we use tan. SOH CAH TOA helps you remember: Sin = Opposite/Hypotenuse, Cos = Adjacent/Hypotenuse, Tan = Opposite/Adjacent." },
         { name: "Applications", explanation: "We use trigonometry to find heights (e.g. a tree), distances (e.g. across a river), and angles in building and design. Always sketch the triangle, label the sides, then choose the ratio that uses the sides you know and the one you want to find." },
       ],
-      example: "A ladder leans against a wall and makes 70° with the ground. The ladder is 5 m long. Height up the wall = 5 × sin(70°) ≈ 4.7 m. Here the hypotenuse is the ladder (5 m) and we want the opposite side (height), so we use sin.",
+      example:
+        yearNum === 7
+          ? "If a right triangle has hypotenuse 5 m and an angle of 30° to the ground, the opposite height is 5×sin(30°)."
+          : yearNum === 8
+            ? "Use cos: hypotenuse 10 m and angle 60°. Adjacent = 10×cos(60°)."
+            : yearNum === 9
+              ? "Ladder: makes 70° with the ground, ladder length 5 m. Height = 5×sin(70°) ≈ 4.7 m."
+              : yearNum === 10
+                ? "Calculate a missing length with sin/cos/tan, then round appropriately and include units."
+                : "Label opposite/adjacent/hypotenuse, choose the correct ratio, substitute, and show working.",
       lessonSummary: "You now know the sides of a right-angled triangle (hypotenuse, opposite, adjacent); the definitions of sin, cos and tan and SOH CAH TOA; and how to use one of the ratios to find a missing side or angle. Use this for simple applications like heights and distances.",
     };
   }
   if (t.includes("calculus") || t.includes("rates of change") || t.includes("gradient")) {
     return {
-      intro: "Calculus helps us understand how things change. Two big ideas are rates of change (how fast something changes) and gradients (how steep a graph is). These ideas lead to the calculus you will meet at GCSE and beyond. This lesson introduces what 'rate of change' and 'gradient' mean in real and graphical contexts.",
+      intro: "Calculus helps us understand how things change. Two big ideas are rates of change (how fast something changes) and gradients (how steep a graph is). These ideas lead to the calculus you will meet in advanced maths. This lesson introduces what 'rate of change' and 'gradient' mean in real and graphical contexts.",
       coreConcepts: [
         { name: "Rate of change", explanation: "A rate of change is how much one quantity changes when another changes. Speed is a rate of change: distance per unit of time (e.g. metres per second). We also see rates like cost per kilogram, or temperature change per minute. The steeper the change, the greater the rate." },
         { name: "Gradient of a line", explanation: "On a graph, the gradient (slope) of a straight line tells you the rate of change. Gradient = vertical change ÷ horizontal change (rise over run). A steeper line means a bigger gradient. If the line goes down as we go right, the gradient is negative." },
         { name: "Gradient and real meaning", explanation: "The gradient of a distance–time graph is speed. The gradient of a cost–quantity graph is the price per unit. So the gradient is not just a number—it has a meaning that depends on what is on each axis." },
         { name: "Introduction to calculus", explanation: "When the graph is a curve, the gradient changes from point to point. Calculus gives us a way to find the gradient at any point on a curve. That is the idea of 'derivative' you will meet later. For now, knowing that gradient means rate of change on a graph is the first step." },
       ],
-      example: "A car travels 60 miles in 2 hours. Rate of change of distance with time = 60 ÷ 2 = 30 miles per hour. On a distance–time graph for this journey, the line would have gradient 30 (miles per hour).",
+      example:
+        yearNum === 7
+          ? "If a car travels 60 km in 2 hours, speed = 60 ÷ 2 = 30 km/h."
+          : yearNum === 8
+            ? "Distance–time idea: 45 m in 15 s → rate = 45 ÷ 15 = 3 m/s."
+            : yearNum === 9
+              ? "Gradient meaning: on a distance–time graph, gradient equals speed (rate of change)."
+              : yearNum === 10
+                ? "Interpretation: read gradient from the graph and state units (e.g. metres per second)."
+                : "Extended answer: explain what a positive/negative gradient means, then link it to the real-world context.",
       lessonSummary: "You now know what a rate of change is and examples like speed; what the gradient of a line means on a graph; how to link gradient to real-world meaning (e.g. speed, price); and that calculus extends this to curves. Use this to read and interpret graphs and simple rates.",
     };
   }
   // Physics
   if (t.includes("balanced force")) {
     return {
-      intro: "Balanced forces happen when forces are equal in size and opposite in direction. The key result is that the object does not change its motion.",
+      intro: yearLeadIn + "Balanced forces happen when forces are equal in size and opposite in direction. The key result is that the object does not change its motion.",
       learningObjectives: [
         "Define balanced forces as equal and opposite forces.",
         "Describe what happens to an object's speed and direction.",
@@ -481,12 +803,13 @@ function getLessonDetail(
       ],
       example: "A person holding a bag of groceries still: the pull of gravity down is balanced by the pull/support force upwards from your hands.",
       lessonSummary:
+        yearLeadIn +
         "You now know balanced forces mean equal/opposite forces and a resultant force of zero. That leads to no change in speed or direction—objects can be at rest or move with constant speed.",
     };
   }
   if (t.includes("friction")) {
     return {
-      intro: "Friction is a force that acts between surfaces when they rub or slide past each other. It usually slows motion down.",
+      intro: yearLeadIn + "Friction is a force that acts between surfaces when they rub or slide past each other. It usually slows motion down.",
       learningObjectives: [
         "Define friction as a force between surfaces.",
         "Explain how friction acts against motion.",
@@ -517,12 +840,13 @@ function getLessonDetail(
       example:
         "A box on carpet: the carpet’s surface is rougher, so friction is larger and the box slows down more quickly than on a smooth floor.",
       lessonSummary:
+        yearLeadIn +
         "You now know what friction is, that it opposes motion, that rougher surfaces usually create more friction, and that friction can produce heat. Use this to explain slowing down in everyday situations.",
     };
   }
   if (t.includes("gravity")) {
     return {
-      intro: "Gravity is a pull towards the centre of the Earth. It makes unsupported objects fall and it gives objects their weight.",
+      intro: yearLeadIn + "Gravity is a pull towards the centre of the Earth. It makes unsupported objects fall and it gives objects their weight.",
       learningObjectives: [
         "Explain gravity as a pull towards Earth.",
         "Define weight as the force of gravity on an object.",
@@ -552,12 +876,13 @@ function getLessonDetail(
       ],
       example: "If you drop a ball, gravity pulls it down. The ball speeds up because gravity keeps applying a force.",
       lessonSummary:
+        yearLeadIn +
         "You now know gravity pulls towards Earth, that weight is the force of gravity, and that unsupported objects fall because gravity acts when there’s no support force.",
     };
   }
   if (t.includes("push") || t.includes("pull")) {
     return {
-      intro: "A force can be a push or a pull. Forces can change how something moves: they can start it, stop it, or change its speed or direction.",
+      intro: yearLeadIn + "A force can be a push or a pull. Forces can change how something moves: they can start it, stop it, or change its speed or direction.",
       learningObjectives: [
         "Define a force as a push or a pull.",
         "Identify examples of pushes and pulls.",
@@ -587,12 +912,13 @@ function getLessonDetail(
       ],
       example: "If you push a toy car harder across the floor, it moves faster and covers more distance in the same time.",
       lessonSummary:
+        yearLeadIn +
         "You now know a force is a push or a pull, and forces can change speed or direction. You can also describe forces as being larger or smaller using newtons (N).",
     };
   }
   if (t.includes("shadow") || t.includes("reflection") || t.includes("refraction") || (t.includes("light") && !t.includes("highlight"))) {
     return {
-      intro: "Light is a form of energy we can see. It travels in straight lines. We see things when light from a source bounces off them into our eyes. This lesson covers how we see, shadows, reflection and refraction.",
+      intro: yearLeadIn + "Light is a form of energy we can see. It travels in straight lines. We see things when light from a source bounces off them into our eyes. This lesson covers how we see, shadows, reflection and refraction.",
       coreConcepts: [
         { name: "Light travels in straight lines", explanation: "Light travels in straight lines from a source. We draw light as straight lines (rays). Nothing can go round corners unless it bounces or bends." },
         { name: "Shadows", explanation: "A shadow forms where light is blocked by an opaque object. The shape of the shadow depends on the shape of the object and where the light is. No light reaches the shadow area." },
@@ -600,12 +926,14 @@ function getLessonDetail(
         { name: "Refraction", explanation: "When light passes from one material into another (e.g. air into water), it can bend. This is refraction. A straw in a glass of water looks bent because of refraction." },
       ],
       example: "On a sunny day, your body blocks sunlight and casts a shadow on the ground. The shadow moves as the Sun appears to move. In a mirror, light from your face reflects off the glass into your eyes so you see your reflection.",
-      lessonSummary: "You now know that light travels in straight lines; how shadows form when light is blocked; how reflection bounces light off surfaces; and how refraction bends light at boundaries. Use this to explain everyday seeing, shadows and mirrors.",
+      lessonSummary:
+        yearLeadIn +
+        "You now know that light travels in straight lines; how shadows form when light is blocked; how reflection bounces light off surfaces; and how refraction bends light at boundaries. Use this to explain everyday seeing, shadows and mirrors.",
     };
   }
   if (t.includes("vibration") || t.includes("pitch") || t.includes("volume") || (t.includes("sound") && !t.includes("resound"))) {
     return {
-      intro: "Sound is made by vibrations (something moving back and forth quickly). Sound travels through air, water and solids as a wave. We hear when the sound wave reaches our ears. This lesson covers how sound is made and how it travels.",
+      intro: yearLeadIn + "Sound is made by vibrations (something moving back and forth quickly). Sound travels through air, water and solids as a wave. We hear when the sound wave reaches our ears. This lesson covers how sound is made and how it travels.",
       coreConcepts: [
         { name: "Vibrations", explanation: "Sound is produced when something vibrates. For example, a drum skin vibrates when you hit it; a string vibrates when you pluck it. The vibrations push the air and make a sound wave." },
         { name: "Pitch", explanation: "Pitch is how high or low a sound is. Faster vibrations (higher frequency) make a higher pitch; slower vibrations make a lower pitch. A thin, short string has a higher pitch than a thick, long one." },
@@ -613,12 +941,14 @@ function getLessonDetail(
         { name: "Sound travels", explanation: "Sound needs a material to travel through (air, water, wood, etc.). It cannot travel through empty space. Sound travels faster in solids than in liquids, and faster in liquids than in gases." },
       ],
       example: "When you pluck a guitar string, it vibrates. The vibration travels through the air to your ear. If you make the string tighter or shorter, it vibrates faster and the pitch is higher. Plucking harder makes it louder.",
-      lessonSummary: "You now know that sound is made by vibrations; that pitch depends on how fast the vibration is; that volume depends on the size of the vibration; and that sound needs a material to travel through. Use this to explain musical instruments and everyday sounds.",
+      lessonSummary:
+        yearLeadIn +
+        "You now know that sound is made by vibrations; that pitch depends on how fast the vibration is; that volume depends on the size of the vibration; and that sound needs a material to travel through. Use this to explain musical instruments and everyday sounds.",
     };
   }
   if (t.includes("component")) {
     return {
-      intro: "Components are the parts you use to build a circuit. In this lesson you will focus on which components you need and what they do.",
+      intro: yearLeadIn + "Components are the parts you use to build a circuit. In this lesson you will focus on which components you need and what they do.",
       coreConcepts: [
         {
           name: "Power source",
@@ -643,12 +973,13 @@ function getLessonDetail(
       ],
       example: "A simple circuit can use one cell, two wires, one bulb, and a switch. If the switch is opened, the bulb goes off because the circuit is broken.",
       lessonSummary:
+        yearLeadIn +
         "You now know common circuit components: power sources, connecting wires, devices that use electricity, and switches that open/close the circuit.",
     };
   }
   if (t.includes("insulator")) {
     return {
-      intro: "Insulators are materials that do not let electricity flow easily. In this lesson you will focus on insulation and safety in circuits.",
+      intro: yearLeadIn + "Insulators are materials that do not let electricity flow easily. In this lesson you will focus on insulation and safety in circuits.",
       coreConcepts: [
         {
           name: "What an insulator does",
@@ -673,12 +1004,13 @@ function getLessonDetail(
       ],
       example: "A plastic cover on a cable stops electricity flowing to your hand.",
       lessonSummary:
+        yearLeadIn +
         "You now know what insulators do, examples of insulators, and why insulation is used to prevent unwanted current flow and shocks.",
     };
   }
   if (t.includes("conductor")) {
     return {
-      intro: "Conductors are materials that allow electricity to flow. In this lesson you will focus on how conductors help circuits work.",
+      intro: yearLeadIn + "Conductors are materials that allow electricity to flow. In this lesson you will focus on how conductors help circuits work.",
       coreConcepts: [
         {
           name: "What a conductor does",
@@ -703,12 +1035,13 @@ function getLessonDetail(
       ],
       example: "Copper wires let current flow so a bulb can light.",
       lessonSummary:
+        yearLeadIn +
         "You now know conductors allow current to flow, that metals are good conductors, and that conductors help complete the circuit.",
     };
   }
   if (t.includes("circuit")) {
     return {
-      intro: "An electric circuit is a closed loop that allows electricity to flow. In this lesson you will focus on circuits themselves and why they must be complete.",
+      intro: yearLeadIn + "An electric circuit is a closed loop that allows electricity to flow. In this lesson you will focus on circuits themselves and why they must be complete.",
       coreConcepts: [
         {
           name: "Complete circuit",
@@ -733,12 +1066,13 @@ function getLessonDetail(
       ],
       example: "With one cell, wires and a bulb, the bulb lights when the circuit is closed. Add a switch: open the switch and the bulb goes out.",
       lessonSummary:
+        yearLeadIn +
         "You now know what a complete circuit is, why electricity needs a closed loop, and what happens when a circuit is broken.",
     };
   }
   if (t.includes("types of energy")) {
     return {
-      intro: "Energy can be stored in different forms. In this lesson you will focus on the main types of energy you need for GCSE science.",
+      intro: "Energy can be stored in different forms. In this lesson you will focus on the main types of energy you need for science at this level.",
       coreConcepts: [
         {
           name: "Energy stores",
@@ -768,7 +1102,7 @@ function getLessonDetail(
   }
   if (t.includes("energy transfer")) {
     return {
-      intro: "Energy transfers from one object/place/store to another. In this lesson you will focus on energy transfer using everyday examples.",
+      intro: yearLeadIn + "Energy transfers from one object/place/store to another. In this lesson you will focus on energy transfer using everyday examples.",
       coreConcepts: [
         {
           name: "What energy transfer means",
@@ -793,12 +1127,13 @@ function getLessonDetail(
       ],
       example: "A ball falls: gravitational potential energy transfers to kinetic energy, so the ball speeds up as it gets closer to the ground.",
       lessonSummary:
+        yearLeadIn +
         "You now know how to describe energy transfer, including that energy can change type during transfer and how to use everyday examples in explanations.",
     };
   }
   if (t.includes("conservation") || (t.includes("energy") && topicTitle.toLowerCase() === "energy")) {
     return {
-      intro: "Conservation of energy is the rule that total energy in a system stays the same. In this lesson you will focus on what that means in real situations.",
+      intro: yearLeadIn + "Conservation of energy is the rule that total energy in a system stays the same. In this lesson you will focus on what that means in real situations.",
       coreConcepts: [
         {
           name: "Cannot be created or destroyed",
@@ -823,12 +1158,13 @@ function getLessonDetail(
       ],
       example: "In a torch, chemical energy becomes electrical energy, then to light (useful) and heat (unwanted). The total energy is conserved.",
       lessonSummary:
+        yearLeadIn +
         "You now know that energy is conserved (not created or destroyed), total energy stays constant, and that real devices transfer some energy to surroundings as heat.",
     };
   }
   if (t.includes("graph")) {
     return {
-      intro: "Distance-time graphs help you interpret motion. In this lesson you will focus on how to read and use a distance-time graph.",
+      intro: yearLeadIn + "Distance-time graphs help you interpret motion. In this lesson you will focus on how to read and use a distance-time graph.",
       coreConcepts: [
         {
           name: "Axes",
@@ -854,12 +1190,13 @@ function getLessonDetail(
       example:
         "If a cyclist’s distance-time graph becomes steeper, the cyclist is travelling faster; if it becomes flat, the cyclist has stopped.",
       lessonSummary:
+        yearLeadIn +
         "You now know how to read a distance-time graph using axes and gradient: gradient is speed, steeper is faster, and flat means not moving.",
     };
   }
   if (t.includes("speed")) {
     return {
-      intro: "Speed describes how fast an object is moving. In this lesson you will focus on speed and how to calculate it.",
+      intro: yearLeadIn + "Speed describes how fast an object is moving. In this lesson you will focus on speed and how to calculate it.",
       coreConcepts: [
         {
           name: "What speed means",
@@ -884,12 +1221,13 @@ function getLessonDetail(
       ],
       example: "A car travels 100 m in 5 s. Speed = 100 ÷ 5 = 20 m/s.",
       lessonSummary:
+        yearLeadIn +
         "You now know what speed means, the common units, and how to calculate speed using speed = distance ÷ time.",
     };
   }
   if (t.includes("distance")) {
     return {
-      intro: "Distance tells you how far something has moved. In this lesson you will focus on distance and measurement units.",
+      intro: yearLeadIn + "Distance tells you how far something has moved. In this lesson you will focus on distance and measurement units.",
       coreConcepts: [
         {
           name: "What distance is",
@@ -914,12 +1252,13 @@ function getLessonDetail(
       ],
       example: "If you travel 3 km, that is 3000 m.",
       lessonSummary:
+        yearLeadIn +
         "You now know what distance means, typical units, and the basic idea of converting km to m. Distance is essential for calculating speed.",
     };
   }
   if (t.includes("time")) {
     return {
-      intro: "Time is how long a journey or movement takes. In this lesson you will focus on time and how it links to speed.",
+      intro: yearLeadIn + "Time is how long a journey or movement takes. In this lesson you will focus on time and how it links to speed.",
       coreConcepts: [
         {
           name: "What time is",
@@ -944,13 +1283,16 @@ function getLessonDetail(
       ],
       example: "If a runner takes 30 s for 120 m, their speed is found using 120 ÷ 30.",
       lessonSummary:
+        yearLeadIn +
         "You now know what time is, its units (seconds), and how time affects speed in calculations.",
     };
   }
   // Chemistry
   if (t.includes("solids")) {
     return {
-      intro: "A solid has a fixed shape and a fixed volume. In the particle model, the particles are packed close together and only vibrate in place.",
+      intro:
+        yearLeadIn +
+        "A solid has a fixed shape and a fixed volume. In the particle model, the particles are packed close together and only vibrate in place.",
       coreConcepts: [
         {
           name: "Shape and volume",
@@ -970,12 +1312,15 @@ function getLessonDetail(
       example:
         "Ice is a solid: it keeps its shape. If you heat it, it can melt to become a liquid.",
       lessonSummary:
+        yearLeadIn +
         "You now know that solids have fixed shape and volume, and that their particles are packed close and vibrate in place.",
     };
   }
   if (t.includes("liquids")) {
     return {
-      intro: "A liquid has a fixed volume but no fixed shape. In the particle model, particles are close together but can move past each other.",
+      intro:
+        yearLeadIn +
+        "A liquid has a fixed volume but no fixed shape. In the particle model, particles are close together but can move past each other.",
       coreConcepts: [
         {
           name: "Shape and volume",
@@ -995,12 +1340,15 @@ function getLessonDetail(
       example:
         "Water is a liquid: it takes the shape of a glass, but the amount (volume) stays the same.",
       lessonSummary:
+        yearLeadIn +
         "You now know that liquids have fixed volume but flow to match the container shape because particles can move past each other.",
     };
   }
   if (t.includes("gases")) {
     return {
-      intro: "A gas has no fixed shape and no fixed volume. In the particle model, particles are far apart and move quickly.",
+      intro:
+        yearLeadIn +
+        "A gas has no fixed shape and no fixed volume. In the particle model, particles are far apart and move quickly.",
       coreConcepts: [
         {
           name: "Shape and volume",
@@ -1020,12 +1368,15 @@ function getLessonDetail(
       example:
         "Steam is a gas: it spreads out in the room and does not keep the same shape.",
       lessonSummary:
+        yearLeadIn +
         "You now know that gases spread to fill space because particles are far apart and move quickly.",
     };
   }
   if (t.includes("properties")) {
     return {
-      intro: "Properties describe how a substance behaves. Solids, liquids and gases have different key properties that come from how their particles are arranged and moving.",
+      intro:
+        yearLeadIn +
+        "Properties describe how a substance behaves. Solids, liquids and gases have different key properties that come from how their particles are arranged and moving.",
       coreConcepts: [
         {
           name: "Solids: fixed shape and volume",
@@ -1051,12 +1402,15 @@ function getLessonDetail(
       example:
         "A substance can be solid, liquid or gas depending on conditions. Its properties (flowing, compressing, shape) match its state.",
       lessonSummary:
+        yearLeadIn +
         "You now know the main properties of solids, liquids and gases and how these come from particle arrangement and movement.",
     };
   }
   if (t.includes("changes")) {
     return {
-      intro: "Changes of state happen when a substance gains or loses energy. Heating can melt or boil; cooling can freeze or condense.",
+      intro:
+        yearLeadIn +
+        "Changes of state happen when a substance gains or loses energy. Heating can melt or boil; cooling can freeze or condense.",
       coreConcepts: [
         {
           name: "Melting",
@@ -1087,12 +1441,13 @@ function getLessonDetail(
       example:
         "Water: ice (solid) melts to water (liquid). If heated more, water boils to steam (gas). Cooling steam condenses back to liquid water, and cooling further can freeze it to ice.",
       lessonSummary:
+        yearLeadIn +
         "You now know the names of the main changes of state and that heating/cooling changes particle energy, leading to a different state.",
     };
   }
   if (t.includes("rock")) {
     return {
-      intro: "Rocks are made in different ways. Scientists often group rocks into three main types: sedimentary, igneous and metamorphic.",
+      intro: yearLeadIn + "Rocks are made in different ways. Scientists often group rocks into three main types: sedimentary, igneous and metamorphic.",
       coreConcepts: [
         {
           name: "Sedimentary rocks",
@@ -1113,12 +1468,13 @@ function getLessonDetail(
       example:
         "Sandstone forms from sand grains laid down in layers and pressed together. Over time it becomes solid rock.",
       lessonSummary:
+        yearLeadIn +
         "You now know the three main rock types and the basic idea of how each one forms.",
     };
   }
   if (t.includes("fossil")) {
     return {
-      intro: "Fossils are traces or remains of living things from long ago, preserved in rock. They help us learn about past life and environments.",
+      intro: yearLeadIn + "Fossils are traces or remains of living things from long ago, preserved in rock. They help us learn about past life and environments.",
       coreConcepts: [
         {
           name: "What a fossil is",
@@ -1139,12 +1495,13 @@ function getLessonDetail(
       example:
         "Sea creature fossils are often found in sedimentary rocks that formed under the sea.",
       lessonSummary:
+        yearLeadIn +
         "You now know what fossils are, how they generally form, and why they are often found in sedimentary rock.",
     };
   }
   if (t.includes("soil")) {
     return {
-      intro: "Soil is a mixture that supports plant growth. It is made from broken rock, decayed matter, and also includes water and air between particles.",
+      intro: yearLeadIn + "Soil is a mixture that supports plant growth. It is made from broken rock, decayed matter, and also includes water and air between particles.",
       coreConcepts: [
         {
           name: "What soil is made of",
@@ -1165,12 +1522,13 @@ function getLessonDetail(
       example:
         "Healthy garden soil contains enough humus and water to help plants grow well.",
       lessonSummary:
+        yearLeadIn +
         "You now know what soil is made of and why soil is important for plant growth.",
     };
   }
   if (t.includes("indicator")) {
     return {
-      intro: "Indicators are substances that change colour in acids and alkalis, helping you test which type a solution is.",
+      intro: yearLeadIn + "Indicators are substances that change colour in acids and alkalis, helping you test which type a solution is.",
       coreConcepts: [
         {
           name: "Indicators detect acidity",
@@ -1191,12 +1549,13 @@ function getLessonDetail(
       example:
         "If you add universal indicator to lemon juice (an acid), it turns red. If you test soap solution (an alkali), it turns blue/purple.",
       lessonSummary:
+        yearLeadIn +
         "You now know what indicators do and how universal indicator and litmus show acid/alkali using different colours.",
     };
   }
   if (t.includes("alkali") || t.includes("acid")) {
     return {
-      intro: "Acids and alkalis are different types of substances. We use pH to describe how acidic or alkaline something is.",
+      intro: yearLeadIn + "Acids and alkalis are different types of substances. We use pH to describe how acidic or alkaline something is.",
       coreConcepts: [
         {
           name: "Acids vs alkalis",
@@ -1217,12 +1576,13 @@ function getLessonDetail(
       example:
         "Vinegar is an acid so it has pH below 7. Baking soda solution is an alkali so it has pH above 7.",
       lessonSummary:
+        yearLeadIn +
         "You now know how acids and alkalis differ using the pH scale and you can recognise typical examples.",
     };
   }
   if (t.includes("reaction")) {
     return {
-      intro: "A chemical reaction changes substances into new substances with different properties. The substances you start with are reactants; the new substances are products.",
+      intro: yearLeadIn + "A chemical reaction changes substances into new substances with different properties. The substances you start with are reactants; the new substances are products.",
       coreConcepts: [
         {
           name: "Reactants and products",
@@ -1243,12 +1603,13 @@ function getLessonDetail(
       example:
         "Mixing an acid and an alkali can cause neutralisation, producing new substances (and often a change you can detect using indicators).",
       lessonSummary:
+        yearLeadIn +
         "You now know what chemical reactions do: reactants turn into new products, often with observable signs and new properties.",
     };
   }
   if (t.includes("atoms") || t.includes("atom")) {
     return {
-      intro: "Atoms are the smallest particles of an element that still keep the element's properties.",
+      intro: yearLeadIn + "Atoms are the smallest particles of an element that still keep the element's properties.",
       coreConcepts: [
         {
           name: "Element properties",
@@ -1269,12 +1630,13 @@ function getLessonDetail(
       example:
         "A water molecule contains atoms of hydrogen and oxygen joined together.",
       lessonSummary:
+        yearLeadIn +
         "You now know what atoms are and that atoms of different elements have different types.",
     };
   }
   if (t.includes("molecules") || t.includes("molecule")) {
     return {
-      intro: "Molecules are groups of atoms joined together. Many everyday substances are made from molecules.",
+      intro: yearLeadIn + "Molecules are groups of atoms joined together. Many everyday substances are made from molecules.",
       coreConcepts: [
         {
           name: "Groups of atoms",
@@ -1295,12 +1657,13 @@ function getLessonDetail(
       example:
         "In steam, the water molecules are far apart and can move freely.",
       lessonSummary:
+        yearLeadIn +
         "You now know what molecules are and that molecules can exist in different states depending on particle behaviour.",
     };
   }
   if (t.includes("particle")) {
     return {
-      intro: "The particle model explains states of matter by describing how particles are arranged and how they move.",
+      intro: yearLeadIn + "The particle model explains states of matter by describing how particles are arranged and how they move.",
       coreConcepts: [
         {
           name: "Particles everywhere",
@@ -1321,6 +1684,7 @@ function getLessonDetail(
       example:
         "If you heat a solid, particles gain energy and can eventually overcome the forces holding them in place, so the solid melts to a liquid.",
       lessonSummary:
+        yearLeadIn +
         "You now know the particle model and how it explains solids, liquids, gases and changes of state.",
     };
   }
@@ -1328,7 +1692,7 @@ function getLessonDetail(
   if (topicLower === "living things") {
     if (t.includes("life process")) {
       return {
-        intro: "Life processes are the activities that living things carry out. This lesson focuses on the main life processes.",
+        intro: yearLeadIn + "Life processes are the activities that living things carry out. This lesson focuses on the main life processes.",
         coreConcepts: [
           { name: "Nutrition (feeding)", explanation: "Living things need food to get energy and materials." },
           { name: "Respiration", explanation: "Respiration releases energy from food so cells can function." },
@@ -1336,12 +1700,12 @@ function getLessonDetail(
           { name: "Response, excretion and reproduction", explanation: "Living things respond to their surroundings, remove waste and reproduce." },
         ],
         example: "A rabbit feeds, breathes (respiration), grows and reproduces, and responds to danger.",
-        lessonSummary: "You now know the main life processes that characterise living things.",
+        lessonSummary: yearLeadIn + "You now know the main life processes that characterise living things.",
       };
     }
     if (t.includes("classification")) {
       return {
-        intro: "Classification groups living things so we can organise and compare them.",
+        intro: yearLeadIn + "Classification groups living things so we can organise and compare them.",
         coreConcepts: [
           { name: "Group by features", explanation: "We classify based on observable features and characteristics." },
           { name: "Broad to specific", explanation: "Start with bigger groups, then split into smaller groups using more specific features." },
@@ -1349,12 +1713,12 @@ function getLessonDetail(
           { name: "Purpose of classification", explanation: "It helps scientists identify patterns and understand relationships between organisms." },
         ],
         example: "Mammals share features like giving milk to their young, so they can be classified together.",
-        lessonSummary: "You now know that classification is about grouping living things using features.",
+        lessonSummary: yearLeadIn + "You now know that classification is about grouping living things using features.",
       };
     }
     if (t.includes("habitat")) {
       return {
-        intro: "A habitat is where an organism lives and the conditions it needs to survive.",
+        intro: yearLeadIn + "A habitat is where an organism lives and the conditions it needs to survive.",
         coreConcepts: [
           { name: "What habitats provide", explanation: "Habitats provide food, water, shelter and the right environmental conditions." },
           { name: "Different habitats, different organisms", explanation: "Different conditions lead to different types of living things." },
@@ -1362,14 +1726,14 @@ function getLessonDetail(
           { name: "Comparing habitats", explanation: "You can compare habitats by describing the conditions and the organisms found there." },
         ],
         example: "A desert habitat has dry conditions, so plants and animals are adapted to conserve water.",
-        lessonSummary: "You now know what a habitat is and why habitats influence which organisms live there.",
+        lessonSummary: yearLeadIn + "You now know what a habitat is and why habitats influence which organisms live there.",
       };
     }
   }
   if (topicLower === "humans & health") {
     if (t.includes("body systems")) {
       return {
-        intro: "Body systems work together to keep humans alive. This lesson focuses on the digestive, circulatory and respiratory systems.",
+        intro: yearLeadIn + "Body systems work together to keep humans alive. This lesson focuses on the digestive, circulatory and respiratory systems.",
         coreConcepts: [
           { name: "Digestive system", explanation: "Breaks down food into nutrients." },
           { name: "Circulatory system", explanation: "Carries nutrients in the blood around the body." },
@@ -1377,12 +1741,12 @@ function getLessonDetail(
           { name: "Systems are linked", explanation: "Nutrients and oxygen are used by cells to release energy." },
         ],
         example: "After eating, digestion produces nutrients, blood transports them, and respiration supplies oxygen for energy release.",
-        lessonSummary: "You now know how body systems connect to support life.",
+        lessonSummary: yearLeadIn + "You now know how body systems connect to support life.",
       };
     }
     if (t.includes("nutrition")) {
       return {
-        intro: "Nutrition is about the food and nutrients the body needs. This lesson focuses on balanced diets.",
+        intro: yearLeadIn + "Nutrition is about the food and nutrients the body needs. This lesson focuses on balanced diets.",
         coreConcepts: [
           { name: "Balanced diet", explanation: "Includes carbohydrates, proteins, fats, vitamins, minerals, fibre and enough water." },
           { name: "Different nutrients do different jobs", explanation: "Foods support growth, repair and energy release." },
@@ -1390,12 +1754,14 @@ function getLessonDetail(
           { name: "Hydration matters", explanation: "Water supports digestion and normal body function." },
         ],
         example: "A balanced meal with protein and vegetables helps provide nutrients for energy and growth.",
-        lessonSummary: "You now know what nutrition means and why balanced eating helps keep you healthy.",
+        lessonSummary:
+          yearLeadIn +
+          "You now know what nutrition means and why balanced eating helps keep you healthy.",
       };
     }
     if (t.includes("exercise")) {
       return {
-        intro: "Exercise supports health by strengthening your body and improving fitness. This lesson focuses on key benefits.",
+        intro: yearLeadIn + "Exercise supports health by strengthening your body and improving fitness. This lesson focuses on key benefits.",
         coreConcepts: [
           { name: "Heart and lungs", explanation: "Exercise can improve how well your heart and lungs work." },
           { name: "Muscles and movement", explanation: "Activity strengthens muscles and improves coordination." },
@@ -1403,12 +1769,14 @@ function getLessonDetail(
           { name: "Rest and recovery", explanation: "Sleep and rest help your body repair and stay healthy." },
         ],
         example: "Regular exercise can make you feel fitter, stronger and better able to concentrate.",
-        lessonSummary: "You now know how exercise supports health and why rest is part of staying well.",
+        lessonSummary:
+          yearLeadIn +
+          "You now know how exercise supports health and why rest is part of staying well.",
       };
     }
     if (t.includes("health")) {
       return {
-        intro: "Health is about how well your body works and how you feel day to day. This lesson focuses on healthy habits.",
+        intro: yearLeadIn + "Health is about how well your body works and how you feel day to day. This lesson focuses on healthy habits.",
         coreConcepts: [
           { name: "Healthy routines", explanation: "Good routines include eating well, being active and getting enough sleep." },
           { name: "Prevention", explanation: "Healthy choices can reduce the risk of some illnesses and improve wellbeing." },
@@ -1416,14 +1784,16 @@ function getLessonDetail(
           { name: "Balance", explanation: "Health is not just one habit; it is a balance of many behaviours." },
         ],
         example: "A student who eats well, exercises and sleeps enough is more likely to feel energetic and focused.",
-        lessonSummary: "You now understand health as a combination of nutrition, activity, rest and good habits.",
+        lessonSummary:
+          yearLeadIn +
+          "You now understand health as a combination of nutrition, activity, rest and good habits.",
       };
     }
   }
   if (topicLower === "plants") {
     if (t.includes("parts of a plant")) {
       return {
-        intro: "Plants have parts with different jobs. This lesson focuses on roots, stems, leaves and flowers.",
+        intro: yearLeadIn + "Plants have parts with different jobs. This lesson focuses on roots, stems, leaves and flowers.",
         coreConcepts: [
           { name: "Roots", explanation: "Anchor the plant and take in water and minerals from the soil." },
           { name: "Stem", explanation: "Supports the plant and transports water and nutrients." },
@@ -1431,12 +1801,14 @@ function getLessonDetail(
           { name: "Flowers", explanation: "Flowers support reproduction and help produce seeds." },
         ],
         example: "In a sunflower, roots absorb water, the stem holds it up, and leaves make food.",
-        lessonSummary: "You now know what the main plant parts do.",
+        lessonSummary: yearLeadIn + "You now know what the main plant parts do.",
       };
     }
     if (t.includes("photosynthesis")) {
       return {
-        intro: "Photosynthesis is how plants make their own food. This lesson focuses on what plants need and what they make.",
+        intro:
+          yearLeadIn +
+          "Photosynthesis is how plants make their own food. This lesson focuses on what plants need and what they make.",
         coreConcepts: [
           { name: "Inputs", explanation: "Plants need light energy, water and carbon dioxide." },
           { name: "Making sugar", explanation: "Plants make sugar (glucose) which stores energy." },
@@ -1444,12 +1816,16 @@ function getLessonDetail(
           { name: "Chlorophyll", explanation: "Chlorophyll in leaves captures light energy." },
         ],
         example: "A leaf uses sunlight, water and carbon dioxide to make glucose and release oxygen.",
-        lessonSummary: "You now know the key idea of photosynthesis and its inputs/outputs.",
+        lessonSummary:
+          yearLeadIn +
+          "You now know the key idea of photosynthesis and its inputs/outputs.",
       };
     }
     if (t.includes("life cycle")) {
       return {
-        intro: "The plant life cycle shows how a plant grows from a seed to producing more seeds. This lesson focuses on stages.",
+        intro:
+          yearLeadIn +
+          "The plant life cycle shows how a plant grows from a seed to producing more seeds. This lesson focuses on stages.",
         coreConcepts: [
           { name: "Germination", explanation: "Seeds germinate and start to grow." },
           { name: "Growth", explanation: "The plant grows into roots, stems and leaves." },
@@ -1457,14 +1833,16 @@ function getLessonDetail(
           { name: "Spreading", explanation: "Seeds spread and can grow into new plants when conditions are suitable." },
         ],
         example: "A sunflower grows from a seed, produces flowers and then produces seeds for the next cycle.",
-        lessonSummary: "You now know the stages of a plant life cycle.",
+        lessonSummary:
+          yearLeadIn +
+          "You now know the stages of a plant life cycle.",
       };
     }
   }
   if (topicLower === "evolution & inheritance") {
     if (t.includes("variation")) {
       return {
-        intro: "Variation means individuals in a species are not all identical. This lesson focuses on what causes variation.",
+        intro: yearLeadIn + "Variation means individuals in a species are not all identical. This lesson focuses on what causes variation.",
         coreConcepts: [
           { name: "Differences", explanation: "Variation is the differences between individuals in a population." },
           { name: "Inherited variation", explanation: "Some variation is passed from parents to offspring." },
@@ -1472,12 +1850,12 @@ function getLessonDetail(
           { name: "Survival effects", explanation: "Some differences can help organisms survive better in certain conditions." },
         ],
         example: "Fur thickness can vary between rabbits, and some inherited traits help survival in cold conditions.",
-        lessonSummary: "You now know variation and where it can come from.",
+        lessonSummary: yearLeadIn + "You now know variation and where it can come from.",
       };
     }
     if (t.includes("inheritance")) {
       return {
-        intro: "Inheritance is how characteristics are passed from parents to offspring. This lesson focuses on inherited traits.",
+        intro: yearLeadIn + "Inheritance is how characteristics are passed from parents to offspring. This lesson focuses on inherited traits.",
         coreConcepts: [
           { name: "Passed traits", explanation: "Offspring inherit characteristics from parents." },
           { name: "Not identical", explanation: "Offspring are similar but not exactly the same because traits still vary." },
@@ -1485,12 +1863,14 @@ function getLessonDetail(
           { name: "Generations", explanation: "Over many generations, inherited traits can become more common in a population." },
         ],
         example: "If a trait is inherited, offspring can show it even if parents are slightly different.",
-        lessonSummary: "You now understand inheritance as the passing of traits to offspring across generations.",
+        lessonSummary:
+          yearLeadIn +
+          "You now understand inheritance as the passing of traits to offspring across generations.",
       };
     }
     if (t.includes("adaptation")) {
       return {
-        intro: "Adaptations are features that help organisms survive in their environment. This lesson focuses on the survival advantage.",
+        intro: yearLeadIn + "Adaptations are features that help organisms survive in their environment. This lesson focuses on the survival advantage.",
         coreConcepts: [
           { name: "Better suited", explanation: "Adaptations make it easier for organisms to survive and reproduce." },
           { name: "Inherited advantage", explanation: "If the adaptation is inherited, it can spread through populations over generations." },
@@ -1498,7 +1878,9 @@ function getLessonDetail(
           { name: "Environment link", explanation: "Adaptations depend on the conditions in an environment." },
         ],
         example: "Rabbits with thicker fur can survive colder winters better and pass on the trait.",
-        lessonSummary: "You now know what adaptations are and how they link to survival and evolution over time.",
+        lessonSummary:
+          yearLeadIn +
+          "You now know what adaptations are and how they link to survival and evolution over time.",
       };
     }
   }
@@ -2227,15 +2609,78 @@ function getLessonDetail(
   }
 
   const focus = lessonTitle.replace(/^Lesson \d+:\s*/i, "").trim() || topicTitle;
+  const generic = pickLessonBand(yearNum, {
+    y7: {
+      intro: `This lesson is about ${focus} inside the topic ${topicTitle}. You’ll meet the idea in plain language first: what it is, one picture or story that helps you remember it, and a very short example. Don’t worry about formal wording yet — aim to explain it to a friend in simple words.`,
+      core: [
+        {
+          name: "Say what it means (simply)",
+          explanation: `In your own words, ${focus} is one piece of ${topicTitle}. Start with: “This is about…” and finish the sentence without copying a textbook. If you can explain it simply, you understand the first layer.`,
+        },
+        {
+          name: "Spot one keyword",
+          explanation: `Pick one important word that belongs with ${focus} (from the Explain tab or your teacher). Write it down and use it in a short sentence. At this stage, one strong keyword beats a long list you won’t remember.`,
+        },
+        {
+          name: "Connect to something real",
+          explanation: `Think of one everyday example where ${topicTitle} touches your life (school, home, sport, phone, nature). How does ${focus} show up there? Draw a quick sketch or bullet list if that helps.`,
+        },
+      ],
+      example: `Starter task: Describe ${focus} like you’re explaining to someone new to the topic — three short sentences max. End with “So in real life, this matters because…”`,
+      summary: `You’ve built a simple mental model of ${focus} within ${topicTitle}: meaning, one keyword, and one real-world link. Next time you’ll add more detail and vocabulary.`,
+    },
+    y89: {
+      intro: `This lesson digs into ${focus} as part of ${topicTitle}. You’ll define the idea precisely, link it to at least two other ideas in the topic, and practise explaining why it matters (not only what it is). Expect short written explanations and multi-step reasoning.`,
+      core: [
+        {
+          name: "Precise definition + conditions",
+          explanation: `Write a careful definition of ${focus}: what must be true for the idea to apply, and what would count as a mistake (e.g. mixing it up with a similar term in ${topicTitle}). Compare “always / sometimes / never” if you can.`,
+        },
+        {
+          name: "Link to the rest of the topic",
+          explanation: `Name two other ideas from ${topicTitle} that connect to ${focus}. For each link, say “If I change X, then Y changes because…”. This is how you build topic-wide understanding instead of isolated facts.`,
+        },
+        {
+          name: "Worked reasoning pattern",
+          explanation: `Use a fixed pattern for written answers: State the idea, show an example or step, explain why the step is valid, then check your answer makes sense. This prepares you for longer, mark-scheme-style questions.`,
+        },
+        {
+          name: "Common misconceptions",
+          explanation: `List one misconception people have about ${focus} and correct it in one paragraph. If you’re not sure, use the Practice tab to test your fix with a second example.`,
+        },
+      ],
+      example: `Written task: Answer as if it’s a homework question worth several marks: define ${focus}, give a concrete example from ${topicTitle}, then explain one consequence (what happens next if…).`,
+      summary: `You can now define ${focus} more tightly, connect it across ${topicTitle}, and write short chains of reasoning. That’s the bridge from informal intuition to more formal, extended answers.`,
+    },
+    y1011: {
+      intro: `This lesson treats ${focus} as advanced material within ${topicTitle}. You must read questions carefully, select the correct method, show structured working, use correct terminology and units where relevant, and check feasibility. Treat every worked section below as a template you can reuse when practising under time limits.`,
+      core: [
+        {
+          name: "Command words & what strong answers include",
+          explanation: `Identify whether you are being asked to state, describe, explain, calculate, evaluate, or compare. For ${focus}, underline the command word and list the minimum you must include (e.g. “explain” needs a because chain with evidence or mechanism, not just a definition).`,
+        },
+        {
+          name: "Method selection",
+          explanation: `For ${topicTitle}, there may be more than one approach. Write: “I will use ___ because the question gives ___.” Show the first line of working that commits you to a method — this reduces waffle and makes marking clearer.`,
+        },
+        {
+          name: "Accuracy, units and form of answer",
+          explanation: `State answers to the required precision (significant figures or decimal places). Include units whenever they apply. If the question asks for a fraction, surd or standard form, give exactly that — not a rounded decimal unless allowed.`,
+        },
+        {
+          name: "Verify and critique",
+          explanation: `After solving, run a 30-second check: sign, magnitude, units, and “does this answer answer the actual question?”. If something is wrong, show the corrected line rather than only erasing — clear correction often earns credit when time allows.`,
+        },
+      ],
+      example: `Advanced task: Attempt a full-credit response for ${focus}: brief plan (bullets), full working, final answer in the required form, and one-sentence check. If ${topicTitle} is essay-based, use a PEEL paragraph (Point–Evidence–Explanation–Link).`,
+      summary: `You can now tackle ${focus} with strong discipline: command words, clear method, accurate final form, and a verification habit. Use the Assessment tab under timed conditions next.`,
+    },
+  });
   return {
-    intro: `This lesson is part of ${topicTitle} and focuses on ${focus}. You will learn the main ideas, key terms and how to use them in problems. Work through each core concept below, then try the example. Use the Practice and Assessment tabs afterwards to check your understanding.`,
-    coreConcepts: [
-      { name: "What it is", explanation: `The main idea behind ${focus} is something we use in ${topicTitle}. Read the definitions in the Explain and other lessons for this topic. Try to say in your own words what ${focus} means before moving on.` },
-      { name: "Key terms", explanation: "Learn the correct vocabulary (e.g. from the topic’s lessons). Using the right words helps you explain the idea clearly and answer questions accurately. Use each term in a short sentence." },
-      { name: "How to use it", explanation: "Apply the idea to a simple example: use the definition and the key points step by step. In the Practice tab you can try more examples; in the Assessment tab you can check how well you understand." },
-    ],
-    example: `For ${focus}: think about a simple situation where ${topicTitle} is used. Apply the main idea and key terms step by step. If you're stuck, look back at the Explain section and the other lessons in this topic.`,
-    lessonSummary: `You have completed this lesson on ${focus} (part of ${topicTitle}). Revise the core concepts above, try the example, then use the Practice and Assessment tabs to reinforce your learning.`,
+    intro: yearLeadIn + generic.intro,
+    coreConcepts: generic.core,
+    example: generic.example,
+    lessonSummary: yearLeadIn + generic.summary,
   };
 }
 
@@ -5132,7 +5577,7 @@ function getAssessmentQuestionsForTopic(topic: { title: string }): {
   const base: { question: string; options: string[]; correctIndex: number; explanation: string }[] = [
     {
       question: `Which best describes ${topic.title}?`,
-      options: ["Something unrelated", "The core concept you studied", "An advanced topic only", "Only for Year 7"],
+      options: ["Something unrelated", "The core concept you studied", "An advanced topic only", "Only for beginners"],
       correctIndex: 1,
       explanation: "The core concept you studied is the main idea of this topic. The other options don't match what we learned.",
     },
@@ -5254,7 +5699,7 @@ function getAssessmentQuestionsForTopic(topic: { title: string }): {
   return base;
 }
 
-function getPracticeQuestionsForLesson(detail: ReturnType<typeof getLessonDetail>): {
+function getPracticeQuestionsForLesson(detail: ReturnType<typeof getLessonDetail>, yearNum?: number): {
   question: string;
   hint: string;
   explanation: string;
@@ -5264,21 +5709,30 @@ function getPracticeQuestionsForLesson(detail: ReturnType<typeof getLessonDetail
   // - one based on the lesson example
   // - one based on the lesson summary
   const coreConcepts = detail.coreConcepts.slice(0, 4);
+  const yearInstruction =
+    yearNum === 10 || yearNum === 11
+      ? "Answer formally: show working, use correct notation/units, and check your answer."
+      : yearNum === 9
+        ? "Answer with clear step-by-step reasoning (not just the final answer)."
+        : yearNum === 8
+          ? "Use step-by-step explanations and try an example that matches your core concept."
+          : "Keep it simple: explain the idea and give a basic example.";
+
   const questions: { question: string; hint: string; explanation: string }[] = coreConcepts.map((c) => ({
     question: `Explain "${c.name}" in your own words.`,
-    hint: "Use the definition from the Core concepts section.",
+    hint: `${yearInstruction} Use the definition from the Core concepts section.`,
     explanation: c.explanation,
   }));
 
   questions.push({
     question: "Use the Example to explain the main idea step-by-step.",
-    hint: "Refer to the Example text and describe what happens.",
+    hint: `${yearInstruction} Refer to the Example text and describe what happens.`,
     explanation: detail.example,
   });
 
   questions.push({
     question: "Write the most important takeaway from the Summary.",
-    hint: "Look at the Summary section above.",
+    hint: `${yearInstruction} Look at the Summary section above.`,
     explanation: detail.lessonSummary,
   });
 
@@ -5339,7 +5793,7 @@ function LessonsTab({
 
   const selectedIsComplete = selectedLesson ? completedLessons.has(selectedLesson) : false;
   const yearLabel = yearNum ? `Year ${yearNum}` : "";
-  const lessonPracticeQuestions = detail ? getPracticeQuestionsForLesson(detail) : [];
+  const lessonPracticeQuestions = detail ? getPracticeQuestionsForLesson(detail, yearNum) : [];
   const [lessonPracticeAnswers, setLessonPracticeAnswers] = useState<string[]>(
     () => (lessonPracticeQuestions.length ? lessonPracticeQuestions.map(() => "") : [])
   );
@@ -5709,7 +6163,8 @@ export function LearningAcademyCurriculumTopic() {
       const year = selectedYear;
       router.navigate({
         to: "/learning-academy/curriculum",
-        search: year ? { subjectId, year } : { subjectId },
+        // TanStack Router typing can be overly strict with string `to` values.
+        search: (year ? { subjectId, year } : { subjectId }) as any,
       });
     } else {
       router.navigate({ to: "/learning-academy/curriculum" });
@@ -5760,7 +6215,7 @@ export function LearningAcademyCurriculumTopic() {
           {prevTopic ? (
             <Link
               to="/learning-academy/curriculum/$subjectId/$topicId"
-              params={{ subjectId, topicId: prevTopic.id }}
+              params={{ subjectId, topicId: prevTopic.id } as any}
               className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -5772,7 +6227,7 @@ export function LearningAcademyCurriculumTopic() {
           {nextTopic ? (
             <Link
               to="/learning-academy/curriculum/$subjectId/$topicId"
-              params={{ subjectId, topicId: nextTopic.id }}
+              params={{ subjectId, topicId: nextTopic.id } as any}
               className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
             >
               Next topic: {nextTopic.title}
