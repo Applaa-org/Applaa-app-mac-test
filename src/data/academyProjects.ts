@@ -17,13 +17,26 @@ export interface AcademyProjectTemplate {
   explanation?: string;
   /** Ideas to extend the project – "enhance it to learn" */
   enhanceOptions?: string[];
-  /** At least python and javascript; react and typescript optional */
+  /** Optional starter snippet for the first enhance idea (same language keys as starterCode). */
+  enhanceSampleCode?: Partial<Record<ProjectLanguage, string>>;
+  /** Full reference solution (revealed after you pass or choose to view). */
   starterCode: {
     python: string;
     javascript: string;
     react?: string;
     typescript?: string;
   };
+  /** Learner scaffold: blanks use ░ or TODO — not the full solution. */
+  scaffoldCode?: {
+    python?: string;
+    javascript?: string;
+    react?: string;
+    typescript?: string;
+  };
+  /** Short bullets shown next to the editor (API ideas, patterns). */
+  referenceHints?: string[];
+  /** Auto-grade: these substrings must appear in Run output (stdout). */
+  gradeCheck?: { outputIncludes: string[] };
 }
 
 export const ACADEMY_PROJECT_TEMPLATES: AcademyProjectTemplate[] = [
@@ -41,6 +54,70 @@ export const ACADEMY_PROJECT_TEMPLATES: AcademyProjectTemplate[] = [
       "Export a simple summary as text (e.g. total per category).",
       "Support editing or deleting an expense by index.",
     ],
+    enhanceSampleCode: {
+      javascript: `// Sample: add a date field and filter by month
+function addExpense(amount, category, dateStr) {
+  expenses.push({ amount, category, date: dateStr });
+}
+function filterByMonth(monthPrefix) {
+  return expenses.filter((e) => e.date.startsWith(monthPrefix));
+}
+`,
+      python: `# Sample: add a date field and filter by month
+def add_expense(amount, category, date_str):
+    expenses.append({"amount": amount, "category": category, "date": date_str})
+
+def filter_by_month(month_prefix):
+    return [e for e in expenses if e["date"].startswith(month_prefix)]
+`,
+    },
+    referenceHints: [
+      "Keep `expenses` as an array of objects: `{ amount, category, date }`.",
+      "`reduce` or a `for` loop can sum `amount`.",
+      "Build a map/dict keyed by category string for totals.",
+    ],
+    gradeCheck: {
+      // Must print total 50 (10+25+15) with a "Total:" label — see scaffold console.log lines
+      outputIncludes: ["Total:", "50"],
+    },
+    scaffoldCode: {
+      javascript: `// Expense Tracker — fill blanks (░). Run to test.
+const expenses = [];
+function addExpense(amount, category) {
+  // ░░ push one object: amount, category, date (string YYYY-MM-DD)
+}
+function total() {
+  // ░░ return sum of all amounts
+}
+function byCategory() {
+  // ░░ return object mapping category -> total spent
+}
+addExpense(10, "food");
+addExpense(25, "transport");
+addExpense(15, "food");
+console.log("All:", expenses);
+console.log("Total:", total());
+console.log("By category:", byCategory());
+`,
+      python: `# Expense Tracker — fill blanks (░). Run to test.
+expenses = []
+def add_expense(amount, category):
+    # ░░ append dict with amount, category, date
+    pass
+def total():
+    # ░░ sum of amount fields
+    pass
+def by_category():
+    # ░░ dict category -> total
+    pass
+add_expense(10, "food")
+add_expense(25, "transport")
+add_expense(15, "food")
+print("All:", expenses)
+print("Total:", total())
+print("By category:", by_category())
+`,
+    },
     starterCode: {
       javascript: `// Expense Tracker: add, list, total, filter by category
 const expenses = [];
@@ -147,6 +224,60 @@ for _ in range(12):
       "Limit list output to the first N characters of the body.",
       "Add a simple 'slug' or tag to each post and filter by tag.",
     ],
+    enhanceSampleCode: {
+      javascript: `// Sample: sort posts by date (newest first)
+function listPostsNewestFirst() {
+  return [...posts].sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+`,
+      python: `# Sample: sort posts by date (newest first)
+def list_posts_newest_first():
+    return sorted(posts, key=lambda p: p["date"], reverse=True)
+`,
+    },
+    referenceHints: [
+      "Use an array `posts` of objects: `{ id, title, body, date }`.",
+      "`String.prototype.toLowerCase()` and `.includes()` help with search.",
+      "`posts.filter(...)` returns posts matching a keyword.",
+    ],
+    gradeCheck: {
+      outputIncludes: ["First post", "Hello"],
+    },
+    scaffoldCode: {
+      javascript: `// Mini Blog — implement addPost, listPosts, search (see hints above)
+const posts = [];
+function addPost(title, body) {
+  // TODO: push { title, body, date: YYYY-MM-DD, id }
+}
+function listPosts() {
+  // TODO: log date | title – body preview for each post
+}
+function search(keyword) {
+  // TODO: return posts where title or body includes keyword (case-insensitive)
+}
+addPost("First post", "Hello world. This is my mini blog.");
+addPost("Second", "Another short post.");
+listPosts();
+console.log("Search 'post':", search("post"));
+`,
+      python: `# Mini Blog — implement add_post, list_posts, search
+from datetime import date
+posts = []
+def add_post(title, body):
+    # TODO: append dict with id, title, body, date
+    pass
+def list_posts():
+    # TODO: print date | title – body preview for each post
+    pass
+def search(keyword):
+    # TODO: return posts matching keyword in title or body
+    pass
+add_post("First post", "Hello world. This is my mini blog.")
+add_post("Second", "Another short post.")
+list_posts()
+print("Search 'post':", search("post"))
+`,
+    },
     starterCode: {
       javascript: `// Mini Blog: posts with title, body, date; add, list, search
 const posts = [];
@@ -246,6 +377,30 @@ print("With tomato:", [r["name"] for r in find_by_ingredient("tomato")])
     level: "Starter",
     instructions: "Build a calculator that supports add, subtract, multiply, divide. Support a chain of operations (e.g. 2 + 3 * 4 with correct order, or a simple one-step prompt). Make it reusable with clear functions.",
     explanation: "You practice defining small functions for each operation, handling edge cases (e.g. divide by zero), and optionally parsing user input or chaining operations. Core concepts: functions, conditionals, and clean structure.",
+    referenceHints: [
+      "Each operation is a pure function: `add(a,b)`, `divide(a,b)`.",
+      "Guard divide: if `b === 0` return `NaN` or skip.",
+      "You can chain: `add(multiply(2,3), 1)`.",
+    ],
+    gradeCheck: { outputIncludes: ["5", "2"] },
+    scaffoldCode: {
+      javascript: `// Calculator — implement the four operations (░)
+function add(a, b) { /* ░░ */ }
+function subtract(a, b) { /* ░░ */ }
+function multiply(a, b) { /* ░░ */ }
+function divide(a, b) { /* ░░ watch divide by zero */ }
+console.log("2 + 3 =", add(2, 3));
+console.log("10 / 2 =", divide(10, 2));
+`,
+      python: `# Calculator — implement the four operations (░)
+def add(a, b): pass  # ░░
+def subtract(a, b): pass
+def multiply(a, b): pass
+def divide(a, b): pass  # ░░ zero check
+print("2 + 3 =", add(2, 3))
+print("10 / 2 =", divide(10, 2))
+`,
+    },
     enhanceOptions: [
       "Add power (e.g. 2^3) and modulo (remainder) operations.",
       "Support a simple expression string like '2 + 3 * 4' and evaluate it (or step by step).",
@@ -382,6 +537,9 @@ print("Perfect!" if score == len(questions) else "Keep learning!")
       "Sort cities by temperature (hottest to coldest).",
       "Support adding or removing a city and updating the data.",
     ],
+    gradeCheck: {
+      outputIncludes: ["London", "Tokyo", "Hottest", "°C"],
+    },
     starterCode: {
       javascript: `// Weather: cities with temp and condition; lookup, list, stats
 const weather = {
@@ -432,6 +590,9 @@ print("Hottest:", hottest())
       "Track and display the best (lowest) number of tries so far.",
       "Add a simple replay history (list of guesses per game).",
     ],
+    gradeCheck: {
+      outputIncludes: ["tries"],
+    },
     starterCode: {
       javascript: `// Guess 1-100, max 7 tries
 const secret = Math.floor(Math.random() * 100) + 1;
@@ -625,7 +786,7 @@ export function getProjectTemplate(type: string): AcademyProjectTemplate | undef
   return ACADEMY_PROJECT_TEMPLATES.find((t) => t.type === type || t.id === type);
 }
 
-/** Get starter code for a language; React/TypeScript fall back to JavaScript if not defined */
+/** Full reference solution for a language. */
 export function getStarterCodeForLanguage(
   template: AcademyProjectTemplate,
   lang: ProjectLanguage
@@ -634,4 +795,61 @@ export function getStarterCodeForLanguage(
   if (code) return code;
   if (lang === "react" || lang === "typescript") return template.starterCode.javascript;
   return template.starterCode.python;
+}
+
+/** First 2–3 lines of the reference, then a few blank lines — not the full solution. */
+export function buildScaffoldFromStarter(starter: string, lang: ProjectLanguage, keepLines = 3): string {
+  const lines = starter.split(/\r?\n/);
+  const head = lines.slice(0, keepLines).join("\n");
+  const isPy = lang === "python";
+  const c = isPy ? "#" : "//";
+  const blanks = Array.from({ length: 5 }, () => `${c} ░`).join("\n");
+  return `${head}\n\n${c} --- Fill below (keep output checks working) ---\n${blanks}`;
+}
+
+function shortenExistingScaffold(code: string, lang: ProjectLanguage, headLines = 3): string {
+  const lines = code.split(/\r?\n/);
+  const head = lines.slice(0, headLines).join("\n");
+  const isPy = lang === "python";
+  const c = isPy ? "#" : "//";
+  const blanks = Array.from({ length: 5 }, () => `${c} ░`).join("\n");
+  return `${head}\n\n${c} --- Fill below ---\n${blanks}`;
+}
+
+/** Learner scaffold (blanks); falls back to first lines of reference + blanks — not the full solution. */
+export function getScaffoldCodeForLanguage(
+  template: AcademyProjectTemplate,
+  lang: ProjectLanguage
+): string {
+  const s = template.scaffoldCode?.[lang];
+  if (s) return shortenExistingScaffold(s, lang, 3);
+  if (lang === "react" || lang === "typescript") {
+    const alt = template.scaffoldCode?.javascript ?? template.scaffoldCode?.typescript;
+    if (alt) return shortenExistingScaffold(alt, lang, 3);
+  }
+  const starter = getStarterCodeForLanguage(template, lang);
+  if (starter.trim()) {
+    return buildScaffoldFromStarter(starter, lang, 3);
+  }
+  const line = lang === "python" ? "#" : "//";
+  const one = template.instructions.split(".")[0];
+  return `${line} ${template.name}
+${line} ${one}.
+${line} Fill in your solution step by step. Hints appear on the page when available.
+${line} Use Run to test; Submit checks output when criteria are set.
+`;
+}
+
+export function getEnhanceSampleForLanguage(
+  template: AcademyProjectTemplate,
+  lang: ProjectLanguage,
+): string | undefined {
+  const e = template.enhanceSampleCode;
+  if (!e) return undefined;
+  const direct = e[lang];
+  if (direct) return direct;
+  if (lang === "react" || lang === "typescript") {
+    return e.javascript ?? e.typescript;
+  }
+  return e.python ?? e.javascript;
 }

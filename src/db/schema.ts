@@ -379,6 +379,8 @@ export const academyProjects = sqliteTable("academy_projects", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
+  /** Latest Submit & grade score (0–100), if the template supports auto-grade */
+  lastGradeScore: integer("last_grade_score"),
 });
 /** Challenge attempts (optional, for analytics) */
 export const academyChallengeAttempts = sqliteTable("academy_challenge_attempts", {

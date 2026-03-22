@@ -331,6 +331,7 @@ export function registerAcademyHandlers() {
       language: r.language,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
+      lastGradeScore: r.lastGradeScore ?? null,
     }));
   });
 
@@ -359,6 +360,7 @@ export function registerAcademyHandlers() {
         language: row.language,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
+        lastGradeScore: row.lastGradeScore ?? null,
       };
     }
   );
@@ -374,12 +376,15 @@ export function registerAcademyHandlers() {
         projectType,
         code,
         language,
+        lastGradeScore,
       }: {
         id?: number;
         name: string;
         projectType: string;
         code: string;
         language: "python" | "javascript" | "react" | "typescript";
+        /** Set when Submit & grade runs; omit to keep previous score on save */
+        lastGradeScore?: number;
       }
     ) => {
       const userId = await getUserId();
@@ -397,7 +402,15 @@ export function registerAcademyHandlers() {
         if (existing.length === 0) throw new Error("Project not found");
         await db
           .update(academyProjects)
-          .set({ name, code, language, updatedAt: now })
+          .set({
+            name,
+            code,
+            language,
+            updatedAt: now,
+            ...(typeof lastGradeScore === "number"
+              ? { lastGradeScore }
+              : {}),
+          })
           .where(eq(academyProjects.id, id));
         return { id, success: true };
       }
@@ -409,6 +422,7 @@ export function registerAcademyHandlers() {
           projectType,
           code,
           language,
+          ...(typeof lastGradeScore === "number" ? { lastGradeScore } : {}),
         })
         .returning({ id: academyProjects.id });
       return { id: inserted!.id, success: true };

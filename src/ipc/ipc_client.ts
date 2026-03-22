@@ -2326,6 +2326,7 @@ export class IpcClient {
       language: string;
       createdAt: Date;
       updatedAt: Date;
+      lastGradeScore: number | null;
     }>
   > {
     return this.ipcRenderer.invoke("academy:list-projects");
@@ -2339,6 +2340,7 @@ export class IpcClient {
     language: string;
     createdAt: Date;
     updatedAt: Date;
+    lastGradeScore: number | null;
   }> {
     return this.ipcRenderer.invoke("academy:get-project", params);
   }
@@ -2349,6 +2351,7 @@ export class IpcClient {
     projectType: string;
     code: string;
     language: "python" | "javascript" | "react" | "typescript";
+    lastGradeScore?: number;
   }): Promise<{ id: number; success: boolean }> {
     return this.ipcRenderer.invoke("academy:save-project", params);
   }

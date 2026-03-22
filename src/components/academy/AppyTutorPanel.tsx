@@ -32,6 +32,7 @@ import { AppyTutorTokensBadge } from "./AppyTutorTokensBadge";
 import { AppyTutorChatsPicker } from "./AppyTutorChatsPicker";
 import { AppyMascotIcon, AppyMascotTeal } from "./AppyTutorLauncher";
 import { useSettings } from "@/hooks/useSettings";
+import { useAcademyTutorEditor } from "@/contexts/AcademyTutorEditorContext";
 import type { LargeLanguageModel } from "@/lib/schemas";
 import {
   loadTutorChats,
@@ -425,6 +426,7 @@ export function AppyTutorPanel({
   const tutorModel: LargeLanguageModel = getAppyTutorPrimaryModel(
     settings ?? {},
   );
+  const { payload: editorPayload } = useAcademyTutorEditor();
 
   /** Frameless macOS window: traffic lights sit top-left; fullscreen header must inset */
   const isMacClient = useMemo(() => {
@@ -639,8 +641,20 @@ export function AppyTutorPanel({
       }));
       try {
         const ipc = IpcClient.getInstance();
+        const editorContext =
+          editorPayload &&
+          [
+            editorPayload.kind === "project" ? "AI Academy — project" : "AI Academy — challenge",
+            editorPayload.title,
+            editorPayload.summary,
+            "--- Code in editor ---",
+            editorPayload.code?.trim() ? editorPayload.code : "(empty)",
+          ]
+            .filter((x) => x && String(x).trim())
+            .join("\n\n");
         const { answer, source, usage, retryable } = await ipc.academyAppyTutor({
           question: q,
+          code: editorContext,
           pageContext: pathname,
           academy,
           history: historyForIpc.slice(-12),
@@ -698,6 +712,7 @@ export function AppyTutorPanel({
     [
       academy,
       commitActiveChat,
+      editorPayload,
       input,
       loading,
       messages,

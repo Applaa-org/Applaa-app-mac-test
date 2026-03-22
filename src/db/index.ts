@@ -400,7 +400,8 @@ function ensureCoreTables(sqlite: Database.Database): void {
         code TEXT NOT NULL,
         language TEXT NOT NULL DEFAULT 'javascript' CHECK (language IN ('python', 'javascript', 'react', 'typescript')),
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        last_grade_score INTEGER
       )
     `).run();
     sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_academy_projects_user_id ON academy_projects(user_id)`).run();
@@ -418,13 +419,22 @@ function ensureCoreTables(sqlite: Database.Database): void {
         code TEXT NOT NULL,
         language TEXT NOT NULL DEFAULT 'javascript' CHECK (language IN ('python', 'javascript', 'react', 'typescript')),
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        last_grade_score INTEGER
       )`).run();
-      sqlite.prepare(`INSERT INTO academy_projects_new SELECT id, user_id, name, project_type, code, language, created_at, updated_at FROM academy_projects`).run();
+      sqlite.prepare(`INSERT INTO academy_projects_new SELECT id, user_id, name, project_type, code, language, created_at, updated_at, NULL FROM academy_projects`).run();
       sqlite.prepare(`DROP TABLE academy_projects`).run();
       sqlite.prepare(`ALTER TABLE academy_projects_new RENAME TO academy_projects`).run();
       sqlite.prepare(`CREATE INDEX IF NOT EXISTS idx_academy_projects_user_id ON academy_projects(user_id)`).run();
       logger.log("Migration complete.");
+    }
+  }
+  {
+    const apCols = sqlite.prepare("PRAGMA table_info(academy_projects)").all() as Array<{ name: string }>;
+    if (apCols.length > 0 && !apCols.some((c) => c.name === "last_grade_score")) {
+      logger.log("Adding last_grade_score column to academy_projects");
+      sqlite.prepare("ALTER TABLE academy_projects ADD COLUMN last_grade_score INTEGER").run();
+      logger.log("Successfully added last_grade_score to academy_projects");
     }
   }
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useRouter, useSearch } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IpcClient } from "@/ipc/ipc_client";
@@ -18,11 +18,38 @@ import { AcademyAiTutor } from "@/components/academy/AcademyAiTutor";
 import { AcademyLessonInteractiveQuiz } from "@/components/academy/AcademyLessonInteractiveQuiz";
 import { CopyableCodeBlock } from "@/components/academy/CopyableCodeBlock";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, BookOpen, Code2, Sparkles, Lightbulb, ClipboardCheck, GraduationCap, Printer } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Lock,
+  BookOpen,
+  Code2,
+  Sparkles,
+  Lightbulb,
+  ClipboardCheck,
+  GraduationCap,
+  Printer,
+  RotateCcw,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { recordAcademyLessonComplete, getAcademyStreakStats } from "@/lib/academyStreak";
+import {
+  recordAcademyLessonComplete,
+  recordLessonCompletionByTrack,
+  recordLessonCompletionDetail,
+  getAcademyStreakStats,
+} from "@/lib/academyStreak";
+import { getCompletedLessonIdsForTrack } from "@/lib/academyProgressMerge";
+import { addLocalLessonCompleted } from "@/lib/academyLessonLocal";
+import { isLessonVisited, markLessonVisited } from "@/lib/academyLessonVisit";
 import { printAcademyRevisionSheet } from "@/lib/academyRevisionPrint";
+import { addBasicsLessonCompleted, getBasicsCompletedIds } from "@/lib/academyBasicsProgress";
+import {
+  AcademyScheduleDialog,
+  type AcademyScheduleContext,
+} from "@/components/academy/AcademyScheduleDialog";
 
 type LearnTrack = AcademyTrack | "basics" | ConceptBlockId;
 
@@ -193,6 +220,9 @@ export function AcademyLearn() {
   const [challengeCode, setChallengeCode] = useState<Record<string, string>>({});
   const [showMoreExamples, setShowMoreExamples] = useState(false);
   const [streakDays, setStreakDays] = useState(() => getAcademyStreakStats().current);
+  const [localLessonVersion, setLocalLessonVersion] = useState(0);
+  const [visitVersion, setVisitVersion] = useState(0);
+  const [basicsVersion, setBasicsVersion] = useState(0);
   const queryClient = useQueryClient();
   const ipc = IpcClient.getInstance();
 
@@ -202,31 +232,92 @@ export function AcademyLearn() {
   });
 
   const completeLesson = useMutation({
-    mutationFn: (params: { track: AcademyTrack; lessonId: string }) =>
+    mutationFn: (params: { track: "python" | "javascript"; lessonId: string }) =>
       ipc.academyCompleteLesson(params),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["academy-progress"] });
       recordAcademyLessonComplete();
+      recordLessonCompletionByTrack(variables.track);
+      const done = getLesson(variables.track, variables.lessonId);
+      recordLessonCompletionDetail(variables.track, done?.title ?? variables.lessonId);
       setStreakDays(getAcademyStreakStats().current);
     },
   });
+
+  useEffect(() => {
+    const onLocal = () => setLocalLessonVersion((v) => v + 1);
+    window.addEventListener("academy:lesson-local-updated", onLocal);
+    return () => window.removeEventListener("academy:lesson-local-updated", onLocal);
+  }, []);
+
+  useEffect(() => {
+    const onVisit = () => setVisitVersion((v) => v + 1);
+    window.addEventListener("academy:lesson-visit-updated", onVisit);
+    return () => window.removeEventListener("academy:lesson-visit-updated", onVisit);
+  }, []);
+
+  useEffect(() => {
+    const onBasics = () => setBasicsVersion((v) => v + 1);
+    window.addEventListener("academy:basics-updated", onBasics);
+    return () => window.removeEventListener("academy:basics-updated", onBasics);
+  }, []);
+
+  const basicsCompletedSet = useMemo(
+    () => new Set(getBasicsCompletedIds()),
+    [basicsVersion],
+  );
 
   const isBasics = track === "basics";
   const isConceptBlock = (["react", "typescript", "cpp", "ai", "python", "javascript"] as const).includes(track);
   const conceptBlock = isConceptBlock ? getConceptBlock(track as ConceptBlockId) : null;
   const hasCodeLessons = (["python", "javascript", "html", "react", "typescript", "ai"] as const).includes(track);
   const lessons = isBasics ? ACADEMY_BASICS : hasCodeLessons ? ACADEMY_LESSONS[track as AcademyTrack] : [];
-  const completedSet = new Set(
-    track === "python" ? (progress?.pythonCompleted ?? []) : track === "javascript" ? (progress?.javascriptCompleted ?? []) : []
+  const completedSet = useMemo(
+    () =>
+      new Set(
+        hasCodeLessons
+          ? getCompletedLessonIdsForTrack(track as AcademyTrack, progress)
+          : [],
+      ),
+    [hasCodeLessons, track, progress, localLessonVersion],
   );
   const lesson = lessonId && hasCodeLessons ? getLesson(track as AcademyTrack, lessonId) : null;
   const editorLang = TRACK_EDITOR_LANG[track] ?? "javascript";
-  const canMarkComplete = track === "python" || track === "javascript";
+
+  useEffect(() => {
+    if (lesson && hasCodeLessons) {
+      markLessonVisited(track as AcademyTrack, lesson.id);
+    }
+  }, [lesson?.id, track, hasCodeLessons, lesson]);
+
+  const lessonMarkedRead = useMemo(() => {
+    if (!lesson || !hasCodeLessons) return false;
+    return isLessonVisited(track as AcademyTrack, lesson.id);
+  }, [lesson, hasCodeLessons, track, visitVersion]);
+
+  const getLessonVisitForList = (lid: string) => {
+    void visitVersion;
+    return hasCodeLessons && isLessonVisited(track as AcademyTrack, lid);
+  };
+
+  const canMarkComplete = hasCodeLessons;
   const basicsLesson = lessonId && isBasics ? ACADEMY_BASICS.find((b) => b.id === lessonId) : null;
   const showingBlockSubTopic = isConceptBlock && subTopicId && getBlockSubTopic(track as ConceptBlockId, subTopicId);
 
   const handleMarkComplete = (lid: string) => {
-    completeLesson.mutate({ track: track as AcademyTrack, lessonId: lid });
+    if (!hasCodeLessons) return;
+    if (track === "python" || track === "javascript") {
+      completeLesson.mutate({ track, lessonId: lid });
+      return;
+    }
+    addLocalLessonCompleted(track as AcademyTrack, lid);
+    recordAcademyLessonComplete();
+    recordLessonCompletionByTrack(track as string);
+    const doneLesson = getLesson(track as AcademyTrack, lid);
+    recordLessonCompletionDetail(track as string, doneLesson?.title ?? lid);
+    setStreakDays(getAcademyStreakStats().current);
+    setLocalLessonVersion((v) => v + 1);
+    queryClient.invalidateQueries({ queryKey: ["academy-progress"] });
   };
 
   if (showingBlockSubTopic && conceptBlock) {
@@ -302,6 +393,30 @@ export function AcademyLearn() {
             🎯 Fun fact
           </p>
           <p className="text-amber-900 dark:text-amber-100">{basicsLesson.funFact}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          {!basicsCompletedSet.has(basicsLesson.id) ? (
+            <Button
+              type="button"
+              onClick={() => {
+                addBasicsLessonCompleted(basicsLesson.id);
+                recordAcademyLessonComplete();
+                recordLessonCompletionByTrack("basics");
+                recordLessonCompletionDetail("basics", basicsLesson.title);
+                setStreakDays(getAcademyStreakStats().current);
+                setBasicsVersion((v) => v + 1);
+              }}
+              className="gap-2"
+            >
+              <Check className="h-4 w-4" />
+              Mark as complete
+            </Button>
+          ) : (
+            <p className="text-green-600 dark:text-green-400 flex items-center gap-2 text-sm font-medium">
+              <Check className="h-4 w-4" /> Completed
+            </p>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -396,6 +511,11 @@ export function AcademyLearn() {
           {canMarkComplete && streakDays > 0 && (
             <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
               Learning streak: {streakDays} day{streakDays === 1 ? "" : "s"}
+            </p>
+          )}
+          {canMarkComplete && lesson && lessonMarkedRead && !completedSet.has(lesson.id) && (
+            <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+              Marked as read — use <strong>Mark as complete</strong> when you have finished the lesson.
             </p>
           )}
           <div className="prose dark:prose-invert max-w-none">
@@ -493,6 +613,7 @@ export function AcademyLearn() {
             <ul className="mt-3 space-y-1 max-h-56 overflow-y-auto pr-1">
               {trackLessons.map((l) => {
                 const done = canMarkComplete && completedSet.has(l.id);
+                const visited = getLessonVisitForList(l.id);
                 const isCurrent = l.id === lesson.id;
                 return (
                   <li key={l.id}>
@@ -506,12 +627,17 @@ export function AcademyLearn() {
                       }`}
                     >
                       {done ? (
-                        <Check className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                        <Check className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" title="Completed" />
+                      ) : visited ? (
+                        <BookOpen className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0" title="Read" />
                       ) : (
                         <span className="text-gray-400 dark:text-gray-600 shrink-0">•</span>
                       )}
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                         {l.title}
+                      </span>
+                      <span className="text-[10px] uppercase font-semibold text-gray-400 shrink-0" aria-hidden>
+                        {done ? "Done" : visited ? "Read" : ""}
                       </span>
                       <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
                     </Link>
@@ -572,6 +698,7 @@ export function AcademyLearn() {
           </div>
           <div className="min-h-[320px]">
             <AcademyCodeEditor
+              key={codeKey}
               value={code}
               onChange={(v) => setChallengeCode((c) => ({ ...c, [codeKey]: v }))}
               language={editorLang}
@@ -603,7 +730,7 @@ export function AcademyLearn() {
         </section>
 
         {canMarkComplete && (
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             {!completedSet.has(lesson.id) && (
               <Button
                 onClick={() => handleMarkComplete(lesson.id)}
@@ -615,9 +742,17 @@ export function AcademyLearn() {
               </Button>
             )}
             {completedSet.has(lesson.id) && (
-              <p className="text-green-600 dark:text-green-400 flex items-center gap-2">
-                <Check className="h-4 w-4" /> Completed
-              </p>
+              <>
+                <p className="text-green-600 dark:text-green-400 flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Completed — you can review anytime.
+                </p>
+                <Button asChild variant="outline" size="sm" className="gap-2">
+                  <a href="#lesson-example">
+                    <RotateCcw className="h-4 w-4" />
+                    Review again
+                  </a>
+                </Button>
+              </>
             )}
           </div>
         )}
@@ -697,9 +832,41 @@ export function AcademyLearn() {
         <Sparkles className="h-7 w-7 text-amber-500" />
         Learning modules
       </h1>
-      <p className="text-gray-600 dark:text-gray-400 mb-6">
+      <p className="text-gray-600 dark:text-gray-400 mb-3">
         Start with <strong>Basics</strong>, then <strong>Web</strong> (HTML/CSS), then <strong>Python</strong>, <strong>JavaScript</strong>, <strong>React</strong>, <strong>TypeScript</strong>, and <strong>C++</strong> – from basics to expert. One place for all lessons; no duplication.
       </p>
+      <div className="flex flex-wrap items-center gap-3 mb-6 text-sm text-gray-500 dark:text-gray-400">
+        <AcademyScheduleDialog
+          context={
+            [
+              "basics",
+              "html",
+              "python",
+              "javascript",
+              "react",
+              "typescript",
+              "ai",
+              "cpp",
+            ].includes(track)
+              ? (track as AcademyScheduleContext)
+              : "all"
+          }
+        />
+        {track === "basics" && (
+          <span>Basics: target ~2–3 days (short reads).</span>
+        )}
+        {hasCodeLessons && !conceptBlock && (
+          <span>
+            {TRACK_LABELS[track]} code: ~1 week at <strong>3 lessons/day</strong>.
+          </span>
+        )}
+        {conceptBlock && !hasCodeLessons && (
+          <span>Concepts: ~2 days per module to read sub-topics.</span>
+        )}
+        {conceptBlock && hasCodeLessons && (
+          <span>Concepts ~2 days; code lessons ~1 week at 3/day.</span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2 mb-6">
         {TRACKS.map((t) => (
           <Link
@@ -719,37 +886,62 @@ export function AcademyLearn() {
 
       {isBasics && (
         <ul className="space-y-2">
-          {(lessons as typeof ACADEMY_BASICS).map((l) => (
-            <li key={l.id}>
-              <Link
-                to="/academy/learn"
-                search={{ track: "basics", lessonId: l.id }}
-                className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-indigo-200 dark:hover:border-indigo-800"
-              >
-                <span className="text-2xl shrink-0">{l.emoji}</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{l.title}</span>
-                <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
-              </Link>
-            </li>
-          ))}
+          {(lessons as typeof ACADEMY_BASICS).map((l) => {
+            const done = basicsCompletedSet.has(l.id);
+            return (
+              <li key={l.id}>
+                <Link
+                  to="/academy/learn"
+                  search={{ track: "basics", lessonId: l.id }}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-indigo-200 dark:hover:border-indigo-800"
+                >
+                  {done ? (
+                    <Check className="h-5 w-5 text-green-600 shrink-0" title="Completed" />
+                  ) : (
+                    <span className="text-2xl shrink-0">{l.emoji}</span>
+                  )}
+                  <span className="font-medium text-gray-900 dark:text-gray-100 flex-1 min-w-0">{l.title}</span>
+                  {done && (
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
+                      Complete
+                    </span>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
 
       {hasCodeLessons && !conceptBlock && (
         <ul className="space-y-2">
-          {(lessons as AcademyLesson[]).map((l) => (
-            <li key={l.id}>
-              <Link
-                to="/academy/learn"
-                search={{ track: track as AcademyTrack, lessonId: l.id }}
-                className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-indigo-200 dark:hover:border-indigo-800"
-              >
-                <span className="text-2xl shrink-0">📄</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{l.title}</span>
-                <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
-              </Link>
-            </li>
-          ))}
+          {(lessons as AcademyLesson[]).map((l) => {
+            const done = canMarkComplete && completedSet.has(l.id);
+            const visited = getLessonVisitForList(l.id);
+            return (
+              <li key={l.id}>
+                <Link
+                  to="/academy/learn"
+                  search={{ track: track as AcademyTrack, lessonId: l.id }}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-indigo-200 dark:hover:border-indigo-800"
+                >
+                  {done ? (
+                    <Check className="h-5 w-5 text-green-600 shrink-0" title="Completed" />
+                  ) : visited ? (
+                    <BookOpen className="h-5 w-5 text-indigo-500 shrink-0" title="Read" />
+                  ) : (
+                    <span className="text-2xl shrink-0">📄</span>
+                  )}
+                  <span className="font-medium text-gray-900 dark:text-gray-100 flex-1 min-w-0">{l.title}</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
+                    {done ? "Complete" : visited ? "Read" : ""}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -785,6 +977,7 @@ export function AcademyLearn() {
               <ul className="space-y-2">
                 {(lessons as AcademyLesson[]).map((l) => {
                   const done = canMarkComplete && completedSet.has(l.id);
+                  const visited = getLessonVisitForList(l.id);
                   return (
                     <li key={l.id}>
                       <Link
@@ -793,14 +986,19 @@ export function AcademyLearn() {
                         className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                       >
                         {done ? (
-                          <Check className="h-5 w-5 text-green-600 shrink-0" />
+                          <Check className="h-5 w-5 text-green-600 shrink-0" title="Completed" />
+                        ) : visited ? (
+                          <BookOpen className="h-5 w-5 text-indigo-500 shrink-0" title="Read" />
                         ) : canMarkComplete ? (
-                          <Lock className="h-5 w-5 text-gray-400 shrink-0" />
+                          <Lock className="h-5 w-5 text-gray-400 shrink-0" title="Not started" />
                         ) : (
                           <BookOpen className="h-5 w-5 text-indigo-500 shrink-0" />
                         )}
-                        <span className="font-medium text-gray-900 dark:text-gray-100">{l.title}</span>
-                        <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
+                        <span className="font-medium text-gray-900 dark:text-gray-100 flex-1 min-w-0">{l.title}</span>
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
+                          {done ? "Complete" : visited ? "Read" : ""}
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
                       </Link>
                     </li>
                   );

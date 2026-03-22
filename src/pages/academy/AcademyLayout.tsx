@@ -16,6 +16,7 @@ import {
   useAppyTutorPanelVisibility,
 } from "@/components/academy/AppyTutorPanel";
 import { AppyTutorFloatingLauncher } from "@/components/academy/AppyTutorLauncher";
+import { AcademyTutorEditorProvider } from "@/contexts/AcademyTutorEditorContext";
 
 const navItems = [
   { to: "/academy", label: "Dashboard", icon: LayoutDashboard },
@@ -31,6 +32,7 @@ export function AcademyLayout() {
   const [tutorOpen, setTutorOpen] = useAppyTutorPanelVisibility("ai");
 
   return (
+    <AcademyTutorEditorProvider>
     <div className="flex h-full min-h-0 bg-gray-50 dark:bg-gray-950">
       {/* Sidebar */}
       <aside className="w-56 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col shrink-0 h-full min-h-0">
@@ -103,5 +105,6 @@ export function AcademyLayout() {
         )}
       </div>
     </div>
+    </AcademyTutorEditorProvider>
   );
 }

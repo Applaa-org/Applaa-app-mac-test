@@ -2,7 +2,8 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { createPortal } from "react-dom";
 import Editor, { OnMount } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2, Trash2, Maximize2, Minimize2 } from "lucide-react";
+import { Play, Loader2, Trash2, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
+import { runJavaScriptInBrowser, runPythonInBrowser } from "@/lib/academySandbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import "@/components/chat/monaco";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -10,80 +11,6 @@ import { cn } from "@/lib/utils";
 
 type Lang = "python" | "javascript" | "html" | "react" | "typescript";
 
-declare global {
-  interface Window {
-    loadPyodide?: () => Promise<{ runPython: (code: string) => string }>;
-    __pyodidePromise?: Promise<{ runPython: (code: string) => string }>;
-  }
-}
-
-async function runPython(code: string): Promise<string> {
-  try {
-    if (!window.loadPyodide) {
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js";
-      script.async = true;
-      document.head.appendChild(script);
-      await new Promise<void>((res, rej) => {
-        script.onload = () => res();
-        script.onerror = () => rej(new Error("Failed to load Pyodide"));
-      });
-    }
-    const getPyodide = (window as any).loadPyodide;
-    if (!getPyodide) return "Pyodide not loaded.";
-    if (!window.__pyodidePromise) window.__pyodidePromise = getPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/" });
-    const pyodide = await window.__pyodidePromise;
-
-    // Capture print() and last expression: redirect stdout to StringIO, run code, get value
-    const setup = `
-import sys
-from io import StringIO
-__academy_buf__ = StringIO()
-__academy_old_stdout__ = sys.stdout
-sys.stdout = __academy_buf__
-`;
-    const teardown = `
-sys.stdout = __academy_old_stdout__
-__academy_out__ = __academy_buf__.getvalue()
-`;
-    try {
-      pyodide.runPython(setup);
-      pyodide.runPython(code);
-    } finally {
-      try {
-        pyodide.runPython(teardown);
-      } catch (_) {
-        pyodide.runPython("sys.stdout = __academy_old_stdout__");
-      }
-    }
-    const out = (pyodide.globals.get("__academy_out__") ?? "") as string;
-    return out.trim() || "(no output)";
-  } catch (e: any) {
-    return `Error: ${e?.message ?? e}`;
-  }
-}
-
-function runJavaScript(code: string): string {
-  const lines: string[] = [];
-  const customConsole = {
-    log: (...args: unknown[]) => {
-      lines.push(args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "));
-    },
-    warn: (...args: unknown[]) => {
-      lines.push("warn: " + args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "));
-    },
-    error: (...args: unknown[]) => {
-      lines.push("error: " + args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "));
-    },
-  };
-  try {
-    const fn = new Function("console", code);
-    fn(customConsole);
-  } catch (e: any) {
-    lines.push(`Error: ${e?.message ?? e}`);
-  }
-  return lines.join("\n") || "(no output)";
-}
 
 const REACT_CDN =
   "https://unpkg.com/react@18/umd/react.development.js";
@@ -150,6 +77,8 @@ interface AcademyCodeEditorProps {
   onRun?: (output: string) => void;
   showRunButton?: boolean;
   onReset?: () => void;
+  /** Clear editor to empty string (shown when not read-only). */
+  showClearButton?: boolean;
 }
 
 export function AcademyCodeEditor({
@@ -161,6 +90,7 @@ export function AcademyCodeEditor({
   onRun,
   showRunButton = true,
   onReset,
+  showClearButton = true,
 }: AcademyCodeEditorProps) {
   const [output, setOutput] = useState("");
   const [htmlPreview, setHtmlPreview] = useState("");
@@ -228,7 +158,7 @@ export function AcademyCodeEditor({
       setRunning(true);
       setOutput("Running...");
       try {
-        const out = runJavaScript(value);
+        const out = runJavaScriptInBrowser(value);
         setOutput(out || "(no output)");
         onRun?.(out);
       } catch (e: any) {
@@ -243,11 +173,11 @@ export function AcademyCodeEditor({
     setOutput("Running...");
     try {
       if (language === "javascript") {
-        const out = runJavaScript(value);
+        const out = runJavaScriptInBrowser(value);
         setOutput(out || "(no output)");
         onRun?.(out);
       } else {
-        const out = await runPython(value);
+        const out = await runPythonInBrowser(value);
         setOutput(out || "(no output)");
         onRun?.(out);
       }
@@ -359,6 +289,27 @@ export function AcademyCodeEditor({
               <Maximize2 className="h-4 w-4" />
             )}
           </Button>
+          {showClearButton && !readOnly && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-9 w-9 p-0"
+                    onClick={() => onChange("")}
+                    aria-label="Clear editor"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Clear editor
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           {showRunButton && (
             <>
               <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
@@ -375,11 +326,11 @@ export function AcademyCodeEditor({
                         className="h-9 w-9 p-0 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 dark:hover:text-red-400 transition-colors"
                         aria-label="Reset code to starter"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <RotateCcw className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      Reset code
+                      Reset to starter
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

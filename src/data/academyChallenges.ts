@@ -13,6 +13,14 @@ export interface AcademyChallenge {
   task: string;
   starter: string;
   difficulty: "easy" | "medium" | "hard";
+  /** Optional: auto-check requires these substrings in stdout (see CHALLENGE_SUCCESS_MARKERS) */
+  successMarkers?: string[];
+  /** Optional: exact normalized stdout match */
+  exactOutput?: string;
+  /** Expected output or rule — shown after Verify so learners can compare */
+  referenceAnswer?: string;
+  /** Optional sample solution (collapsed by default) */
+  referenceCode?: string;
 }
 
 export const ACADEMY_CHALLENGES: AcademyChallenge[] = [
@@ -27,7 +35,21 @@ export const ACADEMY_CHALLENGES: AcademyChallenge[] = [
   { id: "js-3", track: "javascript", lessonId: "variables", title: "Store and log", task: "Create let score = 100 and log it.", starter: "let score = 100;\n// log it\n", difficulty: "easy" },
   { id: "js-4", track: "javascript", lessonId: "variables", title: "Add two numbers", task: "Create variables a and b, add them, and log the result.", starter: "let a = 5;\nlet b = 3;\n// log a + b\n", difficulty: "easy" },
   { id: "py-7", track: "python", lessonId: "data-types", title: "One of each type", task: "Create one integer, one float, one string, and one boolean. Print each.", starter: "# Create and print one of each type\n", difficulty: "easy" },
-  { id: "py-8", track: "python", lessonId: "conditions", title: "Hot or cold", task: "Set temp = 25. If temp > 30 print 'Hot', else print 'Cool'.", starter: "temp = 25\n# if/else here\n", difficulty: "easy" },
+  {
+    id: "py-8",
+    track: "python",
+    lessonId: "conditions",
+    title: "Hot or cold",
+    task: "Set temp = 25. If temp > 30 print 'Hot', else print 'Cool'.",
+    starter: "temp = 25\n# if/else here\n",
+    difficulty: "easy",
+    referenceCode: `temp = 25
+if temp > 30:
+    print("Hot")
+else:
+    print("Cool")
+`,
+  },
   { id: "py-9", track: "python", lessonId: "conditions", title: "Positive or not", task: "Set n = 5. If n > 0 print 'Positive', else print 'Not positive'.", starter: "n = 5\n", difficulty: "easy" },
   { id: "py-10", track: "python", lessonId: "conditions", title: "Grade message", task: "If score >= 80 print 'Great!', else print 'Keep trying!'.", starter: "score = 85\n", difficulty: "easy" },
   { id: "js-5", track: "javascript", lessonId: "conditions", title: "Hot or cold", task: "Set temp. If temp > 30 log 'Hot', else log 'Cool'.", starter: "let temp = 25;\n", difficulty: "easy" },
@@ -175,7 +197,237 @@ export const ACADEMY_CHALLENGES: AcademyChallenge[] = [
   { id: "ai-8", track: "ai", lessonId: "ai-majority-vote", title: "Majority vote", task: "Given votes = ['A','B','A','A'], print the winner.", starter: "votes = [\"A\", \"B\", \"A\", \"A\"]\nfrom collections import Counter\nc = Counter(votes)\nwinner = c.most_common(1)[0][0]\nprint(winner)", difficulty: "medium" },
   { id: "ai-9", track: "ai", lessonId: "ai-distance-idea", title: "Distance", task: "Compute distance between (0,0) and (3,4).", starter: "import math\ndef dist(a, b):\n    return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)\nprint(dist((0, 0), (3, 4)))", difficulty: "easy" },
   { id: "ai-10", track: "ai", lessonId: "ai-accuracy-idea", title: "Accuracy", task: "Compute accuracy: true=[1,1,0], pred=[1,0,0]. Correct/total.", starter: "true = [1, 1, 0]\npred = [1, 0, 0]\ncorrect = sum(1 for t, p in zip(true, pred) if t == p)\nacc = correct / len(true)\nprint(\"Accuracy:\", acc)", difficulty: "medium" },
+  // Extra hard challenges (multi-step logic)
+  {
+    id: "py-h1",
+    track: "python",
+    lessonId: "functions",
+    title: "Clamp + chain",
+    task: "Write clamp(x, lo, hi) that returns lo if x<lo, hi if x>hi, else x. Then print clamp(clamp(-5, 0, 10), 2, 8) — should be 2.",
+    starter:
+      "def clamp(x, lo, hi):\n    pass\n\nprint(clamp(clamp(-5, 0, 10), 2, 8))\n",
+    difficulty: "hard",
+    successMarkers: ["2"],
+  },
+  {
+    id: "py-h2",
+    track: "python",
+    lessonId: "lists",
+    title: "Run-length encoding",
+    task: "Given s = 'aaabbc', return a list of [char, count] pairs: [['a',3],['b',2],['c',1]]. Print it.",
+    starter: `s = "aaabbc"
+def rle(text):
+    pass
+
+print(rle(s))
+`,
+    difficulty: "hard",
+    successMarkers: ["a", "3", "b", "2", "c", "1"],
+  },
+  {
+    id: "py-h3",
+    track: "python",
+    lessonId: "loops",
+    title: "Nested primes",
+    task: "Print all prime numbers between 10 and 30 (inclusive), one per line.",
+    starter: "def is_prime(n):\n    pass\n\nfor n in range(10, 31):\n    pass\n",
+    difficulty: "hard",
+    successMarkers: ["11", "13", "17", "19", "23", "29"],
+  },
+  {
+    id: "js-h1",
+    track: "javascript",
+    lessonId: "functions",
+    title: "Deep merge",
+    task: "Write merge(a,b) that shallow-merges two objects (b wins on key clash). Print merge({x:1},{x:2,y:3}).x and .y",
+    starter: `function merge(a, b) {
+  // TODO: return one object; keys in b override a
+}
+const m = merge({ x: 1 }, { x: 2, y: 3 });
+console.log(m.x, m.y);
+`,
+    difficulty: "hard",
+    successMarkers: ["2", "3"],
+  },
+  {
+    id: "js-h2",
+    track: "javascript",
+    lessonId: "arrays",
+    title: "Group by key",
+    task: "Given users = [{id:1,g:'a'},{id:2,g:'a'},{id:3,g:'b'}], build an object { a: [1,2], b: [3] } and log JSON.stringify of it.",
+    starter: `const users = [
+  { id: 1, g: "a" },
+  { id: 2, g: "a" },
+  { id: 3, g: "b" },
 ];
+function groupIdsByG(list) {
+  // TODO: { a: [1, 2], b: [3] }
+}
+console.log(JSON.stringify(groupIdsByG(users)));
+`,
+    difficulty: "hard",
+    successMarkers: ["1", "2", "3", "a", "b"],
+  },
+  {
+    id: "ts-h1",
+    track: "typescript",
+    lessonId: "ts-generics-basics",
+    title: "Generic identity",
+    task: "Write function id<T>(x: T): T { return x; } and print id(42) and id('hi').",
+    starter: `function id<T>(x: T): T {
+  // TODO
+}
+console.log(id(42));
+console.log(id("hi"));
+`,
+    difficulty: "hard",
+    successMarkers: ["42", "hi"],
+  },
+];
+
+/** Auto-check substrings when not set on the challenge row (deterministic tasks only). */
+export const CHALLENGE_SUCCESS_MARKERS: Partial<Record<string, string[]>> = {
+  "py-1": ["Hello, World!"],
+  "js-1": ["Hello, World!"],
+  "py-4": ["10"],
+  "py-5": ["8"],
+  "js-3": ["100"],
+  "js-4": ["8"],
+  "py-18": ["9"],
+  "py-19": ["10"],
+  "py-20": ["3", "2", "1"],
+  "py-25": ["True", "False"],
+  "py-27": ["3"],
+  "py-28": ["2", "4", "6"],
+  "py-31": ["120"],
+  "py-32": ["20"],
+  "py-34": ["y", "2"],
+  "py-35": ["True"],
+  "py-40": ["1"],
+  "py-48": ["7"],
+  "py-49": ["yes"],
+  "py-59": ["20"],
+  "py-60": ["True", "False"],
+  "py-63": ["1", "2", "3"],
+  "py-64": ["FizzBuzz", "15"],
+  "py-65": ["1", "2"],
+  "py-66": ["True", "False"],
+  "js-12": ["olleh"],
+  "js-13": ["9"],
+  "js-15": ["10"],
+  "js-16": ["5"],
+  "js-19": ["3", "2", "1"],
+  "js-20": ["55"],
+  "js-25": ["-5"],
+  "js-31": ["7"],
+  "js-32": ["yes"],
+  "js-40": ["6"],
+  "js-41": ["true", "false"],
+  "js-44": ["1", "2", "3"],
+  "js-45": ["FizzBuzz"],
+  "js-47": ["true", "false"],
+  "ts-1": ["10", "Alex"],
+  "ts-2": ["5"],
+  "ai-1": ["30"],
+  "ai-2": ["19", "25"],
+  "ai-3": ["pass", "fail"],
+  "ai-4": ["3"],
+  "ai-5": ["3"],
+  "ai-9": ["5.0", "5"],
+  // Conditions & early Python/JS (auto-check when map has markers)
+  "py-8": ["Cool"],
+  "py-9": ["Positive"],
+  "py-10": ["Great!"],
+  "py-11": ["1", "2", "3", "4", "5"],
+  "py-12": ["Hi!"],
+  "py-13": ["15"],
+  "py-14": ["8"],
+  "py-26": ["3"],
+  "py-41": ["zero"],
+  "py-52": ["Weekend"],
+  "py-58": ["negative"],
+  "js-5": ["Cool"],
+  "js-6": ["Even"],
+  "js-7": ["1", "2", "3", "4", "5"],
+  "js-8": ["Hello!"],
+  "js-21": ["5"],
+  "js-26": ["zero"],
+  "js-35": ["Weekend"],
+  "html-1": ["<h1", "<h2", "<p"],
+  "html-2": ["Hello", "<title"],
+  "html-3": ["example.com", "Click"],
+  "html-4": ["img", "alt"],
+  "html-5": ["input", "submit"],
+  "html-6": ["<td", "<tr"],
+  "html-7": ["box"],
+  "html-8": ["viewport"],
+  "html-9": ["label", "for"],
+  "html-10": ["div"],
+  "react-1": ["Hello", "Alex"],
+  "react-2": ["1"],
+  "react-3": ["Item:"],
+  "react-4": ["Clicked"],
+  "react-5": ["div", "Hi"],
+  "react-6": ["On"],
+  "react-7": ["Tip"],
+  "react-8": ["key"],
+  "react-9": ["Alex"],
+  "react-10": ["Saved", "data"],
+  "ts-3": ["Alex"],
+  "ts-4": ["2", "2"],
+  "ts-5": ["1", "3"],
+  "ts-6": ["small"],
+  "ts-7": ["Hi", "Guest"],
+  "ts-8": ["0"],
+  "ts-9": ["1", "a"],
+  "ts-10": ["done"],
+};
+
+/** Fallback expected-output hints when `referenceAnswer` is not set on the row */
+export const CHALLENGE_REFERENCE_ANSWERS: Partial<Record<string, string>> = {
+  "py-8":
+    "With temp = 25, the condition temp > 30 is false, so print exactly: Cool (as in the task — capital C).",
+  "py-9": "Print: Positive (n is 5).",
+  "py-10": "score is 85, so print: Great!",
+  "py-11": "Five lines: 1 then 2 then 3 then 4 then 5.",
+  "py-12": "The word Hi! printed three times (three lines or one line with Hi! repeated).",
+  "py-13": "Sum 1+…+5 = 15 printed once.",
+  "py-14": "print(add(3, 5)) should output 8.",
+  "js-5": "With temp = 25, log Cool (not Hot).",
+  "js-6": "n = 4 is even, so log Even.",
+  "js-7": "Logs 1 through 5 on separate lines or clearly in output.",
+  "py-1": "Output line: Hello, World!",
+  "js-1": "Console: Hello, World!",
+  "py-2": "Print your name with print(), e.g. print(\"Alex\") — any name is fine.",
+  "py-3": "Use print() three times so three lines appear in the output (any three messages).",
+  "py-36": "Print the result of 7 * 8 (56).",
+  "js-2": "Use console.log() to print your name (any name).",
+};
+
+/** Markers used for auto-check (same logic as grading). */
+export function getSuccessMarkersForChallenge(ch: AcademyChallenge): string[] {
+  if (ch.successMarkers && ch.successMarkers.length > 0) return [...ch.successMarkers];
+  const fromMap = CHALLENGE_SUCCESS_MARKERS[ch.id];
+  return fromMap && fromMap.length > 0 ? [...fromMap] : [];
+}
+
+export function getChallengeReferenceAnswer(ch: AcademyChallenge): string | null {
+  const inline = ch.referenceAnswer?.trim();
+  if (inline) return inline;
+  const fromMap = CHALLENGE_REFERENCE_ANSWERS[ch.id];
+  return fromMap?.trim() ? fromMap.trim() : null;
+}
+
+/** Always returns human-readable expected output / how to verify (never null). */
+export function getChallengeExpectedDisplay(ch: AcademyChallenge): string {
+  const ref = getChallengeReferenceAnswer(ch);
+  if (ref) return ref;
+  const markers = getSuccessMarkersForChallenge(ch);
+  if (markers.length > 0) {
+    return `Your output should include these pieces (order can vary; matching is case-insensitive): ${markers.join(", ")}.`;
+  }
+  return `Follow the task: ${ch.task}`;
+}
 
 export function getChallengesByTrack(track: AcademyTrack): AcademyChallenge[] {
   return ACADEMY_CHALLENGES.filter((c) => c.track === track);

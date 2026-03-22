@@ -94,6 +94,7 @@ export function AcademyPlayground() {
         ))}
       </div>
       <AcademyCodeEditor
+        key={language}
         value={code}
         onChange={setCode}
         language={language}
