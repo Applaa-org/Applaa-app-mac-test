@@ -50,6 +50,7 @@ import {
   AcademyScheduleDialog,
   type AcademyScheduleContext,
 } from "@/components/academy/AcademyScheduleDialog";
+import { useAcademyTutorEditor } from "@/contexts/AcademyTutorEditorContext";
 
 type LearnTrack = AcademyTrack | "basics" | ConceptBlockId;
 
@@ -225,6 +226,7 @@ export function AcademyLearn() {
   const [basicsVersion, setBasicsVersion] = useState(0);
   const queryClient = useQueryClient();
   const ipc = IpcClient.getInstance();
+  const { setLearningContext } = useAcademyTutorEditor();
 
   const { data: progress } = useQuery({
     queryKey: ["academy-progress"],
@@ -282,6 +284,8 @@ export function AcademyLearn() {
     [hasCodeLessons, track, progress, localLessonVersion],
   );
   const lesson = lessonId && hasCodeLessons ? getLesson(track as AcademyTrack, lessonId) : null;
+  const activeSubTopic =
+    isConceptBlock && subTopicId ? getBlockSubTopic(track as ConceptBlockId, subTopicId) : null;
   const editorLang = TRACK_EDITOR_LANG[track] ?? "javascript";
 
   useEffect(() => {
@@ -300,8 +304,105 @@ export function AcademyLearn() {
     return hasCodeLessons && isLessonVisited(track as AcademyTrack, lid);
   };
 
+  const basicsLesson =
+    lessonId && isBasics ? ACADEMY_BASICS.find((b) => b.id === lessonId) : null;
+
+  const appyContext = useMemo(() => {
+    if (basicsLesson) {
+      const parts = [
+        "AI Academy lesson context:",
+        `- Track: Basics`,
+        `- Lesson: ${basicsLesson.title}`,
+        "",
+        "Explanation:",
+        basicsLesson.explanation,
+        "",
+        basicsLesson.exampleCode ? "Example code:" : undefined,
+        basicsLesson.exampleCode ? basicsLesson.exampleCode : undefined,
+        "",
+        "Fun fact:",
+        basicsLesson.funFact,
+        "",
+        "Instruction for assistant:",
+        "- Prefer this lesson context when the user asks about 'this chapter' or 'this lesson'.",
+        "- If the question is outside this lesson, say so and then answer generally.",
+      ];
+      return parts.filter(Boolean).join("\n");
+    }
+
+    if (lesson) {
+      const extraExamples =
+        lesson.extraExamples && lesson.extraExamples.length > 0
+          ? lesson.extraExamples
+              .slice(0, 2)
+              .map((ex, i) => `Example ${i + 2} (${ex.title}):\n${ex.code}`)
+              .join("\n\n")
+          : "";
+      const quizHints = lesson.quiz
+        .slice(0, 3)
+        .map((q, i) => `Q${i + 1}: ${q.question}`)
+        .join("\n");
+      const parts = [
+        "AI Academy lesson context:",
+        `- Track: ${TRACK_LABELS[track] ?? track}`,
+        `- Lesson: ${lesson.title}`,
+        "",
+        "Explanation:",
+        lesson.explanation,
+        "",
+        "Main example code:",
+        lesson.exampleCode,
+        "",
+        "Mini challenge:",
+        lesson.miniChallenge,
+        "",
+        quizHints ? "Quiz focus points:" : undefined,
+        quizHints || undefined,
+        "",
+        extraExamples ? "Additional examples:" : undefined,
+        extraExamples || undefined,
+        "",
+        "Instruction for assistant:",
+        "- Prefer this lesson context when the user asks about 'this chapter' or 'this lesson'.",
+        "- If the question is outside this lesson, say so and then answer generally.",
+      ];
+      return parts.filter(Boolean).join("\n");
+    }
+
+    if (activeSubTopic && conceptBlock) {
+      const sectionPreview = activeSubTopic.sections
+        .slice(0, 3)
+        .map((s, i) => `${i + 1}. ${s.heading ?? "Section"} — ${s.body}`)
+        .join("\n");
+      const parts = [
+        "AI Academy concept context:",
+        `- Module: ${conceptBlock.title}`,
+        `- Sub-topic: ${activeSubTopic.title}`,
+        "",
+        "Section preview:",
+        sectionPreview,
+        "",
+        "Instruction for assistant:",
+        "- Prefer this sub-topic context when the user asks about 'this chapter' or 'this lesson'.",
+        "- If the question is outside this sub-topic, say so and then answer generally.",
+      ];
+      return parts.filter(Boolean).join("\n");
+    }
+
+    return null;
+  }, [activeSubTopic, basicsLesson, conceptBlock, lesson, track]);
+
+  useEffect(() => {
+    setLearningContext(appyContext);
+  }, [appyContext, setLearningContext]);
+
+  useEffect(() => {
+    return () => {
+      setLearningContext(null);
+    };
+  }, [setLearningContext]);
+
   const canMarkComplete = hasCodeLessons;
-  const basicsLesson = lessonId && isBasics ? ACADEMY_BASICS.find((b) => b.id === lessonId) : null;
   const showingBlockSubTopic = isConceptBlock && subTopicId && getBlockSubTopic(track as ConceptBlockId, subTopicId);
 
   const handleMarkComplete = (lid: string) => {

@@ -426,7 +426,7 @@ export function AppyTutorPanel({
   const tutorModel: LargeLanguageModel = getAppyTutorPrimaryModel(
     settings ?? {},
   );
-  const { payload: editorPayload } = useAcademyTutorEditor();
+  const { payload: editorPayload, learningContext } = useAcademyTutorEditor();
 
   /** Frameless macOS window: traffic lights sit top-left; fullscreen header must inset */
   const isMacClient = useMemo(() => {
@@ -652,9 +652,13 @@ export function AppyTutorPanel({
           ]
             .filter((x) => x && String(x).trim())
             .join("\n\n");
+        const activeLessonContext = learningContext?.trim()
+          ? learningContext.trim()
+          : undefined;
         const { answer, source, usage, retryable } = await ipc.academyAppyTutor({
           question: q,
           code: editorContext,
+          lessonContext: activeLessonContext,
           pageContext: pathname,
           academy,
           history: historyForIpc.slice(-12),
@@ -716,6 +720,7 @@ export function AppyTutorPanel({
       input,
       loading,
       messages,
+      learningContext,
       pathname,
       tutorModel,
     ],

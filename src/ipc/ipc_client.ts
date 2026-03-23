@@ -2372,6 +2372,7 @@ export class IpcClient {
   public async academyAppyTutor(params: {
     question: string;
     code?: string;
+    lessonContext?: string;
     pageContext?: string;
     academy: "ai" | "learning";
     history?: { role: "user" | "assistant"; content: string }[];

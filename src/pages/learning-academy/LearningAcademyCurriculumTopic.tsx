@@ -15,6 +15,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { AcademyLessonInteractiveQuiz } from "@/components/academy/AcademyLessonInteractiveQuiz";
+import { useAcademyTutorEditor } from "@/contexts/AcademyTutorEditorContext";
 
 type TabId = "explain" | "lessons" | "practice" | "assessment";
 
@@ -5942,6 +5943,7 @@ function LessonsTab({
   topic: { title: string; description: string; years: number[] };
   year?: number;
 }) {
+  const { setLearningContext } = useAcademyTutorEditor();
   const yearNum = year ?? topic.years?.[0];
   const lessons = getLessonTitlesForTopic(topic, yearNum);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(0);
@@ -5994,6 +5996,57 @@ function LessonsTab({
     setLessonPracticeAnswers(lessonPracticeQuestions.map(() => ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLesson]);
+
+  useEffect(() => {
+    // Clear sticky lesson context when this tab unmounts (e.g. user navigates away).
+    return () => {
+      setLearningContext(null);
+    };
+  }, [setLearningContext]);
+
+  useEffect(() => {
+    if (!selectedLesson || !detail) {
+      setLearningContext(null);
+      return;
+    }
+    const objectives =
+      detail.learningObjectives && detail.learningObjectives.length > 0
+        ? detail.learningObjectives.map((o) => `- ${o}`).join("\n")
+        : "- (none listed)";
+    const core = detail.coreConcepts
+      .slice(0, 4)
+      .map((c) => `- ${c.name}: ${c.explanation}`)
+      .join("\n");
+    const lessonContext = [
+      "Learning Academy chapter context:",
+      `- Subject topic: ${topic.title}`,
+      `- Selected lesson: ${selectedLesson}`,
+      yearNum ? `- Selected year filter: ${yearNum}` : undefined,
+      "",
+      "Lesson intro:",
+      detail.intro,
+      "",
+      "Learning objectives:",
+      objectives,
+      "",
+      "Core concepts:",
+      core,
+      "",
+      "Example:",
+      detail.example,
+      "",
+      "Summary:",
+      detail.lessonSummary,
+      "",
+      "Instruction for assistant:",
+      "- Use the lesson context first when answering this chat turn.",
+      "- If the learner asks to summarize the chapter, summarize this selected lesson/chapter context.",
+      "- If the question is outside this chapter, say that clearly and then answer generally.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    setLearningContext(lessonContext);
+  }, [detail, selectedLesson, setLearningContext, topic.title, yearNum]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">

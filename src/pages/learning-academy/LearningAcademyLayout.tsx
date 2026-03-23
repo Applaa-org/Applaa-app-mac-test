@@ -8,6 +8,7 @@ import {
   useAppyTutorPanelVisibility,
 } from "@/components/academy/AppyTutorPanel";
 import { AppyTutorFloatingLauncher } from "@/components/academy/AppyTutorLauncher";
+import { AcademyTutorEditorProvider } from "@/contexts/AcademyTutorEditorContext";
 
 const navItems = [
   { to: "/learning-academy", label: "Dashboard", icon: LayoutDashboard },
@@ -21,8 +22,9 @@ export function LearningAcademyLayout() {
   const [tutorOpen, setTutorOpen] = useAppyTutorPanelVisibility("learning");
 
   return (
-    <div className="flex h-full min-h-0 bg-gray-50 dark:bg-gray-950">
-      <aside className="w-56 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col shrink-0 h-full min-h-0">
+    <AcademyTutorEditorProvider>
+      <div className="flex h-full min-h-0 bg-gray-50 dark:bg-gray-950">
+        <aside className="w-56 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col shrink-0 h-full min-h-0">
         <div className="p-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
           <div className="flex items-center gap-2">
             <BookMarked className="h-7 w-7 text-teal-600" />
@@ -66,30 +68,31 @@ export function LearningAcademyLayout() {
             Main menu
           </Link>
         </div>
-      </aside>
-      <div className="flex flex-1 min-h-0 min-w-0">
-        <main className="relative flex-1 min-w-0 overflow-auto">
-          {!tutorOpen && (
-            <AppyTutorFloatingLauncher
+        </aside>
+        <div className="flex flex-1 min-h-0 min-w-0">
+          <main className="relative flex-1 min-w-0 overflow-auto">
+            {!tutorOpen && (
+              <AppyTutorFloatingLauncher
+                variant="teal"
+                onOpen={() => setTutorOpen(true)}
+              />
+            )}
+            <Outlet />
+          </main>
+          {tutorOpen ? (
+            <AppyTutorPanel
+              variant="teal"
+              academy="learning"
+              onDismiss={() => setTutorOpen(false)}
+            />
+          ) : (
+            <AppyTutorOpenTab
               variant="teal"
               onOpen={() => setTutorOpen(true)}
             />
           )}
-          <Outlet />
-        </main>
-        {tutorOpen ? (
-          <AppyTutorPanel
-            variant="teal"
-            academy="learning"
-            onDismiss={() => setTutorOpen(false)}
-          />
-        ) : (
-          <AppyTutorOpenTab
-            variant="teal"
-            onOpen={() => setTutorOpen(true)}
-          />
-        )}
+        </div>
       </div>
-    </div>
+    </AcademyTutorEditorProvider>
   );
 }

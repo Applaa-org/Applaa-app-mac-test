@@ -183,6 +183,7 @@ function normalizeStreamUsage(u: unknown): AppyTutorResult["usage"] {
 export type AppyTutorParams = {
   question: string;
   code?: string;
+  lessonContext?: string;
   pageContext?: string;
   academy: "ai" | "learning";
   history?: { role: "user" | "assistant"; content: string }[];
@@ -527,6 +528,11 @@ async function runAppyTutorCloudInner(
       if (params.code?.trim()) {
         ctxParts.push(
           `Optional code from the learner (may be empty):\n\`\`\`\n${params.code.trim().slice(0, 12_000)}\n\`\`\``
+        );
+      }
+      if (params.lessonContext?.trim()) {
+        ctxParts.push(
+          `Current chapter/lesson context from Learning Academy:\n${params.lessonContext.trim().slice(0, 12_000)}`
         );
       }
       if (local.score >= 1) {
