@@ -61,6 +61,26 @@ async function verifyReleaseAssets() {
     console.log(`📦 Found ${assets.length} assets`);
     console.log(`📄 Release: ${release.draft ? "DRAFT" : "PUBLISHED"}`);
 
+    const escapeRegExp = (s) =>
+      String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // Windows "creation" installer should be the Squirrel setup EXE.
+    // If Forge version changes, the filename might vary slightly; we enforce
+    // the expected Setup.exe name OR a broad Applaa-*.Setup.exe pattern.
+    const expectedWindowsSetupExe = `Applaa-${version}.Setup.exe`;
+    const windowsSetupExeOk =
+      actualNames.some((n) => n === expectedWindowsSetupExe) ||
+      actualNames.some((n) =>
+        new RegExp(`^Applaa-.*${escapeRegExp(version)}.*\\.Setup\\.exe$`, "i").test(n),
+      );
+
+    const expectedWindowsZip = `Applaa-win32-x64-${version}.zip`;
+    const windowsZipOk =
+      actualNames.some((n) => n === expectedWindowsZip) ||
+      actualNames.some((n) =>
+        new RegExp(`^Applaa-win32-x64-${escapeRegExp(version)}\\.zip$`, "i").test(n),
+      );
+
     // Loose checks — exact Squirrel/zip names vary by forge version and platform
     const checks = [
       {
@@ -68,8 +88,12 @@ async function verifyReleaseAssets() {
         ok: actualNames.some((n) => n === "RELEASES"),
       },
       {
-        label: "Windows installer (.exe)",
-        ok: actualNames.some((n) => /\.exe$/i.test(n)),
+        label: `Windows setup installer (${expectedWindowsSetupExe})`,
+        ok: windowsSetupExeOk,
+      },
+      {
+        label: `Windows zip (${expectedWindowsZip})`,
+        ok: windowsZipOk,
       },
       {
         label: "NuGet package (.nupkg)",

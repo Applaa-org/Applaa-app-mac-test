@@ -470,6 +470,31 @@ export function AppyTutorPanel({
     [academy],
   );
 
+  const deleteChat = useCallback(
+    (id: string) => {
+      // Keep at least one chat around so the UI always has something to work with.
+      if (chats.length <= 1) return;
+      const nextChats = chats.filter((c) => c.id !== id);
+      const remainingSorted = [...nextChats].sort((a, b) => b.updatedAt - a.updatedAt);
+      const nextActive =
+        activeChatId === id
+          ? remainingSorted[0]?.id ?? null
+          : activeChatId;
+
+      const flushedMessages =
+        nextActive != null
+          ? nextChats.find((c) => c.id === nextActive)?.messages ?? []
+          : [];
+
+      setChats(nextChats);
+      activeChatIdRef.current = nextActive;
+      setActiveChatId(nextActive);
+      setMessages(flushedMessages.map(fromStored));
+      persistChats(nextChats, nextActive);
+    },
+    [activeChatId, chats, persistChats],
+  );
+
   const commitActiveChat = useCallback(
     (msgs: TutorMessage[], chatId: string | null) => {
       if (!chatId || !hydratedRef.current) return;
@@ -848,6 +873,7 @@ export function AppyTutorPanel({
                 activeChatId={activeChatId}
                 onSelectChat={selectChat}
                 onNewChat={startNewChat}
+                onDeleteChat={deleteChat}
                 fullWidth
               />
             </div>
@@ -937,6 +963,7 @@ export function AppyTutorPanel({
                 activeChatId={activeChatId}
                 onSelectChat={selectChat}
                 onNewChat={startNewChat}
+                onDeleteChat={deleteChat}
                 fullWidth
               />
             </div>

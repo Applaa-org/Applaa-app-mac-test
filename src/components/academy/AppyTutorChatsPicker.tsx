@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MessageSquareText, ChevronDown, Plus } from "lucide-react";
+import { MessageSquareText, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SavedTutorChat } from "@/lib/appyTutorChatsStorage";
 
@@ -18,12 +18,14 @@ export function AppyTutorChatsPicker({
   activeChatId,
   onSelectChat,
   onNewChat,
+  onDeleteChat,
   fullWidth,
 }: {
   chats: SavedTutorChat[];
   activeChatId: string | null;
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
+  onDeleteChat: (id: string) => void;
   fullWidth?: boolean;
 }) {
   const active = chats.find((c) => c.id === activeChatId);
@@ -80,15 +82,39 @@ export function AppyTutorChatsPicker({
                 "flex flex-col items-start gap-0.5 text-xs cursor-pointer",
                 c.id === activeChatId && "bg-secondary",
               )}
-              onSelect={() => onSelectChat(c.id)}
+              onSelect={(e) => {
+                if ((e as any).defaultPrevented) return;
+                onSelectChat(c.id);
+              }}
             >
-              <span className="font-medium truncate w-full">{c.title}</span>
-              <span className="text-[10px] text-muted-foreground">
-                {new Date(c.updatedAt).toLocaleString(undefined, {
-                  dateStyle: "short",
-                  timeStyle: "short",
-                })}
-              </span>
+              <div className="w-full flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="font-medium truncate w-full">{c.title}</span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    {new Date(c.updatedAt).toLocaleString(undefined, {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Delete chat: ${c.title}`}
+                  title="Delete chat"
+                  className={cn(
+                    "shrink-0 inline-flex items-center justify-center rounded-md p-1.5",
+                    "text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30",
+                  )}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.nativeEvent?.stopImmediatePropagation?.();
+                    onDeleteChat(c.id);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </DropdownMenuItem>
           ))
         )}
