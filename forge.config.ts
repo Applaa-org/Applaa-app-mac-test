@@ -147,7 +147,9 @@ const config: ForgeConfig = {
     ],
     // Do not bundle .env: CI has no file (packager lstat fails), and secrets must not ship in the app.
     // main.ts loads optional .env from cwd / app paths at runtime when present.
-    extraResource: [],
+    extraResource: [
+      ".env"
+    ],
     ignore,
     // Explicitly copy native modules into packaged app so require('sqlite-vec') resolves
     // Note: Forge/Vite pass buildPath = the app directory (the one packed into asar), not the .app bundle path
