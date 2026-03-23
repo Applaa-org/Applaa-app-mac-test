@@ -534,7 +534,7 @@ const config: ForgeConfig = {
         name: process.env.GITHUB_RELEASE_PUBLISH_REPO || "applaa-releases",
       },
       prerelease: false,
-      draft: true,
+      draft: false,
     }),
   ],
 };

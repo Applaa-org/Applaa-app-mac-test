@@ -17,8 +17,11 @@ permissions:
   contents: write
 
 name: Release app
-# Manual runs only (Actions → Release app → Run workflow). Does not run on push to master.
+# Auto-release on push to `master` (and can be run manually too).
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
 jobs:
   # Run once first so matrix jobs do not race on tag/release creation
