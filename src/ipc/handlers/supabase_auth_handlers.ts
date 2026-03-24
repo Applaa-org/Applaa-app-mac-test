@@ -295,9 +295,9 @@ export function registerSupabaseAuthHandlers() {
   ipcMain.handle('supabase:initialize-from-settings', async () => {
     try {
       // Use AUTH environment variables (separate from Supabase integration)
-      const envUrl = process.env.AUTH_SUPABASE_URL || 'https://pzprgvlutyfqfwmllufm.supabase.co';
-      const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwODg1MTksImV4cCI6MjA3MjY2NDUxOX0.yKKIL4a6pNwMqKT1iYsmfRXecyR8_4ksyGH-8kxoBWM";
-      const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzA4ODUxOSwiZXhwIjoyMDcyNjY0NTE5fQ.0SfO6KTBztQUMZuZVQkCATZd0B8w2nnAUQcG4c1hMIs";
+      const envUrl = process.env.AUTH_SUPABASE_URL;
+      const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY;
+      const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY;
       
       if (!envUrl || !envAnonKey) {
         return { success: false, error: 'Authentication credentials not configured. Please set AUTH_SUPABASE_URL and AUTH_SUPABASE_ANON_KEY in your .env file.' };
@@ -388,9 +388,9 @@ export function registerSupabaseAuthHandlers() {
       }
       
       // Check AUTH environment variables (separate from Supabase integration)
-      const envUrl = process.env.AUTH_SUPABASE_URL || 'https://pzprgvlutyfqfwmllufm.supabase.co';
-      const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwODg1MTksImV4cCI6MjA3MjY2NDUxOX0.yKKIL4a6pNwMqKT1iYsmfRXecyR8_4ksyGH-8kxoBWM";
-      const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzA4ODUxOSwiZXhwIjoyMDcyNjY0NTE5fQ.0SfO6KTBztQUMZuZVQkCATZd0B8w2nnAUQcG4c1hMIs";
+      const envUrl = process.env.AUTH_SUPABASE_URL;
+      const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY;
+      const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY;
       
       if (envUrl && envAnonKey) {
         return {

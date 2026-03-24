@@ -737,7 +737,7 @@ export class SupabaseAuth {
   }) {
     try {
       // Use service role key for admin operations
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzA4ODUxOSwiZXhwIjoyMDcyNjY0NTE5fQ.0SfO6KTBztQUMZuZVQkCATZd0B8w2nnAUQcG4c1hMIs";
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (!serviceRoleKey) {
         throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
       }
@@ -818,7 +818,7 @@ export class SupabaseAuth {
   // Get profile by email (for WordPress users, uses service role)
   async getProfileByEmail(email: string) {
     try {
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzA4ODUxOSwiZXhwIjoyMDcyNjY0NTE5fQ.0SfO6KTBztQUMZuZVQkCATZd0B8w2nnAUQcG4c1hMIs";
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (!serviceRoleKey) {
         throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
       }
@@ -856,7 +856,7 @@ export class SupabaseAuth {
   // Get user profile by email or username (WordPress username)
   async getProfileByEmailOrUsername(emailOrUsername: string) {
     try {
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzA4ODUxOSwiZXhwIjoyMDcyNjY0NTE5fQ.0SfO6KTBztQUMZuZVQkCATZd0B8w2nnAUQcG4c1hMIs";
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (!serviceRoleKey) {
         throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
       }
@@ -1005,8 +1005,8 @@ export async function syncAppToSupabase(
       throw error;
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzA4ODUxOSwiZXhwIjoyMDcyNjY0NTE5fQ.0SfO6KTBztQUMZuZVQkCATZd0B8w2nnAUQcG4c1hMIs";
-    const supabaseUrl = process.env.SUPABASE_URL || "https://pzprgvlutyfqfwmllufm.supabase.co";
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL;
 
     if (!serviceRoleKey || !supabaseUrl) {
       const error = new Error('Supabase not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required.');
@@ -1185,7 +1185,7 @@ export async function syncAppToSupabase(
 // Helper function to verify app data in Supabase (for debugging)
 export async function verifyAppInSupabase(appId: number, userDisplayName: string) {
   try {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzA4ODUxOSwiZXhwIjoyMDcyNjY0NTE5fQ.0SfO6KTBztQUMZuZVQkCATZd0B8w2nnAUQcG4c1hMIs";
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseUrl = process.env.SUPABASE_URL;
 
     if (!serviceRoleKey || !supabaseUrl) {
@@ -1234,8 +1234,8 @@ export async function syncWordPressUserToSupabase(wordpressUser: {
   avatar_url?: string;
 }) {
   try {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cHJndmx1dHlmcWZ3bWxsdWZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzA4ODUxOSwiZXhwIjoyMDcyNjY0NTE5fQ.0SfO6KTBztQUMZuZVQkCATZd0B8w2nnAUQcG4c1hMIs";
-    const supabaseUrl = process.env.SUPABASE_URL || "https://pzprgvlutyfqfwmllufm.supabase.co";
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL;
 
     if (!serviceRoleKey || !supabaseUrl) {
       log.warn('Supabase not configured for WordPress sync. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required.');
