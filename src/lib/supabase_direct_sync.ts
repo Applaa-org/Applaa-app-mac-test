@@ -4,6 +4,7 @@
  */
 
 import log from 'electron-log';
+import { getSupabaseRuntimeConfig } from '../config/supabase.config';
 
 // Helper to get WordPress display_name from settings
 function getWordPressUserDisplayName(): string | null {
@@ -56,8 +57,7 @@ export async function syncAppToSupabaseDirect(
     throw new Error('No WordPress user display_name provided');
   }
 
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const { serviceRoleKey, url: supabaseUrl } = getSupabaseRuntimeConfig();
 
   if (!serviceRoleKey || !supabaseUrl) {
     throw new Error('Supabase not configured');

@@ -141,7 +141,7 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Authentication is not configured. Please set AUTH_SUPABASE_URL and AUTH_SUPABASE_ANON_KEY in your .env file.
+                Authentication is not configured. Please contact support to configure Supabase runtime credentials.
               </AlertDescription>
             </Alert>
           )}

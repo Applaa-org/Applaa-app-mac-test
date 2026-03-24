@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import log from 'electron-log';
-import { initializeSupabase, getSupabaseAuth, SupabaseConfig } from '../../lib/supabase';
+import { initializeSupabase, getSupabaseAuth, SupabaseConfig, getSupabaseRuntimeCredentials } from '../../lib/supabase';
 import { readSettings, writeSettings } from '../../main/settings';
 
 // Auth state management
@@ -294,13 +294,13 @@ export function registerSupabaseAuthHandlers() {
   // Initialize from environment variables only
   ipcMain.handle('supabase:initialize-from-settings', async () => {
     try {
-      // Use AUTH environment variables (separate from Supabase integration)
-      const envUrl = process.env.AUTH_SUPABASE_URL;
-      const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY;
-      const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY;
+      const runtime = getSupabaseRuntimeCredentials();
+      const envUrl = runtime.url;
+      const envAnonKey = runtime.anonKey;
+      const envServiceRoleKey = runtime.serviceRoleKey;
       
       if (!envUrl || !envAnonKey) {
-        return { success: false, error: 'Authentication credentials not configured. Please set AUTH_SUPABASE_URL and AUTH_SUPABASE_ANON_KEY in your .env file.' };
+        return { success: false, error: 'Authentication credentials are not configured.' };
       }
       
       const config: SupabaseConfig = {
@@ -350,47 +350,20 @@ export function registerSupabaseAuthHandlers() {
     anonKey: string;
     serviceRoleKey?: string;
   }) => {
-    log.warn('Manual credential saving is disabled. Please use environment variables instead.');
+    log.warn('Manual credential saving is disabled. Credentials come from runtime config.');
     return { 
       success: false, 
-      error: 'Manual credential saving is disabled. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file.' 
+      error: 'Manual credential saving is disabled. Credentials are managed in runtime config.' 
     };
   });
 
   // Check if Supabase is configured via environment variables
   ipcMain.handle('supabase:check-configuration', async () => {
     try {
-      // Try to load .env file if environment variables are not set
-      if (!process.env.AUTH_SUPABASE_URL || !process.env.AUTH_SUPABASE_ANON_KEY) {
-        try {
-          const dotenv = require('dotenv');
-          const path = require('path');
-          const fs = require('fs');
-          
-          // Try multiple possible locations for the .env file
-          const possibleEnvPaths = [
-            path.join(process.cwd(), '.env'),
-            path.join(__dirname, '../../.env'),
-            path.join(__dirname, '../../../.env'),
-            path.join(process.resourcesPath || '', '.env'),
-          ];
-          
-          for (const envPath of possibleEnvPaths) {
-            if (fs.existsSync(envPath)) {
-              dotenv.config({ path: envPath });
-              console.log('✅ Loaded .env from:', envPath);
-              break;
-            }
-          }
-        } catch (error) {
-          console.log('⚠️ Failed to load .env file:', error);
-        }
-      }
-      
-      // Check AUTH environment variables (separate from Supabase integration)
-      const envUrl = process.env.AUTH_SUPABASE_URL;
-      const envAnonKey = process.env.AUTH_SUPABASE_ANON_KEY;
-      const envServiceRoleKey = process.env.AUTH_SUPABASE_SERVICE_ROLE_KEY;
+      const runtime = getSupabaseRuntimeCredentials();
+      const envUrl = runtime.url;
+      const envAnonKey = runtime.anonKey;
+      const envServiceRoleKey = runtime.serviceRoleKey;
       
       if (envUrl && envAnonKey) {
         return {

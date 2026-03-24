@@ -9,33 +9,10 @@ import {
 } from '../../services/credit_service';
 import { checkAndResetCredits } from '../../services/credit_reset_service';
 import { getTokenUsageSummary } from '../../services/token_tracking_service';
-import { getSupabaseAuth } from '../../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../lib/supabase';
+import { getSupabaseAuth, getSupabaseAdminClient } from '../../lib/supabase';
 import { readSettings } from '../../main/settings';
 
 const logger = log.scope('credit-handlers');
-
-// Helper function to get Supabase admin client (bypasses RLS)
-function getSupabaseAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-
-  if (!serviceRoleKey || !supabaseUrl) {
-    throw new Error('Supabase service role key or URL not configured');
-  }
-
-  return createClient<Database>(
-    supabaseUrl,
-    serviceRoleKey,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-}
 
 /** Resolves the current user's profile ID (used for credits, balance, usage). Export for use in chat stream handler so deduction/tracking match profile UI. */
 export async function getUserId(): Promise<string> {

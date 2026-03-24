@@ -13,9 +13,7 @@ import {
   syncSubscriptionToDatabase,
   verifyWebhookSignature,
 } from '../../services/stripe_service';
-import { getSupabaseClient, getSupabaseAuth } from '../../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../lib/supabase';
+import { getSupabaseClient, getSupabaseAuth, getSupabaseAdminClient } from '../../lib/supabase';
 import { readSettings, writeSettings } from '../../main/settings';
 
 const logger = log.scope('subscription');
@@ -352,27 +350,6 @@ export function registerSubscriptionHandlers() {
       throw new Error(`Failed to handle webhook: ${error.message}`);
     }
   });
-
-  // Helper function to get Supabase admin client (service role)
-  function getSupabaseAdminClient() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-    }
-
-    return createClient<Database>(
-      supabaseUrl,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-  }
 
   // Redirect to subscription page
   ipcMain.handle('subscription:redirect-to-subscribe', async () => {

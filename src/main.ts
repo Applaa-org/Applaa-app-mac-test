@@ -24,6 +24,7 @@ import { workspaceDependencyManager } from "./ipc/utils/workspace_dependency_man
 import { initializeAnalytics, DEFAULT_CONSENT } from "./lib/analytics";
 import { startLocalServer } from "./server/api";
 import { initializeSupabase } from "./lib/supabase";
+import { getSupabaseRuntimeConfig } from "./config/supabase.config";
 
 // 🚀 PERFORMANCE: Properly configure electron-log with EPIPE error handling
 try {
@@ -75,16 +76,15 @@ for (const envPath of possibleEnvPaths) {
   }
 }
 
-if (1) {
-  try {
-    initializeSupabase({
-      url: process.env.SUPABASE_URL,
-      anonKey: process.env.SUPABASE_ANON_KEY,
-      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-    });
-  } catch (error) {
-    console.error('Failed to initialize Supabase:', error);
-  }
+try {
+  const runtimeSupabase = getSupabaseRuntimeConfig();
+  initializeSupabase({
+    url: runtimeSupabase.url,
+    anonKey: runtimeSupabase.anonKey,
+    serviceRoleKey: runtimeSupabase.serviceRoleKey,
+  });
+} catch (error) {
+  console.error('Failed to initialize Supabase:', error);
 }
 
 // Register IPC handlers before app is ready

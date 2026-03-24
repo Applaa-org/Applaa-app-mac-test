@@ -1,29 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 import log from 'electron-log';
-import type { Database } from '../lib/supabase';
+import { getSupabaseAdminClient } from '../lib/supabase';
 
 const logger = log.scope('token-tracking-service');
-
-// Helper function to get Supabase admin client (bypasses RLS)
-function getSupabaseAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-
-  if (!serviceRoleKey || !supabaseUrl) {
-    throw new Error('Supabase service role key or URL not configured');
-  }
-
-  return createClient<Database>(
-    supabaseUrl,
-    serviceRoleKey,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-}
 
 /**
  * Track token usage for a user

@@ -1,30 +1,7 @@
 import { ipcMain } from 'electron';
 import log from 'electron-log';
-import { getSupabaseAuth } from '../../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../lib/supabase';
+import { getSupabaseAuth, getSupabaseAdminClient } from '../../lib/supabase';
 import { readSettings } from '../../main/settings';
-
-// Helper function to get Supabase admin client (bypasses RLS)
-function getSupabaseAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-
-  if (!serviceRoleKey || !supabaseUrl) {
-    throw new Error('Supabase service role key or URL not configured');
-  }
-
-  return createClient<Database>(
-    supabaseUrl,
-    serviceRoleKey,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-}
 
 const logger = log.scope('profile');
 
