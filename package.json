@@ -21,7 +21,7 @@
     "package": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npm run clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" electron-forge package",
     "make": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npm run clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" electron-forge make",
     "make:release": "node scripts/increment-version.js && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npm run clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" electron-forge make",
-    "publish": "npm run clean && electron-forge publish",
+    "publish": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npm run clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" electron-forge publish",
     "verify-release": "node scripts/verify-release-assets.js",
     "ts": "npm run ts:main && npm run ts:workers",
     "ts:main": "npx tsc -p tsconfig.app.json --noEmit",

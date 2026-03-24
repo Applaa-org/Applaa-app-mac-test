@@ -125,7 +125,7 @@ jobs:
         continue-on-error: true
       - name: Publish app
         env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
+          NODE_OPTIONS: "--max-old-space-size=8192"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_RELEASE_PUBLISH_OWNER: ${{ github.repository_owner }}
           GITHUB_RELEASE_PUBLISH_REPO: ${{ github.event.repository.name }}
