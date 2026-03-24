@@ -75,7 +75,7 @@ for (const envPath of possibleEnvPaths) {
   }
 }
 
-if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+if (1) {
   try {
     initializeSupabase({
       url:  'https://pzprgvlutyfqfwmllufm.supabase.co',
