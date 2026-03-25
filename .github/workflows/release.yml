@@ -136,55 +136,55 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
         run: npm run publish
 
-  # build-macos:
-  #   needs: prepare-release
-  #   environment: release
-  #   runs-on: macos-latest
-  #   steps:
-  #     - name: Github checkout
-  #       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-  #       with:
-  #         fetch-depth: 0
-  #         token: ${{ secrets.GITHUB_TOKEN }}
-  #     - name: Use Node.js
-  #       uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
-  #       with:
-  #         node-version: 20
-  #     - run: npm install
-  #     # Install cert and publish in one step so the keychain/session matches what codesign uses
-  #     - name: Install signing cert and publish
-  #       env:
-  #         MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
-  #         MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
-  #         # Optional override; if unset we auto-pick the first codesign identity from the keychain (must match .p12)
-  #         APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-  #         NODE_OPTIONS: "--max-old-space-size=4096"
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         GITHUB_RELEASE_PUBLISH_OWNER: ${{ github.repository_owner }}
-  #         GITHUB_RELEASE_PUBLISH_REPO: ${{ github.event.repository.name }}
-  #         SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
-  #         APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
-  #         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-  #         APPLE_ID: ${{ secrets.APPLE_ID }}
-  #         APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-  #       run: |
-  #         chmod +x tools/add-macos-cert.sh
-  #         . ./tools/add-macos-cert.sh
-  #         security find-identity -v -p codesigning || true
-  #         if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
-  #           APPLE_SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(.*\)"/\1/p' | head -1)
-  #           export APPLE_SIGNING_IDENTITY
-  #         fi
-  #         if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
-  #           echo "No codesign identity: set repo secret APPLE_SIGNING_IDENTITY or fix MACOS_CERT_P12 import."
-  #           exit 1
-  #         fi
-  #         echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
-  #         npm run publish
+  build-macos:
+    needs: prepare-release
+    environment: release
+    runs-on: macos-latest
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Use Node.js
+        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
+        with:
+          node-version: 20
+      - run: npm install
+      # Install cert and publish in one step so the keychain/session matches what codesign uses
+      - name: Install signing cert and publish
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          # Optional override; if unset we auto-pick the first codesign identity from the keychain (must match .p12)
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          NODE_OPTIONS: "--max-old-space-size=8192"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RELEASE_PUBLISH_OWNER: ${{ github.repository_owner }}
+          GITHUB_RELEASE_PUBLISH_REPO: ${{ github.event.repository.name }}
+          SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
+          APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: |
+          chmod +x tools/add-macos-cert.sh
+          . ./tools/add-macos-cert.sh
+          security find-identity -v -p codesigning || true
+          if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            APPLE_SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(.*\)"/\1/p' | head -1)
+            export APPLE_SIGNING_IDENTITY
+          fi
+          if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            echo "No codesign identity: set repo secret APPLE_SIGNING_IDENTITY or fix MACOS_CERT_P12 import."
+            exit 1
+          fi
+          echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
+          npm run publish
 
   verify-assets:
     name: Verify Release Assets
-    needs: [build-windows]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Github checkout
