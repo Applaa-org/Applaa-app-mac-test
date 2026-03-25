@@ -88,53 +88,53 @@ jobs:
         shell: bash
 
   # Separate jobs (not a matrix) so macOS and Windows never cancel each other
-  build-windows:
-    needs: prepare-release
-    environment: release
-    runs-on: windows-latest
-    steps:
-      - name: Github checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Use Node.js
-        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
-        with:
-          node-version: 20
-      - run: npm install
-      - name: Set up certificate
-        run: |
-          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
-        shell: bash
-      - name: Set variables
-        id: variables
-        run: |
-          echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV"
-          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV"
-          echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12" >> "$GITHUB_ENV"
-          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
-        shell: bash
-      - name: Code signing with Software Trust Manager
-        uses: digicert/ssm-code-signing@v1.1.0
-        continue-on-error: true
-      - name: Sync certificate (Windows)
-        run: |
-          smctl windows certsync --keypair-alias=${{ secrets.DIGICERT_KEYPAIR_ALIAS }} || echo "Certificate sync skipped - keypair alias not configured"
-        shell: bash
-        continue-on-error: true
-      - name: Publish app
-        env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_RELEASE_PUBLISH_OWNER: ${{ github.repository_owner }}
-          GITHUB_RELEASE_PUBLISH_REPO: ${{ github.event.repository.name }}
-          SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
-          APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-        run: npm run publish
+  # build-windows:
+  #   needs: prepare-release
+  #   environment: release
+  #   runs-on: windows-latest
+  #   steps:
+  #     - name: Github checkout
+  #       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  #       with:
+  #         fetch-depth: 0
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Use Node.js
+  #       uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
+  #       with:
+  #         node-version: 20
+  #     - run: npm install
+  #     - name: Set up certificate
+  #       run: |
+  #         echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
+  #       shell: bash
+  #     - name: Set variables
+  #       id: variables
+  #       run: |
+  #         echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV"
+  #         echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV"
+  #         echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12" >> "$GITHUB_ENV"
+  #         echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
+  #       shell: bash
+  #     - name: Code signing with Software Trust Manager
+  #       uses: digicert/ssm-code-signing@v1.1.0
+  #       continue-on-error: true
+  #     - name: Sync certificate (Windows)
+  #       run: |
+  #         smctl windows certsync --keypair-alias=${{ secrets.DIGICERT_KEYPAIR_ALIAS }} || echo "Certificate sync skipped - keypair alias not configured"
+  #       shell: bash
+  #       continue-on-error: true
+  #     - name: Publish app
+  #       env:
+  #         NODE_OPTIONS: "--max-old-space-size=8192"
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #         GITHUB_RELEASE_PUBLISH_OWNER: ${{ github.repository_owner }}
+  #         GITHUB_RELEASE_PUBLISH_REPO: ${{ github.event.repository.name }}
+  #         SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
+  #         APPLAA_GITHUB_TOKEN: ${{ secrets.APPLAA_GITHUB_TOKEN }}
+  #         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  #         APPLE_ID: ${{ secrets.APPLE_ID }}
+  #         APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+  #       run: npm run publish
 
   build-macos:
     needs: prepare-release
@@ -171,20 +171,43 @@ jobs:
           chmod +x tools/add-macos-cert.sh
           . ./tools/add-macos-cert.sh
           security find-identity -v -p codesigning || true
+          # Prefer Developer ID Application identity for distribution + notarization
+          # security find-identity output format typically includes:  "Developer ID Application: ... (TEAMID)"
           if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
-            APPLE_SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(.*\)"/\1/p' | head -1)
-            export APPLE_SIGNING_IDENTITY
+            APPLE_SIGNING_IDENTITY=$(
+              security find-identity -v -p codesigning 2>/dev/null \
+                | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' \
+                | head -1
+            )
           fi
+
+          # Fallback for dev certs (not supported for notarization)
+          if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            APPLE_SIGNING_IDENTITY=$(
+              security find-identity -v -p codesigning 2>/dev/null \
+                | sed -n 's/.*"\(Apple Development: [^"]*\)".*/\1/p' \
+                | head -1
+            )
+          fi
+
           if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
             echo "No codesign identity: set repo secret APPLE_SIGNING_IDENTITY or fix MACOS_CERT_P12 import."
             exit 1
           fi
           echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
+
+          if [[ "${APPLE_SIGNING_IDENTITY}" != *"Developer ID Application"* ]]; then
+            echo "❌ Developer ID Application identity is required for notarization."
+            echo "   Current identity is: ${APPLE_SIGNING_IDENTITY}"
+            echo "   Fix: set MACOS_CERT_P12 to a .p12 containing a Developer ID Application certificate."
+            exit 1
+          fi
           npm run publish
 
   verify-assets:
     name: Verify Release Assets
-    needs: [build-windows, build-macos]
+    # needs: [build-windows, build-macos]
+    needs: [ build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Github checkout
